@@ -266,17 +266,18 @@ struct ChatPanelView: View {
             let initialLimit = MessageHistoryPaginationLogic.initialLimit
             var messages: [MimoMessageResponse] = []
             var hasMoreMessages = false
+            // When the server has nothing (or is unreachable) we fall back to the
+            // local database. That path deals in local `Message` values, not the
+            // server `MimoMessageResponse` DTO — the app no longer shells out to
+            // the mimo CLI — so we flag it and load straight into the store.
+            var useLocalFallback = false
             do {
                 let serverMessages = try await appState.mimoClient.getMessages(
                     sessionID: sessionID,
                     limit: initialLimit
                 )
                 if serverMessages.isEmpty {
-                    // No server messages — fall back to the local database only
-                    // (never the mimo CLI: the app no longer shells out to mimo).
-                    let localMessages = DatabaseBridge.shared.loadMessages(sessionId: sessionID)
-                    messages = Array(localMessages.suffix(initialLimit))
-                    hasMoreMessages = localMessages.count > initialLimit
+                    useLocalFallback = true
                 } else {
                     messages = serverMessages
                     hasMoreMessages = MessageHistoryPaginationLogic.hasMore(
@@ -285,25 +286,31 @@ struct ChatPanelView: View {
                     )
                 }
             } catch {
-                // Server unreachable — use the local database, not the mimo CLI.
-                let localMessages = DatabaseBridge.shared.loadMessages(sessionId: sessionID)
-                messages = Array(localMessages.suffix(initialLimit))
-                hasMoreMessages = localMessages.count > initialLimit
+                useLocalFallback = true
             }
             let loadedMessages = messages
             let canLoadMore = hasMoreMessages
+            let fallbackToLocal = useLocalFallback
             await MainActor.run {
                 guard messageStore.currentSessionID == sessionID else { return }
-                appState.applySessionPlan(from: loadedMessages)
-                if let selections = SessionSendLogic.restoreSelections(from: loadedMessages) {
-                    appState.applySendSelections(selections)
+
+                if fallbackToLocal {
+                    // Load the session's history from the local DB directly as
+                    // `Message` values (this also sets hasMoreMessages); no
+                    // server-DTO merge, no CLI.
+                    messageStore.loadFromDatabase(sessionId: sessionID, limit: initialLimit)
+                } else {
+                    appState.applySessionPlan(from: loadedMessages)
+                    if let selections = SessionSendLogic.restoreSelections(from: loadedMessages) {
+                        appState.applySendSelections(selections)
+                    }
+                    messageStore.mergeLatestMessages(from: loadedMessages)
+                    messageStore.hasMoreMessages = canLoadMore
                 }
-                
-                messageStore.mergeLatestMessages(from: loadedMessages)
+
                 if !isSameSessionRefresh {
                     messageStore.currentHistoryLimit = initialLimit
                 }
-                messageStore.hasMoreMessages = canLoadMore
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                     guard messageStore.currentSessionID == sessionID else { return }
                     canLoadOlderMessages = true
