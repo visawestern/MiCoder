@@ -17,7 +17,7 @@ struct AppLocalizationTests {
     func localizedPrompt() {
         let en = MiMoCopy.promptPlaceholder(language: .english)
         let ru = MiMoCopy.promptPlaceholder(language: .russian)
-        #expect(en.contains("Ask MiMo"))
+        #expect(en.contains("Ask MiCoder"))
         #expect(ru.contains("Спросите"))
     }
 

@@ -290,36 +290,13 @@ class AppState: ObservableObject {
     }
     
     func loadSessionsFromServer() async {
-        // НОВАЯ ЛОГИКА: Загружаем из локальной БД + опционально дополняем из CLI
-        // 1. Загрузить из локальной БД
+        // Sessions come from the local DB, then optionally from a server the
+        // user is already running on localhost. We NEVER spawn a `mimo` CLI or
+        // launch `mimo serve` ourselves — the app is fully decoupled from MiMo.
+        // 1. Load from the local database.
         await loadProjectsFromDatabase()
-        
-        // 2. Загрузить из CLI (все глобальные сессии mimo)
-        var globalSessions: [ChatSession] = []
-        do {
-            globalSessions = try MimoCLISessionLoader.loadAllSessions()
-        } catch {
-            print("Failed to load global mimo sessions via CLI: \(error)")
-        }
-        
-        // 3. Merge: если локальных сессий нет, используем CLI данные
-        if sessions.isEmpty, !globalSessions.isEmpty {
-            sessions = globalSessions
-            workspaces = WorkspaceListBuilder.build(from: globalSessions, projectWorktree: nil)
-            
-            // Сохраняем в БД для будущих запусков
-            for session in globalSessions {
-                DatabaseBridge.shared.createSession(
-                    id: session.id,
-                    projectId: session.directory.isEmpty ? "default" : session.directory,
-                    title: session.title,
-                    directory: session.directory,
-                    branch: session.branch
-                )
-            }
-        }
-        
-        // 4. Опциональная синхронизация с сервером если доступен
+
+        // 2. Optionally sync with a server if the user has one running.
         if serverConnectionManager?.isConnected == true {
             let adapter = ServerToLocalMigrationAdapter(client: mimoClient)
             if let workspace = selectedWorkspace {

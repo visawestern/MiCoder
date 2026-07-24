@@ -2232,10 +2232,10 @@ struct LocalProvidersSection: View {
                     let kind: LocalProviderKind
                     switch info.kind {
                     case .ollama: kind = .ollama
-                    case .mimoCLI: kind = .mimoCLI
+                    case .mimoCLI: kind = .localAgent
                     default: kind = .openCode
                     }
-                    let cfg = LocalProviderConfig(kind: kind, mode: .serve, host: host, port: port,
+                    let cfg = LocalProviderConfig(kind: kind, host: host, port: port,
                                                   models: info.models)
                     if !locals.contains(where: { $0.host == host && $0.port == port }) {
                         locals.append(cfg)
@@ -2310,7 +2310,7 @@ struct LocalProviderRow: View {
                 Text(config.displayName)
                     .interfaceFont(size: 13, weight: .medium)
                     .foregroundColor(Color.mimo.textPrimary)
-                Text("\(config.mode.rawValue) · \(config.serveBaseURL) · \(config.models.count) models")
+                Text("\(config.serveBaseURL) · \(config.models.count) models")
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
             }

@@ -25,7 +25,11 @@ struct DBTests {
         #expect(UserDefaults.standard.string(forKey:"t2") == "x")
         UserDefaults.standard.removeObject(forKey:"t2")
     }
-    @Test("3. No CoreData") func t03() {}
+    @Test("3. No CoreData") func t03() throws {
+        // Assert the dependency is genuinely absent, not just asserted by fiat.
+        let pkg = try RepoRoot.sourceText("Package.swift")
+        #expect(!pkg.contains("CoreData"))
+    }
     @Test("4. Cache dirs") func t04() {
         let h = FileManager.default.homeDirectoryForCurrentUser
         for d in [".micoder/snapshots",".micoder/keychain_fallback"] {
@@ -39,12 +43,18 @@ struct DBTests {
         #expect(k.hasAPIKey(for:"p6")); #expect(try k.getAPIKey(for:"p6")=="sk6")
         try k.deleteAPIKey(for:"p6"); #expect(!k.hasAPIKey(for:"p6"))
     }
-    @Test("7. No BinaryPlist") func t07() {}
+    @Test("7. No BinaryPlist cache") func t07() throws {
+        let pkg = try RepoRoot.sourceText("Package.swift")
+        #expect(!pkg.contains("PropertyListSerialization"))
+    }
     @Test("8. JSON decode") func t08() throws {
         _ = try JSONDecoder().decode(MimoProvidersWrapper.self, from: "{\"providers\":[]}".data(using:.utf8)!)
     }
     @Test("9. Temp dir") func t09() { let p=NSTemporaryDirectory()+"t"; #expect(FileManager.default.createFile(atPath:p,contents:Data())); try? FileManager.default.removeItem(atPath:p) }
-    @Test("10. No CloudKit") func t10() {}
+    @Test("10. No CloudKit") func t10() throws {
+        let pkg = try RepoRoot.sourceText("Package.swift")
+        #expect(!pkg.contains("CloudKit"))
+    }
     @Test("11. ClipboardImage") func t11() { #expect(ClipboardImage(base64:"dA==",mimeType:"img").mimeType == "img") }
     @Test("12-13. Coalescer exists") func t12() { _=GitRefreshCoalescer() }
     @Test("14. Bridge load") func t14() { #expect(DatabaseBridge.shared.loadMessages(sessionId:"x").isEmpty) }

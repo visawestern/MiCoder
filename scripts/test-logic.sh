@@ -1,9 +1,14 @@
 #!/bin/bash
 # Quick re-sync of the Foundation-only test package and run tests.
 # Usage: scripts/test-logic.sh [swift test args]
+#
+# NOTE (Round 7): this legacy script hard-codes a whitelist of files and can
+# drift from the tree. Prefer scripts/logic-harness.sh, which AUTO-DISCOVERS
+# every Foundation-only source/test file and writes ground-truth counts to
+# EVAL.md. This script is kept only for a fast local subset run.
 set -e
 export PATH=/opt/swift-6.0.3-RELEASE-ubuntu24.04/usr/bin:$PATH
-REPO=~/.cache/openresearch/repos/visawestern/mimo-macos-de098ca6
+REPO=~/.cache/openresearch/repos/visawestern/micoder-987719cf
 PKG=/tmp/opencode/mimo-logic-test
 
 # Recreate the ephemeral package skeleton if /tmp was cleared.

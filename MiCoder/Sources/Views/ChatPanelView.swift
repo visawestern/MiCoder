@@ -272,11 +272,11 @@ struct ChatPanelView: View {
                     limit: initialLimit
                 )
                 if serverMessages.isEmpty {
-                    let exportedMessages = await Task.detached {
-                        (try? MimoCLISessionLoader.loadMessages(sessionID: sessionID)) ?? []
-                    }.value
-                    messages = Array(exportedMessages.suffix(initialLimit))
-                    hasMoreMessages = exportedMessages.count > initialLimit
+                    // No server messages — fall back to the local database only
+                    // (never the mimo CLI: the app no longer shells out to mimo).
+                    let localMessages = DatabaseBridge.shared.loadMessages(sessionId: sessionID)
+                    messages = Array(localMessages.suffix(initialLimit))
+                    hasMoreMessages = localMessages.count > initialLimit
                 } else {
                     messages = serverMessages
                     hasMoreMessages = MessageHistoryPaginationLogic.hasMore(
@@ -285,11 +285,10 @@ struct ChatPanelView: View {
                     )
                 }
             } catch {
-                let exportedMessages = await Task.detached {
-                    (try? MimoCLISessionLoader.loadMessages(sessionID: sessionID)) ?? []
-                }.value
-                messages = Array(exportedMessages.suffix(initialLimit))
-                hasMoreMessages = exportedMessages.count > initialLimit
+                // Server unreachable — use the local database, not the mimo CLI.
+                let localMessages = DatabaseBridge.shared.loadMessages(sessionId: sessionID)
+                messages = Array(localMessages.suffix(initialLimit))
+                hasMoreMessages = localMessages.count > initialLimit
             }
             let loadedMessages = messages
             let canLoadMore = hasMoreMessages

@@ -37,10 +37,14 @@ struct ProjectFileScannerTests {
         let root = try makeProject()
         try write(root, "a.swift", "let x = 1")
         let rec = ProjectFileScanner.scan(root: root.path).first { $0.path == "a.swift" }
-        #expect(rec != nil)
-        #expect(rec?.language == "swift")
-        #expect((rec?.size ?? 0) > 0)
-        #expect(!(rec?.hash ?? "").isEmpty)
+        let record = try #require(rec)
+        #expect(record.language == "swift")
+        #expect(record.size > 0)
+        // Bind to a plain non-optional String: the #expect macro mis-expands
+        // `!(rec?.hash ?? "").isEmpty` into an unused Bool? and never evaluates
+        // the negation, so this test used to fail on a perfectly valid hash.
+        let hash = record.hash
+        #expect(hash.isEmpty == false)
     }
 
     @Test func hashChangesWithContent() {

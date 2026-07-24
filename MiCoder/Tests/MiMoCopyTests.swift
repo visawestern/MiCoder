@@ -4,10 +4,12 @@ import Testing
 @Suite("MiMo Copy")
 struct MiMoCopyTests {
     
-    @Test("Prompt placeholder uses MiMo branding")
+    @Test("Prompt placeholder uses MiCoder branding")
     func promptPlaceholder() {
-        #expect(MiMoCopy.promptPlaceholder(language: .english).contains("Ask MiMo anything"))
+        // Round 7: rebrand — the placeholder now reads "Ask MiCoder anything…".
+        #expect(MiMoCopy.promptPlaceholder(language: .english).contains("Ask MiCoder anything"))
         #expect(!MiMoCopy.promptPlaceholder(language: .english).contains("ZCode"))
+        #expect(!MiMoCopy.promptPlaceholder(language: .english).contains("Ask MiMo"))
     }
     
     @Test("Follow-up placeholder is set")

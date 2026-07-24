@@ -22,10 +22,10 @@ struct Screenshot1Tests {
 
     // MARK: - Input Bar Placeholder
 
-    @Test("Input placeholder matches MiMo spec")
+    @Test("Input placeholder matches MiCoder spec")
     func inputPlaceholder() {
         let placeholder = MiMoCopy.promptPlaceholder(language: .english)
-        #expect(placeholder.contains("Ask MiMo anything"))
+        #expect(placeholder.contains("Ask MiCoder anything"))
         #expect(placeholder.contains("@ to add files"))
         #expect(placeholder.contains("/ for commands"))
         #expect(placeholder.contains("$ for skills"))

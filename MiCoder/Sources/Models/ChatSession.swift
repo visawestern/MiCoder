@@ -60,6 +60,14 @@ struct ChatSession: Identifiable {
     }
     
     static func normalizedPath(_ path: String) -> String {
-        (path as NSString).standardizingPath
+        // `standardizingPath` alone is NOT idempotent for the well-known
+        // /var -> /private/var (and /tmp) symlinks: whether it resolves them
+        // depends on the path already existing on disk, so the same project
+        // reached as "/var/…" vs "/private/var/…" could produce two different
+        // pool keys (Round 7 flaky pool-eviction bug). Resolve symlinks
+        // explicitly so the result is stable and idempotent regardless of the
+        // spelling the caller used.
+        let standardized = (path as NSString).standardizingPath
+        return (standardized as NSString).resolvingSymlinksInPath
     }
 }

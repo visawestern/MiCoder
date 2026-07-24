@@ -38,7 +38,7 @@ struct SendRoutingTests {
     }
 
     @Test func mimoCLILocalUsesServeBaseNoV1() {
-        let cli = LocalProviderConfig(kind: .mimoCLI, mode: .serve, host: "127.0.0.1", port: 4096)
+        let cli = LocalProviderConfig(kind: .localAgent, host: "127.0.0.1", port: 4096)
         let route = SendRouteResolver.route(
             selectedProviderID: cli.id, selectedModel: "m",
             serverConnected: false, isACP: false,

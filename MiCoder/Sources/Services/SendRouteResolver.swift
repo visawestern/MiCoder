@@ -41,7 +41,7 @@ enum SendRouteResolver {
             let base: String
             switch local.kind {
             case .ollama, .openCode: base = "\(local.serveBaseURL)/v1"
-            case .mimoCLI: base = local.serveBaseURL
+            case .localAgent: base = local.serveBaseURL
             }
             return .openAICompatible(baseURL: base, apiKey: nil, model: selectedModel)
         }

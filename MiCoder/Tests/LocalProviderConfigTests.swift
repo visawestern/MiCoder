@@ -7,41 +7,37 @@ struct LocalProviderConfigTests {
 
     @Test func kindDefaults() {
         #expect(LocalProviderKind.ollama.defaultPort == 11434)
-        #expect(LocalProviderKind.mimoCLI.defaultPort == 4096)
+        #expect(LocalProviderKind.localAgent.defaultPort == 4096)
         #expect(LocalProviderKind.ollama.healthPath == "/api/tags")
-        #expect(LocalProviderKind.mimoCLI.healthPath == "/global/health")
-        #expect(!LocalProviderKind.ollama.supportsCLIMode)
-        #expect(LocalProviderKind.mimoCLI.supportsCLIMode)
+        #expect(LocalProviderKind.localAgent.healthPath == "/global/health")
     }
 
     @Test func configUsesKindDefaults() {
+        // Every local provider is reached over HTTP only — no CLI, no exec path.
         let ollama = LocalProviderConfig(kind: .ollama)
-        #expect(ollama.mode == .serve)           // ollama has no CLI mode
         #expect(ollama.port == 11434)
         #expect(ollama.serveBaseURL == "http://127.0.0.1:11434")
         #expect(ollama.healthURL == "http://127.0.0.1:11434/api/tags")
 
-        let mimo = LocalProviderConfig(kind: .mimoCLI)
-        #expect(mimo.mode == .cli)               // mimoCLI defaults to CLI
-        #expect(mimo.executablePath.contains("mimo"))
+        let agent = LocalProviderConfig(kind: .localAgent)
+        #expect(agent.port == 4096)
+        #expect(agent.healthURL == "http://127.0.0.1:4096/global/health")
     }
 
-    @Test func mimoServeModeGetsNeutralNameNoBranding() {
-        let serve = LocalProviderConfig(kind: .mimoCLI, mode: .serve)
-        #expect(serve.displayName == "MiMo (Local Serve)")
-        #expect(!serve.displayName.contains("MiMo Serve"))
-        let cli = LocalProviderConfig(kind: .mimoCLI, mode: .cli)
-        #expect(cli.displayName == "MiMo (Local CLI)")
+    @Test func localAgentUsesNeutralNameNoBranding() {
+        let agent = LocalProviderConfig(kind: .localAgent)
+        #expect(agent.displayName == "Local Agent")
+        #expect(!agent.displayName.contains("MiMo"))
     }
 
     @Test func persistenceRoundTrip() {
         let defaults = UserDefaults(suiteName: "test-local-providers-\(UUID().uuidString)")!
-        let providers = [LocalProviderConfig(kind: .ollama), LocalProviderConfig(kind: .mimoCLI, mode: .serve)]
+        let providers = [LocalProviderConfig(kind: .ollama), LocalProviderConfig(kind: .localAgent)]
         LocalProviderLogic.save(providers, defaults: defaults)
         let loaded = LocalProviderLogic.load(defaults: defaults)
         #expect(loaded.count == 2)
         #expect(loaded.contains { $0.kind == .ollama })
-        #expect(loaded.contains { $0.kind == .mimoCLI })
+        #expect(loaded.contains { $0.kind == .localAgent })
     }
 
     @Test func providerOptionsIncludeOnlyEnabledLocals() {
@@ -62,7 +58,7 @@ struct LocalProviderConfigTests {
     }
 
     @Test func configRoundTripsThroughCodable() throws {
-        let cfg = LocalProviderConfig(kind: .openCode, mode: .cli, port: 5000, autoStart: true)
+        let cfg = LocalProviderConfig(kind: .openCode, port: 5000)
         let data = try JSONEncoder().encode(cfg)
         let decoded = try JSONDecoder().decode(LocalProviderConfig.self, from: data)
         #expect(decoded == cfg)
