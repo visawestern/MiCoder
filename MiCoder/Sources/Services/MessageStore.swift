@@ -1,0 +1,224 @@
+import Foundation
+import SwiftUI
+
+class MessageStore: ObservableObject {
+    @Published var messages: [Message] = []
+    @Published var isLoadingOlder = false
+    @Published var hasMoreMessages = true
+    
+    private let maxVisible: Int
+    private let pruneBuffer: Int
+    var currentSessionID: String?
+    var currentHistoryLimit = MessageHistoryPaginationLogic.initialLimit
+    
+    // Database integration
+    private var dbBridge: DatabaseBridge {
+        DatabaseBridge.shared
+    }
+
+    /// Kept in sync with the chat's bottom anchor. While the user reads old
+    /// history, pruning is deferred so rows never disappear under the cursor;
+    /// the deferred prune runs as soon as the feed is pinned to the bottom again.
+    var isPinnedToBottom = true {
+        didSet {
+            if isPinnedToBottom && !oldValue {
+                pruneIfNeeded()
+            }
+        }
+    }
+
+    init(maxVisible: Int = 100, pruneBuffer: Int = 30) {
+        self.maxVisible = maxVisible
+        self.pruneBuffer = pruneBuffer
+    }
+    
+    func append(_ message: Message) {
+        messages.append(message)
+        pruneIfNeeded()
+        
+        // Auto-save to database
+        if let sessionId = currentSessionID {
+            dbBridge.saveMessage(message, sessionId: sessionId)
+        }
+    }
+    
+    func update(id: String, mutate: (inout Message) -> Void) {
+        guard let idx = messages.firstIndex(where: { $0.id == id }) else { return }
+        mutate(&messages[idx])
+        
+        // Auto-save updated message to database
+        if let sessionId = currentSessionID {
+            dbBridge.saveMessage(messages[idx], sessionId: sessionId)
+        }
+    }
+    
+    func setFinished(id: String) {
+        update(id: id) { msg in
+            msg.isFinished = true
+            msg.isStreaming = false
+        }
+    }
+    
+    func clear() {
+        messages = []
+        hasMoreMessages = true
+        currentSessionID = nil
+        currentHistoryLimit = MessageHistoryPaginationLogic.initialLimit
+    }
+    
+    /// Загрузить сообщения сессии из локальной БД (вместо API)
+    @MainActor
+    func loadFromDatabase(sessionId: String, limit: Int? = nil) {
+        self.currentSessionID = sessionId
+        let loadedMessages = dbBridge.loadMessages(sessionId: sessionId, limit: limit)
+        
+        if !loadedMessages.isEmpty {
+            self.messages = loadedMessages
+            self.hasMoreMessages = (limit != nil) && loadedMessages.count >= (limit ?? 0)
+        } else {
+            self.messages = []
+            self.hasMoreMessages = false
+        }
+    }
+    
+    /// Hysteresis pruning: the feed may grow `pruneBuffer` messages past
+    /// `maxVisible` before old rows are dropped in one batch. This keeps
+    /// appends cheap (no row shifts on every message) and only trims when the
+    /// user is pinned to the bottom, where removed rows are far off-screen.
+    func pruneIfNeeded() {
+        guard isPinnedToBottom else { return }
+        guard messages.count > maxVisible + pruneBuffer else { return }
+        messages.removeFirst(messages.count - maxVisible)
+        // Dropped history stays reachable through "Load earlier messages".
+        hasMoreMessages = true
+    }
+    
+    static func message(from serverMsg: MimoMessageResponse) -> Message {
+        let role: MessageRole = serverMsg.info?.role == "user" ? .user : .assistant
+        var content = ""
+        var reasoningText = ""
+        var parts: [MessagePartContent] = []
+        var attachedImages: [ClipboardImage] = []
+
+        if let responseParts = serverMsg.parts {
+            for part in responseParts {
+                switch part {
+                case .text(let t):
+                    content = t
+                    parts.append(.text(t))
+                case .reasoning(let r):
+                    reasoningText = r
+                    parts.append(.reasoning(r))
+                case .stepStart:
+                    parts.append(.stepStart)
+                case .stepFinish:
+                    parts.append(.stepFinish)
+                case .toolInvocation(let name, let input, let result, let callID):
+                    parts.append(.toolCall(name: name, args: input ?? "{}", result: result, callID: callID))
+                case .image(let mediaType, let data):
+                    parts.append(.image(base64: data, mimeType: mediaType))
+                    if role == .user, !data.isEmpty {
+                        attachedImages.append(ClipboardImage(base64: data, mimeType: mediaType))
+                    }
+                case .other:
+                    break
+                }
+            }
+        }
+
+        if content.isEmpty {
+            content = serverMsg.textContent
+        }
+
+        return Message(
+            id: serverMsg.info?.id ?? UUID().uuidString,
+            role: role,
+            content: content,
+            parts: parts,
+            reasoning: reasoningText,
+            isFinished: true,
+            attachedImages: attachedImages.isEmpty ? nil : attachedImages
+        )
+    }
+
+    @MainActor
+    @discardableResult
+    func mergeOlderMessages(from serverMessages: [MimoMessageResponse]) -> Bool {
+        let loadedMessages = serverMessages.map { Self.message(from: $0) }
+        let existingIDs = Set(messages.map(\.id))
+        let newMessages = loadedMessages.filter { !existingIDs.contains($0.id) }
+        let allServerIDs = Set(loadedMessages.map(\.id))
+
+        guard !newMessages.isEmpty else {
+            hasMoreMessages = false
+            return false
+        }
+
+        messages = newMessages + messages
+        let localIDs = Set(messages.map(\.id))
+        if allServerIDs.isSubset(of: localIDs) {
+            hasMoreMessages = false
+        }
+        return true
+    }
+
+    /// Incremental refresh: keeps existing messages untouched, updates changed
+    /// ones in place and appends only the genuinely new tail. Never clears the
+    /// feed, so unchanged rows are not re-created (no screen flicker).
+    @MainActor
+    @discardableResult
+    func mergeLatestMessages(from serverMessages: [MimoMessageResponse]) -> Int {
+        let incoming = serverMessages.map { Self.message(from: $0) }
+        var appendedCount = 0
+
+        for message in incoming {
+            if let index = messages.firstIndex(where: { $0.id == message.id }) {
+                if Self.hasDisplayChanges(existing: messages[index], incoming: message) {
+                    messages[index] = message
+                }
+            } else {
+                messages.append(message)
+                appendedCount += 1
+            }
+        }
+
+        pruneIfNeeded()
+        return appendedCount
+    }
+
+    static func hasDisplayChanges(existing: Message, incoming: Message) -> Bool {
+        existing.content != incoming.content
+            || existing.reasoning != incoming.reasoning
+            || existing.parts.count != incoming.parts.count
+    }
+
+    @MainActor
+    func loadHistory(sessionID: String, client: MimoServeClient) async -> Bool {
+        guard !isLoadingOlder, hasMoreMessages else { return false }
+        isLoadingOlder = true
+        defer { isLoadingOlder = false }
+
+        do {
+            let requestedLimit = MessageHistoryPaginationLogic.nextLimit(after: currentHistoryLimit)
+            let serverMessages = try await client.getMessages(
+                sessionID: sessionID,
+                limit: requestedLimit
+            )
+            guard !serverMessages.isEmpty else {
+                hasMoreMessages = false
+                return false
+            }
+            let loadedNewMessages = mergeOlderMessages(from: serverMessages)
+            currentHistoryLimit = requestedLimit
+            hasMoreMessages = loadedNewMessages
+                && MessageHistoryPaginationLogic.hasMore(
+                    receivedCount: serverMessages.count,
+                    requestedLimit: requestedLimit
+                )
+            return loadedNewMessages
+        } catch {
+            hasMoreMessages = false
+            return false
+        }
+    }
+}

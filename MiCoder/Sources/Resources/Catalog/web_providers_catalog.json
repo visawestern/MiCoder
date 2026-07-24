@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-23",
+  "note": "Vendor selectors for web-chat automation. Edit this file (not code) when a site's markup changes. Selectors are best-effort and may need updates.",
+  "vendors": [
+    {
+      "id": "kimi",
+      "name": "Kimi",
+      "chatURL": "https://www.kimi.com/",
+      "loginURL": "https://www.kimi.com/",
+      "models": ["k2", "k2-thinking", "k1.5"],
+      "effortToggle": "thinking",
+      "selectors": {
+        "input": "textarea, div[contenteditable='true']",
+        "sendButton": "button[type='submit'], button[aria-label*='end']",
+        "responseContainer": "div[class*='markdown'], div[class*='message']",
+        "stopButton": "button[aria-label*='top']",
+        "modelDropdown": "button[class*='model'], div[class*='model-select']",
+        "loginIndicator": "input[type='password'], button:has-text('Log in')"
+      }
+    },
+    {
+      "id": "qwen",
+      "name": "Qwen",
+      "chatURL": "https://chat.qwen.ai/",
+      "loginURL": "https://chat.qwen.ai/auth",
+      "models": ["qwen-max", "qwen-plus", "qwen2.5-coder"],
+      "effortToggle": "deep-thinking",
+      "selectors": {
+        "input": "textarea, div[contenteditable='true']",
+        "sendButton": "button[class*='send'], button[type='submit']",
+        "responseContainer": "div[class*='markdown-body'], div[class*='response']",
+        "stopButton": "button[class*='stop']",
+        "modelDropdown": "div[class*='model-selector'], button[class*='model']",
+        "loginIndicator": "input[type='password'], button:has-text('Sign in')"
+      }
+    },
+    {
+      "id": "chatgpt",
+      "name": "ChatGPT",
+      "chatURL": "https://chatgpt.com/",
+      "loginURL": "https://chatgpt.com/auth/login",
+      "models": ["gpt-4o", "gpt-4.1", "o3", "o4-mini"],
+      "effortToggle": "reasoning-effort",
+      "selectors": {
+        "input": "#prompt-textarea, div[contenteditable='true']",
+        "sendButton": "button[data-testid='send-button']",
+        "responseContainer": "div[data-message-author-role='assistant']",
+        "stopButton": "button[data-testid='stop-button']",
+        "modelDropdown": "button[data-testid*='model-switcher']",
+        "loginIndicator": "input[name='username'], button:has-text('Log in')"
+      }
+    }
+  ]
+}

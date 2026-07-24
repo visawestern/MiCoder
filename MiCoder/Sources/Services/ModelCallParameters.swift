@@ -1,0 +1,66 @@
+import Foundation
+
+/// Per-model call parameters editable from the model menu popover
+/// (plan Раздел 13 п.14). Persisted per model id so each model remembers its
+/// own settings. Values are optional so "unset" means "use provider default".
+struct ModelCallParameters: Codable, Equatable {
+    var temperature: Double?
+    var maxTokens: Int?
+    var topP: Double?
+    var systemPrompt: String?
+
+    init(temperature: Double? = nil, maxTokens: Int? = nil, topP: Double? = nil, systemPrompt: String? = nil) {
+        self.temperature = temperature
+        self.maxTokens = maxTokens
+        self.topP = topP
+        self.systemPrompt = systemPrompt
+    }
+
+    /// Whether any parameter is customized (for a badge/indicator).
+    var isCustomized: Bool {
+        temperature != nil || maxTokens != nil || topP != nil || (systemPrompt?.isEmpty == false)
+    }
+}
+
+/// Pure persistence + serialization of per-model parameters (plan Раздел 13 п.14).
+enum ModelCallParametersStore {
+    static let storageKey = "com.micoder.modelCallParameters"
+
+    static func loadAll(defaults: UserDefaults = .standard) -> [String: ModelCallParameters] {
+        guard let data = defaults.data(forKey: storageKey),
+              let map = try? JSONDecoder().decode([String: ModelCallParameters].self, from: data) else {
+            return [:]
+        }
+        return map
+    }
+
+    static func saveAll(_ map: [String: ModelCallParameters], defaults: UserDefaults = .standard) {
+        if let data = try? JSONEncoder().encode(map) {
+            defaults.set(data, forKey: storageKey)
+        }
+    }
+
+    static func parameters(for modelID: String, defaults: UserDefaults = .standard) -> ModelCallParameters {
+        loadAll(defaults: defaults)[modelID] ?? ModelCallParameters()
+    }
+
+    static func set(_ params: ModelCallParameters, for modelID: String, defaults: UserDefaults = .standard) {
+        var map = loadAll(defaults: defaults)
+        if params.isCustomized {
+            map[modelID] = params
+        } else {
+            map.removeValue(forKey: modelID)
+        }
+        saveAll(map, defaults: defaults)
+    }
+
+    /// Build the request body fragment for a provider call (only set keys).
+    static func requestFragment(_ params: ModelCallParameters) -> [String: Any] {
+        var body: [String: Any] = [:]
+        if let t = params.temperature { body["temperature"] = t }
+        if let m = params.maxTokens { body["max_tokens"] = m }
+        if let p = params.topP { body["top_p"] = p }
+        if let s = params.systemPrompt, !s.isEmpty { body["system"] = s }
+        return body
+    }
+}

@@ -1,0 +1,79 @@
+import SwiftUI
+
+struct StatusBarView: View {
+    @EnvironmentObject var appState: AppState
+    var isStreaming: Bool = false
+    var isLoading: Bool = false
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(appState.serverConnected ? Color.mimo.success : Color.mimo.error)
+                    .frame(width: 6, height: 6)
+                Text(appState.serverConnected ? "Connected" : "Disconnected")
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.textMuted)
+            }
+            
+            Rectangle()
+                .fill(Color.mimo.border)
+                .frame(width: 1, height: 12)
+            
+            if !appState.selectedModel.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "cpu")
+                        .interfaceFont(size: 10)
+                    Text(appState.selectedModel)
+                        .interfaceFont(size: 11, design: .monospaced)
+                }
+                .foregroundColor(Color.mimo.textSecondary)
+            }
+            
+            Rectangle()
+                .fill(Color.mimo.border)
+                .frame(width: 1, height: 12)
+            
+            HStack(spacing: 4) {
+                if isStreaming {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                    Text("Generating...")
+                        .interfaceFont(size: 11)
+                        .foregroundColor(Color.mimo.brand)
+                } else if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                    Text("Processing...")
+                        .interfaceFont(size: 11)
+                        .foregroundColor(Color.mimo.textMuted)
+                } else {
+                    Text("Idle")
+                        .interfaceFont(size: 11)
+                        .foregroundColor(Color.mimo.textMuted)
+                }
+            }
+            
+            Spacer()
+            
+            if appState.serverConnected {
+                HStack(spacing: 4) {
+                    Image(systemName: "network")
+                        .interfaceFont(size: 10)
+                    Text("\(appState.serverHost):\(appState.serverPort)")
+                        .interfaceFont(size: 11, design: .monospaced)
+                }
+                .foregroundColor(Color.mimo.textMuted)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
+        .background(Color.mimo.surface)
+        .overlay(
+            Rectangle()
+                .fill(Color.mimo.border)
+                .frame(height: 1),
+            alignment: .top
+        )
+    }
+}

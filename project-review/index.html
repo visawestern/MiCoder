@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MiMoMacOS — Проект Ревью</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --bg-deep: #0a0e1a;
+    --bg-surface: rgba(16, 22, 40, 0.72);
+    --bg-glass: rgba(255, 255, 255, 0.04);
+    --bg-glass-hover: rgba(255, 255, 255, 0.07);
+    --border-glass: rgba(100, 180, 255, 0.12);
+    --border-glow: rgba(100, 180, 255, 0.25);
+    --accent-cyan: #00b8e6;
+    --accent-violet: #7c5cff;
+    --accent-mint: #33d1b4;
+    --accent-brand: #7c3aed;
+    --text-primary: #e8edf5;
+    --text-secondary: #8899b3;
+    --text-muted: #5a6a85;
+    --success: #33d1b4;
+    --warning: #f28c28;
+    --error: #f25a8c;
+    --glow-cyan: 0 0 30px rgba(0, 184, 230, 0.15);
+    --glow-violet: 0 0 30px rgba(124, 92, 255, 0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+    font-size: 15px;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    line-height: 1.65;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 800px 600px at 15% 20%, rgba(0, 184, 230, 0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 600px 500px at 85% 70%, rgba(124, 92, 255, 0.05) 0%, transparent 70%),
+      radial-gradient(ellipse 500px 400px at 50% 90%, rgba(51, 209, 180, 0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── LAYOUT ─── */
+  .layout {
+    display: flex;
+    height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ─── SIDEBAR / TOC ─── */
+  .sidebar {
+    width: 280px;
+    min-width: 280px;
+    height: 100vh;
+    overflow-y: auto;
+    background: rgba(10, 14, 26, 0.85);
+    backdrop-filter: blur(40px) saturate(1.4);
+    -webkit-backdrop-filter: blur(40px) saturate(1.4);
+    border-right: 1px solid var(--border-glass);
+    padding: 0;
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border-glass); border-radius: 4px; }
+
+  .sidebar-header {
+    padding: 28px 22px 20px;
+    border-bottom: 1px solid var(--border-glass);
+    flex-shrink: 0;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+
+  .logo-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent-brand), var(--accent-violet));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.5px;
+    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.3);
+  }
+
+  .logo-text {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    background: linear-gradient(135deg, var(--text-primary), var(--accent-cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .logo-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+
+  .toc {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 10px;
+  }
+
+  .toc-section {
+    margin-bottom: 6px;
+  }
+
+  .toc-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+    padding: 10px 12px 6px;
+  }
+
+  .toc-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .toc-link:hover {
+    background: var(--bg-glass-hover);
+    color: var(--text-primary);
+  }
+
+  .toc-link.active {
+    background: rgba(0, 184, 230, 0.1);
+    color: var(--accent-cyan);
+    border-left: 2px solid var(--accent-cyan);
+    margin-left: -1px;
+  }
+
+  .toc-icon {
+    width: 20px;
+    text-align: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  .toc-link.active .toc-icon { opacity: 1; }
+
+  .sidebar-footer {
+    padding: 14px 18px;
+    border-top: 1px solid var(--border-glass);
+    flex-shrink: 0;
+  }
+
+  .sidebar-footer-text {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* ─── MAIN CONTENT ─── */
+  .main {
+    flex: 1;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .main::-webkit-scrollbar { width: 6px; }
+  .main::-webkit-scrollbar-track { background: transparent; }
+  .main::-webkit-scrollbar-thumb { background: rgba(100, 180, 255, 0.15); border-radius: 6px; }
+
+  .chapter {
+    padding: 48px 56px 56px;
+    border-bottom: 1px solid var(--border-glass);
+    min-height: auto;
+  }
+
+  .chapter:last-child { border-bottom: none; }
+
+  .chapter-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 14px;
+  }
+
+  .badge-cyan {
+    background: rgba(0, 184, 230, 0.12);
+    color: var(--accent-cyan);
+    border: 1px solid rgba(0, 184, 230, 0.2);
+  }
+
+  .badge-violet {
+    background: rgba(124, 92, 255, 0.12);
+    color: var(--accent-violet);
+    border: 1px solid rgba(124, 92, 255, 0.2);
+  }
+
+  .badge-mint {
+    background: rgba(51, 209, 180, 0.12);
+    color: var(--accent-mint);
+    border: 1px solid rgba(51, 209, 180, 0.2);
+  }
+
+  .badge-brand {
+    background: rgba(124, 58, 237, 0.12);
+    color: var(--accent-brand);
+    border: 1px solid rgba(124, 58, 237, 0.2);
+  }
+
+  h1 {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    line-height: 1.2;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, var(--text-primary), var(--accent-cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+  }
+
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+  }
+
+  .subtitle {
+    font-size: 16px;
+    color: var(--text-secondary);
+    margin-bottom: 32px;
+    max-width: 700px;
+  }
+
+  p {
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    max-width: 800px;
+  }
+
+  /* ─── CARDS ─── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+  }
+
+  .card-grid-2 {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  }
+
+  .card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 14px;
+    padding: 22px;
+    transition: all 0.25s;
+    backdrop-filter: blur(10px);
+  }
+
+  .card:hover {
+    border-color: var(--border-glow);
+    box-shadow: var(--glow-cyan);
+    transform: translateY(-2px);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .card-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .icon-cyan {
+    background: rgba(0, 184, 230, 0.12);
+    color: var(--accent-cyan);
+  }
+
+  .icon-violet {
+    background: rgba(124, 92, 255, 0.12);
+    color: var(--accent-violet);
+  }
+
+  .icon-mint {
+    background: rgba(51, 209, 180, 0.12);
+    color: var(--accent-mint);
+  }
+
+  .icon-brand {
+    background: rgba(124, 58, 237, 0.12);
+    color: var(--accent-brand);
+  }
+
+  .icon-warning {
+    background: rgba(242, 140, 40, 0.12);
+    color: var(--warning);
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .card-subtitle {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .card-body {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .card-body ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .card-body li {
+    padding: 4px 0;
+    padding-left: 16px;
+    position: relative;
+  }
+
+  .card-body li::before {
+    content: '›';
+    position: absolute;
+    left: 0;
+    color: var(--accent-cyan);
+    font-weight: 700;
+  }
+
+  /* ─── STAT CARDS ─── */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 14px;
+    margin: 20px 0;
+  }
+
+  .stat-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+    transition: all 0.25s;
+  }
+
+  .stat-card:hover {
+    border-color: var(--border-glow);
+    box-shadow: var(--glow-cyan);
+  }
+
+  .stat-value {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 4px;
+  }
+
+  .stat-value.cyan { color: var(--accent-cyan); }
+  .stat-value.violet { color: var(--accent-violet); }
+  .stat-value.mint { color: var(--accent-mint); }
+  .stat-value.brand { color: var(--accent-brand); }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  /* ─── TABLES ─── */
+  .table-wrap {
+    overflow-x: auto;
+    margin: 16px 0;
+    border-radius: 12px;
+    border: 1px solid var(--border-glass);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    background: rgba(16, 22, 40, 0.6);
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    border-bottom: 1px solid var(--border-glass);
+  }
+
+  tbody td {
+    padding: 11px 16px;
+    border-bottom: 1px solid rgba(100, 180, 255, 0.05);
+    color: var(--text-secondary);
+  }
+
+  tbody tr:hover {
+    background: var(--bg-glass-hover);
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  td code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 2px 7px;
+    background: rgba(0, 184, 230, 0.08);
+    border-radius: 4px;
+    color: var(--accent-cyan);
+  }
+
+  .tag {
+    display: inline-flex;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  .tag-cyan { background: rgba(0, 184, 230, 0.12); color: var(--accent-cyan); }
+  .tag-violet { background: rgba(124, 92, 255, 0.12); color: var(--accent-violet); }
+  .tag-mint { background: rgba(51, 209, 180, 0.12); color: var(--accent-mint); }
+  .tag-success { background: rgba(51, 209, 180, 0.12); color: var(--success); }
+  .tag-warning { background: rgba(242, 140, 40, 0.12); color: var(--warning); }
+
+  /* ─── ARCHITECTURE DIAGRAM ─── */
+  .arch-diagram {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 14px;
+    padding: 32px;
+    margin: 20px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--text-secondary);
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .arch-diagram .hl-cyan { color: var(--accent-cyan); font-weight: 600; }
+  .arch-diagram .hl-violet { color: var(--accent-violet); font-weight: 600; }
+  .arch-diagram .hl-mint { color: var(--accent-mint); font-weight: 600; }
+  .arch-diagram .hl-brand { color: var(--accent-brand); font-weight: 600; }
+  .arch-diagram .hl-dim { color: var(--text-muted); }
+
+  /* ─── SEPARATOR ─── */
+  .sep {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-glass), transparent);
+    margin: 28px 0;
+  }
+
+  /* ─── FILE TREE ─── */
+  .file-tree {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.9;
+    color: var(--text-secondary);
+  }
+
+  .file-tree .dir { color: var(--accent-cyan); font-weight: 600; }
+  .file-tree .file { color: var(--text-secondary); }
+  .file-tree .dim { color: var(--text-muted); }
+
+  /* ─── PROGRESS BAR ─── */
+  .progress-bar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+  }
+
+  .fill-cyan { background: linear-gradient(90deg, var(--accent-cyan), rgba(0, 184, 230, 0.6)); }
+  .fill-mint { background: linear-gradient(90deg, var(--accent-mint), rgba(51, 209, 180, 0.6)); }
+  .fill-violet { background: linear-gradient(90deg, var(--accent-violet), rgba(124, 92, 255, 0.6)); }
+
+  /* ─── HERO ─── */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: 64px 56px;
+    border-bottom: 1px solid var(--border-glass);
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 600px 400px at 20% 50%, rgba(0, 184, 230, 0.08), transparent),
+      radial-gradient(ellipse 500px 350px at 80% 40%, rgba(124, 92, 255, 0.06), transparent);
+    pointer-events: none;
+  }
+
+  .hero h1 {
+    font-size: 48px;
+    margin-bottom: 12px;
+    position: relative;
+  }
+
+  .hero .subtitle {
+    font-size: 18px;
+    margin-bottom: 28px;
+    position: relative;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 32px;
+    position: relative;
+  }
+
+  .hero-stat {
+    text-align: left;
+  }
+
+  .hero-stat-val {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+  }
+
+  .hero-stat-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .tech-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 16px 0;
+  }
+
+  .tech-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+  }
+
+  .tech-pill:hover {
+    border-color: var(--border-glow);
+    color: var(--text-primary);
+  }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .dot-cyan { background: var(--accent-cyan); }
+  .dot-violet { background: var(--accent-violet); }
+  .dot-mint { background: var(--accent-mint); }
+  .dot-brand { background: var(--accent-brand); }
+
+  /* ─── INLINE CODE ─── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 2px 6px;
+    background: rgba(0, 184, 230, 0.08);
+    border-radius: 4px;
+    color: var(--accent-cyan);
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .chapter { padding: 32px 24px; }
+    .hero { padding: 40px 24px; }
+    .hero h1 { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<!-- ═══════════════ SIDEBAR / TOC ═══════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">
+      <div class="logo-icon">mi</div>
+      <div>
+        <div class="logo-text">MiMoMacOS</div>
+        <div class="logo-sub">Project Review</div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="toc">
+    <div class="toc-section">
+      <div class="toc-section-title">Обзор</div>
+      <a href="#overview" class="toc-link active" onclick="setActive(this)">
+        <span class="toc-icon">◈</span> Общее описание
+      </a>
+      <a href="#stats" class="toc-link" onclick="setActive(this)">
+        <span class="toc-icon">📊</span> Ключевые метрики
+      </a>
+    </div>
+
+    <div class="toc-section">
+      <div class="toc-section-title">Архитектура</div>
+      <a href="#architecture" class="toc-link" onclick="setActive(this)">
+        <span class="toc-icon">⬡</span> Архитектура
+      </a>
+      <a href="#directory" class="toc-link" onclick="setActive(this)">
+        <span class="toc-icon">📁</span> Структура файлов
+      </a>
+    </div>
+
+    <div class="toc-section">
+      <div class="toc-section-title">Модули</div>
+      <a href="#models" class="toc-link" onclick="setActive(this)">
+        <span class="toc-icon">◇</span> Модели данных
+      </a>
+      <a href="#services" class="toc-link" onclick="setActive(this)">
+        <span class="toc-icon">⚡</span> Сервисы / API
+      </a>
+      <a href="#views" class="toc-link" onclick="setActive(this)">
+        <span class="toc-icon">◧</span> UI / Представления
+      </a>
+      <a href="#theme" class="toc-link" onclick="setActive(this)">
+        <span class="toc-icon">🎨</span> Тема и стили
+      </a>
+    </div>
+
+    <div class="toc-section">
+      <div class="toc-section-title">Функционал</div>
+      <a href="#features" class="toc-link" onclick="setActive(this)">
+        <span class="toc-icon">✦</span> Ключевые фичи
+      </a>
+      <a href="#api" class="toc-link" onclick="setActive(this)">
+        <span class="toc-icon">⇄</span> API Endpoints
+      </a>
+      <a href="#settings" class="toc-link" onclick="setActive(this)">
+        <span class="toc-icon">⚙</span> Настройки
+      </a>
+    </div>
+
+    <div class="toc-section">
+      <div class="toc-section-title">Качество</div>
+      <a href="#testing" class="toc-link" onclick="setActive(this)">
+        <span class="toc-icon">🧪</span> Тестирование
+      </a>
+      <a href="#quality" class="toc-link" onclick="setActive(this)">
+        <span class="toc-icon">✓</span> Оценка качества
+      </a>
+      <a href="#issues" class="toc-link" onclick="setActive(this)">
+        <span class="toc-icon">⚠</span> Замечания
+      </a>
+      <a href="#verdict" class="toc-link" onclick="setActive(this)">
+        <span class="toc-icon">★</span> Итоговый вердикт
+      </a>
+    </div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-footer-text">
+      MiMoMacOS Review v1.0<br>
+      Generated Jun 2026
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════════ MAIN CONTENT ═══════════════ -->
+<main class="main">
+
+<!-- ── HERO ── -->
+<div class="hero" id="overview">
+  <div class="chapter-badge badge-brand">◈ PROJECT REVIEW</div>
+  <h1>MiMoMacOS</h1>
+  <p class="subtitle">
+    Нативное macOS-приложение для работы с AI-агентом MiMo. Функциональный клон интерфейса ZCode,
+    построенный на SwiftUI. Подключается к локальному серверу MiMo Serve (HTTP API на порту 4096)
+    и предоставляет полноценный чат-интерфейс с поддержкой сессий, воркспейсов и потоковой генерации ответов.
+  </p>
+
+  <div class="tech-stack">
+    <span class="tech-pill"><span class="dot dot-violet"></span>SwiftUI</span>
+    <span class="tech-pill"><span class="dot dot-cyan"></span>Swift 5.9+</span>
+    <span class="tech-pill"><span class="dot dot-mint"></span>macOS 13+</span>
+    <span class="tech-pill"><span class="dot dot-brand"></span>SSE (Server-Sent Events)</span>
+    <span class="tech-pill"><span class="dot dot-cyan"></span>REST API</span>
+    <span class="tech-pill"><span class="dot dot-violet"></span>Async/Await</span>
+  </div>
+
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="hero-stat-val cyan">~3200</div>
+      <div class="hero-stat-label">Строк кода (Swift)</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-val violet">15</div>
+      <div class="hero-stat-label">Swift-файлов</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-val mint">22</div>
+      <div class="hero-stat-label">Тест-сьютов</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-val brand">81</div>
+      <div class="hero-stat-label">Тестов</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── KEY METRICS ── -->
+<div class="chapter" id="stats">
+  <div class="chapter-badge badge-cyan">📊 METRICS</div>
+  <h2>Ключевые метрики</h2>
+
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-value cyan">15</div>
+      <div class="stat-label">Swift-файлов</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value violet">9</div>
+      <div class="stat-label">Моделей</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value mint">3</div>
+      <div class="stat-label">Сервиса</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value brand">8</div>
+      <div class="stat-label">UI компонентов</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value cyan">14</div>
+      <div class="stat-label">API Endpoints</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value violet">2</div>
+      <div class="stat-label">Темы оформления</div>
+    </div>
+  </div>
+
+  <h3>Распределение кода по модулям</h3>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-cyan">📦</div>
+        <div>
+          <div class="card-title">Models</div>
+          <div class="card-subtitle">9 файлов · ~700 строк</div>
+        </div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill fill-cyan" style="width:22%"></div></div>
+      <div class="card-body">Данные приложения, API-модели, настройки</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-violet">⚡</div>
+        <div>
+          <div class="card-title">Services</div>
+          <div class="card-subtitle">3 файла · ~500 строк</div>
+        </div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill fill-violet" style="width:16%"></div></div>
+      <div class="card-body">HTTP-клиент, SSE, хранилище сообщений</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-mint">🖥</div>
+        <div>
+          <div class="card-title">Views</div>
+          <div class="card-subtitle">8 файлов · ~1800 строк</div>
+        </div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill fill-mint" style="width:56%"></div></div>
+      <div class="card-body">SwiftUI-представления, основной UI</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-brand">🎨</div>
+        <div>
+          <div class="card-title">Theme</div>
+          <div class="card-subtitle">1 файл · ~86 строк</div>
+        </div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill fill-cyan" style="width:3%"></div></div>
+      <div class="card-body">Цветовая система, переключение тем</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ARCHITECTURE ── -->
+<div class="chapter" id="architecture">
+  <div class="chapter-badge badge-violet">⬡ ARCHITECTURE</div>
+  <h2>Архитектура приложения</h2>
+  <p>Приложение построено по паттерну <strong>Unidirectional Data Flow</strong> с централизованным состоянием через <code>AppState</code> (ObservableObject). SwiftUI-ビュー привязаны к состоянию через <code>@EnvironmentObject</code>.</p>
+
+  <div class="arch-diagram"><span class="hl-dim">┌─────────────────────────────────────────────────────────────┐</span>
+<span class="hl-dim">│</span>                    <span class="hl-brand">MiMoMacOS App (SwiftUI)</span>                    <span class="hl-dim">│</span>
+<span class="hl-dim">├─────────────────────────────────────────────────────────────┤</span>
+<span class="hl-dim">│</span>                                                             <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>  <span class="hl-cyan">┌──────────────┐</span>    <span class="hl-violet">┌──────────────┐</span>    <span class="hl-mint">┌──────────────┐</span>  <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>  <span class="hl-cyan">│ SidebarView  │</span>    <span class="hl-violet">│ChatPanelView │</span>    <span class="hl-mint">│SettingsView  │</span>  <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>  <span class="hl-cyan">│              │</span>    <span class="hl-violet">│              │</span>    <span class="hl-mint">│              │</span>  <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>  <span class="hl-cyan">│  workspaces  │</span>    <span class="hl-violet">│  messages    │</span>    <span class="hl-mint">│  providers   │</span>  <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>  <span class="hl-cyan">│  sessions    │</span>    <span class="hl-violet">│  streaming   │</span>    <span class="hl-mint">│  models      │</span>  <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>  <span class="hl-cyan">│  nav history │</span>    <span class="hl-violet">│  SSE events  │</span>    <span class="hl-mint">│  theme       │</span>  <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>  <span class="hl-cyan">└──────┬───────┘</span>    <span class="hl-violet">└──────┬───────┘</span>    <span class="hl-mint">└──────────────┘</span>  <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>         <span class="hl-dim">│                     │</span>                                 <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>         <span class="hl-dim">└──────────┬──────────┘</span>                             <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>                    <span class="hl-brand">▼</span>                                        <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>          <span class="hl-brand">┌──────────────────────┐</span>                            <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>          <span class="hl-brand">│     AppState         │</span>  ← <span class="hl-cyan">@EnvironmentObject</span>    <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>          <span class="hl-brand">│  (ObservableObject)  │</span>                          <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>          <span class="hl-brand">│                      │</span>                          <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>          <span class="hl-brand">│  sessions / models   │</span>                          <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>          <span class="hl-brand">│  settings / theme    │</span>                          <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>          <span class="hl-brand">│  navigation stack    │</span>                          <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>          <span class="hl-brand">└──────────┬───────────┘</span>                          <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>                     <span class="hl-brand">│</span>                                       <span class="hl-dim">│</span>
+<span class="hl-dim">├─────────────────────┼───────────────────────────────────────┤</span>
+<span class="hl-dim">│</span>              <span class="hl-cyan">▼    SERVICES LAYER    ▼</span>                      <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>  <span class="hl-cyan">┌────────────────┐</span>  <span class="hl-violet">┌────────────────┐</span>  <span class="hl-mint">┌──────────────┐</span>  <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>  <span class="hl-cyan">│MimoServeClient │</span>  <span class="hl-violet">│   SSEClient    │</span>  <span class="hl-mint">│ MessageStore │</span>  <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>  <span class="hl-cyan">│                │</span>  <span class="hl-violet">│                │</span>  <span class="hl-mint">│              │</span>  <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>  <span class="hl-cyan">│ REST API       │</span>  <span class="hl-violet">│ Event Stream   │</span>  <span class="hl-mint">│ Message CRUD │</span>  <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>  <span class="hl-cyan">│ 14 endpoints   │</span>  <span class="hl-violet">│ /global/event  │</span>  <span class="hl-mint">│ Pagination   │</span>  <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>  <span class="hl-cyan">└───────┬────────┘</span>  <span class="hl-violet">└───────┬────────┘</span>  <span class="hl-mint">└──────────────┘</span>  <span class="hl-dim">│</span>
+<span class="hl-dim">│</span>          <span class="hl-dim">│</span>                    <span class="hl-dim">│</span>                              <span class="hl-dim">│</span>
+<span class="hl-dim">└──────────┼────────────────────┼──────────────────────────────┘</span>
+           <span class="hl-dim">▼                    ▼</span>
+    <span class="hl-brand">┌────────────────────────────────┐</span>
+    <span class="hl-brand">│     MiMo Serve (localhost)     │</span>
+    <span class="hl-brand">│  HTTP :4096  +  SSE /event     │</span>
+    <span class="hl-brand">│  OpenAI-compatible endpoints   │</span>
+    <span class="hl-brand">└────────────────────────────────┘</span></div>
+</div>
+
+<!-- ── DIRECTORY STRUCTURE ── -->
+<div class="chapter" id="directory">
+  <div class="chapter-badge badge-mint">📁 FILE TREE</div>
+  <h2>Структура файлов</h2>
+
+  <div class="file-tree">
+<span class="dir">MiMoMacOS/</span>
+├── <span class="dir">Sources/</span>
+│   ├── <span class="dir">App/</span>
+│   │   └── <span class="file">MiMoMacOSApp.swift</span>      <span class="dim">← Entry point + AppState</span>
+│   ├── <span class="dir">Models/</span>
+│   │   ├── <span class="file">ChatSession.swift</span>        <span class="dim">← Session model</span>
+│   │   ├── <span class="file">GitModels.swift</span>          <span class="dim">← Git integration</span>
+│   │   ├── <span class="file">Message.swift</span>            <span class="dim">← Message model + parts</span>
+│   │   ├── <span class="file">MimoServeModels.swift</span>    <span class="dim">← API response models</span>
+│   │   ├── <span class="file">Project.swift</span>            <span class="dim">← Project model</span>
+│   │   ├── <span class="file">Settings.swift</span>           <span class="dim">← App settings + providers</span>
+│   │   ├── <span class="file">SettingsTab.swift</span>        <span class="dim">← Settings tab enum</span>
+│   │   ├── <span class="file">Task.swift</span>               <span class="dim">← Task model</span>
+│   │   └── <span class="file">Workspace.swift</span>          <span class="dim">← Workspace model</span>
+│   ├── <span class="dir">Services/</span>
+│   │   ├── <span class="file">MessageQueue.swift</span>       <span class="dim">← Message queue</span>
+│   │   ├── <span class="file">MessageStore.swift</span>       <span class="dim">← In-memory store</span>
+│   │   ├── <span class="file">MimoServeClient.swift</span>    <span class="dim">← HTTP client (14 endpoints)</span>
+│   │   └── <span class="file">SSEClient.swift</span>          <span class="dim">← SSE stream client</span>
+│   ├── <span class="dir">Theme/</span>
+│   │   └── <span class="file">ZCodeColors.swift</span>        <span class="dim">← Color system + themes</span>
+│   └── <span class="dir">Views/</span>
+│       ├── <span class="dir">Components/</span>
+│       │   ├── <span class="file">InputViews.swift</span>      <span class="dim">← Input bar components</span>
+│       │   ├── <span class="file">MarkdownTextView.swift</span><span class="dim">← Markdown rendering</span>
+│       │   └── <span class="file">MessageRowView.swift</span>  <span class="dim">← Message bubble</span>
+│       ├── <span class="file">BottomPanelView.swift</span>     <span class="dim">← Bottom panel</span>
+│       ├── <span class="file">ChatPanelView.swift</span>       <span class="dim">← Main chat view</span>
+│       ├── <span class="file">ContentView.swift</span>         <span class="dim">← Root layout</span>
+│       ├── <span class="file">GoalPanelView.swift</span>       <span class="dim">← Goal panel</span>
+│       ├── <span class="file">RightPanelView.swift</span>      <span class="dim">← Right panel</span>
+│       ├── <span class="file">SettingsView.swift</span>        <span class="dim">← 10 settings tabs</span>
+│       ├── <span class="file">SidebarView.swift</span>         <span class="dim">← Sidebar navigation</span>
+│       ├── <span class="file">StatusBarView.swift</span>       <span class="dim">← Status bar</span>
+│       └── <span class="file">TopBarView.swift</span>          <span class="dim">← Top bar</span>
+└── <span class="dir">Tests/</span>
+    └── <span class="file">22 test files</span>               <span class="dim">← 81 tests</span>
+  </div>
+</div>
+
+<!-- ── MODELS ── -->
+<div class="chapter" id="models">
+  <div class="chapter-badge badge-cyan">◇ MODELS</div>
+  <h2>Модели данных</h2>
+  <p>Приложение использует 9 моделей данных. API-модели разделены от UI-моделей через слой маппинга.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Модель</th>
+          <th>Файл</th>
+          <th>Описание</th>
+          <th>Ключевые поля</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>Message</code></td>
+          <td>Message.swift</td>
+          <td>Сообщение чата (user/assistant/system)</td>
+          <td>role, content, parts[], reasoning, isStreaming</td>
+        </tr>
+        <tr>
+          <td><code>ChatSession</code></td>
+          <td>ChatSession.swift</td>
+          <td>Сессия чата</td>
+          <td>id, title</td>
+        </tr>
+        <tr>
+          <td><code>Workspace</code></td>
+          <td>Workspace.swift</td>
+          <td>Рабочее пространство (папка)</td>
+          <td>id, name, path, branch, tasks[]</td>
+        </tr>
+        <tr>
+          <td><code>Project</code></td>
+          <td>Project.swift</td>
+          <td>Проект</td>
+          <td>id, name, path</td>
+        </tr>
+        <tr>
+          <td><code>TaskItem</code></td>
+          <td>Task.swift</td>
+          <td>Задача в workspace</td>
+          <td>title, duration</td>
+        </tr>
+        <tr>
+          <td><code>AppSettings</code></td>
+          <td>Settings.swift</td>
+          <td>Настройки приложения</td>
+          <td>theme, language, zoom, proxy, terminal</td>
+        </tr>
+        <tr>
+          <td><code>CustomProvider</code></td>
+          <td>Settings.swift</td>
+          <td>Пользовательский AI-провайдер</td>
+          <td>name, type, baseURL, apiKey, models[]</td>
+        </tr>
+        <tr>
+          <td><code>MimoSessionResponse</code></td>
+          <td>MimoServeModels.swift</td>
+          <td>Ответ API: сессия</td>
+          <td>id, title, directory, summary, time</td>
+        </tr>
+        <tr>
+          <td><code>MimoProviderResponse</code></td>
+          <td>MimoServeModels.swift</td>
+          <td>Ответ API: провайдер моделей</td>
+          <td>id, name, models{} (dict)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Паттерн маппинга</h3>
+  <p>API-модели маппятся в UI-модели через расширения:</p>
+  <div class="file-tree">
+<span class="hl-dim">// MimoServeModels.swift</span>
+<span class="file">extension MimoSessionResponse</span> {
+    <span class="file">func toChatSession()</span> → ChatSession
+    <span class="file">func toProject()</span> → Project
+}
+  </div>
+</div>
+
+<!-- ── SERVICES ── -->
+<div class="chapter" id="services">
+  <div class="chapter-badge badge-violet">⚡ SERVICES</div>
+  <h2>Сервисы и API-клиент</h2>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-cyan">⇄</div>
+        <div>
+          <div class="card-title">MimoServeClient</div>
+          <div class="card-subtitle">313 строк · 14 endpoints</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>REST API-клиент для MiMo Serve</li>
+          <li>Generic GET/POST с автоматическим декодированием</li>
+          <li>300s timeout для долгих операций</li>
+          <li>Типизированные ошибки (MimoServeError)</li>
+          <li>Async/await на всех методах</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-violet">⚡</div>
+        <div>
+          <div class="card-title">SSEClient</div>
+          <div class="card-subtitle">65 строк · Event Stream</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>Подключение к /global/event</li>
+          <li>Парсинг SSE-событий из буфера</li>
+          <li>Callback onEvent(type, payload)</li>
+          <li>Бесконечный timeout для стриминга</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-mint">📦</div>
+        <div>
+          <div class="card-title">MessageStore</div>
+          <div class="card-subtitle">118 строк · In-memory store</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>Публикация/подписка через @Published</li>
+          <li>Авто-pruning при >100 сообщений</li>
+          <li>Загрузка истории с пагинацией</li>
+          <li>Пропуск дубликатов по ID</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── VIEWS ── -->
+<div class="chapter" id="views">
+  <div class="chapter-badge badge-mint">◧ VIEWS</div>
+  <h2>UI / Представления</h2>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>View</th>
+          <th>Строк</th>
+          <th>Описание</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>ContentView</code></td>
+          <td>49</td>
+          <td>Корневой layout: sidebar + chat + right panel</td>
+        </tr>
+        <tr>
+          <td><code>ChatPanelView</code></td>
+          <td>325</td>
+          <td>Основной чат: сообщения, ввод, SSE-стриминг</td>
+        </tr>
+        <tr>
+          <td><code>SidebarView</code></td>
+          <td>347</td>
+          <td>Навигация: воркспейсы, сессии, профиль</td>
+        </tr>
+        <tr>
+          <td><code>SettingsView</code></td>
+          <td>985</td>
+          <td>10 вкладок: General, Code, Models, Skills, MCP, Plugins…</td>
+        </tr>
+        <tr>
+          <td><code>StatusBarView</code></td>
+          <td>77</td>
+          <td>Нижняя панель: статус, модель, адрес сервера</td>
+        </tr>
+        <tr>
+          <td><code>TopBarView</code></td>
+          <td>—</td>
+          <td>Верхняя панель (заголовок)</td>
+        </tr>
+        <tr>
+          <td><code>RightPanelView</code></td>
+          <td>—</td>
+          <td>Правая панель (цели, файлы)</td>
+        </tr>
+        <tr>
+          <td><code>GoalPanelView</code></td>
+          <td>—</td>
+          <td>Панель целей задачи</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── THEME ── -->
+<div class="chapter" id="theme">
+  <div class="chapter-badge badge-brand">🎨 THEME</div>
+  <h2>Тема и цветовая система</h2>
+  <p>Приложение поддерживает 2 темы: <strong>Dark</strong> и <strong>Sci-Fi Light</strong>. Вся цветовая палитра определена в расширении <code>Color.zcode</code> через computed properties.</p>
+
+  <div class="card-grid card-grid-2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-cyan">🌑</div>
+        <div>
+          <div class="card-title">Dark Theme</div>
+          <div class="card-subtitle">Default · Глубокий тёмный</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div style="display:flex;gap:8px;margin:8px 0;">
+          <div style="width:28px;height:28px;border-radius:6px;background:#0d1117;border:1px solid rgba(100,180,255,0.12)"></div>
+          <div style="width:28px;height:28px;border-radius:6px;background:#161b22;border:1px solid rgba(100,180,255,0.12)"></div>
+          <div style="width:28px;height:28px;border-radius:6px;background:#7c3aed;border:1px solid rgba(100,180,255,0.12)"></div>
+          <div style="width:28px;height:28px;border-radius:6px;background:#00b8e6;border:1px solid rgba(100,180,255,0.12)"></div>
+          <div style="width:28px;height:28px;border-radius:6px;background:#33d1b4;border:1px solid rgba(100,180,255,0.12)"></div>
+          <div style="width:28px;height:28px;border-radius:6px;background:#e6edf3;border:1px solid rgba(100,180,255,0.12)"></div>
+        </div>
+        Background: <code>#0d1117</code> · Surface: <code>#161b22</code> · Brand: <code>#7c3aed</code>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-violet">☀️</div>
+        <div>
+          <div class="card-title">Sci-Fi Light Theme</div>
+          <div class="card-subtitle">Glass-эффект · Frost-стиль</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div style="display:flex;gap:8px;margin:8px 0;">
+          <div style="width:28px;height:28px;border-radius:6px;background:#f5f9ff;border:1px solid #bfd4f0"></div>
+          <div style="width:28px;height:28px;border-radius:6px;background:#ebf2fc;border:1px solid #bfd4f0"></div>
+          <div style="width:28px;height:28px;border-radius:6px;background:#7c3aed;border:1px solid #bfd4f0"></div>
+          <div style="width:28px;height:28px;border-radius:6px;background:#00b8e6;border:1px solid #bfd4f0"></div>
+          <div style="width:28px;height:28px;border-radius:6px;background:#33d1b4;border:1px solid #bfd4f0"></div>
+          <div style="width:28px;height:28px;border-radius:6px;background:#1f3352;border:1px solid #bfd4f0"></div>
+        </div>
+        Background: <code>#f5f9ff</code> · Surface: <code>rgba(255,255,255,0.72)</code> · Brand: <code>#7c3aed</code>
+      </div>
+    </div>
+  </div>
+
+  <h3>Акцентные цвета</h3>
+  <div class="stat-row">
+    <div class="stat-card">
+      <div style="width:40px;height:40px;border-radius:10px;background:#00b8e6;margin:0 auto 8px;box-shadow:0 4px 20px rgba(0,184,230,0.3)"></div>
+      <div class="stat-label">Cyan · <code>#00b8e6</code></div>
+    </div>
+    <div class="stat-card">
+      <div style="width:40px;height:40px;border-radius:10px;background:#7c5cff;margin:0 auto 8px;box-shadow:0 4px 20px rgba(124,92,255,0.3)"></div>
+      <div class="stat-label">Violet · <code>#7c5cff</code></div>
+    </div>
+    <div class="stat-card">
+      <div style="width:40px;height:40px;border-radius:10px;background:#33d1b4;margin:0 auto 8px;box-shadow:0 4px 20px rgba(51,209,180,0.3)"></div>
+      <div class="stat-label">Mint · <code>#33d1b4</code></div>
+    </div>
+    <div class="stat-card">
+      <div style="width:40px;height:40px;border-radius:10px;background:#7c3aed;margin:0 auto 8px;box-shadow:0 4px 20px rgba(124,58,237,0.3)"></div>
+      <div class="stat-label">Brand · <code>#7c3aed</code></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FEATURES ── -->
+<div class="chapter" id="features">
+  <div class="chapter-badge badge-cyan">✦ FEATURES</div>
+  <h2>Ключевые фичи</h2>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-cyan">💬</div>
+        <div>
+          <div class="card-title">AI Chat</div>
+          <div class="card-subtitle">Полноценный чат с AI</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>Отправка сообщений через REST API</li>
+          <li>Создание сессий на сервере</li>
+          <li>Стриминг ответов через SSE</li>
+          <li>Отображение reasoning (мышления)</li>
+          <li>История с пагинацией</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-violet">📁</div>
+        <div>
+          <div class="card-title">Workspaces</div>
+          <div class="card-subtitle">Управление рабочими пространствами</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>Список воркспейсов из API</li>
+          <li>Фильтрация сессий по workspace</li>
+          <li>Навигация вперёд/назад</li>
+          <li>Переключение между проектами</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-mint">⚙</div>
+        <div>
+          <div class="card-title">Settings</div>
+          <div class="card-subtitle">10 вкладок настроек</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>General: тема, язык, zoom, прокси</li>
+          <li>Code Preview: тема кода, шрифт</li>
+          <li>Model Settings: провайдеры, сервер</li>
+          <li>Skills / MCP / Plugins / Commands</li>
+          <li>Indexing / Usage / Onboard</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-brand">🔌</div>
+        <div>
+          <div class="card-title">Custom Providers</div>
+          <div class="card-subtitle">Подключение внешних AI</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>OpenAI-compatible API</li>
+          <li>OpenRouter</li>
+          <li>Ollama (локальные модели)</li>
+          <li>Тест соединения перед сохранением</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-cyan">🎯</div>
+        <div>
+          <div class="card-title">Access Control</div>
+          <div class="card-subtitle">Уровни доступа</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>Ask before changes (по умолчанию)</li>
+          <li>Edit automatically</li>
+          <li>Plan mode</li>
+          <li>Full access</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-violet">🧠</div>
+        <div>
+          <div class="card-title">Thinking Levels</div>
+          <div class="card-subtitle">Контроль рассуждений</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>No thinking — быстрые ответы</li>
+          <li>High — умеренные рассуждения</li>
+          <li>Max — глубокий анализ</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── API ── -->
+<div class="chapter" id="api">
+  <div class="chapter-badge badge-violet">⇄ API ENDPOINTS</div>
+  <h2>API Endpoints</h2>
+  <p>MimoServeClient реализует 14 эндпоинтов для взаимодействия с MiMo Serve:</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Endpoint</th>
+          <th>Method</th>
+          <th>Путь</th>
+          <th>Описание</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>health</code></td>
+          <td><span class="tag tag-mint">GET</span></td>
+          <td>/global/health</td>
+          <td>Проверка здоровья сервера</td>
+        </tr>
+        <tr>
+          <td><code>projectCurrent</code></td>
+          <td><span class="tag tag-mint">GET</span></td>
+          <td>/project/current</td>
+          <td>Текущий проект</td>
+        </tr>
+        <tr>
+          <td><code>sessions</code></td>
+          <td><span class="tag tag-mint">GET</span></td>
+          <td>/experimental/session</td>
+          <td>Список сессий</td>
+        </tr>
+        <tr>
+          <td><code>sessionStatus</code></td>
+          <td><span class="tag tag-mint">GET</span></td>
+          <td>/session/status/{id}</td>
+          <td>Статус сессии</td>
+        </tr>
+        <tr>
+          <td><code>configProviders</code></td>
+          <td><span class="tag tag-mint">GET</span></td>
+          <td>/config/providers</td>
+          <td>Провайдеры и модели</td>
+        </tr>
+        <tr>
+          <td><code>fileContent</code></td>
+          <td><span class="tag tag-mint">GET</span></td>
+          <td>/file/content?path=</td>
+          <td>Содержимое файла</td>
+        </tr>
+        <tr>
+          <td><code>fileStatus</code></td>
+          <td><span class="tag tag-mint">GET</span></td>
+          <td>/file/status?path=</td>
+          <td>Статус файла</td>
+        </tr>
+        <tr>
+          <td><code>vcsDiff</code></td>
+          <td><span class="tag tag-mint">GET</span></td>
+          <td>/vcs/diff</td>
+          <td>VCS diff</td>
+        </tr>
+        <tr>
+          <td><code>globalConfig</code></td>
+          <td><span class="tag tag-mint">GET</span></td>
+          <td>/global/config</td>
+          <td>Глобальная конфигурация</td>
+        </tr>
+        <tr>
+          <td><code>syncStart</code></td>
+          <td><span class="tag tag-cyan">POST</span></td>
+          <td>/sync/start</td>
+          <td>Запуск сессии (legacy)</td>
+        </tr>
+        <tr>
+          <td><code>createSession</code></td>
+          <td><span class="tag tag-cyan">POST</span></td>
+          <td>/session</td>
+          <td>Создание новой сессии</td>
+        </tr>
+        <tr>
+          <td><code>sendMessage</code></td>
+          <td><span class="tag tag-cyan">POST</span></td>
+          <td>/session/{id}/message</td>
+          <td>Отправка сообщения</td>
+        </tr>
+        <tr>
+          <td><code>getMessages</code></td>
+          <td><span class="tag tag-mint">GET</span></td>
+          <td>/session/{id}/message</td>
+          <td>Получение истории</td>
+        </tr>
+        <tr>
+          <td><code>SSE Stream</code></td>
+          <td><span class="tag tag-violet">SSE</span></td>
+          <td>/global/event</td>
+          <td>Поток событий</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── SETTINGS ── -->
+<div class="chapter" id="settings">
+  <div class="chapter-badge badge-mint">⚙ SETTINGS</div>
+  <h2>Система настроек</h2>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Вкладка</th>
+          <th>Описание</th>
+          <th>Статус</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>General</code></td>
+          <td>Тема, язык, zoom, прокси, шрифт терминала</td>
+          <td><span class="tag tag-success">Полная</span></td>
+        </tr>
+        <tr>
+          <td><code>Code Preview</code></td>
+          <td>Тема кода (light/dark), номера строк, font size</td>
+          <td><span class="tag tag-success">Полная</span></td>
+        </tr>
+        <tr>
+          <td><code>Model Settings</code></td>
+          <td>MiMo Serve, кастомные провайдеры, тест</td>
+          <td><span class="tag tag-success">Полная</span></td>
+        </tr>
+        <tr>
+          <td><code>Skills</code></td>
+          <td>Управление навыками агента</td>
+          <td><span class="tag tag-warning">UI заглушка</span></td>
+        </tr>
+        <tr>
+          <td><code>MCP Servers</code></td>
+          <td>Конфигурация MCP-серверов</td>
+          <td><span class="tag tag-warning">UI заглушка</span></td>
+        </tr>
+        <tr>
+          <td><code>Plugins</code></td>
+          <td>Управление плагинами</td>
+          <td><span class="tag tag-warning">UI заглушка</span></td>
+        </tr>
+        <tr>
+          <td><code>Commands</code></td>
+          <td>Пользовательские команды</td>
+          <td><span class="tag tag-warning">UI заглушка</span></td>
+        </tr>
+        <tr>
+          <td><code>Indexing</code></td>
+          <td>Индексация кодовой базы</td>
+          <td><span class="tag tag-success">Полная</span></td>
+        </tr>
+        <tr>
+          <td><code>Usage</code></td>
+          <td>Статистика использования</td>
+          <td><span class="tag tag-success">Полная</span></td>
+        </tr>
+        <tr>
+          <td><code>Onboard</code></td>
+          <td>Начальная настройка</td>
+          <td><span class="tag tag-warning">UI заглушка</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── TESTING ── -->
+<div class="chapter" id="testing">
+  <div class="chapter-badge badge-mint">🧪 TESTING</div>
+  <h2>Тестирование</h2>
+  <p><strong>81 тест</strong> в <strong>22 тест-сьютах</strong>, покрывающих функциональную паритость с ZCode-интерфейсом.</p>
+
+  <div class="card-grid card-grid-2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-cyan">🧪</div>
+        <div>
+          <div class="card-title">Тест-сьюты</div>
+          <div class="card-subtitle">22 файла тестов</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>MessageSendTests — отправка сообщений</li>
+          <li>MessageFlowTests — флоу сообщений</li>
+          <li>MessageStoreTests — хранилище</li>
+          <li>MessageQueueTests — очередь</li>
+          <li>MimoServeClientTests — API клиент</li>
+          <li>MimoServeModelsTests — модели API</li>
+          <li>AppStateIntegrationTests — интеграция</li>
+          <li>ParityTests — паритость с ZCode</li>
+          <li>PlusMenuTests — меню "+"</li>
+          <li>ZCodeFeatureTests — фичи ZCode</li>
+          <li>Screenshot1Tests — визуальные тесты</li>
+          <li>LiveIntegrationTests — live тесты</li>
+          <li>RealSessionAPITests — реальные API вызовы</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-violet">✅</div>
+        <div>
+          <div class="card-title">TDD-подход</div>
+          <div class="card-subtitle">10 шагов · 81 тест · 100% pass</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>Step 1: Model Selector — реальные модели</li>
+          <li>Step 2: Access Level default</li>
+          <li>Step 3: Send Message → API</li>
+          <li>Step 4: Center Input (empty state)</li>
+          <li>Step 5: Workspace Selector Dropdown</li>
+          <li>Step 6: Workspace/Agent Chips</li>
+          <li>Step 7: Sidebar Sessions + Duration</li>
+          <li>Step 8: Settings Persistence</li>
+          <li>Step 9: Navigation History Back/Forward</li>
+          <li>Step 10: Sidebar Toggle</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── QUALITY ── -->
+<div class="chapter" id="quality">
+  <div class="chapter-badge badge-cyan">✓ QUALITY</div>
+  <h2>Оценка качества</h2>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-mint">✓</div>
+        <div>
+          <div class="card-title">Сильные стороны</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>Чистая архитектура с разделением слоёв</li>
+          <li>Полная типизация API через Codable</li>
+          <li>81 тест покрывает критические пути</li>
+          <li>Работающий SSE-стриминг</li>
+          <li>Гибкая система провайдеров</li>
+          <li>Кастомная тема (Dark + Sci-Fi Light)</li>
+          <li>Async/await без callback hell</li>
+          <li>Пагинация сообщений</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon icon-warning">⚠</div>
+        <div>
+          <div class="card-title">Зоны роста</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <ul>
+          <li>5 из 10 вкладок Settings — заглушки</li>
+          <li>Нет persistent storage для сообщений</li>
+          <li>Hardcoded localhost:4096</li>
+          <li>SSE-парсер упрощён (нет retry)</li>
+          <li>Нет offline-режима</li>
+          <li>Нет экспорта чатов</li>
+          <li>UI-заглушки для Skills/MCP/Plugins</li>
+          <li>Нет анимаций переходов</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ISSUES ── -->
+<div class="chapter" id="issues">
+  <div class="chapter-badge badge-brand">⚠ ISSUES</div>
+  <h2>Замечания и рекомендации</h2>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Категория</th>
+          <th>Описание</th>
+          <th>Приоритет</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td><span class="tag tag-warning">Архитектура</span></td>
+          <td>SSEClient не имеет retry-логики — при обрыве соединения поток теряется</td>
+          <td><span class="tag tag-warning">Средний</span></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td><span class="tag tag-warning">Безопасность</span></td>
+          <td>API-ключи кастомных провайдеров хранятся в UserDefaults (plaintext)</td>
+          <td><span class="tag tag-cyan">Высокий</span></td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td><span class="tag tag-warning">UX</span></td>
+          <td>5 вкладок Settings — UI-заглушки без функционала</td>
+          <td><span class="tag tag-mint">Низкий</span></td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td><span class="tag tag-violet">Перформанс</span></td>
+          <td>Нет кеширования моделей — каждый запуск загружает заново</td>
+          <td><span class="tag tag-mint">Низкий</span></td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td><span class="tag tag-cyan">Надёжность</span></td>
+          <td>syncStart() метод создаёт фейковую сессию при ошибке — может запутать пользователя</td>
+          <td><span class="tag tag-warning">Средний</span></td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td><span class="tag tag-violet">UX</span></td>
+          <td>Нет индикатора подключения к серверу в реальном времени (только при загрузке)</td>
+          <td><span class="tag tag-mint">Низкий</span></td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td><span class="tag tag-cyan">Тестируемость</span></td>
+          <td>Live-тесты依赖 от работающего сервера — нет моков для CI</td>
+          <td><span class="tag tag-warning">Средний</span></td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td><span class="tag tag-warning">Архитектура</span></td>
+          <td>MessageStore — in-memory only, сообщения теряются при перезапуске</td>
+          <td><span class="tag tag-cyan">Высокий</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── VERDICT ── -->
+<div class="chapter" id="verdict">
+  <div class="chapter-badge badge-brand">★ VERDICT</div>
+  <h2>Итоговый вердикт</h2>
+
+  <div class="card-grid">
+    <div class="card" style="border-color: rgba(51, 209, 180, 0.3); box-shadow: 0 0 40px rgba(51, 209, 180, 0.08);">
+      <div class="card-header">
+        <div class="card-icon icon-mint" style="font-size:24px;">★</div>
+        <div>
+          <div class="card-title" style="font-size:20px;">Хороший старт</div>
+          <div class="card-subtitle">Готово к использованию, требует доработки</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <p style="color:var(--text-primary);margin-bottom:16px;">
+          MiMoMacOS — это <strong>работающий macOS-клиент</strong> для AI-агента MiMo. Приложение построено с чистой архитектурой,
+          использует современные паттерны Swift (async/await, Codable, ObservableObject), и покрыто тестами.
+        </p>
+        <p style="color:var(--text-primary);margin-bottom:16px;">
+          <strong>Основные достижения:</strong> полная интеграция с MiMo Serve API, работающий SSE-стриминг,
+          кастомная тема Dark/Sci-Fi Light, 81 тест, 10 шагов TDD для функциональной паритости с ZCode.
+        </p>
+        <p style="color:var(--text-secondary);">
+          <strong>Следующие шаги:</strong> persistent storage для сообщений, retry для SSE, Keychain для API-ключей,
+          доработка 5 заглушек в Settings, добавление анимаций и offline-режима.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-value mint">B+</div>
+      <div class="stat-label">Общая оценка</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value cyan">A-</div>
+      <div class="stat-label">Архитектура</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value violet">A</div>
+      <div class="stat-label">Тестирование</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value brand">B</div>
+      <div class="stat-label">UX/UI</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value cyan">C+</div>
+      <div class="stat-label">Безопасность</div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+
+  <p style="text-align:center;color:var(--text-muted);font-size:12px;margin-top:20px;">
+    MiMoMacOS Project Review · Generated by MiMoCode · Jun 2026
+  </p>
+</div>
+
+</main>
+</div>
+
+<script>
+function setActive(el) {
+  document.querySelectorAll('.toc-link').forEach(l => l.classList.remove('active'));
+  el.classList.add('active');
+}
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const id = entry.target.id;
+      document.querySelectorAll('.toc-link').forEach(l => {
+        l.classList.toggle('active', l.getAttribute('href') === '#' + id);
+      });
+    }
+  });
+}, { threshold: 0.3 });
+
+document.querySelectorAll('.chapter, .hero').forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>

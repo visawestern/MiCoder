@@ -1,0 +1,67 @@
+import Foundation
+
+enum SendReadinessLogic {
+    /// Проверяет, требуется ли подключение к MiMo Serve для отправки.
+    /// Если выбран кастомный провайдер с API-ключом — сервер не обязателен.
+    static func connectionValidationError(
+        serverConnected: Bool,
+        selectedProviderID: String = "",
+        customProviders: [CustomProvider] = [],
+        localProviderIDs: [String] = [],
+        webProviderIDs: [String] = []
+    ) -> String? {
+        // Если сервер подключён — всё ок
+        if serverConnected { return nil }
+
+        if !selectedProviderID.isEmpty {
+            // Web provider (option id "web:<id>") — driven via the browser, no serve.
+            if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
+               webProviderIDs.contains(webID) { return nil }
+            // Local provider (Ollama/OpenCode/MiMo CLI) — own HTTP endpoint, no serve.
+            if localProviderIDs.contains(selectedProviderID) { return nil }
+            // Custom provider — its own endpoint; serve not required, unless it
+            // requires an API key that hasn't been provided.
+            if let custom = customProviders.first(where: { $0.id == selectedProviderID && $0.isEnabled }) {
+                if custom.requiresAPIKey && custom.apiKey.isEmpty {
+                    return "This provider requires an API key. Add it in Settings."
+                }
+                return nil
+            }
+        }
+
+        return "No provider is ready. Connect the local agent, add a custom provider, configure a local model, or connect a web provider."
+    }
+
+    static func sendValidationError(modelID: String, providerID: String?) -> String? {
+        let trimmedModel = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedModel.isEmpty else {
+            return "Select a model before sending."
+        }
+        guard let providerID, !providerID.isEmpty else {
+            return "Select a provider for this model."
+        }
+        return nil
+    }
+
+    static func canSendMessage(
+        text: String,
+        images: [ClipboardImage],
+        files: [FileInfo],
+        modelID: String,
+        providerID: String?,
+        serverConnected: Bool = false,
+        customProviders: [CustomProvider] = [],
+        localProviderIDs: [String] = [],
+        webProviderIDs: [String] = []
+    ) -> Bool {
+        MessageSendValidation.canSend(text: text, images: images, files: files)
+            && sendValidationError(modelID: modelID, providerID: providerID) == nil
+            && connectionValidationError(
+                serverConnected: serverConnected,
+                selectedProviderID: providerID ?? "",
+                customProviders: customProviders,
+                localProviderIDs: localProviderIDs,
+                webProviderIDs: webProviderIDs
+            ) == nil
+    }
+}

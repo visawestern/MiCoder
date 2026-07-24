@@ -1,0 +1,126 @@
+import Foundation
+
+/// A project entry in the lightweight global registry (plan Раздел 8 Блок 2 п.11).
+/// The global DB stores ONLY this registry (paths + settings), not full history —
+/// so startup is fast and history lives in per-project DBs (Раздел 7).
+struct ProjectRegistryEntry: Codable, Identifiable, Equatable {
+    /// Stable id = canonical project path (plan Блок 2 п.17).
+    let id: String
+    var name: String
+    var path: String
+    var lastOpenedAt: Date
+    var defaultProviderID: String?
+    var defaultModelID: String?
+    /// Do NOT auto-import CLI history unless the user opted in (fixes the
+    /// "sessions keep reappearing" bug — plan Блок 2 п.14).
+    var autoImportFromCLI: Bool
+    var archivedAt: Date?
+
+    var isArchived: Bool { archivedAt != nil }
+
+    init(path: String,
+         name: String? = nil,
+         lastOpenedAt: Date = Date(),
+         defaultProviderID: String? = nil,
+         defaultModelID: String? = nil,
+         autoImportFromCLI: Bool = false,
+         archivedAt: Date? = nil) {
+        self.id = IdentifierNormalization.projectID(for: path)
+        self.path = IdentifierNormalization.projectID(for: path)
+        self.name = name ?? URL(fileURLWithPath: path).lastPathComponent
+        self.lastOpenedAt = lastOpenedAt
+        self.defaultProviderID = defaultProviderID
+        self.defaultModelID = defaultModelID
+        self.autoImportFromCLI = autoImportFromCLI
+        self.archivedAt = archivedAt
+    }
+}
+
+struct ProjectRegistryDocument: Codable, Equatable {
+    var projects: [ProjectRegistryEntry]
+}
+
+/// Pure administration of the project registry (plan Раздел 8 Блок 3).
+/// The global DB layer persists this; all decisions are testable here.
+enum ProjectRegistryLogic {
+    static let registryRelativePath = ".micoder/projects.json"
+
+    static func registryURL(homeDirectory: URL) -> URL {
+        homeDirectory.appendingPathComponent(registryRelativePath)
+    }
+
+    static func load(homeDirectory: URL, fileManager: FileManager = .default) -> [ProjectRegistryEntry] {
+        let url = registryURL(homeDirectory: homeDirectory)
+        guard let data = try? Data(contentsOf: url) else { return [] }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return (try? decoder.decode(ProjectRegistryDocument.self, from: data))?.projects ?? []
+    }
+
+    static func save(_ projects: [ProjectRegistryEntry], homeDirectory: URL, fileManager: FileManager = .default) throws {
+        let url = registryURL(homeDirectory: homeDirectory)
+        try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(ProjectRegistryDocument(projects: projects)).write(to: url, options: .atomic)
+    }
+
+    /// Register a project, deduplicating by canonical path (plan Блок 3 п.32:
+    /// reopening the same folder must NOT create a duplicate — fixes UUID pileup).
+    static func upsert(_ entry: ProjectRegistryEntry, into projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
+        var result = projects
+        if let idx = result.firstIndex(where: { $0.id == entry.id }) {
+            // Preserve archive state / settings; refresh lastOpenedAt.
+            var existing = result[idx]
+            existing.name = entry.name
+            existing.lastOpenedAt = entry.lastOpenedAt
+            result[idx] = existing
+        } else {
+            result.append(entry)
+        }
+        return result
+    }
+
+    static func archive(id: String, at date: Date, in projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
+        projects.map { var p = $0; if p.id == id { p.archivedAt = date }; return p }
+    }
+
+    static func restore(id: String, in projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
+        projects.map { var p = $0; if p.id == id { p.archivedAt = nil }; return p }
+    }
+
+    static func remove(id: String, in projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
+        projects.filter { $0.id != id }
+    }
+
+    static func setAutoImportFromCLI(id: String, enabled: Bool, in projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
+        projects.map { var p = $0; if p.id == id { p.autoImportFromCLI = enabled }; return p }
+    }
+
+    /// Active (non-archived) projects for the Sidebar.
+    static func active(_ projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
+        projects.filter { !$0.isArchived }.sorted { $0.lastOpenedAt > $1.lastOpenedAt }
+    }
+
+    static func archived(_ projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
+        projects.filter { $0.isArchived }
+    }
+
+    /// "Orphaned" projects whose path no longer exists on disk (plan Блок 3 п.31).
+    static func orphaned(_ projects: [ProjectRegistryEntry], fileManager: FileManager = .default) -> [ProjectRegistryEntry] {
+        projects.filter { !fileManager.fileExists(atPath: $0.path) }
+    }
+
+    /// Projects not opened in the last N days (for bulk-archive suggestion, plan Блок 3 п.25).
+    static func inactiveLongerThan(days: Int, now: Date = Date(), in projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
+        let cutoff = now.addingTimeInterval(-Double(days) * 86400)
+        return projects.filter { !$0.isArchived && $0.lastOpenedAt < cutoff }
+    }
+
+    /// Whether CLI history should be auto-imported for this project (fixes the
+    /// reset bug: import only when explicitly enabled — plan Раздел 8 Блок 2 п.15).
+    static func shouldAutoImportFromCLI(_ entry: ProjectRegistryEntry?) -> Bool {
+        entry?.autoImportFromCLI ?? false
+    }
+}

@@ -1,0 +1,714 @@
+import SwiftUI
+import AppKit
+
+struct AttachedFilesStrip: View {
+    @Binding var attachedFiles: [FileInfo]
+    @State private var hoveredFileID: UUID?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if !attachedFiles.isEmpty {
+                HStack {
+                    Text("\(attachedFiles.count) file\(attachedFiles.count == 1 ? "" : "s")")
+                        .interfaceFont(size: 11, weight: .medium)
+                        .foregroundColor(Color.mimo.textMuted)
+                    Spacer()
+                    Button(action: { attachedFiles.removeAll() }) {
+                        Text("Clear all")
+                            .interfaceFont(size: 11)
+                            .foregroundColor(Color.mimo.brand)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(attachedFiles) { file in
+                            HStack(spacing: 6) {
+                                Image(systemName: fileIcon(for: file))
+                                    .interfaceFont(size: 12)
+                                    .foregroundColor(Color.mimo.brand)
+
+                                Text(file.name)
+                                    .interfaceFont(size: 11)
+                                    .foregroundColor(Color.mimo.textSecondary)
+                                    .lineLimit(1)
+
+                                if hoveredFileID == file.id, let path = file.path {
+                                    Button(action: { revealInFinder(path) }) {
+                                        Image(systemName: "folder")
+                                            .interfaceFont(size: 10)
+                                            .foregroundColor(Color.mimo.textMuted)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Show in Finder")
+                                }
+
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.15)) {
+                                        attachedFiles.removeAll { $0.id == file.id }
+                                    }
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .interfaceFont(size: 12)
+                                        .foregroundColor(Color.mimo.textMuted)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.mimo.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(hoveredFileID == file.id ? Color.mimo.brand : Color.clear, lineWidth: 1)
+                            )
+                            .onHover { hovering in
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    hoveredFileID = hovering ? file.id : nil
+                                }
+                            }
+                            .onTapGesture(count: 2) {
+                                if let path = file.path {
+                                    revealInFinder(path)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                Divider()
+            }
+        }
+        .background(attachedFiles.isEmpty ? Color.clear : Color.mimo.surface.opacity(0.5))
+    }
+
+    private func fileIcon(for file: FileInfo) -> String {
+        switch file.type {
+        case .swift, .python, .javascript, .typescript, .dart: return "chevron.left.forwardslash.chevron.right"
+        case .json, .yaml: return "curlybraces"
+        case .markdown: return "doc.richtext"
+        case .html, .css: return "globe"
+        case .unknown:
+            let ext = (file.name as NSString).pathExtension.lowercased()
+            if ClipboardPasteLogic.imageExtensions.contains(ext) { return "photo" }
+            if ext == "pdf" { return "doc.fill" }
+            return "doc"
+        }
+    }
+
+    private func revealInFinder(_ path: String) {
+        NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: "")
+    }
+}
+
+struct ImagePreviewStrip: View {
+    @Binding var attachedImages: [ClipboardImage]
+    @State private var hoveredImageID: UUID?
+    @State private var previewImage: ClipboardImage?
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            if !attachedImages.isEmpty {
+                HStack {
+                    Text("\(attachedImages.count) photo\(attachedImages.count == 1 ? "" : "s")")
+                        .interfaceFont(size: 11, weight: .medium)
+                        .foregroundColor(Color.mimo.textMuted)
+                    Spacer()
+                    Button(action: { attachedImages.removeAll() }) {
+                        Text("Clear all")
+                            .interfaceFont(size: 11)
+                            .foregroundColor(Color.mimo.brand)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+                
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(attachedImages) { img in
+                            if let data = Data(base64Encoded: img.base64),
+                               let nsImage = NSImage(data: data) {
+                                ZStack(alignment: .topTrailing) {
+                                    Image(nsImage: nsImage)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 80, height: 80)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(hoveredImageID == img.id ? Color.mimo.brand : Color.clear, lineWidth: 2)
+                                        )
+                                        .onHover { hovering in
+                                            withAnimation(.easeInOut(duration: 0.15)) {
+                                                hoveredImageID = hovering ? img.id : nil
+                                            }
+                                        }
+                                        .onTapGesture {
+                                            previewImage = img
+                                        }
+                                    
+                                    Button(action: {
+                                        withAnimation(.easeInOut(duration: 0.15)) {
+                                            attachedImages.removeAll { $0.id == img.id }
+                                        }
+                                    }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .interfaceFont(size: 14)
+                                            .foregroundColor(.white)
+                                            .shadow(color: .black.opacity(0.5), radius: 2)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .offset(x: 6, y: -6)
+                                    .opacity(hoveredImageID == img.id ? 1 : 0.7)
+                                }
+                                .frame(width: 80, height: 80)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                
+                Divider()
+            }
+        }
+        .background(attachedImages.isEmpty ? Color.clear : Color.mimo.surface.opacity(0.5))
+        .sheet(item: $previewImage) { img in
+            ImagePreviewSheet(image: img, attachedImages: $attachedImages, onDismiss: { previewImage = nil })
+        }
+    }
+}
+
+struct ImagePreviewSheet: View {
+    let image: ClipboardImage
+    @Binding var attachedImages: [ClipboardImage]
+    let onDismiss: () -> Void
+    
+    var body: some View {
+        if let data = Data(base64Encoded: image.base64),
+           let nsImage = NSImage(data: data) {
+            VStack(spacing: 16) {
+                HStack {
+                    Spacer()
+                    Text("Image Preview")
+                        .interfaceFont(size: 14, weight: .medium)
+                        .foregroundColor(Color.mimo.textPrimary)
+                    Spacer()
+                    Button(action: onDismiss) {
+                        Image(systemName: "xmark.circle.fill")
+                            .interfaceFont(size: 18)
+                            .foregroundColor(Color.mimo.textMuted)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 600, maxHeight: 500)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .padding(.horizontal, 16)
+                
+                HStack(spacing: 12) {
+                    Button(action: {
+                        if let idx = attachedImages.firstIndex(where: { $0.id == image.id }) {
+                            attachedImages.remove(at: idx)
+                        }
+                        onDismiss()
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "trash")
+                                .interfaceFont(size: 12)
+                            Text("Remove")
+                                .interfaceFont(size: 12)
+                        }
+                        .foregroundColor(.red)
+                .padding(.vertical, 8)
+                        .background(Color.red.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: onDismiss) {
+                        Text("Keep")
+                            .interfaceFont(size: 12, weight: .medium)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 8)
+                            .background(Color.mimo.brand)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.bottom, 16)
+            }
+            .frame(width: 640, height: 600)
+            .background(Color.mimo.background)
+        } else {
+            VStack {
+                Text("Cannot preview image")
+                    .foregroundColor(Color.mimo.textMuted)
+                Button("Close") { onDismiss() }
+                    .buttonStyle(.plain)
+                    .foregroundColor(Color.mimo.brand)
+            }
+            .frame(width: 300, height: 200)
+            .background(Color.mimo.background)
+        }
+    }
+}
+
+struct CompactChatPromptField: View {
+    @Binding var text: String
+    let placeholder: String
+    var onSubmit: () -> Void
+    var focusRequest: Int = 0
+    var maxHeightOverride: CGFloat? = nil
+
+    var body: some View {
+        CompactMessageTextField(
+            text: $text,
+            placeholder: placeholder,
+            onSubmit: onSubmit,
+            compactSingleLine: true,
+            focusRequest: focusRequest,
+            maxHeightOverride: maxHeightOverride
+        )
+    }
+}
+
+struct CenteredInputCard: View {
+    @Environment(\.interfaceFontScale) private var interfaceFontScale
+    @Binding var messageText: String
+    let onSend: () -> Void
+    let onStop: () -> Void
+    var isLoading: Bool = false
+    @ObservedObject var attachmentStore: MessageAttachmentStore
+    @Binding var showFilePicker: Bool
+    @ObservedObject var messageQueue: MessageQueue
+    @EnvironmentObject var appState: AppState
+    var requestInputFocus: Bool = false
+    var autoGrow: Bool = false
+    var maxTextHeight: CGFloat? = nil
+    @State private var showWorkspaceDropdown = false
+    @State private var showPlusMenu = false
+    @State private var showPhotoPicker = false
+    @State private var expansionProgress: CGFloat = 0
+
+    private var horizontalPadding: CGFloat {
+        InputCardLayoutLogic.contentHorizontalPadding
+    }
+
+    private var canSend: Bool {
+        SendReadinessLogic.canSendMessage(
+            text: messageText,
+            images: attachmentStore.attachedImages,
+            files: attachmentStore.attachedFiles,
+            modelID: appState.selectedModel,
+            providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
+            serverConnected: appState.serverConnected,
+            customProviders: appState.customProviders,
+            localProviderIDs: appState.localProviderIDs,
+            webProviderIDs: appState.webProviderIDs
+        )
+    }
+
+    var body: some View {
+        VStack(spacing: InputCardLayoutLogic.sectionSpacing) {
+            if !messageQueue.pendingMessages.isEmpty {
+                pendingQueueSection
+                capsuleDivider
+            }
+
+            ComposerAttachmentPreview(store: attachmentStore)
+
+            if !attachmentStore.attachedImages.isEmpty || !attachmentStore.attachedFiles.isEmpty {
+                capsuleDivider
+            }
+
+            workspaceHeader
+                .offset(y: InputCardLayoutLogic.headerExpansionOffset(progress: expansionProgress))
+                .opacity(InputCardLayoutLogic.sectionOpacity(progress: expansionProgress))
+                .frame(maxHeight: expansionProgress < 0.01 ? 0 : nil, alignment: .bottom)
+                .clipped()
+
+            capsuleDivider
+                .opacity(InputCardLayoutLogic.sectionOpacity(progress: expansionProgress))
+
+            inputCore
+
+            capsuleDivider
+                .opacity(InputCardLayoutLogic.sectionOpacity(progress: expansionProgress))
+
+            MessageInputToolbar(
+                messageText: $messageText,
+                showFilePicker: $showFilePicker,
+                showPlusMenu: $showPlusMenu,
+                showPhotoPicker: $showPhotoPicker,
+                isLoading: isLoading,
+                canSend: canSend,
+                onSend: onSend,
+                onStop: onStop
+            )
+            .offset(y: InputCardLayoutLogic.footerExpansionOffset(progress: expansionProgress))
+            .opacity(InputCardLayoutLogic.sectionOpacity(progress: expansionProgress))
+            .frame(maxHeight: expansionProgress < 0.01 ? 0 : nil, alignment: .top)
+            .clipped()
+        }
+        .padding(.horizontal, horizontalPadding)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity)
+        .background(capsuleBackground)
+        .clipShape(RoundedRectangle(cornerRadius: InputCardLayoutLogic.capsuleCornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: InputCardLayoutLogic.capsuleCornerRadius, style: .continuous)
+                .stroke(capsuleStroke, lineWidth: 1)
+        )
+        .shadow(color: Color.mimo.brand.opacity(0.14), radius: 24, x: 0, y: 12)
+        .fixedSize(horizontal: false, vertical: !autoGrow)
+        .onAppear {
+            withAnimation(InputCardLayoutLogic.expansionAnimation) {
+                expansionProgress = 1
+            }
+        }
+        .messageAttachmentImportZone(store: attachmentStore)
+        .fileImporter(isPresented: $showPhotoPicker, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
+            if case .success(let urls) = result {
+                for url in urls {
+                    if let data = try? Data(contentsOf: url),
+                       let nsImage = NSImage(data: data) {
+                        let clipImage = ClipboardImage(nsImage: nsImage)
+                        attachmentStore.importResult(ClipboardPasteResult(images: [clipImage]))
+                    }
+                }
+            }
+        }
+    }
+
+    private var workspaceHeader: some View {
+        HStack(spacing: 6) {
+            Button(action: { showWorkspaceDropdown.toggle() }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "folder.fill")
+                        .interfaceFont(size: 11)
+                    Text(appState.selectedWorkspace?.name ?? "Select workspace")
+                        .interfaceFont(size: 12, weight: .medium)
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down")
+                        .interfaceFont(size: 8)
+                }
+                .foregroundColor(Color.mimo.textSecondary)
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showWorkspaceDropdown) {
+                WorkspaceDropdown(isPresented: $showWorkspaceDropdown).environmentObject(appState)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var inputCore: some View {
+        CompactChatPromptField(
+            text: $messageText,
+            placeholder: MiMoCopy.promptPlaceholder(language: appState.appLanguage),
+            onSubmit: onSend,
+            focusRequest: appState.inputFocusRequest,
+            maxHeightOverride: maxTextHeight
+        )
+        .padding(.vertical, 6)
+    }
+
+    @ViewBuilder
+    private var pendingQueueSection: some View {
+        VStack(spacing: 4) {
+            ForEach(Array(messageQueue.pendingMessages.enumerated()), id: \.element.id) { index, queued in
+                PendingMessageCard(queued: queued, index: index) {
+                    messageQueue.cancelPending(at: index)
+                }
+            }
+        }
+        .padding(.bottom, 4)
+    }
+
+    private var capsuleDivider: some View {
+        Rectangle()
+            .fill(Color.mimo.border.opacity(0.55))
+            .frame(height: 1)
+    }
+
+    private var capsuleBackground: some View {
+        RoundedRectangle(cornerRadius: InputCardLayoutLogic.capsuleCornerRadius, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color.mimo.surface.opacity(0.96),
+                        Color.mimo.surface.opacity(0.82)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+    }
+
+    private var capsuleStroke: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color.mimo.brand.opacity(0.45),
+                Color.mimo.border.opacity(0.8),
+                Color.mimo.cyan.opacity(0.35)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+}
+
+struct BottomInputBar: View {
+    @Environment(\.interfaceFontScale) private var interfaceFontScale
+    @Binding var messageText: String
+    let onSend: () -> Void
+    let onStop: () -> Void
+    var isLoading: Bool = false
+    @ObservedObject var attachmentStore: MessageAttachmentStore
+    @Binding var showFilePicker: Bool
+    @ObservedObject var messageQueue: MessageQueue
+    @EnvironmentObject var appState: AppState
+    @State private var showPlusMenu = false
+    @State private var showPhotoPicker = false
+    
+    private var canSend: Bool {
+        SendReadinessLogic.canSendMessage(
+            text: messageText,
+            images: attachmentStore.attachedImages,
+            files: attachmentStore.attachedFiles,
+            modelID: appState.selectedModel,
+            providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
+            serverConnected: appState.serverConnected,
+            customProviders: appState.customProviders,
+            localProviderIDs: appState.localProviderIDs,
+            webProviderIDs: appState.webProviderIDs
+        )
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if !messageQueue.pendingMessages.isEmpty {
+                VStack(spacing: 4) {
+                    ForEach(Array(messageQueue.pendingMessages.enumerated()), id: \.element.id) { index, queued in
+                        PendingMessageCard(queued: queued, index: index) {
+                            messageQueue.cancelPending(at: index)
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 6)
+                Divider()
+            }
+
+            CompactMessageTextField(
+                text: $messageText,
+                placeholder: MiMoCopy.followUpPlaceholder(language: appState.appLanguage),
+                onSubmit: onSend,
+                compactSingleLine: messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                focusRequest: appState.inputFocusRequest
+            )
+            .padding(.vertical, 4)
+            .overlay(alignment: .bottomLeading) {
+                if appState.inputDropdownEnabled {
+                    InputCommandDropdownView(
+                        messageText: $messageText,
+                        contextProvider: { appState.inputDropdownContext() },
+                        onInsert: { appState.inputFocusRequest += 1 }
+                    )
+                    // Float the palette above the input field.
+                    .fixedSize(horizontal: false, vertical: true)
+                    .offset(y: -44)
+                }
+            }
+
+            Divider()
+
+            MessageInputToolbar(
+                messageText: $messageText,
+                showFilePicker: $showFilePicker,
+                showPlusMenu: $showPlusMenu,
+                showPhotoPicker: $showPhotoPicker,
+                isLoading: isLoading,
+                canSend: canSend,
+                onSend: onSend,
+                onStop: onStop
+            )
+            .padding(.vertical, InputLayout.toolbarVerticalPadding(scale: interfaceFontScale))
+        }
+        .padding(.horizontal, InputLayout.cardContentPadding)
+        .background(Color.mimo.surface)
+        .overlay(Rectangle().fill(Color.mimo.border).frame(height: 1), alignment: .top)
+        .messageAttachmentImportZone(store: attachmentStore)
+        .fileImporter(isPresented: $showPhotoPicker, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
+            if case .success(let urls) = result {
+                for url in urls {
+                    if let data = try? Data(contentsOf: url),
+                       let nsImage = NSImage(data: data) {
+                        attachmentStore.importResult(ClipboardPasteResult(images: [ClipboardImage(nsImage: nsImage)]))
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct WorkspaceDropdown: View {
+    @EnvironmentObject var appState: AppState
+    @Binding var isPresented: Bool
+    @State private var searchText = ""
+    
+    var filteredWorkspaces: [Workspace] {
+        if searchText.isEmpty { return appState.workspaces }
+        return appState.workspaces.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").interfaceFont(size: 12).foregroundColor(Color.mimo.textMuted)
+                TextField("Search workspaces", text: $searchText).textFieldStyle(.plain).interfaceFont(size: 13)
+            }.padding(8)
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(filteredWorkspaces) { workspace in
+                        Button(action: { appState.selectedWorkspace = workspace; isPresented = false }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "folder").interfaceFont(size: 12).foregroundColor(Color.mimo.textMuted)
+                                Text(workspace.name).interfaceFont(size: 13).foregroundColor(Color.mimo.textPrimary)
+                                Spacer()
+                                if appState.selectedWorkspace?.id == workspace.id {
+                                    Image(systemName: "checkmark").interfaceFont(size: 12).foregroundColor(Color.mimo.brand)
+                                }
+                            }.padding(.horizontal, 8).padding(.vertical, 6).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
+                    }
+                    Divider().padding(.vertical, 4)
+                    Button(action: { openFolder() }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "folder.badge.plus").interfaceFont(size: 12).foregroundColor(Color.mimo.textMuted)
+                            Text("Open folder").interfaceFont(size: 13).foregroundColor(Color.mimo.textPrimary)
+                        }.padding(.horizontal, 8).padding(.vertical, 6).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                    Button(action: { isPresented = false; appState.showRemoteConnection = true }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "cloud").interfaceFont(size: 12).foregroundColor(Color.mimo.textMuted)
+                            Text("Remote connection").interfaceFont(size: 13).foregroundColor(Color.mimo.textPrimary)
+                        }.padding(.horizontal, 8).padding(.vertical, 6).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                }
+            }
+        }.frame(width: 280, height: 320)
+        .background(Color.mimo.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+    }
+    
+    private func openFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            appState.addWorkspace(path: url.path)
+            isPresented = false
+        }
+    }
+}
+
+// MARK: - Pending Message Card
+
+struct PendingMessageCard: View {
+    let queued: QueuedMessage
+    let index: Int
+    let onCancel: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            // Agent mode icon
+            Image(systemName: queued.type.icon)
+                .interfaceFont(size: 10)
+                .foregroundColor(Color.mimo.brand)
+                .frame(width: 14)
+            
+            // Text preview
+            Text(queued.text)
+                .interfaceFont(size: 12)
+                .foregroundColor(Color.mimo.textSecondary)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            
+            // Attachments preview (images + files)
+            if !queued.images.isEmpty || !queued.files.isEmpty {
+                HStack(spacing: 2) {
+                    // Image thumbnails (max 3)
+                    ForEach(queued.images.prefix(3), id: \.base64) { img in
+                        if let data = Data(base64Encoded: img.base64),
+                           let nsImage = NSImage(data: data) {
+                            Image(nsImage: nsImage)
+                                .resizable()
+                                .frame(width: 18, height: 18)
+                                .cornerRadius(3)
+                        }
+                    }
+                    // File icons (max 2)
+                    ForEach(queued.files.prefix(2)) { file in
+                        HStack(spacing: 2) {
+                            Image(systemName: "doc.text")
+                                .interfaceFont(size: 9)
+                            Text(file.name)
+                                .interfaceFont(size: 9)
+                                .lineLimit(1)
+                        }
+                        .foregroundColor(Color.mimo.textMuted)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(Color.mimo.textMuted.opacity(0.1))
+                        .cornerRadius(3)
+                    }
+                    
+                    // Overflow count
+                    let imageCount = min(queued.images.count, 3)
+                    let fileCount = min(queued.files.count, 2)
+                    let shown = imageCount + fileCount
+                    let total = queued.images.count + queued.files.count
+                    if total > shown {
+                        Text("+\(total - shown)")
+                            .interfaceFont(size: 9, weight: .medium)
+                            .foregroundColor(Color.mimo.textMuted)
+                    }
+                }
+            }
+            
+            // Queue position
+            Text("#\(index + 1)")
+                .interfaceFont(size: 10, weight: .medium)
+                .foregroundColor(Color.mimo.textMuted)
+            
+            // Cancel button
+            Button(action: onCancel) {
+                Image(systemName: "xmark.circle.fill")
+                    .interfaceFont(size: 12)
+                    .foregroundColor(Color.mimo.textMuted)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color.mimo.brand.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+}
