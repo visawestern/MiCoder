@@ -254,16 +254,16 @@ struct TerminalView: View {
             var elapsed = 0.0
 
             while elapsed < safeSeconds, !Task.isCancelled {
-                await appendLine("⏳ Sleeping... \(String(format: "%.1f", safeSeconds - elapsed))s remaining", type: .system)
+                appendLine("⏳ Sleeping... \(String(format: "%.1f", safeSeconds - elapsed))s remaining", type: .system)
                 try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
                 elapsed += interval
             }
 
             if !Task.isCancelled {
-                await appendLine("✅ Resumed after \(String(format: "%.1f", safeSeconds))s", type: .system)
+                appendLine("✅ Resumed after \(String(format: "%.1f", safeSeconds))s", type: .system)
             }
 
-            await finishExecution()
+            finishExecution()
         }
     }
 
@@ -336,7 +336,7 @@ struct TerminalView: View {
                 if shellProcess.isRunning {
                     shellProcess.terminate()
                     shellProcess.waitUntilExit()  // Ensure process fully exits before reading status
-                    await appendLine("⚠️ Command timed out after \(Int(timeoutSeconds))s and was killed", type: .error)
+                    appendLine("⚠️ Command timed out after \(Int(timeoutSeconds))s and was killed", type: .error)
                 }
 
                 // Clean up handlers
@@ -345,14 +345,14 @@ struct TerminalView: View {
 
                 let exitCode = shellProcess.terminationStatus
                 if exitCode != 0, exitCode != 15 /* SIGTERM */ {
-                    await appendLine("exit code: \(exitCode)", type: .error)
+                    appendLine("exit code: \(exitCode)", type: .error)
                 }
 
             } catch {
-                await appendLine("Error: \(error.localizedDescription)", type: .error)
+                appendLine("Error: \(error.localizedDescription)", type: .error)
             }
 
-            await finishExecution()
+            finishExecution()
         }
     }
 
@@ -550,7 +550,7 @@ struct GitPanelView: View {
         appState.isGitBusy = true
         Task {
             do {
-                let result = try GitRepository.run(["checkout", "-b", branchName], in: repoPath)
+                _ = try GitRepository.run(["checkout", "-b", branchName], in: repoPath)
                 await MainActor.run {
                     appState.isGitBusy = false
                     appState.gitBranch = branchName

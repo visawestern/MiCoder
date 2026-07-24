@@ -60,7 +60,7 @@ struct MiCoderApp: App {
             CommandMenu("Actions") {
                 Button("Undo Last File Change") {
                     if let sessionID = appState.selectedSession?.id {
-                        try? UndoRedoManager.shared.undo(sessionId: sessionID)
+                        _ = try? UndoRedoManager.shared.undo(sessionId: sessionID)
                     }
                 }
                 .keyboardShortcut("z", modifiers: [.command, .option])
@@ -258,7 +258,7 @@ class AppState: ObservableObject {
 
         // One-time rebrand data migration ~/.mimocode -> ~/.micoder (Раздел 13 п.11).
         // Runs at most once, never overwrites newer data.
-        try? LegacyDataMigrator.migrate(
+        _ = try? LegacyDataMigrator.migrate(
             homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
             defaults: defaults
         )
@@ -267,7 +267,7 @@ class AppState: ObservableObject {
         Task {
             await initializeDatabase()
             // Attempt server connection (non-blocking)
-            await serverConnectionManager?.attemptConnection()
+            serverConnectionManager?.attemptConnection()
         }
     }
 

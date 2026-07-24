@@ -1781,7 +1781,7 @@ struct StorageSettingsView: View {
             .alert("Delete old chats?", isPresented: $showDeleteConfirmation) {
                 Button("Cancel", role: .cancel) {}
                     Button("Delete", role: .destructive) {
-                        appState.deleteSessionsOlderThan(days: Int(deleteDays))
+                        _ = appState.deleteSessionsOlderThan(days: Int(deleteDays))
                         refreshStats()
                     }
             } message: {
@@ -2558,7 +2558,7 @@ struct ModelParameterSpoiler: View {
                     ParameterRow(label: "Plan", value: meta.capabilities?.plan == true ? "Yes" : "No")
                     
                     if let cost = meta.cost {
-                        ParameterRow(label: "Cost", value: "\(cost.input)/\(cost.output) per 1K tokens")
+                        ParameterRow(label: "Cost", value: "\(cost.input ?? 0)/\(cost.output ?? 0) per 1K tokens")
                     }
                     
                     if let variants = meta.variants, !variants.isEmpty {

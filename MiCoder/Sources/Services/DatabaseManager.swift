@@ -783,7 +783,7 @@ class DatabaseManager {
     }
     
     private func runMigration(_ version: Int) throws {
-        guard let db = db else { return }
+        guard db != nil else { return }
         switch version {
         case 1:
             // Initial schema — all tables created in createTables()

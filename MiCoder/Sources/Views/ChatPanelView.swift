@@ -730,7 +730,7 @@ struct ChatPanelView: View {
 
         Task {
             canLoadOlderMessages = false
-            await messageStore.loadHistory(sessionID: sessionID, client: appState.mimoClient)
+            _ = await messageStore.loadHistory(sessionID: sessionID, client: appState.mimoClient)
             await MainActor.run {
                 canLoadOlderMessages = messageStore.hasMoreMessages
             }

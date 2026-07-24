@@ -1,5 +1,33 @@
 import Foundation
 
+/// Thread-safe accumulator for a subprocess's streamed output. `readabilityHandler`
+/// callbacks arrive on a background queue, so the buffer and the "one-time code
+/// already reported" flag are guarded by a lock (Swift 6 Sendable-safe).
+final class OutputAccumulator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var buffer = ""
+    private var codeReported = false
+
+    /// Appends a chunk and returns the one-time code exactly once, the first
+    /// time it appears in the accumulated output.
+    func append(_ chunk: String) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        buffer += chunk
+        guard !codeReported, let code = GitPublishFlowLogic.oneTimeCode(from: buffer) else {
+            return nil
+        }
+        codeReported = true
+        return code
+    }
+
+    var text: String {
+        lock.lock()
+        defer { lock.unlock() }
+        return buffer
+    }
+}
+
 enum GitHubCLIError: LocalizedError {
     case brewNotFound
     case commandFailed(String)
@@ -51,14 +79,14 @@ enum GitHubCLIService {
         let stdinPipe = Pipe()
         process.standardInput = stdinPipe
 
-        var collected = ""
-        var codeReported = false
+        // The readabilityHandler fires on a background thread, so its mutable
+        // state must live behind a thread-safe reference (not captured `var`s,
+        // which are a data race under the Swift 6 language mode).
+        let accumulator = OutputAccumulator()
         outputPipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             guard !data.isEmpty, let chunk = String(data: data, encoding: .utf8) else { return }
-            collected += chunk
-            if !codeReported, let code = GitPublishFlowLogic.oneTimeCode(from: collected) {
-                codeReported = true
+            if let code = accumulator.append(chunk) {
                 Task { @MainActor in onCode(code) }
             }
         }
@@ -73,7 +101,7 @@ enum GitHubCLIService {
         outputPipe.fileHandleForReading.readabilityHandler = nil
 
         guard process.terminationStatus == 0 else {
-            throw GitHubCLIError.commandFailed(collected.trimmingCharacters(in: .whitespacesAndNewlines))
+            throw GitHubCLIError.commandFailed(accumulator.text.trimmingCharacters(in: .whitespacesAndNewlines))
         }
     }
 

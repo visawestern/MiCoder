@@ -1,4 +1,5 @@
 import Testing
+import Foundation
 @testable import MiCoder
 
 @Suite("Git refresh logic")
@@ -11,24 +12,39 @@ struct GitRefreshLogicTests {
         #expect(SessionContextLoader.shouldFetchRemoteGit(localChangeCount: 0, localGitFailed: true) == true)
     }
 
+    /// Thread-safe call counter — the two closures run concurrently, so a plain
+    /// captured `var` would be a data race under the Swift 6 language mode.
+    final class Counter: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = 0
+        func increment() -> Int {
+            lock.lock(); defer { lock.unlock() }
+            value += 1
+            return value
+        }
+        var count: Int {
+            lock.lock(); defer { lock.unlock() }
+            return value
+        }
+    }
+
     @Test("Coalescer reuses in-flight refresh")
     func coalescerReusesInFlight() async {
         let coalescer = GitRefreshCoalescer()
-        var callCount = 0
+        let counter = Counter()
 
         async let first: Int = coalescer.run(key: "main") {
-            callCount += 1
+            let n = counter.increment()
             try? await Task.sleep(nanoseconds: 50_000_000)
-            return callCount
+            return n
         }
         async let second: Int = coalescer.run(key: "main") {
-            callCount += 1
-            return callCount
+            return counter.increment()
         }
 
         let results = await [first, second]
         #expect(results[0] == results[1])
-        #expect(callCount == 1)
+        #expect(counter.count == 1)
     }
 
     @Test("Resolves session id for git refresh")
