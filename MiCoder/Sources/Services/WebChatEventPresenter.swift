@@ -53,3 +53,38 @@ enum WebChatEventPresenter {
         }
     }
 }
+
+/// How a presented web-chat event should mutate the assistant message bubble
+/// (Round 8 P2 — statuses used to go to a transient `streamingText` that was
+/// wiped by `finishWebTurn()`, so "Session expired"/"captcha"/"iteration limit"
+/// were silently lost and the user saw an empty bubble).
+enum WebChatTurnMutation: Equatable {
+    /// Replace the whole bubble content (final answer / fatal error).
+    case replaceText(String, isFinished: Bool, isStreaming: Bool)
+    /// Append a status line to the current content; keep waiting (captcha,
+    /// logout, iteration limit, tool progress).
+    case appendStatus(String)
+    /// No visible change.
+    case none
+
+    /// Mapping from a presented event to the assistant-bubble mutation, so
+    /// every non-suppressed event is visible in the chat (Round 8 P2).
+    static func mutation(for presentation: WebChatEventPresenter.Presentation) -> WebChatTurnMutation {
+        switch presentation {
+        case .answer(let text):
+            // Round 8 R2: a blank model answer must be reported, not rendered
+            // as an empty finished bubble.
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let content = trimmed.isEmpty ? "The model returned an empty response." : text
+            return .replaceText(content, isFinished: true, isStreaming: false)
+        case .error(let msg):
+            return .replaceText("Web provider error: \(msg)", isFinished: true, isStreaming: false)
+        case .captcha(let b64, let note):
+            return .appendStatus("\(note)\n\n![captcha](data:image/png;base64,\(b64))")
+        case .status(let line):
+            return .appendStatus(line)
+        case .none:
+            return .none
+        }
+    }
+}

@@ -366,6 +366,8 @@ struct MessageInputToolbar: View {
     let canSend: Bool
     let onSend: () -> Void
     let onStop: () -> Void
+    /// Round 8 P1: why sending is currently blocked (shown on the send button).
+    var disabledReason: String? = nil
     
     var body: some View {
         HStack(spacing: 10) {
@@ -407,7 +409,8 @@ struct MessageInputToolbar: View {
                 isLoading: isLoading,
                 canSend: canSend,
                 onSend: onSend,
-                onStop: onStop
+                onStop: onStop,
+                disabledReason: disabledReason
             )
         }
     }
@@ -424,7 +427,10 @@ struct SendStopButton: View {
     let canSend: Bool
     let onSend: () -> Void
     let onStop: () -> Void
-    
+    /// Round 8 P1: human-readable reason the send is blocked (shown as a
+    /// tooltip and via the icon color) instead of a silent no-op button.
+    var disabledReason: String? = nil
+
     var body: some View {
         if isLoading {
             Button(action: onStop) {
@@ -438,10 +444,14 @@ struct SendStopButton: View {
             Button(action: onSend) {
                 Image(systemName: "arrow.up.circle.fill")
                     .interfaceFont(size: 24)
-                    .foregroundColor(canSend ? Color.mimo.brand : Color.mimo.textMuted)
+                    .foregroundColor(
+                        canSend ? Color.mimo.brand
+                        : (disabledReason != nil ? Color.mimo.error : Color.mimo.textMuted)
+                    )
             }
             .buttonStyle(.plain)
             .disabled(!canSend)
+            .help(disabledReason ?? "Send message")
         }
     }
 }

@@ -485,6 +485,23 @@ struct ChatPanelView: View {
             webProviderIDs: appState.webProviderIDs
         )
 
+        // Round 8 P3: a `.none` route must never fall through into the serve
+        // branch. Surface the reason and stop instead of a silent no-op.
+        if let routeError = SendRouteGuard.errorMessage(for: route, serverConnected: appState.serverConnected) {
+            await MainActor.run {
+                appState.isLoading = false
+                appState.isStreaming = false
+                sseClient.disconnect()
+                messageStore.update(id: assistantID) { msg in
+                    msg.content = routeError
+                    msg.isFinished = true
+                    msg.isStreaming = false
+                }
+                currentAssistantMessageID = nil
+            }
+            return
+        }
+
         do {
             // ── Local / custom OpenAI-compatible branch ──────────
             if case .openAICompatible(let baseURL, let apiKey, let model) = route {
@@ -499,6 +516,14 @@ struct ChatPanelView: View {
                 let msgs = ChatHistoryBuilder.messages(
                     systemPrompt: params.systemPrompt, priorTurns: prior, userText: text
                 )
+                // Round 8 P4: show a visible waiting state (the old flow left an
+                // empty streaming bubble with no indication for up to 120 s).
+                let providerName = appState.customProviders.first(where: { $0.id == appState.selectedProviderID })?.name
+                await MainActor.run {
+                    self.messageStore.update(id: assistantID) { msg in
+                        msg.content = SendStatusText.waitingForResponse(modelID: model, providerName: providerName)
+                    }
+                }
                 let answer = try await DirectChatClient.send(
                     baseURL: baseURL, apiKey: apiKey, model: model,
                     messages: msgs, parameters: params
@@ -518,8 +543,23 @@ struct ChatPanelView: View {
             }
 
             // ── Web-chat provider branch (browser tool-emulation) ─
-            if case .web(let configID) = route,
-               let cfg = WebProviderStore.load().first(where: { $0.id == configID }) {
+            if case .web(let configID) = route {
+                guard let cfg = WebProviderStore.load().first(where: { $0.id == configID }) else {
+                    // Round 8 R2: the web config was deleted after selection —
+                    // surface it instead of falling through into the serve branch.
+                    let missing = SendRouteGuard.webConfigMissingMessage(configID: configID)
+                    await MainActor.run {
+                        self.appState.isLoading = false
+                        self.appState.isStreaming = false
+                        self.messageStore.update(id: assistantID) { msg in
+                            msg.content = missing ?? "The web provider is no longer configured."
+                            msg.isFinished = true
+                            msg.isStreaming = false
+                        }
+                        self.currentAssistantMessageID = nil
+                    }
+                    return
+                }
                 await runWebChatTurn(config: cfg, text: text, assistantID: assistantID)
                 return
             }
@@ -790,11 +830,35 @@ struct ChatPanelView: View {
         )
         let bridge = WKWebViewBrowserBridge(webView: webView, selectors: selectors)
         // Restore cookies captured at login so the session is authenticated.
+        // Round 8 P2: cookie/navigation failures must be VISIBLE, not swallowed.
         if let store = WebSessionManager.restore(providerId: config.id,
                                                  homeDirectory: FileManager.default.homeDirectoryForCurrentUser) {
-            try? await bridge.setCookies(store.cookies)
+            do {
+                try await bridge.setCookies(store.cookies)
+            } catch {
+                appendWebStatus(to: assistantID, line: "Failed to restore the saved session: \(error.localizedDescription)")
+            }
         }
-        try? await bridge.navigate(to: config.chatURL)
+        do {
+            try await bridge.navigate(to: config.chatURL)
+        } catch {
+            messageStore.update(id: assistantID) { m in
+                m.content = "Could not open \(config.chatURL): \(error.localizedDescription). Check that the site is reachable and you are logged in."
+                m.isFinished = true
+                m.isStreaming = false
+            }
+            finishWebTurn()
+            return
+        }
+
+        // Round 8 P4: give immediate visible feedback while the page loads and
+        // the first turn is sent (the old flow left an empty bubble).
+        messageStore.update(id: assistantID) { m in
+            if m.content.isEmpty {
+                let model = config.selectedModel.isEmpty ? config.displayName : config.selectedModel
+                m.content = SendStatusText.thinkingPlaceholder(modelID: model)
+            }
+        }
 
         // Discover the vendor's real models from the model dropdown (audit P13 —
         // WebModelListParser was never called, so discoveredModels stayed empty
@@ -819,28 +883,25 @@ struct ChatPanelView: View {
         appState.markWebSessionStarted(config.id)
         await driver.runTurn(userMessage: text, isFirstMessage: isFirst) { event in
             Task { @MainActor in
-                switch WebChatEventPresenter.present(event) {
-                case .answer(let t):
+                // Round 8 P2: every non-suppressed event now mutates the
+                // assistant bubble, so statuses ("Session expired", captcha,
+                // iteration limit) are never lost to a transient buffer.
+                let presentation = WebChatEventPresenter.present(event)
+                switch WebChatTurnMutation.mutation(for: presentation) {
+                case .replaceText(let t, let finished, let streaming):
                     self.messageStore.update(id: assistantID) { m in
-                        m.content = t; m.isFinished = true; m.isStreaming = false
+                        m.content = t; m.isFinished = finished; m.isStreaming = streaming
                     }
                     self.finishWebTurn()
-                case .status(let s):
-                    self.streamingText = s
-                    // A logout/session-restart means the next turn must re-seed.
-                    if WebChatEventPresenter.blocksUntilUserAction(event) || s.contains("fresh session") {
-                        self.appState.resetWebSession(config.id)
-                    }
-                case .captcha(let b64, let note):
+                case .appendStatus(let line):
                     self.messageStore.update(id: assistantID) { m in
-                        m.content = "\(note)\n\n![captcha](data:image/png;base64,\(b64))"
+                        m.content = m.content.isEmpty ? line : "\(m.content)\n\(line)"
                         m.isStreaming = false
                     }
-                case .error(let e):
-                    self.messageStore.update(id: assistantID) { m in
-                        m.content = "Web provider error: \(e)"; m.isFinished = true; m.isStreaming = false
+                    // A logout/session-restart means the next turn must re-seed.
+                    if WebChatEventPresenter.blocksUntilUserAction(event) || line.contains("fresh session") {
+                        self.appState.resetWebSession(config.id)
                     }
-                    self.finishWebTurn()
                 case .none:
                     break
                 }
@@ -852,6 +913,15 @@ struct ChatPanelView: View {
             m.content = "Web providers require WebKit (macOS)."; m.isFinished = true; m.isStreaming = false
         }
         #endif
+    }
+
+    /// Appends a status line to the assistant bubble without ending the turn.
+    @MainActor
+    private func appendWebStatus(to assistantID: String, line: String) {
+        messageStore.update(id: assistantID) { m in
+            m.content = m.content.isEmpty ? line : "\(m.content)\n\(line)"
+            m.isStreaming = false
+        }
     }
 
     private func roleString(_ role: MessageRole) -> String {

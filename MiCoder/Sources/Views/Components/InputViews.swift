@@ -319,6 +319,22 @@ struct CenteredInputCard: View {
         )
     }
 
+    /// Round 8 P1: human-readable reason sending is blocked, so the user sees
+    /// WHY (instead of a silently disabled button).
+    private var sendReason: String? {
+        SendReadinessReason.reason(
+            text: messageText,
+            images: attachmentStore.attachedImages,
+            files: attachmentStore.attachedFiles,
+            modelID: appState.selectedModel,
+            providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
+            serverConnected: appState.serverConnected,
+            customProviders: appState.customProviders,
+            localProviderIDs: appState.localProviderIDs,
+            webProviderIDs: appState.webProviderIDs
+        )
+    }
+
     var body: some View {
         VStack(spacing: InputCardLayoutLogic.sectionSpacing) {
             if !messageQueue.pendingMessages.isEmpty {
@@ -346,6 +362,21 @@ struct CenteredInputCard: View {
             capsuleDivider
                 .opacity(InputCardLayoutLogic.sectionOpacity(progress: expansionProgress))
 
+            if let reason = sendReason, !isLoading {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .interfaceFont(size: 10)
+                        .foregroundColor(Color.mimo.error)
+                    Text(reason)
+                        .interfaceFont(size: 11)
+                        .foregroundColor(Color.mimo.error)
+                        .lineLimit(2)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 2)
+                .padding(.bottom, 2)
+            }
+
             MessageInputToolbar(
                 messageText: $messageText,
                 showFilePicker: $showFilePicker,
@@ -354,7 +385,8 @@ struct CenteredInputCard: View {
                 isLoading: isLoading,
                 canSend: canSend,
                 onSend: onSend,
-                onStop: onStop
+                onStop: onStop,
+                disabledReason: sendReason
             )
             .offset(y: InputCardLayoutLogic.footerExpansionOffset(progress: expansionProgress))
             .opacity(InputCardLayoutLogic.sectionOpacity(progress: expansionProgress))
@@ -497,6 +529,21 @@ struct BottomInputBar: View {
         )
     }
 
+    /// Round 8 P1: why sending is blocked, surfaced to the user.
+    private var sendReason: String? {
+        SendReadinessReason.reason(
+            text: messageText,
+            images: attachmentStore.attachedImages,
+            files: attachmentStore.attachedFiles,
+            modelID: appState.selectedModel,
+            providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
+            serverConnected: appState.serverConnected,
+            customProviders: appState.customProviders,
+            localProviderIDs: appState.localProviderIDs,
+            webProviderIDs: appState.webProviderIDs
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if !messageQueue.pendingMessages.isEmpty {
@@ -533,6 +580,22 @@ struct BottomInputBar: View {
                 }
             }
 
+            if let reason = sendReason, !isLoading {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .interfaceFont(size: 10)
+                        .foregroundColor(Color.mimo.error)
+                    Text(reason)
+                        .interfaceFont(size: 11)
+                        .foregroundColor(Color.mimo.error)
+                        .lineLimit(2)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
             Divider()
 
             MessageInputToolbar(
@@ -543,7 +606,8 @@ struct BottomInputBar: View {
                 isLoading: isLoading,
                 canSend: canSend,
                 onSend: onSend,
-                onStop: onStop
+                onStop: onStop,
+                disabledReason: sendReason
             )
             .padding(.vertical, InputLayout.toolbarVerticalPadding(scale: interfaceFontScale))
         }

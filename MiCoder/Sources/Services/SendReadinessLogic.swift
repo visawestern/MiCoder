@@ -65,3 +65,35 @@ enum SendReadinessLogic {
             ) == nil
     }
 }
+
+/// Human-readable reason a send is blocked, for showing the user WHY the send
+/// button is disabled (Round 8 P1 — the old UI disabled the button silently).
+enum SendReadinessReason {
+    /// Returns the FIRST blocking condition as an actionable message, or nil
+    /// when the send is ready. The UI surfaces this instead of a silent no-op.
+    static func reason(
+        text: String,
+        images: [ClipboardImage],
+        files: [FileInfo],
+        modelID: String,
+        providerID: String?,
+        serverConnected: Bool,
+        customProviders: [CustomProvider],
+        localProviderIDs: [String],
+        webProviderIDs: [String]
+    ) -> String? {
+        if !MessageSendValidation.canSend(text: text, images: images, files: files) {
+            return "Type a message or attach a file to send."
+        }
+        if let error = SendReadinessLogic.sendValidationError(modelID: modelID, providerID: providerID) {
+            return error
+        }
+        return SendReadinessLogic.connectionValidationError(
+            serverConnected: serverConnected,
+            selectedProviderID: providerID ?? "",
+            customProviders: customProviders,
+            localProviderIDs: localProviderIDs,
+            webProviderIDs: webProviderIDs
+        )
+    }
+}

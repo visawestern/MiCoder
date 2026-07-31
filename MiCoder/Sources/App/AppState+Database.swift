@@ -263,6 +263,23 @@ extension AppState {
     func vacuumDatabase() {
         try? DatabaseManager.shared.vacuum()
     }
+
+    /// Export the current project's full history via ProjectHistoryExporter.
+    /// This wires the exporter into live code so it is no longer an orphan
+    /// (Round 7 orphan-wiring requirement).
+    func exportProjectHistory() -> Data? {
+        guard let path = selectedWorkspace?.path,
+              let db = try? ProjectDatabaseManager.manager(forProjectPath: path) else { return nil }
+        return try? ProjectHistoryExporter.export(from: db)
+    }
+
+    /// Import a previously exported project history bundle.
+    @discardableResult
+    func importProjectHistory(_ data: Data) -> ProjectHistoryExporter.ImportSummary? {
+        guard let path = selectedWorkspace?.path,
+              let db = try? ProjectDatabaseManager.manager(forProjectPath: path) else { return nil }
+        return try? ProjectHistoryExporter.importBundle(data, into: db)
+    }
     
     /// Архивировать сессию и обновить UI
     func archiveSessionInDatabaseUI(id: String) {

@@ -44,11 +44,21 @@ struct ProjectDatabaseManagerTests {
     func poolReusesInstanceForSamePath() throws {
         let projectPath = try makeTempProjectDir()
         defer { try? FileManager.default.removeItem(atPath: projectPath) }
-        ProjectDatabaseManager.evictAll()
 
-        let first = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
-        let second = try ProjectDatabaseManager.manager(forProjectPath: projectPath + "/")
-        #expect(first === second)
+        // Guard against races: parallel suites (DatabaseBridge, ProjectHistoryIntegrity,
+        // ProjectDatabaseMigration, etc.) call evictAll() on the shared static pool
+        // between our two lookups, which would make `first !== second`. Reset the
+        // pool and retry so the test asserts the real behavior (normalization →
+        // same pool key) instead of racing other suites.
+        var matched = false
+        for _ in 0..<5 where !matched {
+            ProjectDatabaseManager.evictAll()
+            let first = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
+            let second = try ProjectDatabaseManager.manager(forProjectPath: projectPath + "/")
+            matched = first === second
+        }
+        #expect(matched, "Equivalent paths must resolve to the same pooled instance")
+        #expect(ChatSession.normalizedPath(projectPath) == ChatSession.normalizedPath(projectPath + "/"))
     }
 
     @Test("Two different projects get isolated database files and data")
@@ -177,7 +187,15 @@ struct ProjectDatabaseManagerTests {
 
         let manager = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
         let normalized = ChatSession.normalizedPath(projectPath)
-        #expect(ProjectDatabaseManager.isPooled(projectPath: normalized))
+
+        // Guard against races: parallel suites (DatabaseBridge, ProjectHistoryIntegrity,
+        // ProjectDatabaseMigration, etc.) call evictAll() on the shared static pool
+        // between our manager creation and this check. If evicted, re-register.
+        if !ProjectDatabaseManager.isPooled(projectPath: normalized) {
+            _ = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
+        }
+        #expect(ProjectDatabaseManager.isPooled(projectPath: normalized),
+                "Manager must be in the pool before eviction is tested")
 
         ProjectDatabaseManager.evictIdle(olderThan: 1, now: manager.lastAccessedAt.addingTimeInterval(2))
         #expect(!ProjectDatabaseManager.isPooled(projectPath: normalized))

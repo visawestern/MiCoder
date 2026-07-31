@@ -65,3 +65,25 @@ enum SendRouteResolver {
         return false
     }
 }
+
+/// Explicit handling for routes that must NOT fall through into the serve
+/// branch (Round 8 P3 — `.none` used to silently call createSession).
+enum SendRouteGuard {
+    /// Returns a user-facing error for a `.none` route (the view shows it and
+    /// stops instead of falling through into the serve branch). All other
+    /// routes are handled by their own branch, so they yield nil.
+    static func errorMessage(for route: SendRoute, serverConnected: Bool) -> String? {
+        guard case .none = route else { return nil }
+        if serverConnected {
+            return "No provider is ready. Choose a provider or model before sending."
+        }
+        return "No provider is ready. Connect a local agent, add a custom provider, configure a local model, or connect a web provider."
+    }
+
+    /// Message shown when a web route's stored config no longer exists
+    /// (deleted after selection) — Round 8 R2: the old flow fell through into
+    /// the serve branch and produced a confusing error.
+    static func webConfigMissingMessage(configID: String) -> String? {
+        "The web provider \"\(configID)\" is no longer configured. Reconnect it in Settings before sending."
+    }
+}

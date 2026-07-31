@@ -60,7 +60,12 @@ struct MiCoderApp: App {
             CommandMenu("Actions") {
                 Button("Undo Last File Change") {
                     if let sessionID = appState.selectedSession?.id {
-                        _ = try? UndoRedoManager.shared.undo(sessionId: sessionID)
+                        // Try per-project undo first (Round 7), fall back to legacy global undo
+                        if let projectUndo = appState.projectUndoManager {
+                            _ = try? projectUndo.undoMostRecent(sessionId: sessionID)
+                        } else {
+                            _ = try? UndoRedoManager.shared.undo(sessionId: sessionID)
+                        }
                     }
                 }
                 .keyboardShortcut("z", modifiers: [.command, .option])
@@ -218,6 +223,13 @@ class AppState: ObservableObject {
     // Database integration
     private var dbBridge: DatabaseBridge {
         DatabaseBridge.shared
+    }
+
+    /// Per-project undo manager, created lazily when a workspace is active.
+    /// Replaces the legacy global `UndoRedoManager` (Round 7).
+    var projectUndoManager: ProjectUndoManager? {
+        guard let path = selectedWorkspace?.path else { return nil }
+        return try? ProjectUndoManager(projectPath: path)
     }
     
     // MiMo Serve connection manager (now optional)

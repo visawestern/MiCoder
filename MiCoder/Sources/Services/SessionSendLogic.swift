@@ -117,3 +117,29 @@ struct SessionSendSelections: Equatable {
     let modelID: String?
     let variant: String?
 }
+
+/// Visible "waiting/thinking" text shown in the assistant bubble while a
+/// provider is answering (Round 8 P4 — the OpenAI-compatible path used to
+/// show an empty streaming bubble with no indication for up to 120 s).
+enum SendStatusText {
+    /// Status line while the provider is processing the request.
+    static func waitingForResponse(modelID: String, providerName: String?) -> String {
+        let name = providerName.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+        let model = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let name {
+            if model.isEmpty {
+                return "Waiting for \(name) to respond…"
+            }
+            return "Waiting for \(name) (\(model)) to respond…"
+        }
+        if model.isEmpty {
+            return "Waiting for the provider to respond…"
+        }
+        return "Waiting for \(model) to respond…"
+    }
+
+    /// Placeholder for an empty streaming bubble before any text arrives.
+    static func thinkingPlaceholder(modelID: String) -> String {
+        "Thinking… (\(modelID))"
+    }
+}
