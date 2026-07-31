@@ -125,16 +125,27 @@ class AppState: ObservableObject {
             guard !isNavigatingHistory else { return }
             
             if navigationHistory.isEmpty || navigationHistory.last?.id != workspace.id {
+                // Safely drop the "forward" part of the history (crash-guard).
                 if navigationIndex >= 0 && navigationIndex < navigationHistory.count - 1 {
                     navigationHistory.removeSubrange((navigationIndex + 1)..<navigationHistory.count)
                 }
                 navigationHistory.append(workspace)
+                // Always land on the last element — the index is always valid.
                 navigationIndex = navigationHistory.count - 1
             }
         }
     }
     @Published var navigationHistory: [Workspace] = []
     @Published var navigationIndex: Int = -1
+
+    /// Reset navigation to a safe state (used when the workspace is cleared,
+    /// e.g. during a storage reset) so the UI can't observe an out-of-bounds
+    /// index into navigationHistory. Internal so extensions (AppState+Database)
+    /// can call it.
+    func clearNavigationHistory() {
+        navigationHistory = []
+        navigationIndex = -1
+    }
     @Published var settings = AppSettings.load() {
         didSet {
             settings.save()
@@ -591,7 +602,7 @@ class AppState: ObservableObject {
         selectedWorkspace = ws
         isNavigatingHistory = false
     }
-    
+
     func navigateForward() {
         guard navigationIndex < navigationHistory.count - 1 else { return }
         navigationIndex += 1
@@ -600,13 +611,13 @@ class AppState: ObservableObject {
         selectedWorkspace = ws
         isNavigatingHistory = false
     }
-    
+
     var canNavigateBack: Bool {
-        navigationIndex > 0
+        navigationIndex > 0 && navigationIndex < navigationHistory.count
     }
-    
+
     var canNavigateForward: Bool {
-        navigationIndex < navigationHistory.count - 1
+        navigationIndex < navigationHistory.count - 1 && navigationIndex >= 0 && navigationHistory.count > 0
     }
     
     func addCustomProvider(_ provider: CustomProvider) {

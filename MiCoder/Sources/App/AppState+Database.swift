@@ -215,6 +215,17 @@ extension AppState {
         return count
     }
     
+    /// Clears in-memory selection/navigation/sessions/projects (no DB I/O).
+    /// Round 10 — the crash fix is verifiable without touching the real
+    /// database, so tests never race on ~/.micoder/mimo.db.
+    func clearInMemoryState() {
+        selectedSession = nil
+        selectedWorkspace = nil
+        sessions = []
+        projects = []
+        clearNavigationHistory()
+    }
+
     /// Reset storage by explicit scope (plan Раздел 8 Блок 1 п.10 / Блок 2 п.19).
     /// Honest, predictable behavior: deletes exactly the planned paths, clears
     /// selection/navigation, and (for clearNoAutoImport) disables CLI auto-import.
@@ -230,11 +241,7 @@ extension AppState {
         // Reinitialize the app database (recreates the cleared mimo.db).
         try? DatabaseManager.shared.reset()
 
-        // Clear in-memory selection/navigation so nothing silently reappears.
-        selectedSession = nil
-        selectedWorkspace = nil
-        sessions = []
-        projects = []
+        clearInMemoryState()
 
         // Disable CLI auto-import globally for the no-auto-import scenario.
         if plan.disablesAutoImport {

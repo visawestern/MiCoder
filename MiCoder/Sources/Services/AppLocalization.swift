@@ -138,6 +138,57 @@ enum AppLocalizationKey {
     case noStepsYet
     case completedSteps
     case waitingSteps
+
+    // Round 10 — rebrand + settings/storage + common UI strings that were
+    // hardcoded English instead of localized.
+    case appDisplayName
+    case statusBarIdle
+    case statusBarGenerating
+    case statusBarProcessing
+    case newProjectTitle
+    case newProjectName
+    case newProjectFolder
+    case newProjectChooseFolder
+    case newProjectCreate
+    case newProjectCancel
+    case notificationsTitle
+    case notificationsEmpty
+    case notificationsEmptySubtitle
+    case workspacesTitle
+    case noTasksYet
+    case justNow
+
+    // Settings → Storage (Round 10 — full reset block was bare English).
+    case storageTabTitle
+    case storageStatsTitle
+    case storageDatabaseSize
+    case storageSnapshotSize
+    case storageMessageCount
+    case storageActiveSessions
+    case storageArchivedSessions
+    case cleanupTitle
+    case deleteChatsOlderThan
+    case deleteChats7Days
+    case deleteChats30Days
+    case deleteChats90Days
+    case deleteChats180Days
+    case deleteChats1Year
+    case deleteChatsConfirmTitle
+    case deleteChatsConfirmMessage
+    case deleteButton
+    case cancelButton
+    case deleteAllArchivedChats
+    case compressDatabase
+    case resetStorageTitle
+    case resetAppCache
+    case resetAppCacheNoCLI
+    case resetFull
+    case resetAppCacheConfirmTitle
+    case resetAppCacheNoCLIConfirmTitle
+    case resetFullConfirmTitle
+    case resetButton
+    case resetConfirmFullButton
+    case archiveNow
 }
 
 enum AppLocalization {
@@ -301,6 +352,53 @@ enum AppLocalization {
         case .noStepsYet: return ("No steps yet", "Нет шагов")
         case .completedSteps: return ("%d completed", "%d завершено")
         case .waitingSteps: return ("%d waiting", "%d ожидает")
+        // Round 10: rebrand + settings-storage block + common shell strings.
+        case .appDisplayName: return ("MiCoder", "MiCoder")
+        case .statusBarIdle: return ("Idle", "Ожидание")
+        case .statusBarGenerating: return ("Generating...", "Генерация...")
+        case .statusBarProcessing: return ("Processing...", "Обработка...")
+        case .newProjectTitle: return ("New Project", "Новый проект")
+        case .newProjectName: return ("Project Name", "Имя проекта")
+        case .newProjectFolder: return ("Folder", "Папка")
+        case .newProjectChooseFolder: return ("Choose Folder", "Выбрать папку")
+        case .newProjectCreate: return ("Create Project", "Создать проект")
+        case .newProjectCancel: return ("Cancel", "Отмена")
+        case .notificationsTitle: return ("Notifications", "Уведомления")
+        case .notificationsEmpty: return ("No notifications", "Нет уведомлений")
+        case .notificationsEmptySubtitle: return ("Task completions and system alerts will appear here.", "Здесь будет история уведомлений и системных событий.")
+        case .workspacesTitle: return ("Workspaces", "Проекты")
+        case .noTasksYet: return ("No tasks yet", "Пока нет задач")
+        case .justNow: return ("now", "только что")
+        case .storageTabTitle: return ("Storage", "Хранилище")
+        case .storageStatsTitle: return ("Storage", "Хранилище")
+        case .storageDatabaseSize: return ("Database", "База данных")
+        case .storageSnapshotSize: return ("Snapshots", "Снимки")
+        case .storageMessageCount: return ("Messages", "Сообщений")
+        case .storageActiveSessions: return ("Active sessions", "Активные сессии")
+        case .storageArchivedSessions: return ("Archived sessions", "Архивные сессии")
+        case .cleanupTitle: return ("Cleanup", "Очистка")
+        case .deleteChatsOlderThan: return ("Delete chats older than:", "Удалить чаты старше:")
+        case .deleteChats7Days: return ("7 days", "7 дней")
+        case .deleteChats30Days: return ("30 days", "30 дней")
+        case .deleteChats90Days: return ("90 days", "90 дней")
+        case .deleteChats180Days: return ("180 days", "180 дней")
+        case .deleteChats1Year: return ("1 year", "1 год")
+        case .deleteChatsConfirmTitle: return ("Delete old chats?", "Удалить старые чаты?")
+        case .deleteChatsConfirmMessage: return ("This will permanently delete all chats older than %d days, including their messages. This action cannot be undone.", "Это навсегда удалит все чаты старше %d дней со всеми сообщениями. Действие нельзя отменить.")
+        case .deleteButton: return ("Delete", "Удалить")
+        case .cancelButton: return ("Cancel", "Отмена")
+        case .deleteAllArchivedChats: return ("Delete all archived chats", "Удалить все архивные чаты")
+        case .compressDatabase: return ("Compress database (VACUUM)", "Сжать базу (VACUUM)")
+        case .resetStorageTitle: return ("Reset storage", "Сброс хранилища")
+        case .resetAppCache: return ("Clear app cache (keep CLI history)", "Очистить кеш приложения (CLI-история сохранится)")
+        case .resetAppCacheNoCLI: return ("Clear cache & stop auto-import from CLI", "Очистить кеш и отключить авто-импорт из CLI")
+        case .resetFull: return ("Full reset (including CLI history)", "Полный сброс (включая историю CLI)")
+        case .resetAppCacheConfirmTitle: return ("Clear app cache?", "Очистить кеш приложения?")
+        case .resetAppCacheNoCLIConfirmTitle: return ("Clear cache & disable CLI import?", "Очистить кеш и отключить импорт из CLI?")
+        case .resetFullConfirmTitle: return ("Full reset (including CLI history)?", "Полный сброс (включая историю CLI)?")
+        case .resetButton: return ("Reset", "Сбросить")
+        case .resetConfirmFullButton: return ("Confirm full reset", "Подтвердить полный сброс")
+        case .archiveNow: return ("Archive now", "Архивировать сейчас")
         }
     }
 

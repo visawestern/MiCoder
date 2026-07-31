@@ -38,17 +38,17 @@ struct StatusBarView: View {
                 if isStreaming {
                     ProgressView()
                         .scaleEffect(0.6)
-                    Text("Generating...")
+                    Text(AppLocalization.string(.statusBarGenerating, language: appState.appLanguage))
                         .interfaceFont(size: 11)
                         .foregroundColor(Color.mimo.brand)
                 } else if isLoading {
                     ProgressView()
                         .scaleEffect(0.6)
-                    Text("Processing...")
+                    Text(AppLocalization.string(.statusBarProcessing, language: appState.appLanguage))
                         .interfaceFont(size: 11)
                         .foregroundColor(Color.mimo.textMuted)
                 } else {
-                    Text("Idle")
+                    Text(AppLocalization.string(.statusBarIdle, language: appState.appLanguage))
                         .interfaceFont(size: 11)
                         .foregroundColor(Color.mimo.textMuted)
                 }

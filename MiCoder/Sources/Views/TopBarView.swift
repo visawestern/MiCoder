@@ -28,7 +28,7 @@ struct TopBarView: View {
                 .background(Color.mimo.surfaceHover)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
             } else {
-                Text("MiMoCode")
+                Text(AppLocalization.string(.appDisplayName, language: appState.appLanguage))
                     .interfaceFont(size: 13, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                     .tracking(0.5)

@@ -1758,23 +1758,25 @@ struct StorageSettingsView: View {
                     
                     // Three explicit reset scenarios (plan Раздел 8 Блок 1 п.10)
                     // replace the single ambiguous "Reset database" with honest choices.
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Reset storage")
-                            .interfaceFont(size: 12, weight: .semibold)
-                            .foregroundColor(Color.mimo.textPrimary)
-                        Button("Clear app cache (keep CLI history)") {
-                            pendingResetScope = .appCacheOnly; showResetConfirmation = true
-                        }
-                        .buttonStyle(.plain).foregroundColor(Color.mimo.error).interfaceFont(size: 12)
-                        Button("Clear cache & stop auto-import from CLI") {
-                            pendingResetScope = .clearNoAutoImport; showResetConfirmation = true
-                        }
-                        .buttonStyle(.plain).foregroundColor(Color.mimo.error).interfaceFont(size: 12)
-                        Button("Full reset (including CLI history)") {
-                            pendingResetScope = .fullIncludingCLI; showResetConfirmation = true
-                        }
-                        .buttonStyle(.plain).foregroundColor(Color.mimo.error).interfaceFont(size: 12)
+            VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(AppLocalization.string(.resetStorageTitle, language: appState.appLanguage))
+                        .interfaceFont(size: 12, weight: .semibold)
+                        .foregroundColor(Color.mimo.textPrimary)
+                    Button(AppLocalization.string(.resetAppCache, language: appState.appLanguage)) {
+                        pendingResetScope = .appCacheOnly; showResetConfirmation = true
                     }
+                    .buttonStyle(.plain).foregroundColor(Color.mimo.error).interfaceFont(size: 12)
+                    Button(AppLocalization.string(.resetAppCacheNoCLI, language: appState.appLanguage)) {
+                        pendingResetScope = .clearNoAutoImport; showResetConfirmation = true
+                    }
+                    .buttonStyle(.plain).foregroundColor(Color.mimo.error).interfaceFont(size: 12)
+                    Button(AppLocalization.string(.resetFull, language: appState.appLanguage)) {
+                        pendingResetScope = .fullIncludingCLI; showResetConfirmation = true
+                    }
+                    .buttonStyle(.plain).foregroundColor(Color.mimo.error).interfaceFont(size: 12)
+                }
+            }
                 }
                 .padding(4)
             }
