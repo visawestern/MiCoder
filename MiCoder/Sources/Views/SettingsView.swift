@@ -1604,7 +1604,11 @@ struct IndexingSettingsView: View {
 struct StorageSettingsView: View {
     @EnvironmentObject var appState: AppState
     @State private var stats = StorageStats(databaseSize: 0, snapshotSize: 0, messageCount: 0, sessionCountsByProject: [])
-    @State private var showDeleteConfirmation = false
+    // Round 12: two distinct confirmations — one for "delete older than N days"
+    // and one for "delete all archived chats". They used to share the same
+    // alert, which crashed / ran the wrong action (P2).
+    @State private var showDeleteOlderConfirmation = false
+    @State private var showDeleteArchivedConfirmation = false
     @State private var showResetConfirmation = false
     @State private var pendingResetScope: StorageResetScope = .appCacheOnly
     @State private var archiveDays: Double = 7
@@ -1729,7 +1733,7 @@ struct StorageSettingsView: View {
                         .frame(width: 120)
                         
                         Button("Delete", role: .destructive) {
-                            showDeleteConfirmation = true
+                            showDeleteOlderConfirmation = true
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
@@ -1738,7 +1742,7 @@ struct StorageSettingsView: View {
                     Divider()
                     
                     Button("Delete all archived chats") {
-                        showDeleteConfirmation = true
+                        showDeleteArchivedConfirmation = true
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(Color.mimo.error)
@@ -1780,14 +1784,23 @@ struct StorageSettingsView: View {
                 }
                 .padding(4)
             }
-            .alert("Delete old chats?", isPresented: $showDeleteConfirmation) {
+            .alert("Delete old chats?", isPresented: $showDeleteOlderConfirmation) {
                 Button("Cancel", role: .cancel) {}
-                    Button("Delete", role: .destructive) {
-                        _ = appState.deleteSessionsOlderThan(days: Int(deleteDays))
-                        refreshStats()
-                    }
+                Button("Delete", role: .destructive) {
+                    _ = appState.deleteSessionsOlderThan(days: Int(deleteDays))
+                    refreshStats()
+                }
             } message: {
                 Text("This will permanently delete all chats older than \(Int(deleteDays)) days, including their messages. This action cannot be undone.")
+            }
+            .alert("Delete archived chats?", isPresented: $showDeleteArchivedConfirmation) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) {
+                    _ = appState.deleteArchivedSessions()
+                    refreshStats()
+                }
+            } message: {
+                Text("This will permanently delete ALL archived chats and their messages. This action cannot be undone.")
             }
             .alert(resetAlertTitle, isPresented: $showResetConfirmation) {
                 Button("Cancel", role: .cancel) {}
