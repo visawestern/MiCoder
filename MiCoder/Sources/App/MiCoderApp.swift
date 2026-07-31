@@ -125,12 +125,18 @@ class AppState: ObservableObject {
             guard !isNavigatingHistory else { return }
             
             if navigationHistory.isEmpty || navigationHistory.last?.id != workspace.id {
-                // Safely drop the "forward" part of the history (crash-guard).
-                if navigationIndex >= 0 && navigationIndex < navigationHistory.count - 1 {
-                    navigationHistory.removeSubrange((navigationIndex + 1)..<navigationHistory.count)
+                // Atomically recompute the safe truncation point to avoid an
+                // out-of-range removeSubrange when navigationIndex was mutated
+                // by a concurrent didSet (Round 10 crash fix).
+                if navigationIndex >= 0 && navigationIndex < navigationHistory.count {
+                    let cutoff = navigationIndex + 1
+                    if cutoff < navigationHistory.count {
+                        navigationHistory.removeSubrange(cutoff..<navigationHistory.count)
+                    } else {
+                        navigationHistory = [navigationHistory[navigationIndex]]
+                    }
                 }
                 navigationHistory.append(workspace)
-                // Always land on the last element — the index is always valid.
                 navigationIndex = navigationHistory.count - 1
             }
         }
