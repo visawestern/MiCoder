@@ -862,10 +862,14 @@ struct ChatPanelView: View {
 
         // Discover the vendor's real models from the model dropdown (audit P13 —
         // WebModelListParser was never called, so discoveredModels stayed empty
-        // and the UI showed vendor defaults). Best-effort; keeps defaults if the
-        // dropdown isn't found.
-        let modelDropdownSelector = "button[class*='model'], div[class*='model-select'], button[data-testid*='model-switcher'], div[class*='model-selector']"
-        if let dropdownText = try? await bridge.readText(selector: modelDropdownSelector), !dropdownText.isEmpty {
+        // and the UI showed vendor defaults). Round 9 B: the selector comes from
+        // the catalog (per-vendor), not a single hardcoded literal, so a site
+        // redesign is fixed by data. Best-effort; keeps defaults if the dropdown
+        // isn't found.
+        let dropdownSelector: String? = (try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id))?.modelDropdown
+        if let dropdownSelector,
+           let dropdownText = try? await bridge.readText(selector: dropdownSelector),
+           !dropdownText.isEmpty {
             let updated = WebModelListParser.updated(config, withDropdownText: dropdownText)
             if !updated.discoveredModels.isEmpty {
                 let merged = WebProviderStore.upsert(updated, in: WebProviderStore.load())
