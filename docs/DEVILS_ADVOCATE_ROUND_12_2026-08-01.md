@@ -96,14 +96,42 @@
 - **Тесты:** 5 новых в `WebProviderTests.swift` (informal bracket, `=`-args,
   алиасы, isFinalResponse, строгий фенс без регрессий).
 
+#### D6. "Заброшенные" проекты (план Раздел 8 п.31) — логика была, UI нет
+- **Проблема:** `ProjectRegistryLogic.orphaned()` существовал и был покрыт
+  тестом, но панель Storage его НЕ использовала: проекты, чей путь на диске
+  удалён/перемещён, отображались как обычные, без "Найти новый путь".
+  Функции перепривязки (`relink`) не было вообще.
+- **Фикс (TDD, red→green):**
+  - `ProjectRegistryLogic.relink(entry, toNewPath:)` / `relink(id:toNewPath:in:)`
+    — перепривязка к новому пути с сохранением настроек
+    (autoImportFromCLI, архив, провайдер/модель), id пересчитывается из
+    нормализованного пути, имя — из имени папки.
+  - UI: секция "Orphaned (path missing)" в Storage → Projects с кнопкой
+    "Find new path…" (NSOpenPanel → relink) и корзиной (тот же
+    confirm-by-name защищённый delete).
+- **Тесты:** 3 новых в `ProjectRegistryLogicTests` (relink сохраняет
+  настройки, архив, нормализует trailing slash).
+
+#### D7. Гонка на реальном NSPasteboard в параллельных тестах
+- **Симптом:** редкий краш `Index out of range` (SIGILL) — 1 из 5 полных
+  прогонов, рядом с pasteboard-тестами.
+- **Диагноз:** приложение уже сериализует доступ к буферу через
+  `PasteboardIsolation.withExclusiveAccess` (process-wide NSRecursiveLock),
+  но ТРИ тест-сьюта писали в `NSPasteboard.general` НАПРЯМУЮ
+  (`seedPNGPasteboard`/`seedPNG`/`seedSyntheticScreencapturePasteboard`),
+  в обход лока → гонка с consume()-тестами других сьютов.
+- **Фикс:** все seed-функции обёрнуты в `PasteboardIsolation.withExclusiveAccess`.
+- **Проверка:** 4× полный прогон — 1606 тестов, ни одного краша.
+
 ---
 
 ## 2. Результаты
 
-- Тесты: **1603 passed, 220 suites** — 3× стабильно.
+- Тесты: **1606 passed, 220 suites** — 4× стабильно.
 - Добавлено: 2 файла логики (`ProjectDeleteConfirmation.swift`, тесты),
-  3 UI-подтверждения, NSLock-атомарность навигации, инъекция defaults,
-  толерантный парсер tool-вызовов.
+  relink + orphaned UI в Storage, 3 UI-подтверждения, NSLock-атомарность
+  навигации, инъекция defaults, толерантный парсер tool-вызовов,
+  сериализация pasteboard-сидов через PasteboardIsolation.
 - Никаких заглушек: каждый фикс покрыт red→green тестами, удалён даже
   небезопасный `substring(with:)`.
 

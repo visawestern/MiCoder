@@ -150,22 +150,26 @@ struct PasteRoutingIntegrationTests {
     }
 
     private func seedPNGPasteboard() throws {
-        let image = NSImage(size: NSSize(width: 5, height: 5))
-        image.lockFocus()
-        NSColor.red.drawSwatch(in: NSRect(x: 0, y: 0, width: 5, height: 5))
-        image.unlockFocus()
-        guard let tiff = image.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff),
-              let png = rep.representation(using: .png, properties: [:]) else {
-            throw SeedError.failed
-        }
+        // Round 12: seed through the shared process-wide lock so parallel
+        // clipboard suites can't race on the real NSPasteboard.general.
+        try PasteboardIsolation.withExclusiveAccess {
+            let image = NSImage(size: NSSize(width: 5, height: 5))
+            image.lockFocus()
+            NSColor.red.drawSwatch(in: NSRect(x: 0, y: 0, width: 5, height: 5))
+            image.unlockFocus()
+            guard let tiff = image.tiffRepresentation,
+                  let rep = NSBitmapImageRep(data: tiff),
+                  let png = rep.representation(using: .png, properties: [:]) else {
+                throw SeedError.failed
+            }
 
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        let item = NSPasteboardItem()
-        item.setData(png, forType: .png)
-        item.setData(png, forType: Self.applePNGType)
-        pb.writeObjects([item])
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            let item = NSPasteboardItem()
+            item.setData(png, forType: .png)
+            item.setData(png, forType: Self.applePNGType)
+            pb.writeObjects([item])
+        }
     }
 
     private enum SeedError: Error {

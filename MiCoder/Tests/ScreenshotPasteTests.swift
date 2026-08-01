@@ -264,18 +264,22 @@ struct ChatPasteRoutingTests {
     }
 
     private func seedPNG() throws {
-        let image = NSImage(size: NSSize(width: 4, height: 4))
-        image.lockFocus()
-        NSColor.blue.drawSwatch(in: NSRect(x: 0, y: 0, width: 4, height: 4))
-        image.unlockFocus()
-        guard let tiff = image.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff),
-              let png = rep.representation(using: .png, properties: [:]) else {
-            throw SeedError.failed
+        // Round 12: seed through the shared process-wide lock (parallel suites
+        // must not race on the real NSPasteboard.general).
+        try PasteboardIsolation.withExclusiveAccess {
+            let image = NSImage(size: NSSize(width: 4, height: 4))
+            image.lockFocus()
+            NSColor.blue.drawSwatch(in: NSRect(x: 0, y: 0, width: 4, height: 4))
+            image.unlockFocus()
+            guard let tiff = image.tiffRepresentation,
+                  let rep = NSBitmapImageRep(data: tiff),
+                  let png = rep.representation(using: .png, properties: [:]) else {
+                throw SeedError.failed
+            }
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setData(png, forType: .png)
         }
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        pb.setData(png, forType: .png)
     }
 
     private enum SeedError: Error {

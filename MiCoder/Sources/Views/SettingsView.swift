@@ -1881,7 +1881,8 @@ struct StorageSettingsView: View {
                 .foregroundColor(Color.mimo.textPrimary)
             let active = ProjectRegistryLogic.active(projectEntries)
             let archived = ProjectRegistryLogic.archived(projectEntries)
-            if active.isEmpty && archived.isEmpty {
+            let orphans = ProjectRegistryLogic.orphaned(projectEntries)
+            if active.isEmpty && archived.isEmpty && orphans.isEmpty {
                 Text("No projects registered yet.")
                     .interfaceFont(size: 12).foregroundColor(Color.mimo.textMuted)
             }
@@ -1895,7 +1896,54 @@ struct StorageSettingsView: View {
                     projectRow(entry, archived: true)
                 }
             }
+            if !orphans.isEmpty {
+                // Plan Раздел 8 п.31: registry entries whose path no longer exists
+                // are shown explicitly, with "Find new path" (relink) or "Delete record".
+                Text("Orphaned (path missing)")
+                    .interfaceFont(size: 11, weight: .semibold).foregroundColor(Color.mimo.warning)
+                ForEach(orphans) { entry in
+                    orphanRow(entry)
+                }
+            }
         }
+    }
+
+    private func orphanRow(_ entry: ProjectRegistryEntry) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "questionmark.folder")
+                .interfaceFont(size: 11).foregroundColor(Color.mimo.warning)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(entry.name).interfaceFont(size: 12, weight: .medium).foregroundColor(Color.mimo.textPrimary)
+                Text(entry.path).interfaceFont(size: 10).foregroundColor(Color.mimo.warning).lineLimit(1)
+            }
+            Spacer()
+            Button("Find new path…") { relinkProject(entry) }
+                .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+            Button(action: {
+                deleteConfirmName = ""
+                pendingDeleteEntry = entry
+            }) {
+                Image(systemName: "trash").interfaceFont(size: 11).foregroundColor(Color.mimo.error)
+            }
+            .buttonStyle(.plain)
+            .help("Delete record (requires typing its name)")
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(Color.mimo.surface)
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.warning.opacity(0.5), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func relinkProject(_ entry: ProjectRegistryEntry) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.message = "Find the project folder at its new location"
+        panel.prompt = "Relink"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        mutateProjects { ProjectRegistryLogic.relink(id: entry.id, toNewPath: url.path, in: $0) }
     }
 
     private func projectRow(_ entry: ProjectRegistryEntry, archived: Bool) -> some View {

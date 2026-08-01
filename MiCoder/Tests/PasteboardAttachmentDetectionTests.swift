@@ -60,23 +60,27 @@ struct PasteboardAttachmentDetectionTests {
     }
 
     private func seedSyntheticScreencapturePasteboard() throws {
-        let png = try makePNGData()
-        let image = NSImage(size: NSSize(width: 8, height: 8))
-        image.lockFocus()
-        NSColor.orange.drawSwatch(in: NSRect(x: 0, y: 0, width: 8, height: 8))
-        image.unlockFocus()
-        guard let tiff = image.tiffRepresentation else {
-            throw TestError.seedFailed
-        }
+        // Round 12: seed through the shared process-wide lock (parallel suites
+        // must not race on the real NSPasteboard.general).
+        try PasteboardIsolation.withExclusiveAccess {
+            let png = try makePNGData()
+            let image = NSImage(size: NSSize(width: 8, height: 8))
+            image.lockFocus()
+            NSColor.orange.drawSwatch(in: NSRect(x: 0, y: 0, width: 8, height: 8))
+            image.unlockFocus()
+            guard let tiff = image.tiffRepresentation else {
+                throw TestError.seedFailed
+            }
 
-        let pb = NSPasteboard.general
-        pb.clearContents()
-        let item = NSPasteboardItem()
-        item.setData(png, forType: .png)
-        item.setData(png, forType: Self.applePNGType)
-        item.setData(tiff, forType: .tiff)
-        item.setData(tiff, forType: Self.nextTIFFType)
-        pb.writeObjects([item])
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            let item = NSPasteboardItem()
+            item.setData(png, forType: .png)
+            item.setData(png, forType: Self.applePNGType)
+            item.setData(tiff, forType: .tiff)
+            item.setData(tiff, forType: Self.nextTIFFType)
+            pb.writeObjects([item])
+        }
     }
 
     private func makePNGData() throws -> Data {

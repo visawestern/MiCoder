@@ -112,6 +112,27 @@ enum ProjectRegistryLogic {
         projects.filter { !fileManager.fileExists(atPath: $0.path) }
     }
 
+    /// Re-link an orphaned project to its new location (plan Блок 3 п.31:
+    /// "Найти новый путь"). The id is re-derived from the normalized absolute
+    /// path; settings (auto-import, archive status) are preserved; the name is
+    /// refreshed from the folder name.
+    static func relink(_ entry: ProjectRegistryEntry, toNewPath newPath: String) -> ProjectRegistryEntry {
+        ProjectRegistryEntry(
+            path: newPath,
+            name: nil, // init derives the folder name from the new path
+            lastOpenedAt: entry.lastOpenedAt,
+            defaultProviderID: entry.defaultProviderID,
+            defaultModelID: entry.defaultModelID,
+            autoImportFromCLI: entry.autoImportFromCLI,
+            archivedAt: entry.archivedAt
+        )
+    }
+
+    /// Relink by id inside a whole registry (returns the updated list).
+    static func relink(id: String, toNewPath newPath: String, in projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
+        projects.map { $0.id == id ? relink($0, toNewPath: newPath) : $0 }
+    }
+
     /// Projects not opened in the last N days (for bulk-archive suggestion, plan Блок 3 п.25).
     static func inactiveLongerThan(days: Int, now: Date = Date(), in projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
         let cutoff = now.addingTimeInterval(-Double(days) * 86400)

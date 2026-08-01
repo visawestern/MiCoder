@@ -73,6 +73,33 @@ struct ProjectRegistryLogicTests {
         #expect(orphans.first?.path == "/definitely/missing/path")
     }
 
+    @Test func relinkRebindsOrphanToExistingPath() {
+        // Plan Раздел 8 п.31: an orphaned project (folder moved/renamed) can be
+        // re-linked to its new location — the record must keep its settings.
+        var entry = ProjectRegistryEntry(path: "/old/path")
+        entry.autoImportFromCLI = true
+        let relinked = ProjectRegistryLogic.relink(entry, toNewPath: "/new/path")
+        #expect(relinked.path == "/new/path")
+        #expect(relinked.id == IdentifierNormalization.projectID(for: "/new/path"))
+        #expect(relinked.autoImportFromCLI == true)  // settings preserved
+        #expect(relinked.name == "path")             // name refreshed from folder
+    }
+
+    @Test func relinkPreservesArchiveStatus() {
+        var entry = ProjectRegistryEntry(path: "/old/path")
+        entry.archivedAt = Date()
+        let relinked = ProjectRegistryLogic.relink(entry, toNewPath: "/new/loc")
+        #expect(relinked.isArchived)
+        #expect(relinked.path == "/new/loc")
+    }
+
+    @Test func relinkNormalizesTrailingSlash() {
+        let entry = ProjectRegistryEntry(path: "/old/path")
+        let relinked = ProjectRegistryLogic.relink(entry, toNewPath: "/new/path/")
+        #expect(relinked.path == "/new/path")
+        #expect(relinked.id == IdentifierNormalization.projectID(for: "/new/path"))
+    }
+
     @Test func inactiveLongerThanFilters() {
         let old = ProjectRegistryEntry(path: "/p/old", lastOpenedAt: Date().addingTimeInterval(-40 * 86400))
         let fresh = ProjectRegistryEntry(path: "/p/fresh", lastOpenedAt: Date())
