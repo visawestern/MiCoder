@@ -238,9 +238,18 @@ extension AppState {
     /// Reset storage by explicit scope (plan Раздел 8 Блок 1 п.10 / Блок 2 п.19).
     /// Honest, predictable behavior: deletes exactly the planned paths, clears
     /// selection/navigation, and (for clearNoAutoImport) disables CLI auto-import.
-    func resetStorage(scope: StorageResetScope) {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let cliRoot = home.appendingPathComponent(".local/share")
+    ///
+    /// Round 14 (test-safety): `homeDirectory`/`cliStorageRoot` are injectable
+    /// so tests sandbox the reset to a temp dir instead of the REAL user home
+    /// (the old StorageResetCrashTests deleted the real ~/.micoder/mimo.db).
+    /// `resetDatabase` is a closure so tests can substitute a no-op and never
+    /// touch `DatabaseManager.shared`.
+    func resetStorage(scope: StorageResetScope,
+                      homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+                      cliStorageRoot: URL? = nil,
+                      resetDatabase: () -> Void = { try? DatabaseManager.shared.reset() }) {
+        let home = homeDirectory
+        let cliRoot = cliStorageRoot ?? home.appendingPathComponent(".local/share")
         let plan = StorageResetLogic.plan(for: scope, homeDirectory: home, cliStorageRoot: cliRoot)
 
         // Audit the reset (plan Раздел 8 п.46) BEFORE the deletion so the log
@@ -254,7 +263,7 @@ extension AppState {
             try? FileManager.default.removeItem(atPath: path)
         }
         // Reinitialize the app database (recreates the cleared mimo.db).
-        try? DatabaseManager.shared.reset()
+        resetDatabase()
 
         clearInMemoryState()
 

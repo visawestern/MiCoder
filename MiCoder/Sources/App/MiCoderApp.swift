@@ -1233,8 +1233,11 @@ class AppState: ObservableObject {
             return existing
         }
         
+        // Round 14 (п.17/п.18): a project's id is its canonical path — never a
+        // fresh UUID, so the DB row, registry entry, sessions and navigation
+        // all agree on ONE identity (the old code minted a second UUID here).
         let workspace = Workspace(
-            id: UUID().uuidString,
+            id: ProjectIdentityLogic.projectID(for: normalized),
             name: (normalized as NSString).lastPathComponent,
             path: normalized,
             branch: branch,
@@ -1242,19 +1245,35 @@ class AppState: ObservableObject {
         )
         workspaces.append(workspace)
         selectedWorkspace = workspace
+
+        // Round 14 (п.11/п.32): registering here fixes the orphaned registry —
+        // without it the storage panel stayed empty in real use.
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let entries = ProjectRegistryLogic.load(homeDirectory: home)
+        let updated = ProjectRegistryLogic.registerProject(path: normalized, name: workspace.name, into: entries)
+        if updated != entries {
+            try? ProjectRegistryLogic.save(updated, homeDirectory: home)
+            try? StorageAuditLog.append(action: "registry.add",
+                                        detail: normalized,
+                                        homeDirectory: home)
+        }
         return workspace
     }
     
     /// Создать новый проект: добавляет workspace и сохраняет в БД
     @MainActor
     func createNewProject(name: String, path: String) {
-        let projectId = UUID().uuidString
         let normalizedPath = ChatSession.normalizedPath(path)
+        // Round 14 (п.18): the id must be the canonical path (same as
+        // addWorkspace), NOT a random UUID — the two callers used to emit two
+        // different ids for the same folder.
+        let projectId = ProjectIdentityLogic.projectID(for: normalizedPath)
         
         // Сохраняем в БД
         createOrUpdateProject(id: projectId, name: name, path: normalizedPath)
         
-        // Добавляем workspace если его ещё нет
+        // Добавляем workspace если его ещё нет (addWorkspace also registers
+        // the project in the registry — Round 14 п.11).
         addWorkspace(path: normalizedPath)
     }
 }

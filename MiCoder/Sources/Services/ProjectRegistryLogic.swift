@@ -40,6 +40,21 @@ struct ProjectRegistryDocument: Codable, Equatable {
     var projects: [ProjectRegistryEntry]
 }
 
+/// Round 14 (devil's-advocate re-audit): ONE id per project — the canonical
+/// absolute path (plan Раздел 8 п.17). `createNewProject` and `addWorkspace`
+/// used to mint TWO different UUIDs for the same folder (п.5/п.18). Both must
+/// derive the id from the normalized path so the registry, DB rows, sessions
+/// and navigation all agree on a single identity.
+enum ProjectIdentityLogic {
+    /// The single, stable id of a project = canonicalized absolute path.
+    /// Symlink-resolving normalization collapses "/tmp/p" and "/private/tmp/p"
+    /// (macOS /tmp → /private/tmp), then trailing-slash is stripped, so
+    /// "…/proj", "…/proj/" and "…/private/tmp/proj" map to ONE id.
+    static func projectID(for path: String) -> String {
+        IdentifierNormalization.projectID(for: ChatSession.normalizedPath(path))
+    }
+}
+
 /// Pure administration of the project registry (plan Раздел 8 Блок 3).
 /// The global DB layer persists this; all decisions are testable here.
 enum ProjectRegistryLogic {
@@ -80,6 +95,14 @@ enum ProjectRegistryLogic {
             result.append(entry)
         }
         return result
+    }
+
+    /// Register a project when it is created or opened (Round 14: the registry
+    /// was orphaned — `upsert` had no production caller, so the storage panel
+    /// stayed empty in real use; plan Раздел 8 п.11/п.32). Idempotent by
+    /// canonical path: registering the same folder twice keeps ONE entry.
+    static func registerProject(path: String, name: String?, into projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
+        upsert(ProjectRegistryEntry(path: path, name: name), into: projects)
     }
 
     static func archive(id: String, at date: Date, in projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
