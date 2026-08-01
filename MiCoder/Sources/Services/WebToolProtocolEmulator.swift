@@ -75,23 +75,106 @@ enum WebToolProtocolEmulator {
     }
 
     /// Extract all tool calls from a model response. Tolerant of surrounding
-    /// prose and markdown fences (plan Блок 2 п.11/п.13).
+    /// prose and markdown fences (plan Блок 2 п.11/п.13), and — since Round 12 —
+    /// also of the informal `[tool call: NAME with args]` syntax that plain web
+    /// models actually emit (e.g. `[tool call: LS with path "."]`), so the
+    /// agentic loop never stalls on a well-meant but non-strict call.
     static func parseToolCalls(from responseText: String) -> [WebToolCall] {
         var calls: [WebToolCall] = []
         // Find ```tool ... ``` fenced blocks.
         let scanner = responseText as NSString
         let pattern = "```tool\\s*\\n(.*?)\\n```"
+        if let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) {
+            let matches = regex.matches(in: responseText, range: NSRange(location: 0, length: scanner.length))
+            for match in matches where match.numberOfRanges >= 2 {
+                let jsonString = scanner.substring(with: match.range(at: 1))
+                if let call = parseSingleCall(jsonString) {
+                    calls.append(call)
+                }
+            }
+        }
+        // Then the informal `[tool call: NAME ...]` variant.
+        calls.append(contentsOf: parseInformalCalls(from: responseText))
+        return calls
+    }
+
+    /// Parse `[tool call: NAME with key value / key="value" ...]`.
+    private static func parseInformalCalls(from text: String) -> [WebToolCall] {
+        let scanner = text as NSString
+        let pattern = "\\[tool call:\\s*([^\\]]+)\\]"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else {
             return []
         }
-        let matches = regex.matches(in: responseText, range: NSRange(location: 0, length: scanner.length))
+        var calls: [WebToolCall] = []
+        let matches = regex.matches(in: text, range: NSRange(location: 0, length: scanner.length))
         for match in matches where match.numberOfRanges >= 2 {
-            let jsonString = scanner.substring(with: match.range(at: 1))
-            if let call = parseSingleCall(jsonString) {
-                calls.append(call)
+            let body = scanner.substring(with: match.range(at: 1)).trimmingCharacters(in: .whitespacesAndNewlines)
+            let tokens = body.split(separator: " ", maxSplits: 1).map(String.init)
+            guard let rawName = tokens.first, let name = canonicalToolName(rawName) else { continue }
+            var argsText = tokens.count > 1 ? tokens[1] : ""
+            // Drop the connective "with": "[tool call: LS with path "."]" →
+            // args "path \".\"".
+            let withPrefix = argsText.trimmingCharacters(in: .whitespaces)
+            if withPrefix.hasPrefix("with ") {
+                argsText = String(withPrefix.dropFirst(5))
             }
+            calls.append(WebToolCall(name: name, arguments: parseInformalArgs(argsText)))
         }
         return calls
+    }
+
+    /// Parse `path "."` / `path="."` / `pattern "x"` / `pattern="x"` into [String: String].
+    private static func parseInformalArgs(_ text: String) -> [String: String] {
+        var args: [String: String] = [:]
+        let scanner = text as NSString
+        // key="value" OR key "value". Alternation groups: the branch that did
+        // NOT match has NSNotFound ranges — guard before substring.
+        let quoted = "([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*\\\"([^\\\"]*)\\\"|([A-Za-z_][A-Za-z0-9_]*)\\s+\\\"([^\\\"]*)\\\""
+        guard let regex = try? NSRegularExpression(pattern: quoted) else { return args }
+        let matches = regex.matches(in: text, range: NSRange(location: 0, length: scanner.length))
+        for m in matches where m.numberOfRanges >= 5 {
+            if let key = substring(in: m, at: 1, of: scanner),
+               let value = substring(in: m, at: 2, of: scanner) {
+                args[key] = value
+            } else if let key = substring(in: m, at: 3, of: scanner),
+                      let value = substring(in: m, at: 4, of: scanner) {
+                args[key] = value
+            }
+        }
+        return args
+    }
+
+    /// Safe group extraction: returns nil for NSNotFound so the alternation
+    /// branches of an NSRegularExpression never crash `substring(with:)`.
+    private static func substring(in match: NSTextCheckingResult, at index: Int,
+                                  of scanner: NSString) -> String? {
+        let range = match.range(at: index)
+        guard range.location != NSNotFound, range.length > 0 else { return nil }
+        return scanner.substring(with: range)
+    }
+
+    /// Map a model's informal tool spelling to the canonical tool name.
+    /// Web models write "LS"/"ls" for list_dir, "Read" for read_file, etc.
+    /// Unknown names → nil so they surface as `.unknownTool` validation errors
+    /// instead of being silently dropped.
+    static func canonicalToolName(_ name: String) -> String? {
+        let lower = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        switch lower {
+        case "ls", "list_dir", "list", "dir", "directory":
+            return WebEmulatedTool.listDir.rawValue
+        case "read_file", "read", "cat", "view":
+            return WebEmulatedTool.readFile.rawValue
+        case "write_file", "write", "create":
+            return WebEmulatedTool.writeFile.rawValue
+        case "edit_file", "edit", "replace":
+            return WebEmulatedTool.editFile.rawValue
+        case "grep", "search", "find":
+            return WebEmulatedTool.grep.rawValue
+        case "run_command", "run", "execute", "shell":
+            return WebEmulatedTool.runCommand.rawValue
+        default:
+            return nil
+        }
     }
 
     private static func parseSingleCall(_ jsonString: String) -> WebToolCall? {

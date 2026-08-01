@@ -54,7 +54,13 @@ struct AppSettings: Codable {
     }
     
     static func load() -> AppSettings {
-        guard let data = UserDefaults.standard.data(forKey: userDefaultsKey),
+        load(from: .standard)
+    }
+
+    /// Load from an injected defaults domain (tests use a dedicated suite so
+    /// parallel test runs never race on the shared `.standard` domain).
+    static func load(from defaults: UserDefaults) -> AppSettings {
+        guard let data = defaults.data(forKey: userDefaultsKey),
               let settings = try? JSONDecoder().decode(AppSettings.self, from: data) else {
             return AppSettings()
         }
@@ -62,8 +68,13 @@ struct AppSettings: Codable {
     }
     
     func save() {
+        save(to: .standard)
+    }
+
+    /// Save to an injected defaults domain (see load(from:)).
+    func save(to defaults: UserDefaults) {
         if let data = try? JSONEncoder().encode(self) {
-            UserDefaults.standard.set(data, forKey: Self.userDefaultsKey)
+            defaults.set(data, forKey: Self.userDefaultsKey)
         }
     }
 }

@@ -116,6 +116,12 @@ class AppState: ObservableObject {
     
     @Published var workspaces: [Workspace] = []
     private var isNavigatingHistory = false
+    /// Guards navigationHistory/navigationIndex mutations. The `selectedWorkspace`
+    /// didSet can fire from any thread (tests, background init tasks), so the
+    /// truncate+append must be atomic or removeSubrange races into an
+    /// out-of-range fatal error (Round 10 crash, still reproduced under parallel
+    /// test runs — now fixed with a real lock, not just a bounds check).
+    private let navigationLock = NSLock()
     
     @Published var selectedWorkspace: Workspace? {
         didSet {
@@ -123,11 +129,12 @@ class AppState: ObservableObject {
 
             guard let workspace = selectedWorkspace else { return }
             guard !isNavigatingHistory else { return }
-            
+
+            navigationLock.lock()
             if navigationHistory.isEmpty || navigationHistory.last?.id != workspace.id {
-                // Atomically recompute the safe truncation point to avoid an
-                // out-of-range removeSubrange when navigationIndex was mutated
-                // by a concurrent didSet (Round 10 crash fix).
+                // Atomically recompute the safe truncation point under the lock:
+                // both the bounds check AND the mutation now happen on the same
+                // thread, so a concurrent didSet can't interleave.
                 if navigationIndex >= 0 && navigationIndex < navigationHistory.count {
                     let cutoff = navigationIndex + 1
                     if cutoff < navigationHistory.count {
@@ -139,6 +146,7 @@ class AppState: ObservableObject {
                 navigationHistory.append(workspace)
                 navigationIndex = navigationHistory.count - 1
             }
+            navigationLock.unlock()
         }
     }
     @Published var navigationHistory: [Workspace] = []
@@ -149,8 +157,10 @@ class AppState: ObservableObject {
     /// index into navigationHistory. Internal so extensions (AppState+Database)
     /// can call it.
     func clearNavigationHistory() {
+        navigationLock.lock()
         navigationHistory = []
         navigationIndex = -1
+        navigationLock.unlock()
     }
     @Published var settings = AppSettings.load() {
         didSet {
@@ -601,29 +611,43 @@ class AppState: ObservableObject {
     }
     
     func navigateBack() {
-        guard navigationIndex > 0 else { return }
+        navigationLock.lock()
+        guard navigationIndex > 0 else {
+            navigationLock.unlock()
+            return
+        }
         navigationIndex -= 1
         let ws = navigationHistory[navigationIndex]
+        navigationLock.unlock()
         isNavigatingHistory = true
         selectedWorkspace = ws
         isNavigatingHistory = false
     }
 
     func navigateForward() {
-        guard navigationIndex < navigationHistory.count - 1 else { return }
+        navigationLock.lock()
+        guard navigationIndex < navigationHistory.count - 1 else {
+            navigationLock.unlock()
+            return
+        }
         navigationIndex += 1
         let ws = navigationHistory[navigationIndex]
+        navigationLock.unlock()
         isNavigatingHistory = true
         selectedWorkspace = ws
         isNavigatingHistory = false
     }
 
     var canNavigateBack: Bool {
-        navigationIndex > 0 && navigationIndex < navigationHistory.count
+        navigationLock.lock()
+        defer { navigationLock.unlock() }
+        return navigationIndex > 0 && navigationIndex < navigationHistory.count
     }
 
     var canNavigateForward: Bool {
-        navigationIndex < navigationHistory.count - 1 && navigationIndex >= 0 && navigationHistory.count > 0
+        navigationLock.lock()
+        defer { navigationLock.unlock() }
+        return navigationIndex < navigationHistory.count - 1 && navigationIndex >= 0 && navigationHistory.count > 0
     }
     
     func addCustomProvider(_ provider: CustomProvider) {

@@ -1247,6 +1247,8 @@ struct InstalledSkillRow: View {
     let record: InstalledSkillRecord?
     let onChanged: () -> Void
 
+    @State private var showRemoveConfirmation = false
+
     private var home: URL { FileManager.default.homeDirectoryForCurrentUser }
 
     var body: some View {
@@ -1275,7 +1277,7 @@ struct InstalledSkillRow: View {
                 .buttonStyle(.plain)
                 .foregroundColor(r.isEnabled ? Color.mimo.textSecondary : Color.mimo.success)
             }
-            Button(action: remove) {
+            Button(action: { showRemoveConfirmation = true }) {
                 Image(systemName: "trash").interfaceFont(size: 12).foregroundColor(Color.mimo.error)
             }
             .buttonStyle(.plain)
@@ -1284,6 +1286,12 @@ struct InstalledSkillRow: View {
         .background(Color.mimo.surface)
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.mimo.border, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .alert("Remove skill?", isPresented: $showRemoveConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Remove", role: .destructive) { remove() }
+        } message: {
+            Text("This deletes \"\(skill.name)\" from \(home.appendingPathComponent(".micoder/skills").path)/ and its registry entry. This cannot be undone.")
+        }
     }
 
     private func badge(_ text: String) -> some View {
@@ -1366,6 +1374,8 @@ struct InstalledMCPRow: View {
     let server: MCPServerEntry
     let onChanged: () -> Void
 
+    @State private var showRemoveConfirmation = false
+
     private var configURL: URL {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".micoder/mcp.json")
     }
@@ -1395,7 +1405,7 @@ struct InstalledMCPRow: View {
             .buttonStyle(.plain)
             .foregroundColor(server.isEnabled ? Color.mimo.textSecondary : Color.mimo.success)
 
-            Button(action: remove) {
+            Button(action: { showRemoveConfirmation = true }) {
                 Image(systemName: "trash").interfaceFont(size: 12).foregroundColor(Color.mimo.error)
             }
             .buttonStyle(.plain)
@@ -1404,6 +1414,12 @@ struct InstalledMCPRow: View {
         .background(Color.mimo.surface)
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.mimo.border, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+        .alert("Remove MCP server?", isPresented: $showRemoveConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Remove", role: .destructive) { remove() }
+        } message: {
+            Text("This removes \"\(server.name)\" from \(configURL.path) and the registry. This cannot be undone.")
+        }
     }
 
     private func mutateConfig(_ transform: (inout [String: Any]) -> Void) {
@@ -1615,6 +1631,10 @@ struct StorageSettingsView: View {
     @State private var deleteDays: Double = 30
     @State private var selectedProjectFilter = "All"
     @State private var projectEntries: [ProjectRegistryEntry] = []
+    // Delete-project guard (plan Раздел 8 п.24/п.54): destructive action requires
+    // typing the project name — GitHub "type repo name to delete" pattern.
+    @State private var pendingDeleteEntry: ProjectRegistryEntry?
+    @State private var deleteConfirmName = ""
     
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -1811,6 +1831,28 @@ struct StorageSettingsView: View {
             } message: {
                 Text(resetAlertMessage)
             }
+            .alert(
+                "Delete project permanently?",
+                isPresented: Binding(
+                    get: { pendingDeleteEntry != nil },
+                    set: { if !$0 { pendingDeleteEntry = nil } }
+                )
+            ) {
+                TextField("Type \"\(pendingDeleteEntry?.name ?? "")\" to confirm", text: $deleteConfirmName)
+                Button("Cancel", role: .cancel) { pendingDeleteEntry = nil }
+                Button("Delete", role: .destructive) {
+                    if let entry = pendingDeleteEntry { deleteProject(entry) }
+                    pendingDeleteEntry = nil
+                }
+                .disabled(!ProjectDeleteConfirmation.isConfirmed(
+                    projectName: pendingDeleteEntry?.name ?? "",
+                    typed: deleteConfirmName
+                ))
+            } message: {
+                Text(ProjectDeleteConfirmation.deletionDescription(
+                    projectPath: pendingDeleteEntry?.path ?? ""
+                ))
+            }
         }
         .onAppear(perform: refreshStats)
     }
@@ -1872,10 +1914,14 @@ struct StorageSettingsView: View {
                 Button("Archive") { mutateProjects { ProjectRegistryLogic.archive(id: entry.id, at: Date(), in: $0) } }
                     .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.textSecondary)
             }
-            Button(action: { deleteProject(entry) }) {
+            Button(action: {
+                deleteConfirmName = ""
+                pendingDeleteEntry = entry
+            }) {
                 Image(systemName: "trash").interfaceFont(size: 11).foregroundColor(Color.mimo.error)
             }
             .buttonStyle(.plain)
+            .help("Delete project (requires typing its name)")
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
         .background(Color.mimo.surface)
@@ -1897,6 +1943,12 @@ struct StorageSettingsView: View {
         // Remove only the project's .micoder data, never the user's files.
         try? FileManager.default.removeItem(at: ProjectDatabaseLocator.projectMimoDir(projectPath: entry.path))
         mutateProjects { ProjectRegistryLogic.remove(id: entry.id, in: $0) }
+        // If the deleted project was the active selection, drop it so the UI
+        // never points at a registry entry that no longer exists.
+        if appState.selectedWorkspace?.path == entry.path {
+            appState.clearNavigationHistory()
+            appState.selectedWorkspace = nil
+        }
     }
 
     private func refreshStats() {

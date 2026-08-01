@@ -30,19 +30,22 @@ struct GeneralSettingsTests {
 
     @Test("AppSettings.load returns defaults when no data stored")
     func appSettingsLoadDefaults() {
-        let key = "com.micoder.settings"
-        let previous = UserDefaults.standard.data(forKey: key)
-        UserDefaults.standard.removeObject(forKey: key)
+        // Use a dedicated defaults suite so parallel test runs never race on
+        // the shared `.standard` domain (Round 12 flake fix).
+        let suiteName = "com.micoder.tests.appSettingsLoadDefaults"
+        guard let defaults = UserDefaults(suiteName: suiteName) else {
+            Issue.record("Could not create defaults suite")
+            return
+        }
+        defaults.removePersistentDomain(forName: suiteName)
 
-        let loaded = AppSettings.load()
+        let loaded = AppSettings.load(from: defaults)
         #expect(loaded.theme == .dark)
         #expect(loaded.language == "English")
         #expect(loaded.zoom == .default)
 
-        // Restore previous value to avoid interfering with other tests
-        if let previous {
-            UserDefaults.standard.set(previous, forKey: key)
-        }
+        // Clean up the dedicated suite.
+        defaults.removePersistentDomain(forName: suiteName)
     }
 
     @Test("AppSettings encoding round-trips all properties")

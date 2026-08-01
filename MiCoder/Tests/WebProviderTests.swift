@@ -100,6 +100,43 @@ struct WebToolProtocolEmulatorTests {
         #expect(calls[1].name == "read_file")
     }
 
+    @Test func parsesInformalBracketToolCall() {
+        // Round 12: a real web model answered "[tool call: LS with path "."]"
+        // instead of a strict ```tool block, so the analysis stalled at step 1.
+        let response = """
+        Я проанализирую проект. Начну с изучения структуры.
+        [tool call: LS with path "."]
+        """
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+        #expect(calls.count == 1)
+        #expect(calls.first?.name == "list_dir")
+        #expect(calls.first?.arguments["path"] == ".")
+    }
+
+    @Test func parsesInformalToolCallWithEqualsArgs() {
+        let response = "[tool call: read_file with path=\"README.md\"]"
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+        #expect(calls.count == 1)
+        #expect(calls.first?.name == "read_file")
+        #expect(calls.first?.arguments["path"] == "README.md")
+    }
+
+    @Test func toolNameAliasesAreCaseInsensitive() {
+        #expect(WebToolProtocolEmulator.canonicalToolName("LS") == "list_dir")
+        #expect(WebToolProtocolEmulator.canonicalToolName("ls") == "list_dir")
+        #expect(WebToolProtocolEmulator.canonicalToolName("Read") == "read_file")
+        #expect(WebToolProtocolEmulator.canonicalToolName("run_command") == "run_command")
+        #expect(WebToolProtocolEmulator.canonicalToolName("Grep") == "grep")
+        #expect(WebToolProtocolEmulator.canonicalToolName("Write") == "write_file")
+    }
+
+    @Test func informalToolCallIsNotFinalResponse() {
+        // An unrecognized-syntax call must NOT be treated as a final answer,
+        // otherwise the agentic loop stops and the analysis stalls.
+        let response = "[tool call: LS with path \".\"]"
+        #expect(!WebToolProtocolEmulator.isFinalResponse(response))
+    }
+
     @Test func finalResponseHasNoToolCall() {
         #expect(WebToolProtocolEmulator.isFinalResponse("All done! The bug is fixed."))
         #expect(!WebToolProtocolEmulator.isFinalResponse("```tool\n{\"name\":\"grep\",\"args\":{}}\n```"))
