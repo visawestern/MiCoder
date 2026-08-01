@@ -2044,6 +2044,11 @@ struct StorageSettingsView: View {
     }
 
     private func deleteProject(_ entry: ProjectRegistryEntry) {
+        // Auto-backup the project DB before deletion (plan Раздел 8 п.49).
+        // The backup must SURVIVE the deletion, so it's moved to a global
+        // deleted-backups area (inside .micoder it would be removed with it).
+        try? ProjectAutoBackupLogic.createBackup(projectPath: entry.path)
+        try? ProjectAutoBackupLogic.preserveForDeletion(projectPath: entry.path)
         // Remove only the project's .micoder data, never the user's files.
         try? FileManager.default.removeItem(at: ProjectDatabaseLocator.projectMimoDir(projectPath: entry.path))
         mutateProjects { ProjectRegistryLogic.remove(id: entry.id, in: $0) }
