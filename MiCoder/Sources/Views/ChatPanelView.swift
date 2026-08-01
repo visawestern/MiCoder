@@ -331,7 +331,8 @@ struct ChatPanelView: View {
         // instruction-injecting commands rewrite the outgoing text.
         if messageText.hasPrefix("/") {
             let executor = SlashCommandExecutor(hasGitRepo: !(appState.selectedWorkspace?.path ?? "").isEmpty)
-            switch executor.execute(messageText) {
+            let action = executor.execute(messageText)
+            switch action {
             case .setSessionGoal(let goal):
                 appState.setCurrentSessionGoal(goal)
                 messageText = ""
@@ -350,12 +351,35 @@ struct ChatPanelView: View {
                 messageText = ""
                 messageStore.append(Message(role: .assistant, content: "Unknown command /\(name). Available: \(available.map { "/\($0)" }.joined(separator: ", "))", isFinished: true))
                 return
+            case .enterPlanMode, .openCommitComposer, .createPullRequest, .requestReview, .showContext:
+                // E08 (Раздел 5 п.12-16): these used to fall through and send
+                // the raw command text to the model. Each now performs its real
+                // action: /plan switches agent mode, /commit opens the commit
+                // composer, /pr creates a PR (or publish wizard without remote),
+                // /review opens the review dialog, /context shows context.
+                let path = appState.selectedWorkspace?.path ?? ""
+                let hasGitRepo = !path.isEmpty
+                var hasRemote = false
+                if hasGitRepo {
+                    hasRemote = !((try? GitRepository.remotes(in: path)) ?? []).isEmpty
+                }
+                let dispatchContext = SlashDispatchContext(
+                    hasGitRepo: hasGitRepo,
+                    hasRemote: hasRemote,
+                    branch: appState.gitBranch,
+                    modelID: appState.selectedModel,
+                    providerID: appState.selectedProviderID,
+                    agentMode: SessionSendLogic.sendMode(for: appState.agentMode),
+                    workspacePath: path.isEmpty ? nil : path,
+                    testRunner: hasGitRepo ? TestRunnerDetector.detect(in: path) : nil,
+                    changedFileCount: appState.vcsChanges.count
+                )
+                for effect in SlashCommandDispatcher.effects(for: action, context: dispatchContext) {
+                    applySlashEffect(effect)
+                }
+                return
             case .injectInstruction(let instruction):
                 messageText = instruction
-            case .enterPlanMode, .openCommitComposer, .createPullRequest, .requestReview, .showContext:
-                // These map to existing flows; fall through sending the command
-                // text so downstream handlers/agent can act on it.
-                break
             case .passthrough:
                 break
             }
@@ -400,6 +424,26 @@ struct ChatPanelView: View {
         
         Task {
             await sendDirectly(text: text, files: files, images: images)
+        }
+    }
+
+    /// Applies a slash-command effect to real app state (E08, Раздел 5 п.12-16).
+    private func applySlashEffect(_ effect: SlashEffect) {
+        switch effect {
+        case .setAgentMode(let mode):
+            switch mode {
+            case "plan": appState.agentMode = .plan
+            case "compose": appState.agentMode = .compose
+            default: appState.agentMode = .build
+            }
+        case .appendAssistantMessage(let text):
+            messageStore.append(Message(role: .assistant, content: text, isFinished: true))
+        case .openGitAction(let uiAction):
+            appState.pendingGitAction = uiAction
+        case .injectInstruction(let instruction):
+            messageText = instruction
+        case .clearInput:
+            messageText = ""
         }
     }
     

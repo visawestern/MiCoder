@@ -123,6 +123,31 @@ enum GitHubCLIService {
         return result.output
     }
 
+    /// Runs `gh pr create` for the current branch (Раздел 5 п.16 — `/pr` must
+    /// create a real pull request, not just send text to the model).
+    static func createPullRequest(
+        ghPath: String,
+        title: String,
+        body: String,
+        workspacePath: String
+    ) async throws -> String {
+        var arguments = ["pr", "create", "--title", title]
+        let trimmedBody = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedBody.isEmpty {
+            arguments += ["--body", trimmedBody]
+        }
+        let result = await run(
+            executable: ghPath,
+            arguments: arguments,
+            currentDirectory: workspacePath,
+            timeout: 300
+        )
+        guard result.exitCode == 0 else {
+            throw GitHubCLIError.commandFailed(result.output)
+        }
+        return result.output
+    }
+
     // MARK: - Process helpers
 
     private struct CommandResult {

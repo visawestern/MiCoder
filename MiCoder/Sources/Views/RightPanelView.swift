@@ -338,34 +338,8 @@ struct GitToolsSection: View {
     }
     
     private func publishToGitHub(ghPath: String, repoName: String, isPublic: Bool) async {
-        guard let path = appState.selectedWorkspace?.path else { return }
-        guard GitPublishFlowLogic.isValidRepoName(repoName) else { return }
-        
-        await MainActor.run {
-            appState.isGitBusy = true
-            appState.gitStatusMessage = "Publishing to GitHub..."
-        }
-        
-        do {
-            let output = try await GitHubCLIService.createRepository(
-                ghPath: ghPath,
-                repoName: repoName,
-                isPublic: isPublic,
-                workspacePath: path
-            )
-            await MainActor.run {
-                appState.isGitBusy = false
-                appState.gitStatusMessage = output.isEmpty
-                    ? "Published to GitHub successfully!"
-                    : output
-                checkRepositoryState()
-            }
-        } catch {
-            await MainActor.run {
-                appState.isGitBusy = false
-                appState.gitStatusMessage = "Failed to publish: \(error.localizedDescription)"
-            }
-        }
+        await appState.publishWorkspaceToGitHub(ghPath: ghPath, repoName: repoName, isPublic: isPublic)
+        checkRepositoryState()
     }
     
     private func reviewAndPush(comment: String) async {

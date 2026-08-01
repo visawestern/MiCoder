@@ -208,6 +208,10 @@ class AppState: ObservableObject {
     @Published var gitBranch = "main"
     @Published var gitBranches: [String] = []
     @Published var gitStatusMessage: String?
+    /// Set by slash commands (`/commit`, `/pr`, `/review`) to open the
+    /// corresponding git dialog (E08, Раздел 5 п.13/15/16). ContentView
+    /// presents one `.sheet(item:)` that switches on this value.
+    @Published var pendingGitAction: GitUIAction?
     @Published var isGitBusy = false
     @Published var gitRepositoryPath: String?
     @Published var workspaceSortOrder: WorkspaceSortOrder = .recentUse
@@ -1151,6 +1155,73 @@ class AppState: ObservableObject {
             await MainActor.run {
                 gitStatusMessage = error.localizedDescription
             }
+        }
+    }
+
+    /// Publishes the current workspace as a new GitHub repository via `gh`
+    /// (shared by the publish wizard and the `/pr` slash command — E08).
+    func publishWorkspaceToGitHub(ghPath: String, repoName: String, isPublic: Bool) async {
+        guard let path = selectedWorkspace?.path else { return }
+        guard GitPublishFlowLogic.isValidRepoName(repoName) else { return }
+
+        await MainActor.run {
+            isGitBusy = true
+            gitStatusMessage = "Publishing to GitHub..."
+        }
+
+        do {
+            let output = try await GitHubCLIService.createRepository(
+                ghPath: ghPath,
+                repoName: repoName,
+                isPublic: isPublic,
+                workspacePath: path
+            )
+            await MainActor.run {
+                isGitBusy = false
+                gitStatusMessage = output.isEmpty ? "Published to GitHub successfully!" : output
+            }
+            await refreshGitFromLocal()
+        } catch {
+            await MainActor.run {
+                isGitBusy = false
+                gitStatusMessage = "Failed to publish: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    /// Creates a pull request for the current branch via `gh pr create`
+    /// (Раздел 5 п.16 — real action for `/pr`).
+    @discardableResult
+    func createGitHubPullRequest(title: String, body: String) async -> Bool {
+        guard let path = selectedWorkspace?.path,
+              let ghPath = GitPublishFlowLogic.ghExecutablePath() else {
+            await MainActor.run { gitStatusMessage = "GitHub CLI is not available — use the publish wizard." }
+            return false
+        }
+
+        await MainActor.run {
+            isGitBusy = true
+            gitStatusMessage = "Creating pull request..."
+        }
+        defer { Task { await self.endGitBusy() } }
+
+        do {
+            let output = try await GitHubCLIService.createPullRequest(
+                ghPath: ghPath,
+                title: title,
+                body: body,
+                workspacePath: path
+            )
+            await MainActor.run {
+                gitStatusMessage = output.isEmpty ? "Pull request created" : output
+                notificationService.gitOperationComplete(operation: "PR", details: title)
+            }
+            return true
+        } catch {
+            await MainActor.run {
+                gitStatusMessage = "Failed to create PR: \(error.localizedDescription)"
+            }
+            return false
         }
     }
 

@@ -80,6 +80,13 @@ struct ContentView: View {
             NewProjectSheet()
                 .environmentObject(appState)
         }
+        // E08 (Раздел 5 п.13/15/16): slash commands open the real git dialogs
+        // through a single app-state-driven sheet (works even when the right
+        // panel is hidden).
+        .sheet(item: $appState.pendingGitAction) { action in
+            GitActionSheet(action: action)
+                .environmentObject(appState)
+        }
     }
 
     /// Settings as a dismissable overlay instead of a modal sheet:
@@ -154,5 +161,63 @@ struct SidebarResizeHandle: View {
             }
             .accessibilityLabel("Sidebar resizer")
             .accessibilityHint("Drag to resize the sidebar; double-click to reset.")
+    }
+}
+
+/// The dialog presented for `AppState.pendingGitAction` (E08, Раздел 5
+/// п.13/15/16). Each case opens the REAL existing flow; dismissing the dialog
+/// clears the trigger.
+struct GitActionSheet: View {
+    @EnvironmentObject var appState: AppState
+    let action: GitUIAction
+
+    private var language: AppLanguage { appState.appLanguage }
+
+    private var autoSummary: String {
+        CommitMessageComposer.summary(
+            fileNames: appState.vcsChanges.map { ($0.path as NSString).lastPathComponent },
+            insertions: appState.sessionGitTotals.additions,
+            deletions: appState.sessionGitTotals.deletions
+        )
+    }
+
+    private var dismissBinding: Binding<Bool> {
+        Binding(
+            get: { appState.pendingGitAction != nil },
+            set: { if !$0 { appState.pendingGitAction = nil } }
+        )
+    }
+
+    var body: some View {
+        switch action {
+        case .openCommitComposer:
+            CommitDialogView(language: language, autoSummary: autoSummary, isPresented: dismissBinding) { message in
+                Task { await appState.commitGitChanges(message: message) }
+            }
+        case .openReviewDialog:
+            ReviewPushDialogView(language: language, autoSummary: autoSummary, isPresented: dismissBinding) { comment in
+                Task {
+                    let message = CommitMessageComposer.compose(userComment: comment, summary: autoSummary)
+                    let committed = await appState.commitGitChanges(message: message)
+                    if committed { await appState.pushGitChanges() }
+                }
+            }
+        case .openPublishWizard:
+            GitHubPublishWizardView(
+                language: language,
+                workspaceName: appState.selectedWorkspace?.name ?? "",
+                isPresented: dismissBinding
+            ) { ghPath, repoName, isPublic in
+                Task { await appState.publishWorkspaceToGitHub(ghPath: ghPath, repoName: repoName, isPublic: isPublic) }
+            }
+        case .createPullRequest:
+            PullRequestDialogView(
+                language: language,
+                workspacePath: appState.selectedWorkspace?.path ?? "",
+                isPresented: dismissBinding
+            ) { title, body in
+                Task { await appState.createGitHubPullRequest(title: title, body: body) }
+            }
+        }
     }
 }

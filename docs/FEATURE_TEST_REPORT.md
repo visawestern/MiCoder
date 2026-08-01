@@ -33,7 +33,7 @@ This report documents the **errors found** (Phase 2), which Phase 3 fixes.
 
 | ID | Error | Evidence | Plan ref |
 |----|-------|----------|----------|
-| E08 | **5 slash commands are no-ops**: `/plan`, `/commit`, `/pr`, `/review`, `/context` fall through and just send the raw text to the model instead of opening CommitMessageComposer / GitPublishFlowLogic / plan mode / git review / context. | `ChatPanelView.swift:355-358` | Раздел 5 п.12-16 |
+| E08 | **5 slash commands are no-ops**: `/plan`, `/commit`, `/pr`, `/review`, `/context` fall through and just send the raw text to the model instead of opening CommitMessageComposer / GitPublishFlowLogic / plan mode / git review / context. **FIXED (Phase 3)** — `SlashCommandDispatcher` maps actions→real effects: `/plan` switches agent mode, `/commit` opens CommitDialogView, `/pr` opens a new PR dialog via `gh pr create` (publish wizard when no remote), `/review` opens ReviewPushDialogView, `/context` posts a context summary; `/test` names the detected test runner (TestRunnerDetector); single `AppState.pendingGitAction` sheet in ContentView. Tests: `E08SlashCommandDispatchTests` (14). | `ChatPanelView.swift:355-358`, `SlashCommandDispatcher.swift`, `GitHubCLIService.swift`, `GitPremiumDialogs.swift`, `ContentView.swift` | Раздел 5 п.12-16 |
 | E09 | **`executeWithUndo` has zero production callers** — the per-project undo stack is always empty at runtime; snapshots never created during real tool operations. | `ProjectUndoManager.swift:34` (no callers) | Раздел 7 п.13/14 |
 | E10 | **`request_history` never written in normal flow** — table + API exist, only `importBundle` writes it; applied edits/commands are never logged as requests. | `ProjectDatabaseManager.swift:674` (writer = import only) | Раздел 7 п.12 |
 | E11 | **MCP health check is a stub** — `MCPRegistryManager.updateHealthCheck` has zero callers; the green dot in the UI reflects `isEnabled`, not real health. | `AgentResourceRegistryManager.swift:168` | Раздел 4 п.5 |
@@ -100,5 +100,6 @@ Each fix: red test → green → update spreadsheet status → update this repor
 |-------|-------|----------|--------|
 | R15a | E01 — OpenAI-compatible path attachments (images) | `E01MultimodalDirectChatTests` (5 green) + `DirectChatMessage.parts/serializedContent/imageParts`, `ChatHistoryBuilder.messages(parts:)`, `ChatPanelView` wiring | ✅ DONE |
 | R15b | E06 — call parameters on serve + ACP paths | `E06CallParametersTests` (5 green) + `MessageSendOptions.requestBody(parts:parameters:)`, `MimoServeClient.sendMessage(parameters:)`, `ACPRequestBodyBuilder`, `ACPClient` both methods | ✅ DONE |
+| R16 | E08 — slash commands perform real actions | `E08SlashCommandDispatchTests` (14 green) + `SlashCommandDispatcher`/`TestRunnerDetector`/`GitUIAction`/`PullRequestDialogView`/`gh pr create`/`AppState.pendingGitAction` sheet | ✅ DONE |
 
-Remaining fix order: E08 → E04 → E05 → E03 → E09/E10 → E11 → E12 → E23/E24 → E25 → E26/E27/E28 → E13/E14/E15/E16 → E17/E18/E19 → E07/E22 → E20/E21 → E29/E30/E31.
+Remaining fix order: E04 → E05 → E03 → E09/E10 → E11 → E12 → E23/E24 → E25 → E26/E27/E28 → E13/E14/E15/E16 → E17/E18/E19 → E07/E22 → E20/E21 → E29/E30/E31.

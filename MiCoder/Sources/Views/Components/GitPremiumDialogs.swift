@@ -401,6 +401,84 @@ struct ReviewPushDialogView: View {
     }
 }
 
+// MARK: - Pull request dialog
+
+/// Creates a real pull request for the current branch via `gh pr create`
+/// (Раздел 5 п.16 — `/pr` must perform a real action, not send text).
+struct PullRequestDialogView: View {
+    let language: AppLanguage
+    let workspacePath: String
+    @Binding var isPresented: Bool
+    /// Called with (title, body) once the user confirms.
+    var onCreate: (String, String) -> Void
+
+    @State private var title = ""
+    @State private var prBody = ""
+    @State private var ghPath: String?
+    @State private var isBusy = false
+    @State private var errorText: String?
+    @State private var checkedStatus = false
+
+    var body: some View {
+        PremiumDialogChrome(
+            icon: "arrow.branch",
+            title: "Create Pull Request",
+            subtitle: ghPath == nil && checkedStatus ? nil : nil
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                if let errorText, !errorText.isEmpty {
+                    Text(errorText)
+                        .interfaceFont(size: 11)
+                        .foregroundColor(Color.mimo.error)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Title")
+                        .interfaceFont(size: 11, weight: .medium)
+                        .foregroundColor(Color.mimo.textSecondary)
+                    TextField("Short summary of the change", text: $title)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Description (optional)")
+                        .interfaceFont(size: 11, weight: .medium)
+                        .foregroundColor(Color.mimo.textSecondary)
+                    TextField("What changed and why", text: $prBody, axis: .vertical)
+                        .lineLimit(3...5)
+                        .textFieldStyle(.roundedBorder)
+                }
+            }
+        } actions: {
+            PremiumSecondaryButton(title: AppLocalization.string(.gitCancel, language: language)) {
+                isPresented = false
+            }
+            PremiumPrimaryButton(
+                title: "Create PR",
+                systemImage: "arrow.branch",
+                isBusy: isBusy,
+                isEnabled: !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && ghPath != nil
+            ) {
+                onCreate(
+                    title.trimmingCharacters(in: .whitespacesAndNewlines),
+                    prBody.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+                isPresented = false
+            }
+        }
+        .task {
+            title = "\(workspacePath as NSString).lastPathComponent changes"
+            let result = await GitHubCLIService.detect()
+            ghPath = result.ghPath
+            checkedStatus = true
+            if ghPath == nil {
+                errorText = "GitHub CLI is not installed or not signed in. Use the publish wizard to set it up."
+            }
+        }
+    }
+}
+
 // MARK: - Commit dialog
 
 struct CommitDialogView: View {
