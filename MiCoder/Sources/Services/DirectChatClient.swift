@@ -10,6 +10,48 @@ import FoundationNetworking
 struct DirectChatMessage: Equatable {
     let role: String   // "user" | "assistant" | "system"
     let content: String
+
+    /// E01 (Раздел 9 п.10(c)): optional OpenAI-style multimodal parts
+    /// (`[{"type":"text",...},{"type":"image_url","image_url":{"url":dataURL}}]`).
+    /// When present, `content` is serialized as an array so images/files
+    /// actually reach Ollama/OpenCode/Local Agent/custom providers instead of
+    /// being silently dropped. nil keeps the old plain-string contract.
+    let parts: [[String: Any]]?
+
+    init(role: String, content: String, parts: [[String: Any]]? = nil) {
+        self.role = role
+        self.content = content
+        self.parts = parts
+    }
+
+    /// Equality compares role + text; parts are attachment metadata and are
+    /// intentionally not part of message identity (they don't survive as
+    /// comparable JSON dictionaries).
+    static func == (lhs: DirectChatMessage, rhs: DirectChatMessage) -> Bool {
+        lhs.role == rhs.role && lhs.content == rhs.content
+    }
+
+    /// What the body's `content` field should be: the parts array when the
+    /// message carries attachments, otherwise the plain text string (keeps
+    /// backward compatibility for text-only conversations).
+    func serializedContent() -> Any {
+        if let parts, !parts.isEmpty {
+            return parts
+        }
+        return content
+    }
+
+    /// Build the OpenAI-compatible image parts for a clipboard image
+    /// (reuses the data-URL convention; same contract as the ACP path).
+    static func imageParts(for image: ClipboardImage) -> [[String: Any]] {
+        guard !image.base64.isEmpty else { return [] }
+        return [
+            [
+                "type": "image_url",
+                "image_url": ["url": MessagePartsBuilder.dataURL(mimeType: image.mimeType, base64: image.base64)]
+            ]
+        ]
+    }
 }
 
 protocol DirectChatTransport {
@@ -26,7 +68,7 @@ enum DirectChatClient {
                            stream: Bool = false) -> [String: Any] {
         var body: [String: Any] = [
             "model": model,
-            "messages": messages.map { ["role": $0.role, "content": $0.content] },
+            "messages": messages.map { ["role": $0.role, "content": $0.serializedContent()] },
             "stream": stream
         ]
         for (k, v) in ModelCallParametersStore.requestFragment(parameters) {

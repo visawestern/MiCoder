@@ -194,9 +194,10 @@ class MimoServeClient {
     func sendMessage(
         sessionID: String,
         parts: [[String: Any]],
-        options: MessageSendOptions
+        options: MessageSendOptions,
+        parameters: ModelCallParameters = ModelCallParameters()
     ) async throws -> [MimoMessageResponse] {
-        let body = options.requestBody(parts: parts)
+        let body = options.requestBody(parts: parts, parameters: parameters)
         let data = try JSONSerialization.data(withJSONObject: body)
         let url = url(for: .sessionPrompt(sessionID))
         var request = URLRequest(url: url)

@@ -30,16 +30,19 @@ enum ChatHistoryBuilder {
     /// The full message list for a new user message: system + history + the new
     /// user text. `priorTurns` should NOT include the new user message or the
     /// empty assistant placeholder.
+    /// E01: `parts` carries OpenAI-style multimodal parts (image_url…) so the
+    /// direct OpenAI-compatible path receives attachments, not just text.
     static func messages(systemPrompt: String?,
                         priorTurns: [Turn],
                         userText: String,
+                        parts: [[String: Any]]? = nil,
                         maxTurns: Int = 20) -> [DirectChatMessage] {
         var msgs: [DirectChatMessage] = []
         if let sys = systemPrompt, !sys.isEmpty {
             msgs.append(DirectChatMessage(role: "system", content: sys))
         }
         msgs.append(contentsOf: history(from: priorTurns, maxTurns: maxTurns))
-        msgs.append(DirectChatMessage(role: "user", content: userText))
+        msgs.append(DirectChatMessage(role: "user", content: userText, parts: parts))
         return msgs
     }
 }

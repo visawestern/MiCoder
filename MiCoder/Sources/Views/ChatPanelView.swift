@@ -513,8 +513,24 @@ struct ChatPanelView: View {
                     let history = msgs.count >= 2 ? Array(msgs.dropLast(2)) : []
                     return history.map { ChatHistoryBuilder.Turn(role: roleString($0.role), content: $0.content, isFinished: $0.isFinished) }
                 }
+                // E01 (Раздел 9 п.10(c)): carry REAL image bytes to the direct
+                // OpenAI-compatible path — they used to be silently dropped.
+                let directParts = MessagePartsBuilder.build(text: text, files: files, images: images)
+                    .compactMap { part -> [String: Any]? in
+                        if part["type"] as? String == "text" {
+                            return ["type": "text", "text": part["text"] as? String ?? ""]
+                        }
+                        if part["type"] as? String == "file",
+                           let mime = part["mime"] as? String,
+                           MessagePartsBuilder.isImageMimeType(mime),
+                           let url = part["url"] as? String {
+                            return ["type": "image_url", "image_url": ["url": url]]
+                        }
+                        return nil
+                    }
                 let msgs = ChatHistoryBuilder.messages(
-                    systemPrompt: params.systemPrompt, priorTurns: prior, userText: text
+                    systemPrompt: params.systemPrompt, priorTurns: prior, userText: text,
+                    parts: directParts.isEmpty ? nil : directParts
                 )
                 // Round 8 P4: show a visible waiting state (the old flow left an
                 // empty streaming bubble with no indication for up to 120 s).
@@ -571,12 +587,14 @@ struct ChatPanelView: View {
                 let acpAgent = SessionSendLogic.sendMode(for: agentModeOverride ?? appState.agentMode)
                 let acpVariant = appState.selectedVariant.isEmpty ? nil : appState.selectedVariant
 
-                // Non-streaming send via ACP client
+                // Non-streaming send via ACP client (E06: parameters must
+                // actually reach the ACP model, they used to be dropped).
                 let response = try await acpClient.sendChatCompletion(
                     messages: acpMessages,
                     model: appState.selectedModel,
                     agent: acpAgent,
                     variant: acpVariant,
+                    parameters: ModelCallParametersStore.parameters(for: appState.selectedModel),
                     stream: false
                 )
 
@@ -638,7 +656,8 @@ struct ChatPanelView: View {
             let responseMessages = try await appState.mimoClient.sendMessage(
                 sessionID: sessionID,
                 parts: parts,
-                options: sendOptions
+                options: sendOptions,
+                parameters: ModelCallParametersStore.parameters(for: appState.selectedModel)
             )
             appState.scheduleGitRefresh(sessionID: sessionID)
             

@@ -17,7 +17,10 @@ struct MessageSendOptions: Equatable {
         self.permission = permission
     }
 
-    func requestBody(parts: [[String: Any]]) -> [String: Any] {
+    /// Builds the serve request body. E06 (Раздел 9 п.49): call parameters
+    /// temperature/max_tokens/top_p chosen in the model menu used to be dropped
+    /// on the serve path — they are now merged in when customized.
+    func requestBody(parts: [[String: Any]], parameters: ModelCallParameters = ModelCallParameters()) -> [String: Any] {
         var body: [String: Any] = [
             "parts": parts,
             "agent": agent
@@ -36,6 +39,9 @@ struct MessageSendOptions: Equatable {
         }
         if let permission, !permission.isEmpty {
             body["permission"] = permission
+        }
+        for (key, value) in ModelCallParametersStore.requestFragment(parameters) {
+            body[key] = value
         }
         return body
     }

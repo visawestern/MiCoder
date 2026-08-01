@@ -72,3 +72,85 @@ struct ACPRequestMessage {
         return d
     }
 }
+
+struct ACPRequestTool {
+    let type: String
+    let function: ACPRequestToolFunction
+
+    var dictionary: [String: Any] {
+        ["type": type, "function": function.dictionary]
+    }
+}
+
+struct ACPRequestToolFunction {
+    let name: String
+    let description: String
+    let parameters: [String: Any]
+
+    var dictionary: [String: Any] {
+        ["name": name, "description": description, "parameters": parameters]
+    }
+}
+
+/// Builds ACP chat-completion request bodies. Extracted to a Foundation-only
+/// file so the body contract is unit-testable without URLSession (E06: call
+/// parameters temperature/max_tokens/top_p must actually reach the model on
+/// the ACP path — plan Раздел 9 п.49, they used to be silently dropped).
+enum ACPRequestBodyBuilder {
+    static func body(
+        model: String,
+        messages: [ACPRequestMessage],
+        agent: String = "build",
+        variant: String? = nil,
+        tools: [ACPRequestTool]? = nil,
+        apiKey: String = "",
+        parameters: ModelCallParameters = ModelCallParameters()
+    ) -> [String: Any] {
+        var body: [String: Any] = [
+            "model": model,
+            "messages": messages.map { $0.dictionary },
+            "stream": false,
+            "agent": agent
+        ]
+        merge(into: &body, variant: variant, tools: tools, apiKey: apiKey, parameters: parameters)
+        return body
+    }
+
+    static func streamBody(
+        model: String,
+        messages: [ACPRequestMessage],
+        agent: String = "build",
+        variant: String? = nil,
+        tools: [ACPRequestTool]? = nil,
+        apiKey: String = "",
+        parameters: ModelCallParameters = ModelCallParameters()
+    ) -> [String: Any] {
+        var body = body(
+            model: model, messages: messages, agent: agent, variant: variant,
+            tools: tools, apiKey: apiKey, parameters: parameters
+        )
+        body["stream"] = true
+        return body
+    }
+
+    private static func merge(
+        into body: inout [String: Any],
+        variant: String?,
+        tools: [ACPRequestTool]?,
+        apiKey: String,
+        parameters: ModelCallParameters
+    ) {
+        if let variant {
+            body["variant"] = variant
+        }
+        if let tools, !tools.isEmpty {
+            body["tools"] = tools.map { $0.dictionary }
+        }
+        if !apiKey.isEmpty {
+            body["apiKey"] = apiKey
+        }
+        for (key, value) in ModelCallParametersStore.requestFragment(parameters) {
+            body[key] = value
+        }
+    }
+}

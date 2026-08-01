@@ -39,26 +39,14 @@ final class ACPClient {
         agent: String = "build",
         variant: String? = nil,
         tools: [ACPRequestTool]? = nil,
+        parameters: ModelCallParameters = ModelCallParameters(),
         stream: Bool = false
     ) async throws -> ACPChatResponse {
-        var body: [String: Any] = [
-            "model": model,
-            "messages": messages.map { $0.dictionary },
-            "stream": stream,
-            "agent": agent
-        ]
-        
-        if let variant {
-            body["variant"] = variant
-        }
-        
-        if let tools, !tools.isEmpty {
-            body["tools"] = tools.map { $0.dictionary }
-        }
-        
-        if !apiKey.isEmpty {
-            body["apiKey"] = apiKey
-        }
+        var body = ACPRequestBodyBuilder.body(
+            model: model, messages: messages, agent: agent, variant: variant,
+            tools: tools, apiKey: apiKey, parameters: parameters
+        )
+        body["stream"] = stream
         
         let url = baseURL.appendingPathComponent("chat/completions")
         var request = URLRequest(url: url)
@@ -90,26 +78,13 @@ final class ACPClient {
         agent: String = "build",
         variant: String? = nil,
         tools: [ACPRequestTool]? = nil,
+        parameters: ModelCallParameters = ModelCallParameters(),
         onEvent: @escaping (ACPStreamEvent) -> Void
     ) async throws {
-        var body: [String: Any] = [
-            "model": model,
-            "messages": messages.map { $0.dictionary },
-            "stream": true,
-            "agent": agent
-        ]
-        
-        if let variant {
-            body["variant"] = variant
-        }
-        
-        if let tools, !tools.isEmpty {
-            body["tools"] = tools.map { $0.dictionary }
-        }
-        
-        if !apiKey.isEmpty {
-            body["apiKey"] = apiKey
-        }
+        let body = ACPRequestBodyBuilder.streamBody(
+            model: model, messages: messages, agent: agent, variant: variant,
+            tools: tools, apiKey: apiKey, parameters: parameters
+        )
         
         let url = baseURL.appendingPathComponent("chat/completions")
         var request = URLRequest(url: url)
@@ -203,27 +178,9 @@ final class ACPClient {
 
 // MARK: - Request Models
 
-// ACPContentPart, ACPRequestMessage, ACPRequestToolCall, ACPRequestToolCallFunction
-// moved to ACPMessageTypes.swift (Foundation-only, unit-testable).
-
-struct ACPRequestTool {
-    let type: String
-    let function: ACPRequestToolFunction
-    
-    var dictionary: [String: Any] {
-        ["type": type, "function": function.dictionary]
-    }
-}
-
-struct ACPRequestToolFunction {
-    let name: String
-    let description: String
-    let parameters: [String: Any]
-    
-    var dictionary: [String: Any] {
-        ["name": name, "description": description, "parameters": parameters]
-    }
-}
+// ACPContentPart, ACPRequestMessage, ACPRequestToolCall, ACPRequestToolCallFunction,
+// ACPRequestTool, ACPRequestToolFunction and ACPRequestBodyBuilder moved to
+// ACPMessageTypes.swift (Foundation-only, unit-testable).
 
 // MARK: - Response Models
 

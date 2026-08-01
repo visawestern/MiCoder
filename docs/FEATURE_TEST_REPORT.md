@@ -21,12 +21,12 @@ This report documents the **errors found** (Phase 2), which Phase 3 fixes.
 
 | ID | Error | Evidence | Plan ref |
 |----|-------|----------|----------|
-| E01 | **Images silently dropped on OpenAI-compatible send path** (Ollama, OpenCode, Local Agent, custom OpenAI providers): `DirectChatMessage.content` is `String` only; ChatPanelView builds real image parts but only the serve branch uses them. | `DirectChatClient.swift:10-13`, `ChatHistoryBuilder.swift:42`, `DirectChatClient.requestBody:27-31` | Раздел 9 п.10(c) |
+| E01 | **Images silently dropped on OpenAI-compatible send path** (Ollama, OpenCode, Local Agent, custom OpenAI providers): `DirectChatMessage.content` is `String` only; ChatPanelView builds real image parts but only the serve branch uses them. **FIXED (Phase 3)** — `DirectChatMessage.parts`, `serializedContent()`, `imageParts(for:)`; `ChatHistoryBuilder.messages(parts:)`; wired into `ChatPanelView` openAICompatible branch. Tests: `E01MultimodalDirectChatTests` (5). | `DirectChatClient.swift`, `ChatHistoryBuilder.swift`, `ChatPanelView.swift` | Раздел 9 п.10(c) |
 | E02 | **Two different UUIDs for one project folder**: `createNewProject` mints UUID, `addWorkspace` mints a second UUID → same folder appears as two projects. **FIXED in Round 14** (canonical path id). | `MiCoderApp.swift` (fixed) | Раздел 8 п.5/17/18 |
 | E03 | **Legacy DB → per-project DB migration never runs in production** — `ProjectDatabaseMigrator.migrate` is only called from tests; existing users keep everything in the single global DB. | `ProjectDatabaseMigrator.swift` (no production caller) | Раздел 7 п.6 |
 | E04 | **`integrityCheck()` never invoked on project open** — corruption is never detected at open time; no restore-from-backup offer. | `ProjectDatabaseManager.integrityCheck` (no callers) | Раздел 8 п.48 |
 | E05 | **`shouldAutoImportFromCLI` never consulted** — the reset-bug safety flag is dead; no import path checks it. | `ProjectRegistryLogic.swift:144-146` (no production callers) | Раздел 8 п.14/15 |
-| E06 | **Call parameters lost on serve path** — `MessageSendOptions.requestBody` has no temperature/max_tokens/top_p; **and on ACP path** — `ACPClient.sendChatCompletion` body has none either. | `MessageSendOptions.swift:20-41`, `ACPClient.swift:44-62` | Раздел 9 п.49 |
+| E06 | **Call parameters lost on serve path** — `MessageSendOptions.requestBody` has no temperature/max_tokens/top_p; **and on ACP path** — `ACPClient.sendChatCompletion` body has none either. **FIXED (Phase 3)** — `MessageSendOptions.requestBody(parts:parameters:)`; `MimoServeClient.sendMessage`; `ACPRequestBodyBuilder` (shared body builder with param merge); both ACP methods take `parameters:`; wired in `ChatPanelView` ACP + serve branches. Tests: `E06CallParametersTests` (5). | `MessageSendOptions.swift`, `ACPMessageTypes.swift`, `ACPClient.swift`, `MimoServeClient.swift`, `ChatPanelView.swift` | Раздел 9 п.49 |
 | E07 | **`costUSD` hardcoded nil** for every usage point despite `sessions.cost_usd` column existing — per-model cost always N/A. | `DatabaseManager.swift:946` | Раздел 10 п.14 |
 
 ### Category B — Stub / no-op behavior
@@ -91,3 +91,14 @@ This report documents the **errors found** (Phase 2), which Phase 3 fixes.
 17. **E29/E30/E31** — storage localization, remove 100 cap, captcha interactive bridge.
 
 Each fix: red test → green → update spreadsheet status → update this report.
+
+---
+
+## Phase 3 progress
+
+| Round | Fixed | Evidence | Status |
+|-------|-------|----------|--------|
+| R15a | E01 — OpenAI-compatible path attachments (images) | `E01MultimodalDirectChatTests` (5 green) + `DirectChatMessage.parts/serializedContent/imageParts`, `ChatHistoryBuilder.messages(parts:)`, `ChatPanelView` wiring | ✅ DONE |
+| R15b | E06 — call parameters on serve + ACP paths | `E06CallParametersTests` (5 green) + `MessageSendOptions.requestBody(parts:parameters:)`, `MimoServeClient.sendMessage(parameters:)`, `ACPRequestBodyBuilder`, `ACPClient` both methods | ✅ DONE |
+
+Remaining fix order: E08 → E04 → E05 → E03 → E09/E10 → E11 → E12 → E23/E24 → E25 → E26/E27/E28 → E13/E14/E15/E16 → E17/E18/E19 → E07/E22 → E20/E21 → E29/E30/E31.
