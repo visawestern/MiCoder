@@ -126,4 +126,80 @@ struct ProjectRegistryLogicTests {
         let active = ProjectRegistryLogic.active([a, b])
         #expect(active.first?.name == "b")   // most recent first
     }
+
+    // MARK: - Plan Раздел 8 п.47: registry dedup on migration
+
+    @Test func dedupMergesDuplicateEntriesByCanonicalPath() {
+        // Legacy UUID-pileup: the old single DB stored several records for one
+        // canonical path (plan Блок 1 п.4). Dedup must keep ONE record per path.
+        let a = ProjectRegistryEntry(path: "/home/u/proj", name: "Proj",
+                                     lastOpenedAt: Date(timeIntervalSince1970: 1000))
+        let b = ProjectRegistryEntry(path: "/home/u/proj/", name: "Proj (2)",
+                                     lastOpenedAt: Date(timeIntervalSince1970: 2000))
+        let deduped = ProjectRegistryLogic.deduplicated([a, b])
+        #expect(deduped.count == 1)
+        #expect(deduped[0].id == IdentifierNormalization.projectID(for: "/home/u/proj"))
+        // The most recently opened record wins the metadata.
+        #expect(deduped[0].lastOpenedAt.timeIntervalSince1970 == 2000)
+        #expect(deduped[0].name == "Proj (2)")
+    }
+
+    @Test func dedupPreservesAutoImportOptInAcrossDuplicates() {
+        // autoImportFromCLI is the reset-bug safety switch (Блок 2 п.14):
+        // if ANY duplicate had it enabled, the canonical record keeps it on.
+        var a = ProjectRegistryEntry(path: "/p/x", lastOpenedAt: Date(timeIntervalSince1970: 500))
+        a.autoImportFromCLI = true
+        let b = ProjectRegistryEntry(path: "/p/x/", lastOpenedAt: Date(timeIntervalSince1970: 900))
+        let deduped = ProjectRegistryLogic.deduplicated([a, b])
+        #expect(deduped.count == 1)
+        #expect(deduped[0].autoImportFromCLI == true)
+    }
+
+    @Test func dedupPreservesArchiveStateAcrossDuplicates() {
+        var a = ProjectRegistryEntry(path: "/p/x", lastOpenedAt: Date(timeIntervalSince1970: 100))
+        a.archivedAt = Date(timeIntervalSince1970: 700)
+        let b = ProjectRegistryEntry(path: "/p/x/", lastOpenedAt: Date(timeIntervalSince1970: 200))
+        // Archive is a user decision; any duplicate being archived keeps it archived.
+        let deduped = ProjectRegistryLogic.deduplicated([a, b])
+        #expect(deduped.count == 1)
+        #expect(deduped[0].archivedAt != nil)
+    }
+
+    @Test func dedupKeepsDistinctProjectsUntouched() {
+        let a = ProjectRegistryEntry(path: "/p/one", lastOpenedAt: Date(timeIntervalSince1970: 100))
+        let b = ProjectRegistryEntry(path: "/p/two", lastOpenedAt: Date(timeIntervalSince1970: 200))
+        let c = ProjectRegistryEntry(path: "/p/three/", lastOpenedAt: Date(timeIntervalSince1970: 300))
+        let deduped = ProjectRegistryLogic.deduplicated([a, b, c])
+        #expect(deduped.count == 3)
+    }
+
+    @Test func dedupPreservesProviderAndModelFromNewest() {
+        let a = ProjectRegistryEntry(path: "/p/x", lastOpenedAt: Date(timeIntervalSince1970: 100),
+                                     defaultProviderID: "legacy", defaultModelID: "model-1")
+        let b = ProjectRegistryEntry(path: "/p/x/", lastOpenedAt: Date(timeIntervalSince1970: 200),
+                                     defaultProviderID: "new", defaultModelID: "model-2")
+        let deduped = ProjectRegistryLogic.deduplicated([a, b])
+        #expect(deduped[0].defaultProviderID == "new")
+        #expect(deduped[0].defaultModelID == "model-2")
+    }
+
+    @Test func dedupMigrationRewritesRegistryFileOnce() throws {
+        // End-to-end: a legacy registry file containing duplicates is rewritten
+        // in place to a deduplicated document (idempotent on re-run).
+        let home = try makeTempHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let legacy = [
+            ProjectRegistryEntry(path: "/tmp/dup", name: "A", lastOpenedAt: Date(timeIntervalSince1970: 100)),
+            ProjectRegistryEntry(path: "/tmp/dup/", name: "B", lastOpenedAt: Date(timeIntervalSince1970: 200))
+        ]
+        try ProjectRegistryLogic.save(legacy, homeDirectory: home)
+
+        ProjectRegistryLogic.deduplicateRegistry(homeDirectory: home)
+        let after = ProjectRegistryLogic.load(homeDirectory: home)
+        #expect(after.count == 1)
+
+        // Second run is a no-op (still one entry, no churn).
+        ProjectRegistryLogic.deduplicateRegistry(homeDirectory: home)
+        #expect(ProjectRegistryLogic.load(homeDirectory: home).count == 1)
+    }
 }

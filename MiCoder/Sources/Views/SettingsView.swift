@@ -1635,6 +1635,11 @@ struct StorageSettingsView: View {
     // typing the project name — GitHub "type repo name to delete" pattern.
     @State private var pendingDeleteEntry: ProjectRegistryEntry?
     @State private var deleteConfirmName = ""
+    // Quota status (plan Раздел 8 п.50): informative warning when the sum of all
+    // per-project DBs crosses the threshold — never blocks, always suggests.
+    @State private var quota = ProjectStorageAdmin.StorageQuotaStatus(
+        totalBytes: 0, thresholdBytes: 0, archivableBytes: 0, archivedBytes: 0
+    )
     
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -1887,6 +1892,32 @@ struct StorageSettingsView: View {
                 .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
                 .help("Bulk-archive projects not opened in the selected number of days (plan Раздел 8 п.25)")
             }
+            // Quota warning (plan Раздел 8 п.50): inform, never block.
+            if quota.isOverQuota {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .interfaceFont(size: 12)
+                        .foregroundColor(Color.mimo.warning)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Storage quota exceeded")
+                            .interfaceFont(size: 12, weight: .semibold)
+                            .foregroundColor(Color.mimo.textPrimary)
+                        Text("Total project databases use \(quota.totalBytes.formatted(.byteCount(style: .file))), above the \(quota.thresholdBytes.formatted(.byteCount(style: .file))) threshold. Archiving inactive projects would free \(quota.archivableBytes.formatted(.byteCount(style: .file))).")
+                            .interfaceFont(size: 11)
+                            .foregroundColor(Color.mimo.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Button("Archive inactive") {
+                        mutateProjects { ProjectStorageAdmin.archiveAllInactive(days: Int(archiveDays), in: $0) }
+                    }
+                    .interfaceFont(size: 11)
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.mimo.warning)
+                }
+                .padding(10)
+                .background(Color.mimo.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+            }
             let active = ProjectRegistryLogic.active(projectEntries)
             let archived = ProjectRegistryLogic.archived(projectEntries)
             let orphans = ProjectRegistryLogic.orphaned(projectEntries)
@@ -2079,6 +2110,12 @@ struct StorageSettingsView: View {
     private func refreshStats() {
         stats = appState.loadStorageStats()
         loadProjectEntries()
+        // Recompute the quota against the 2GB informational threshold (п.50).
+        quota = ProjectStorageAdmin.quotaStatus(
+            projects: projectEntries,
+            thresholdBytes: 2_000_000_000,
+            inactiveDays: Int(archiveDays)
+        )
     }
 }
 

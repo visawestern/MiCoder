@@ -302,6 +302,13 @@ class AppState: ObservableObject {
             defaults: defaults
         )
 
+        // Dedup the project registry after any legacy migration (plan Раздел 8
+        // п.47): the old single DB could leave multiple rows per canonical path
+        // (UUID pileup, Блок 1 п.4). Idempotent — a clean registry is untouched.
+        ProjectRegistryLogic.deduplicateRegistry(
+            homeDirectory: FileManager.default.homeDirectoryForCurrentUser
+        )
+
         // Initialize database and perform migrations
         Task {
             await initializeDatabase()

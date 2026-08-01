@@ -144,4 +144,61 @@ enum ProjectRegistryLogic {
     static func shouldAutoImportFromCLI(_ entry: ProjectRegistryEntry?) -> Bool {
         entry?.autoImportFromCLI ?? false
     }
+
+    // MARK: - Dedup on migration (plan Раздел 8 п.47)
+
+    /// Collapse a registry that may contain multiple records for the same
+    /// canonical project path (the legacy UUID pileup from Блок 1 п.4 — one
+    /// project could end up with several rows under different ids/paths).
+    ///
+    /// Rule per canonical path:
+    /// - ONE record survives, re-keyed to the canonical normalized path;
+    /// - the most recently opened record contributes name/provider/model;
+    /// - `autoImportFromCLI` stays ON if ANY duplicate had it enabled (the
+    ///   reset-bug safety switch must never silently turn itself off);
+    /// - the archive flag survives if ANY duplicate was archived (a user
+    ///   decision must not be lost by a duplicate merge).
+    static func deduplicated(_ projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
+        var canonical: [String: ProjectRegistryEntry] = [:]
+        for entry in projects {
+            let key = IdentifierNormalization.projectID(for: entry.path)
+            guard let existing = canonical[key] else {
+                canonical[key] = entry
+                continue
+            }
+            canonical[key] = merge(existing, with: entry)
+        }
+        return canonical.values.sorted { $0.lastOpenedAt > $1.lastOpenedAt }
+    }
+
+    /// Merge two duplicate records for the same canonical path.
+    private static func merge(_ a: ProjectRegistryEntry, with b: ProjectRegistryEntry) -> ProjectRegistryEntry {
+        let newest = a.lastOpenedAt >= b.lastOpenedAt ? a : b
+        let other = a.lastOpenedAt >= b.lastOpenedAt ? b : a
+        return ProjectRegistryEntry(
+            path: newest.path,
+            name: newest.name,
+            lastOpenedAt: newest.lastOpenedAt,
+            defaultProviderID: newest.defaultProviderID ?? other.defaultProviderID,
+            defaultModelID: newest.defaultModelID ?? other.defaultModelID,
+            autoImportFromCLI: a.autoImportFromCLI || b.autoImportFromCLI,
+            archivedAt: a.archivedAt ?? b.archivedAt
+        )
+    }
+
+    /// One-time migration helper: load the registry file, collapse duplicate
+    /// canonical paths, and rewrite it in place. Idempotent — a clean registry
+    /// is returned unchanged (no churn on re-run). Returns true when a rewrite
+    /// actually happened.
+    @discardableResult
+    static func deduplicateRegistry(homeDirectory: URL, fileManager: FileManager = .default) -> Bool {
+        let before = load(homeDirectory: homeDirectory, fileManager: fileManager)
+        let after = deduplicated(before)
+        guard after != before else { return false }
+        try? save(after, homeDirectory: homeDirectory, fileManager: fileManager)
+        try? StorageAuditLog.append(action: "registry.deduplicate",
+                                    detail: "\(before.count)->\(after.count) entries",
+                                    homeDirectory: homeDirectory)
+        return true
+    }
 }
