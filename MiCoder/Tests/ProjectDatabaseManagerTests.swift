@@ -230,4 +230,15 @@ struct ProjectDatabaseManagerTests {
         let sizeAfter = db.databaseFileSizeBytes()
         #expect(sizeAfter > sizeBefore)
     }
+
+    @Test("Integrity check passes on a healthy database (plan Раздел 8 п.48)")
+    func integrityCheckHealthy() throws {
+        let projectPath = try makeTempProjectDir()
+        defer { try? FileManager.default.removeItem(atPath: projectPath) }
+        let db = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
+        try db.insertSession(id: "s1", title: "Chat", directory: projectPath)
+        try db.insertMessage(id: "m1", sessionId: "s1", role: "user", content: "hello", isFinished: true)
+        let result = try db.integrityCheck()
+        #expect(result == nil)
+    }
 }

@@ -2038,7 +2038,20 @@ struct StorageSettingsView: View {
     }
 
     private func mutateProjects(_ transform: ([ProjectRegistryEntry]) -> [ProjectRegistryEntry]) {
-        let updated = transform(ProjectRegistryLogic.load(homeDirectory: home))
+        let before = ProjectRegistryLogic.load(homeDirectory: home)
+        let updated = transform(before)
+        // Audit every registry mutation (plan Раздел 8 п.46) so destructive
+        // operations are reconstructable later.
+        if updated != before {
+            let added = updated.filter { e in !before.contains { $0.id == e.id } }
+            let removed = before.filter { e in !updated.contains { $0.id == e.id } }
+            if !added.isEmpty {
+                try? StorageAuditLog.append(action: "registry.add", detail: added.map(\.path).joined(separator: ", "), homeDirectory: home)
+            }
+            if !removed.isEmpty {
+                try? StorageAuditLog.append(action: "registry.remove", detail: removed.map(\.path).joined(separator: ", "), homeDirectory: home)
+            }
+        }
         try? ProjectRegistryLogic.save(updated, homeDirectory: home)
         projectEntries = updated
     }
@@ -2049,6 +2062,9 @@ struct StorageSettingsView: View {
         // deleted-backups area (inside .micoder it would be removed with it).
         try? ProjectAutoBackupLogic.createBackup(projectPath: entry.path)
         try? ProjectAutoBackupLogic.preserveForDeletion(projectPath: entry.path)
+        try? StorageAuditLog.append(action: "project.delete",
+                                    detail: "path=\(entry.path)",
+                                    homeDirectory: home)
         // Remove only the project's .micoder data, never the user's files.
         try? FileManager.default.removeItem(at: ProjectDatabaseLocator.projectMimoDir(projectPath: entry.path))
         mutateProjects { ProjectRegistryLogic.remove(id: entry.id, in: $0) }

@@ -1,5 +1,8 @@
 import Foundation
 import SQLite
+#if canImport(SQLite3)
+import SQLite3
+#endif
 
 /// Errors raised while opening or operating on a per-project database.
 enum ProjectDatabaseError: Error, LocalizedError, Equatable {
@@ -792,6 +795,29 @@ final class ProjectDatabaseManager {
 
     func vacuum() throws {
         try db.execute("VACUUM")
+    }
+
+    /// `PRAGMA integrity_quick_check` — returns nil when the database is intact,
+    /// or a description of the corruption otherwise (plan Раздел 8 п.48).
+    /// Uses the raw SQLite C API: the SQLite.swift wrapper doesn't surface
+    /// PRAGMA result rows, and quick_check returns no rows on a fresh DB.
+    func integrityCheck() throws -> String? {
+        let handle = db.handle
+        let context = UnsafeMutableRawPointer(Unmanaged.passRetained(NSMutableString()).toOpaque())
+        let sql = "PRAGMA integrity_quick_check"
+        let rc = sqlite3_exec(handle, sql, { ctx, colCount, values, _ in
+            let result = Unmanaged<NSMutableString>.fromOpaque(ctx!).takeUnretainedValue()
+            var parts: [String] = []
+            for i in 0..<Int(colCount) {
+                if let c = values![i] { parts.append(String(cString: c)) }
+            }
+            result.append(parts.joined(separator: ","))
+            return 0
+        }, context, nil)
+        let collected = Unmanaged<NSMutableString>.fromOpaque(context).takeRetainedValue() as String
+        guard rc == SQLITE_OK else { return "integrity check failed (rc \(rc))" }
+        let trimmed = collected.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty || trimmed == "ok" ? nil : trimmed
     }
 
     func databaseFileSizeBytes() -> UInt64 {

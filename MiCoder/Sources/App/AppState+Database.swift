@@ -185,6 +185,9 @@ extension AppState {
     
     /// Заархивировать сессии старше N дней
     func archiveOldSessions(days: Int) {
+        try? StorageAuditLog.append(action: "sessions.archive_old",
+                                    detail: "days=\(days)",
+                                    homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
         try? DatabaseManager.shared.archiveSessionsOlderThan(days: days)
         Task { @MainActor in
             await loadProjectsFromDatabase()
@@ -193,6 +196,9 @@ extension AppState {
     
     /// Удалить все архивированные сессии
     func deleteArchivedSessions() -> Int {
+        try? StorageAuditLog.append(action: "sessions.delete_archived",
+                                    detail: "all",
+                                    homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
         let count = (try? DatabaseManager.shared.deleteArchivedSessions()) ?? 0
         if count > 0 {
             try? DatabaseManager.shared.vacuum()
@@ -205,6 +211,9 @@ extension AppState {
     
     /// Удалить сессии старше N дней
     func deleteSessionsOlderThan(days: Int) -> Int {
+        try? StorageAuditLog.append(action: "sessions.delete_older",
+                                    detail: "days=\(days)",
+                                    homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
         let count = (try? DatabaseManager.shared.deleteSessionsOlderThan(days: days)) ?? 0
         if count > 0 {
             try? DatabaseManager.shared.vacuum()
@@ -233,6 +242,12 @@ extension AppState {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let cliRoot = home.appendingPathComponent(".local/share")
         let plan = StorageResetLogic.plan(for: scope, homeDirectory: home, cliStorageRoot: cliRoot)
+
+        // Audit the reset (plan Раздел 8 п.46) BEFORE the deletion so the log
+        // survives any crash mid-reset.
+        try? StorageAuditLog.append(action: "storage.reset",
+                                    detail: "scope=\(plan.scope) paths=\(plan.deletesPaths.joined(separator: ", "))",
+                                    homeDirectory: home)
 
         // Delete exactly the planned paths.
         for path in plan.deletesPaths {
