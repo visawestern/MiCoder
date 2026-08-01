@@ -1987,11 +1987,50 @@ struct StorageSettingsView: View {
             }
             .buttonStyle(.plain)
             .help("Compress this project's database (VACUUM)")
+
+            Button(action: { exportProjectBackup(entry) }) {
+                Image(systemName: "square.and.arrow.up")
+                    .interfaceFont(size: 11).foregroundColor(Color.mimo.brand)
+            }
+            .buttonStyle(.plain)
+            .help("Export this project's database + snapshots as a .zip backup")
+
+            Button(action: { importProjectBackup(entry) }) {
+                Image(systemName: "square.and.arrow.down")
+                    .interfaceFont(size: 11).foregroundColor(Color.mimo.brand)
+            }
+            .buttonStyle(.plain)
+            .help("Restore this project's database + snapshots from a .zip backup")
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
         .background(Color.mimo.surface)
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func exportProjectBackup(_ entry: ProjectRegistryEntry) {
+        let plan = ProjectBackupLogic.plan(projectPath: entry.path)
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = plan.archiveName
+        panel.canCreateDirectories = true
+        panel.prompt = "Export backup"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if ProjectBackupLogic.export(projectPath: entry.path, to: url) {
+            refreshStats()
+        }
+    }
+
+    private func importProjectBackup(_ entry: ProjectRegistryEntry) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.zip]
+        panel.prompt = "Restore backup"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if ProjectBackupLogic.importBackup(from: url, projectPath: entry.path) {
+            refreshStats()
+        }
     }
 
     private func loadProjectEntries() {

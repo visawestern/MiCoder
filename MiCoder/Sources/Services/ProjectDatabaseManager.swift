@@ -318,6 +318,14 @@ final class ProjectDatabaseManager {
         poolQueue.sync { pool.removeAll() }
     }
 
+    /// Drop the pooled connection for one specific project path (used before
+    /// restoring a backup, so the restored file is read fresh, not the stale
+    /// inode an open handle may still reference).
+    static func evictProject(projectPath: String) {
+        let normalized = ChatSession.normalizedPath(projectPath)
+        poolQueue.sync { pool.removeValue(forKey: normalized) }
+    }
+
     static func isPooled(projectPath: String) -> Bool {
         let normalized = ChatSession.normalizedPath(projectPath)
         return poolQueue.sync { pool[normalized] != nil }
