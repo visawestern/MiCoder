@@ -1876,9 +1876,17 @@ struct StorageSettingsView: View {
 
     private var projectsAdminSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Projects")
-                .interfaceFont(size: 16, weight: .semibold)
-                .foregroundColor(Color.mimo.textPrimary)
+            HStack {
+                Text("Projects")
+                    .interfaceFont(size: 16, weight: .semibold)
+                    .foregroundColor(Color.mimo.textPrimary)
+                Spacer()
+                Button("Archive inactive > \(Int(archiveDays)) days") {
+                    mutateProjects { ProjectStorageAdmin.archiveAllInactive(days: Int(archiveDays), in: $0) }
+                }
+                .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+                .help("Bulk-archive projects not opened in the selected number of days (plan Раздел 8 п.25)")
+            }
             let active = ProjectRegistryLogic.active(projectEntries)
             let archived = ProjectRegistryLogic.archived(projectEntries)
             let orphans = ProjectRegistryLogic.orphaned(projectEntries)
@@ -1970,6 +1978,15 @@ struct StorageSettingsView: View {
             }
             .buttonStyle(.plain)
             .help("Delete project (requires typing its name)")
+
+            Button(action: {
+                if appState.vacuumProject(path: entry.path) { refreshStats() }
+            }) {
+                Image(systemName: "arrow.down.right.and.arrow.up.left")
+                    .interfaceFont(size: 11).foregroundColor(Color.mimo.brand)
+            }
+            .buttonStyle(.plain)
+            .help("Compress this project's database (VACUUM)")
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
         .background(Color.mimo.surface)

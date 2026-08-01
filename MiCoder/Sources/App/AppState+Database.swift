@@ -271,6 +271,17 @@ extension AppState {
         try? DatabaseManager.shared.vacuum()
     }
 
+    /// Сжать per-project БД конкретного проекта (plan Раздел 8 п.28).
+    func vacuumProject(path: String) -> Bool {
+        guard let db = try? ProjectDatabaseManager.manager(forProjectPath: path) else { return false }
+        do {
+            try db.vacuum()
+            return true
+        } catch {
+            return false
+        }
+    }
+
     /// Export the current project's full history via ProjectHistoryExporter.
     /// This wires the exporter into live code so it is no longer an orphan
     /// (Round 7 orphan-wiring requirement).
