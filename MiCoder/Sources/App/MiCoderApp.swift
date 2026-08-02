@@ -128,6 +128,18 @@ class AppState: ObservableObject {
             DatabaseBridge.shared.setActiveProject(path: selectedWorkspace?.path)
 
             guard let workspace = selectedWorkspace else { return }
+
+            // E04 (Раздел 8 п.48): open-time integrity check — a corrupted
+            // per-project DB must surface an offer to restore the latest
+            // backup instead of silently crashing or serving stale data.
+            let path = workspace.path
+            Task.detached(priority: .utility) {
+                if case .corrupt(let message) = ProjectOpenIntegrity.checkOnOpen(projectPath: path) {
+                    let alert = ProjectIntegrityAlert(projectPath: path, message: message)
+                    await MainActor.run { self.projectIntegrityAlert = alert }
+                }
+            }
+
             guard !isNavigatingHistory else { return }
 
             navigationLock.lock()
@@ -212,6 +224,10 @@ class AppState: ObservableObject {
     /// corresponding git dialog (E08, Раздел 5 п.13/15/16). ContentView
     /// presents one `.sheet(item:)` that switches on this value.
     @Published var pendingGitAction: GitUIAction?
+    /// Set when a project is opened and its database fails the open-time
+    /// integrity check (E04, Раздел 8 п.48). ContentView offers to restore
+    /// the latest auto-backup.
+    @Published var projectIntegrityAlert: ProjectIntegrityAlert?
     @Published var isGitBusy = false
     @Published var gitRepositoryPath: String?
     @Published var workspaceSortOrder: WorkspaceSortOrder = .recentUse

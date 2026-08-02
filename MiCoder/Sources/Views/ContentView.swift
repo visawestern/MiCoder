@@ -87,6 +87,35 @@ struct ContentView: View {
             GitActionSheet(action: action)
                 .environmentObject(appState)
         }
+        // E04 (Раздел 8 п.48): a corrupted project DB detected at open time
+        // offers to restore the latest auto-backup.
+        .alert(
+            "Project database may be corrupted",
+            isPresented: Binding(
+                get: { appState.projectIntegrityAlert != nil },
+                set: { if !$0 { appState.projectIntegrityAlert = nil } }
+            ),
+            presenting: appState.projectIntegrityAlert
+        ) { alert in
+            Button("Restore from backup") {
+                let path = alert.projectPath
+                Task {
+                    do {
+                        let restored = try ProjectOpenIntegrity.restoreLatestBackup(projectPath: path)
+                        appState.gitStatusMessage = restored == nil
+                            ? "No backup found for this project — the database was not restored."
+                            : "Database restored from the latest backup."
+                    } catch {
+                        appState.gitStatusMessage = "Restore failed: \(error.localizedDescription)"
+                    }
+                }
+            }
+            Button("Ignore", role: .cancel) {
+                appState.projectIntegrityAlert = nil
+            }
+        } message: { alert in
+            Text("\(alert.message)\n\nOpening this project failed its database integrity check. The latest auto-backup can be restored.")
+        }
     }
 
     /// Settings as a dismissable overlay instead of a modal sheet:
