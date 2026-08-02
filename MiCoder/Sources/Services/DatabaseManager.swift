@@ -37,12 +37,7 @@ class DatabaseManager {
     /// equals the project's normalized path and therefore changes if the
     /// project is ever re-linked at a new path after being moved/renamed).
     private let projectStableId = Expression<String?>("stable_id")
-    /// Per-project opt-in for automatically re-importing session history
-    /// from the `mimo` CLI's own global session store. Defaults to `false`
-    /// so resetting the app's local cache can never silently repopulate
-    /// itself from CLI history the user didn't ask to sync.
-    private let projectAutoImportFromCLI = Expression<Bool>("auto_import_from_cli")
-    
+
     // Sessions table
     private let sessions = Table("sessions")
     private let sessionId = Expression<String>("id")
@@ -201,7 +196,6 @@ class DatabaseManager {
             t.column(projectCustomInstructions)
             t.column(projectEnvVars)
             t.column(projectStableId)
-            t.column(projectAutoImportFromCLI, defaultValue: false)
         })
         
         // Sessions table
@@ -403,8 +397,7 @@ class DatabaseManager {
         path: String,
         gitRemote: String? = nil,
         gitBranch: String? = nil,
-        stableId: String? = nil,
-        autoImportFromCLI: Bool = false
+        stableId: String? = nil
     ) throws {
         guard let db = db else { throw DatabaseError.notInitialized }
         
@@ -418,8 +411,7 @@ class DatabaseManager {
             projectGitRemote <- gitRemote,
             projectGitBranch <- gitBranch,
             projectIsPinned <- false,
-            projectStableId <- stableId ?? UUID().uuidString,
-            projectAutoImportFromCLI <- autoImportFromCLI
+            projectStableId <- stableId ?? UUID().uuidString
         ))
     }
     
@@ -437,8 +429,7 @@ class DatabaseManager {
                 gitRemote: row[projectGitRemote],
                 gitBranch: row[projectGitBranch],
                 isPinned: row[projectIsPinned],
-                stableId: row[projectStableId],
-                autoImportFromCLI: row[projectAutoImportFromCLI]
+                stableId: row[projectStableId]
             ))
         }
         return results
@@ -461,8 +452,7 @@ class DatabaseManager {
             gitRemote: row[projectGitRemote],
             gitBranch: row[projectGitBranch],
             isPinned: row[projectIsPinned],
-            stableId: row[projectStableId],
-            autoImportFromCLI: row[projectAutoImportFromCLI]
+            stableId: row[projectStableId]
         )
     }
 
@@ -477,28 +467,15 @@ class DatabaseManager {
         let normalizedNewPath = ChatSession.normalizedPath(newPath)
         let existingRow = try db.pluck(projects.filter(projectId == oldId))
         let preservedStableId = existingRow?[projectStableId]
-        let preservedAutoImport = existingRow?[projectAutoImportFromCLI] ?? false
 
         try db.run(projects.filter(projectId == oldId).delete())
         try insertProject(
             id: normalizedNewPath,
             name: name,
             path: normalizedNewPath,
-            stableId: preservedStableId,
-            autoImportFromCLI: preservedAutoImport
+            stableId: preservedStableId
         )
         return normalizedNewPath
-    }
-
-    func setAutoImportFromCLI(projectId id: String, enabled: Bool) throws {
-        guard let db = db else { throw DatabaseError.notInitialized }
-        try db.run(projects.filter(projectId == id).update(projectAutoImportFromCLI <- enabled))
-    }
-
-    func isAutoImportFromCLIEnabled(projectId id: String) throws -> Bool {
-        guard let db = db else { throw DatabaseError.notInitialized }
-        guard let row = try db.pluck(projects.filter(projectId == id)) else { return false }
-        return row[projectAutoImportFromCLI]
     }
     
     func updateProjectLastOpened(id: String) throws {
@@ -594,8 +571,6 @@ class DatabaseManager {
     }
     
     /// Returns every session across every project, regardless of `project_id`.
-    /// Used by `ProjectDatabaseMigrator` to distribute the legacy single-file
-    /// database into per-project databases grouped by directory.
     func getAllSessionsAcrossProjects() throws -> [SessionRecord] {
         guard let db = db else { throw DatabaseError.notInitialized }
 
@@ -1002,7 +977,6 @@ struct ProjectRecord {
     let gitBranch: String?
     let isPinned: Bool
     let stableId: String?
-    let autoImportFromCLI: Bool
 }
 
 struct SessionRecord {

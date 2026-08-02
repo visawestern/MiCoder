@@ -235,22 +235,20 @@ extension AppState {
         clearNavigationHistory()
     }
 
-    /// Reset storage by explicit scope (plan Раздел 8 Блок 1 п.10 / Блок 2 п.19).
-    /// Honest, predictable behavior: deletes exactly the planned paths, clears
-    /// selection/navigation, and (for clearNoAutoImport) disables CLI auto-import.
+    /// Reset storage by explicit scope (plan Раздел 8 Блок 1 п.10).
+    /// Honest, predictable behavior: deletes exactly the planned paths and
+    /// clears selection/navigation.
     ///
-    /// Round 14 (test-safety): `homeDirectory`/`cliStorageRoot` are injectable
-    /// so tests sandbox the reset to a temp dir instead of the REAL user home
-    /// (the old StorageResetCrashTests deleted the real ~/.micoder/mimo.db).
+    /// Round 14 (test-safety): `homeDirectory` is injectable so tests sandbox
+    /// the reset to a temp dir instead of the REAL user home (the old
+    /// StorageResetCrashTests deleted the real ~/.micoder/mimo.db).
     /// `resetDatabase` is a closure so tests can substitute a no-op and never
     /// touch `DatabaseManager.shared`.
     func resetStorage(scope: StorageResetScope,
                       homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
-                      cliStorageRoot: URL? = nil,
                       resetDatabase: () -> Void = { try? DatabaseManager.shared.reset() }) {
         let home = homeDirectory
-        let cliRoot = cliStorageRoot ?? home.appendingPathComponent(".local/share")
-        let plan = StorageResetLogic.plan(for: scope, homeDirectory: home, cliStorageRoot: cliRoot)
+        let plan = StorageResetLogic.plan(for: scope, homeDirectory: home)
 
         // Audit the reset (plan Раздел 8 п.46) BEFORE the deletion so the log
         // survives any crash mid-reset.
@@ -266,15 +264,6 @@ extension AppState {
         resetDatabase()
 
         clearInMemoryState()
-
-        // Disable CLI auto-import globally for the no-auto-import scenario.
-        if plan.disablesAutoImport {
-            let all = ProjectRegistryLogic.load(homeDirectory: home)
-                .map { entry -> ProjectRegistryEntry in
-                    var e = entry; e.autoImportFromCLI = false; return e
-                }
-            try? ProjectRegistryLogic.save(all, homeDirectory: home)
-        }
 
         Task { @MainActor in
             await loadProjectsFromDatabase()

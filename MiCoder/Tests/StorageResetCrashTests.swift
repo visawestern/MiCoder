@@ -30,7 +30,6 @@ final class StorageResetCrashTests: XCTestCase {
         appState.resetStorage(
             scope: .appCacheOnly,
             homeDirectory: sandbox,
-            cliStorageRoot: sandbox.appendingPathComponent(".local/share"),
             resetDatabase: { /* no-op: never touch the real DatabaseManager.shared */ }
         )
     }

@@ -6,48 +6,17 @@ import Foundation
 struct StorageResetLogicTests {
 
     private let home = URL(fileURLWithPath: "/home/user")
-    private let cliRoot = URL(fileURLWithPath: "/home/user/.local/share")
 
     @Test func appCacheOnlyClearsMimoDBOnly() {
-        let plan = StorageResetLogic.plan(for: .appCacheOnly, homeDirectory: home, cliStorageRoot: cliRoot)
+        let plan = StorageResetLogic.plan(for: .appCacheOnly, homeDirectory: home)
         #expect(plan.deletesPaths == ["/home/user/.micoder/mimo.db"])
-        #expect(!plan.clearsCLIHistory)
-        #expect(!plan.disablesAutoImport)
+        #expect(plan.scope == .appCacheOnly)
     }
 
-    @Test func fullIncludingCLIClearsBothDBs() {
-        let plan = StorageResetLogic.plan(for: .fullIncludingCLI, homeDirectory: home, cliStorageRoot: cliRoot)
-        #expect(plan.deletesPaths.contains("/home/user/.micoder/mimo.db"))
-        #expect(plan.deletesPaths.contains("/home/user/.local/share/mimocode/mimocode.db"))
-        #expect(plan.clearsCLIHistory)
-        #expect(!plan.disablesAutoImport)
-    }
-
-    @Test func clearNoAutoImportDisablesImport() {
-        let plan = StorageResetLogic.plan(for: .clearNoAutoImport, homeDirectory: home, cliStorageRoot: cliRoot)
-        #expect(plan.disablesAutoImport)
-        #expect(!plan.clearsCLIHistory)
-        #expect(plan.deletesPaths == ["/home/user/.micoder/mimo.db"])
-    }
-
-    @Test func fullResetRequiresExtraConfirmation() {
-        #expect(StorageResetLogic.requiresExtraConfirmation(.fullIncludingCLI))
-        #expect(!StorageResetLogic.requiresExtraConfirmation(.appCacheOnly))
-        #expect(!StorageResetLogic.requiresExtraConfirmation(.clearNoAutoImport))
-    }
-
-    @Test func summaryMentionsAllDeletedPaths() {
-        let plan = StorageResetLogic.plan(for: .fullIncludingCLI, homeDirectory: home, cliStorageRoot: cliRoot)
+    @Test func summaryMentionsDeletedPaths() {
+        let plan = StorageResetLogic.plan(for: .appCacheOnly, homeDirectory: home)
         let s = StorageResetLogic.summary(for: plan)
         #expect(s.contains("mimo.db"))
-        #expect(s.contains("mimocode.db"))
-        #expect(s.contains("CLI history"))
-    }
-
-    @Test func summaryForNoAutoImportMentionsDisabling() {
-        let plan = StorageResetLogic.plan(for: .clearNoAutoImport, homeDirectory: home, cliStorageRoot: cliRoot)
-        let s = StorageResetLogic.summary(for: plan)
-        #expect(s.contains("Auto-import"))
     }
 
     // MARK: - Identifier normalization (Блок 2 п.17)

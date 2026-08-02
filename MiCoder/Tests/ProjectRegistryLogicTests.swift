@@ -17,7 +17,6 @@ struct ProjectRegistryLogicTests {
         let b = ProjectRegistryEntry(path: "/home/u/proj")
         #expect(a.id == b.id)      // trailing slash normalized → dedup works
         #expect(a.name == "proj")
-        #expect(!a.autoImportFromCLI)   // default OFF (bug fix)
     }
 
     @Test func upsertDeduplicatesSamePath() {
@@ -27,14 +26,12 @@ struct ProjectRegistryLogicTests {
         #expect(projects.count == 1)   // reopening same folder does NOT duplicate
     }
 
-    @Test func upsertPreservesArchiveAndSettings() {
+    @Test func upsertPreservesArchiveState() {
         var e = ProjectRegistryEntry(path: "/p/x")
         e.archivedAt = Date()
-        e.autoImportFromCLI = true
         var projects = [e]
         projects = ProjectRegistryLogic.upsert(ProjectRegistryEntry(path: "/p/x"), into: projects)
         #expect(projects.first?.isArchived == true)          // archive preserved
-        #expect(projects.first?.autoImportFromCLI == true)   // settings preserved
     }
 
     @Test func archiveRestoreDeleteFlow() {
@@ -50,14 +47,6 @@ struct ProjectRegistryLogicTests {
 
         projects = ProjectRegistryLogic.remove(id: id, in: projects)
         #expect(projects.isEmpty)
-    }
-
-    @Test func setAutoImportToggles() {
-        var projects = [ProjectRegistryEntry(path: "/p/x")]
-        let id = projects[0].id
-        #expect(!ProjectRegistryLogic.shouldAutoImportFromCLI(projects.first))
-        projects = ProjectRegistryLogic.setAutoImportFromCLI(id: id, enabled: true, in: projects)
-        #expect(ProjectRegistryLogic.shouldAutoImportFromCLI(projects.first))
     }
 
     @Test func orphanedDetectsMissingPaths() throws {
@@ -76,12 +65,10 @@ struct ProjectRegistryLogicTests {
     @Test func relinkRebindsOrphanToExistingPath() {
         // Plan Раздел 8 п.31: an orphaned project (folder moved/renamed) can be
         // re-linked to its new location — the record must keep its settings.
-        var entry = ProjectRegistryEntry(path: "/old/path")
-        entry.autoImportFromCLI = true
+        let entry = ProjectRegistryEntry(path: "/old/path")
         let relinked = ProjectRegistryLogic.relink(entry, toNewPath: "/new/path")
         #expect(relinked.path == "/new/path")
         #expect(relinked.id == IdentifierNormalization.projectID(for: "/new/path"))
-        #expect(relinked.autoImportFromCLI == true)  // settings preserved
         #expect(relinked.name == "path")             // name refreshed from folder
     }
 
@@ -111,13 +98,13 @@ struct ProjectRegistryLogicTests {
     @Test func persistenceRoundTrip() throws {
         let home = try makeTempHome()
         let projects = [
-            ProjectRegistryEntry(path: "/p/a", autoImportFromCLI: true),
+            ProjectRegistryEntry(path: "/p/a"),
             ProjectRegistryEntry(path: "/p/b")
         ]
         try ProjectRegistryLogic.save(projects, homeDirectory: home)
         let loaded = ProjectRegistryLogic.load(homeDirectory: home)
         #expect(loaded.count == 2)
-        #expect(loaded.first(where: { $0.path == "/p/a" })?.autoImportFromCLI == true)
+        #expect(loaded.first(where: { $0.path == "/p/a" })?.name == "a")
     }
 
     @Test func activeSortedByLastOpened() {
@@ -142,17 +129,6 @@ struct ProjectRegistryLogicTests {
         // The most recently opened record wins the metadata.
         #expect(deduped[0].lastOpenedAt.timeIntervalSince1970 == 2000)
         #expect(deduped[0].name == "Proj (2)")
-    }
-
-    @Test func dedupPreservesAutoImportOptInAcrossDuplicates() {
-        // autoImportFromCLI is the reset-bug safety switch (Блок 2 п.14):
-        // if ANY duplicate had it enabled, the canonical record keeps it on.
-        var a = ProjectRegistryEntry(path: "/p/x", lastOpenedAt: Date(timeIntervalSince1970: 500))
-        a.autoImportFromCLI = true
-        let b = ProjectRegistryEntry(path: "/p/x/", lastOpenedAt: Date(timeIntervalSince1970: 900))
-        let deduped = ProjectRegistryLogic.deduplicated([a, b])
-        #expect(deduped.count == 1)
-        #expect(deduped[0].autoImportFromCLI == true)
     }
 
     @Test func dedupPreservesArchiveStateAcrossDuplicates() {

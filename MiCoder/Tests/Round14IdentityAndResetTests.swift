@@ -20,33 +20,26 @@ struct Round14IdentityAndResetTests {
     func resetStorageIsScopedToInjectedHome() throws {
         let sandbox = FileManager.default.temporaryDirectory
             .appendingPathComponent("r14-reset-\(UUID().uuidString)", isDirectory: true)
-        let cliStorage = sandbox.appendingPathComponent(".local/share")
         let mimoDir = sandbox.appendingPathComponent(".micoder")
-        try FileManager.default.createDirectory(at: cliStorage, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: mimoDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: sandbox) }
 
-        // Place fake "data" files that must be wiped by scenario (b).
+        // Place fake "data" files — only the app DB is a reset target now
+        // (HTTP-only, no CLI history: the reset clears the app cache).
         let fakeAppDB = mimoDir.appendingPathComponent("mimo.db")
-        let fakeCLIDB = cliStorage.appendingPathComponent("mimocode/mimocode.db")
-        try FileManager.default.createDirectory(
-            at: fakeCLIDB.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let unrelated = sandbox.appendingPathComponent("keep.txt")
         try Data("app".utf8).write(to: fakeAppDB)
-        try Data("cli".utf8).write(to: fakeCLIDB)
+        try Data("keep".utf8).write(to: unrelated)
 
         let state = AppState()
-        let plan = StorageResetLogic.plan(
-            for: .fullIncludingCLI,
-            homeDirectory: sandbox,
-            cliStorageRoot: cliStorage
-        )
+        let plan = StorageResetLogic.plan(for: .appCacheOnly, homeDirectory: sandbox)
         // Execute the exact planned deletions (what resetStorage does, but
         // WITHOUT touching DatabaseManager.shared which is the real user DB).
         for path in plan.deletesPaths {
             try? FileManager.default.removeItem(atPath: path)
         }
         #expect(!FileManager.default.fileExists(atPath: fakeAppDB.path))
-        #expect(!FileManager.default.fileExists(atPath: fakeCLIDB.path))
+        #expect(FileManager.default.fileExists(atPath: unrelated.path)) // untouched
 
         // Every path the plan lists MUST live under the injected home — a
         // reset can never point outside the sandbox the test controls.

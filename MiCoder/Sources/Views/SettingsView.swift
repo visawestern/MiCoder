@@ -1785,8 +1785,9 @@ struct StorageSettingsView: View {
                     
                     Divider()
                     
-                    // Three explicit reset scenarios (plan Раздел 8 Блок 1 п.10)
-                    // replace the single ambiguous "Reset database" with honest choices.
+                    // Explicit reset scenario (plan Раздел 8 Блок 1 п.10):
+                    // clear the app database. No CLI-history options — the
+                    // app is HTTP-only (clean slate).
             VStack(alignment: .leading, spacing: 8) {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(AppLocalization.string(.resetStorageTitle, language: appState.appLanguage))
@@ -1794,14 +1795,6 @@ struct StorageSettingsView: View {
                         .foregroundColor(Color.mimo.textPrimary)
                     Button(AppLocalization.string(.resetAppCache, language: appState.appLanguage)) {
                         pendingResetScope = .appCacheOnly; showResetConfirmation = true
-                    }
-                    .buttonStyle(.plain).foregroundColor(Color.mimo.error).interfaceFont(size: 12)
-                    Button(AppLocalization.string(.resetAppCacheNoCLI, language: appState.appLanguage)) {
-                        pendingResetScope = .clearNoAutoImport; showResetConfirmation = true
-                    }
-                    .buttonStyle(.plain).foregroundColor(Color.mimo.error).interfaceFont(size: 12)
-                    Button(AppLocalization.string(.resetFull, language: appState.appLanguage)) {
-                        pendingResetScope = .fullIncludingCLI; showResetConfirmation = true
                     }
                     .buttonStyle(.plain).foregroundColor(Color.mimo.error).interfaceFont(size: 12)
                 }
@@ -1829,7 +1822,7 @@ struct StorageSettingsView: View {
             }
             .alert(resetAlertTitle, isPresented: $showResetConfirmation) {
                 Button("Cancel", role: .cancel) {}
-                Button(pendingResetScope == .fullIncludingCLI ? "Confirm full reset" : "Reset", role: .destructive) {
+                Button("Reset", role: .destructive) {
                     appState.resetStorage(scope: pendingResetScope)
                     refreshStats()
                 }
@@ -1863,17 +1856,12 @@ struct StorageSettingsView: View {
     }
 
     private var resetAlertTitle: String {
-        switch pendingResetScope {
-        case .appCacheOnly: return "Clear app cache?"
-        case .clearNoAutoImport: return "Clear cache & disable CLI import?"
-        case .fullIncludingCLI: return "Full reset (including CLI history)?"
-        }
+        "Clear app cache?"
     }
 
     private var resetAlertMessage: String {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let cliRoot = home.appendingPathComponent(".local/share")
-        let plan = StorageResetLogic.plan(for: pendingResetScope, homeDirectory: home, cliStorageRoot: cliRoot)
+        let plan = StorageResetLogic.plan(for: pendingResetScope, homeDirectory: home)
         return StorageResetLogic.summary(for: plan)
     }
     

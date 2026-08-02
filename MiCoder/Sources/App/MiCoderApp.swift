@@ -315,16 +315,9 @@ class AppState: ObservableObject {
 
         migrateLegacyPreferences()
 
-        // One-time rebrand data migration ~/.mimocode -> ~/.micoder (Раздел 13 п.11).
-        // Runs at most once, never overwrites newer data.
-        _ = try? LegacyDataMigrator.migrate(
-            homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
-            defaults: defaults
-        )
-
-        // Dedup the project registry after any legacy migration (plan Раздел 8
-        // п.47): the old single DB could leave multiple rows per canonical path
-        // (UUID pileup, Блок 1 п.4). Idempotent — a clean registry is untouched.
+        // Dedup the project registry (plan Раздел 8 п.47): the old single DB
+        // could leave multiple rows per canonical path (UUID pileup, Блок 1 п.4).
+        // Idempotent — a clean registry is untouched.
         ProjectRegistryLogic.deduplicateRegistry(
             homeDirectory: FileManager.default.homeDirectoryForCurrentUser
         )

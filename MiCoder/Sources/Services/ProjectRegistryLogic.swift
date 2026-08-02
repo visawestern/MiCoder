@@ -11,9 +11,6 @@ struct ProjectRegistryEntry: Codable, Identifiable, Equatable {
     var lastOpenedAt: Date
     var defaultProviderID: String?
     var defaultModelID: String?
-    /// Do NOT auto-import CLI history unless the user opted in (fixes the
-    /// "sessions keep reappearing" bug — plan Блок 2 п.14).
-    var autoImportFromCLI: Bool
     var archivedAt: Date?
 
     var isArchived: Bool { archivedAt != nil }
@@ -23,7 +20,6 @@ struct ProjectRegistryEntry: Codable, Identifiable, Equatable {
          lastOpenedAt: Date = Date(),
          defaultProviderID: String? = nil,
          defaultModelID: String? = nil,
-         autoImportFromCLI: Bool = false,
          archivedAt: Date? = nil) {
         self.id = IdentifierNormalization.projectID(for: path)
         self.path = IdentifierNormalization.projectID(for: path)
@@ -31,7 +27,6 @@ struct ProjectRegistryEntry: Codable, Identifiable, Equatable {
         self.lastOpenedAt = lastOpenedAt
         self.defaultProviderID = defaultProviderID
         self.defaultModelID = defaultModelID
-        self.autoImportFromCLI = autoImportFromCLI
         self.archivedAt = archivedAt
     }
 }
@@ -117,10 +112,6 @@ enum ProjectRegistryLogic {
         projects.filter { $0.id != id }
     }
 
-    static func setAutoImportFromCLI(id: String, enabled: Bool, in projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
-        projects.map { var p = $0; if p.id == id { p.autoImportFromCLI = enabled }; return p }
-    }
-
     /// Active (non-archived) projects for the Sidebar.
     static func active(_ projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
         projects.filter { !$0.isArchived }.sorted { $0.lastOpenedAt > $1.lastOpenedAt }
@@ -137,8 +128,8 @@ enum ProjectRegistryLogic {
 
     /// Re-link an orphaned project to its new location (plan Блок 3 п.31:
     /// "Найти новый путь"). The id is re-derived from the normalized absolute
-    /// path; settings (auto-import, archive status) are preserved; the name is
-    /// refreshed from the folder name.
+    /// path; settings (archive status) are preserved; the name is refreshed
+    /// from the folder name.
     static func relink(_ entry: ProjectRegistryEntry, toNewPath newPath: String) -> ProjectRegistryEntry {
         ProjectRegistryEntry(
             path: newPath,
@@ -146,7 +137,6 @@ enum ProjectRegistryLogic {
             lastOpenedAt: entry.lastOpenedAt,
             defaultProviderID: entry.defaultProviderID,
             defaultModelID: entry.defaultModelID,
-            autoImportFromCLI: entry.autoImportFromCLI,
             archivedAt: entry.archivedAt
         )
     }
@@ -162,12 +152,6 @@ enum ProjectRegistryLogic {
         return projects.filter { !$0.isArchived && $0.lastOpenedAt < cutoff }
     }
 
-    /// Whether CLI history should be auto-imported for this project (fixes the
-    /// reset bug: import only when explicitly enabled — plan Раздел 8 Блок 2 п.15).
-    static func shouldAutoImportFromCLI(_ entry: ProjectRegistryEntry?) -> Bool {
-        entry?.autoImportFromCLI ?? false
-    }
-
     // MARK: - Dedup on migration (plan Раздел 8 п.47)
 
     /// Collapse a registry that may contain multiple records for the same
@@ -177,8 +161,6 @@ enum ProjectRegistryLogic {
     /// Rule per canonical path:
     /// - ONE record survives, re-keyed to the canonical normalized path;
     /// - the most recently opened record contributes name/provider/model;
-    /// - `autoImportFromCLI` stays ON if ANY duplicate had it enabled (the
-    ///   reset-bug safety switch must never silently turn itself off);
     /// - the archive flag survives if ANY duplicate was archived (a user
     ///   decision must not be lost by a duplicate merge).
     static func deduplicated(_ projects: [ProjectRegistryEntry]) -> [ProjectRegistryEntry] {
@@ -204,7 +186,6 @@ enum ProjectRegistryLogic {
             lastOpenedAt: newest.lastOpenedAt,
             defaultProviderID: newest.defaultProviderID ?? other.defaultProviderID,
             defaultModelID: newest.defaultModelID ?? other.defaultModelID,
-            autoImportFromCLI: a.autoImportFromCLI || b.autoImportFromCLI,
             archivedAt: a.archivedAt ?? b.archivedAt
         )
     }

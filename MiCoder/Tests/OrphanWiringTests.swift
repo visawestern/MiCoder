@@ -49,13 +49,6 @@ struct OrphanWiringTests {
                 "ProjectHistoryExporter is an orphan — no live call site.")
     }
 
-    @Test("ProjectDatabaseMigrator is wired into live source")
-    func projectDatabaseMigratorWired() throws {
-        let live = try liveSources(excluding: "ProjectDatabaseMigrator.swift")
-        #expect(live.contains("ProjectDatabaseMigrator"),
-                "ProjectDatabaseMigrator is an orphan — migration never invoked at startup.")
-    }
-
     // NOTES on lower-severity orphans, deliberately NOT asserted here:
     //  • ChatPasteRoutingLogic (R7-07): a dead duplicate of the live
     //    PasteRoutingDecision path. It still has its own passing test suite

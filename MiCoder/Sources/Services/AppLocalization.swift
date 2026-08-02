@@ -181,13 +181,8 @@ enum AppLocalizationKey {
     case compressDatabase
     case resetStorageTitle
     case resetAppCache
-    case resetAppCacheNoCLI
-    case resetFull
     case resetAppCacheConfirmTitle
-    case resetAppCacheNoCLIConfirmTitle
-    case resetFullConfirmTitle
     case resetButton
-    case resetConfirmFullButton
     case archiveNow
 }
 
@@ -390,14 +385,9 @@ enum AppLocalization {
         case .deleteAllArchivedChats: return ("Delete all archived chats", "Удалить все архивные чаты")
         case .compressDatabase: return ("Compress database (VACUUM)", "Сжать базу (VACUUM)")
         case .resetStorageTitle: return ("Reset storage", "Сброс хранилища")
-        case .resetAppCache: return ("Clear app cache (keep CLI history)", "Очистить кеш приложения (CLI-история сохранится)")
-        case .resetAppCacheNoCLI: return ("Clear cache & stop auto-import from CLI", "Очистить кеш и отключить авто-импорт из CLI")
-        case .resetFull: return ("Full reset (including CLI history)", "Полный сброс (включая историю CLI)")
+        case .resetAppCache: return ("Clear app cache", "Очистить кеш приложения")
         case .resetAppCacheConfirmTitle: return ("Clear app cache?", "Очистить кеш приложения?")
-        case .resetAppCacheNoCLIConfirmTitle: return ("Clear cache & disable CLI import?", "Очистить кеш и отключить импорт из CLI?")
-        case .resetFullConfirmTitle: return ("Full reset (including CLI history)?", "Полный сброс (включая историю CLI)?")
         case .resetButton: return ("Reset", "Сбросить")
-        case .resetConfirmFullButton: return ("Confirm full reset", "Подтвердить полный сброс")
         case .archiveNow: return ("Archive now", "Архивировать сейчас")
         }
     }
