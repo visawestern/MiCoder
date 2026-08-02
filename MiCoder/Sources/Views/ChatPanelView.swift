@@ -940,9 +940,17 @@ struct ChatPanelView: View {
             }
         }
 
-        let executor = ProjectWebToolExecutor(projectRoot: appState.selectedWorkspace?.path ?? FileManager.default.currentDirectoryPath)
+        // E09/E10: real tool operations feed the project's undo stack and
+        // request_history — pass the per-project undo manager + session so
+        // write/edit tool calls snapshot, record undo entries and history rows.
+        let workspacePath = appState.selectedWorkspace?.path ?? FileManager.default.currentDirectoryPath
+        let executor = ProjectWebToolExecutor(
+            projectRoot: workspacePath,
+            undoManager: (try? ProjectUndoManager(projectPath: workspacePath)),
+            sessionId: messageStore.currentSessionID
+        )
         let driver = WebChatDriver(bridge: bridge, executor: executor, selectors: selectors,
-                                   config: config, projectRoot: appState.selectedWorkspace?.path ?? "")
+                                   config: config, projectRoot: workspacePath)
 
         // Send the tool-protocol preamble only on the first turn of a session
         // (audit P2); later turns continue the same web conversation.

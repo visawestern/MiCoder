@@ -4,13 +4,23 @@ import Foundation
 /// project directory (plan Раздел 12 Блок 2 п.16). Used when a web model asks
 /// for a tool via the emulated protocol. Path-safety is enforced by the driver
 /// (validate) before execution; this executor still resolves inside the root.
+/// When an `undoManager` is provided (normal production use), file-modifying
+/// tools snapshot + record undo entries and append `request_history` rows, so
+/// real tool operations feed the project's undo stack (Раздел 7 п.12-14).
 struct ProjectWebToolExecutor: WebToolExecutor {
     let projectRoot: String
     let fileManager: FileManager
+    let undoManager: ProjectUndoManager?
+    let sessionId: String?
 
-    init(projectRoot: String, fileManager: FileManager = .default) {
+    init(projectRoot: String,
+         fileManager: FileManager = .default,
+         undoManager: ProjectUndoManager? = nil,
+         sessionId: String? = nil) {
         self.projectRoot = projectRoot
         self.fileManager = fileManager
+        self.undoManager = undoManager
+        self.sessionId = sessionId
     }
 
     func execute(_ call: WebToolCall) async -> String {
@@ -30,7 +40,9 @@ struct ProjectWebToolExecutor: WebToolExecutor {
             let url = root.appendingPathComponent(path)
             do {
                 try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-                try content.write(to: url, atomically: true, encoding: .utf8)
+                try performFileOperation(operation: "write_file", fileURL: url, execute: {
+                    try content.write(to: url, atomically: true, encoding: .utf8)
+                })
                 return "ok: wrote \(content.count) chars to \(path)"
             } catch { return "error: \(error.localizedDescription)" }
         case .editFile:
@@ -44,8 +56,12 @@ struct ProjectWebToolExecutor: WebToolExecutor {
             }
             guard content.contains(oldStr) else { return "error: 'old' text not found in \(path)" }
             let updated = content.replacingOccurrences(of: oldStr, with: newStr)
-            do { try updated.write(to: url, atomically: true, encoding: .utf8); return "ok: edited \(path)" }
-            catch { return "error: \(error.localizedDescription)" }
+            do {
+                try performFileOperation(operation: "edit_file", fileURL: url, execute: {
+                    try updated.write(to: url, atomically: true, encoding: .utf8)
+                })
+                return "ok: edited \(path)"
+            } catch { return "error: \(error.localizedDescription)" }
         case .listDir:
             let path = call.arguments["path"] ?? "."
             let url = root.appendingPathComponent(path)
@@ -65,6 +81,23 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         case .none:
             return "error: unknown tool \(call.name)"
         }
+    }
+
+    /// Runs a file-modifying tool under the project's undo manager when one is
+    /// configured: snapshot the pre-change state, execute, record the undo
+    /// entry and a `request_history` row. Without an undo manager (tests / no
+    /// open project) the plain write runs unchanged.
+    private func performFileOperation(operation: String, fileURL: URL, execute: () throws -> Void) throws {
+        guard let undoManager, let sessionId else {
+            try execute()
+            return
+        }
+        try undoManager.executeWithUndo(operation: operation, filePath: fileURL.path, sessionId: sessionId, execute: execute)
+        try undoManager.db.recordRequestHistory(
+            sessionId: sessionId,
+            type: "file_edit",
+            payload: "{\"path\":\"\(fileURL.path)\",\"operation\":\"\(operation)\"}"
+        )
     }
 
     private func grep(pattern: String, in dir: URL) -> String {

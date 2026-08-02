@@ -32,7 +32,8 @@ final class ProjectSnapshotManager {
         let snapshotDir = "\(snapshotsBasePath)/\(snapshotId)"
         try fileManager.createDirectory(atPath: snapshotDir, withIntermediateDirectories: true)
 
-        if fileManager.fileExists(atPath: path) {
+        let existed = fileManager.fileExists(atPath: path)
+        if existed {
             let content = try Data(contentsOf: URL(fileURLWithPath: path))
             try content.write(to: URL(fileURLWithPath: "\(snapshotDir)/original"))
 
@@ -41,7 +42,20 @@ final class ProjectSnapshotManager {
                 "operation": operation,
                 "timestamp": Date().timeIntervalSince1970,
                 "sessionId": sessionId,
-                "fileSize": content.count
+                "fileSize": content.count,
+                "existed": true
+            ]
+            let metaData = try JSONSerialization.data(withJSONObject: meta, options: .prettyPrinted)
+            try metaData.write(to: URL(fileURLWithPath: "\(snapshotDir)/metadata.json"))
+        } else {
+            // The file did not exist before the operation; undo must restore
+            // that "absent" state (i.e. delete the created file).
+            let meta: [String: Any] = [
+                "filePath": path,
+                "operation": operation,
+                "timestamp": Date().timeIntervalSince1970,
+                "sessionId": sessionId,
+                "existed": false
             ]
             let metaData = try JSONSerialization.data(withJSONObject: meta, options: .prettyPrinted)
             try metaData.write(to: URL(fileURLWithPath: "\(snapshotDir)/metadata.json"))
@@ -55,8 +69,7 @@ final class ProjectSnapshotManager {
         let originalPath = "\(snapshotDir)/original"
         let metaPath = "\(snapshotDir)/metadata.json"
 
-        guard fileManager.fileExists(atPath: originalPath),
-              fileManager.fileExists(atPath: metaPath) else {
+        guard fileManager.fileExists(atPath: metaPath) else {
             throw SnapshotError.snapshotNotFound
         }
 
@@ -66,6 +79,19 @@ final class ProjectSnapshotManager {
             throw SnapshotError.invalidMetadata
         }
 
+        // Restore the pre-operation state: if the file did not exist before
+        // the operation, undo deletes the created file instead of restoring
+        // content (there is none).
+        if let existed = meta["existed"] as? Bool, !existed {
+            if fileManager.fileExists(atPath: filePath) {
+                try fileManager.removeItem(atPath: filePath)
+            }
+            return
+        }
+
+        guard fileManager.fileExists(atPath: originalPath) else {
+            throw SnapshotError.snapshotNotFound
+        }
         let originalContent = try Data(contentsOf: URL(fileURLWithPath: originalPath))
         try originalContent.write(to: URL(fileURLWithPath: filePath), options: .atomic)
     }
