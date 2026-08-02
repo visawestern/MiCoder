@@ -92,7 +92,7 @@ struct AgentResourceRegistryManagerTests {
         let record = InstalledMCPRecord(id: "playwright", version: "1.0.0",
                                         installedAt: Date(), source: .mimo,
                                         isEnabled: true, transport: .stdio,
-                                        lastHealthCheck: nil)
+                                        lastHealthCheck: nil, lastHealthStatus: nil)
         try MCPRegistryManager.upsert(record, homeDirectory: home)
         #expect(MCPRegistryManager.load(homeDirectory: home).count == 1)
 
@@ -107,7 +107,7 @@ struct AgentResourceRegistryManagerTests {
         let record = InstalledMCPRecord(id: "figma", version: "1.0.0",
                                         installedAt: Date(), source: .cursor,
                                         isEnabled: true, transport: .stdio,
-                                        lastHealthCheck: nil)
+                                        lastHealthCheck: nil, lastHealthStatus: nil)
         try MCPRegistryManager.upsert(record, homeDirectory: home)
         try MCPRegistryManager.setEnabled(id: "figma", enabled: false, homeDirectory: home)
         #expect(MCPRegistryManager.load(homeDirectory: home).first?.isEnabled == false)
@@ -118,7 +118,7 @@ struct AgentResourceRegistryManagerTests {
         let record = InstalledMCPRecord(id: "git", version: "1.0.0",
                                         installedAt: Date(), source: .mimo,
                                         isEnabled: true, transport: .stdio,
-                                        lastHealthCheck: nil)
+                                        lastHealthCheck: nil, lastHealthStatus: nil)
         try MCPRegistryManager.upsert(record, homeDirectory: home)
         let removed = try MCPRegistryManager.remove(id: "git", homeDirectory: home)
         #expect(removed)
@@ -130,7 +130,7 @@ struct AgentResourceRegistryManagerTests {
         let record = InstalledMCPRecord(id: "github", version: "1.0.0",
                                         installedAt: Date(), source: .mimo,
                                         isEnabled: true, transport: .stdio,
-                                        lastHealthCheck: nil)
+                                        lastHealthCheck: nil, lastHealthStatus: nil)
         try MCPRegistryManager.upsert(record, homeDirectory: home)
         let checkDate = Date()
         try MCPRegistryManager.updateHealthCheck(id: "github", at: checkDate, homeDirectory: home)

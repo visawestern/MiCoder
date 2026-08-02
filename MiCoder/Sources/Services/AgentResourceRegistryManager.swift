@@ -101,6 +101,7 @@ struct InstalledMCPRecord: Codable, Identifiable, Equatable {
     var isEnabled: Bool
     var transport: Transport
     var lastHealthCheck: Date?
+    var lastHealthStatus: Bool?
 }
 
 struct MCPRegistryDocument: Codable, Equatable {
@@ -169,6 +170,18 @@ enum MCPRegistryManager {
         var records = load(homeDirectory: homeDirectory, fileManager: fileManager)
         guard let idx = records.firstIndex(where: { $0.id == id }) else { return false }
         records[idx].lastHealthCheck = date
+        try save(records, homeDirectory: homeDirectory, fileManager: fileManager)
+        return true
+    }
+
+    /// Persists the liveness result of the most recent real health check
+    /// (E11). `status` is the outcome of an actual probe, so the Settings dot
+    /// reflects health rather than the enabled preference.
+    @discardableResult
+    static func updateHealthStatus(id: String, status: Bool, homeDirectory: URL, fileManager: FileManager = .default) throws -> Bool {
+        var records = load(homeDirectory: homeDirectory, fileManager: fileManager)
+        guard let idx = records.firstIndex(where: { $0.id == id }) else { return false }
+        records[idx].lastHealthStatus = status
         try save(records, homeDirectory: homeDirectory, fileManager: fileManager)
         return true
     }

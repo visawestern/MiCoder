@@ -5,6 +5,20 @@ struct MCPServerEntry: Identifiable, Equatable {
     let name: String
     let command: String?
     let isEnabled: Bool
+    /// URL of an HTTP-transport MCP server (nil for stdio servers).
+    let url: String?
+    /// Launch arguments for a stdio-transport MCP server.
+    let args: [String]
+
+    init(id: String, name: String, command: String?, isEnabled: Bool,
+         url: String? = nil, args: [String] = []) {
+        self.id = id
+        self.name = name
+        self.command = command
+        self.isEnabled = isEnabled
+        self.url = url
+        self.args = args
+    }
 }
 
 struct SkillEntry: Identifiable, Equatable {
@@ -139,14 +153,17 @@ enum AgentResourcesLoader {
 
         return serversObject.compactMap { key, value -> MCPServerEntry? in
             guard let config = value as? [String: Any] else { return nil }
-            let command = (config["command"] as? String)
-                ?? (config["url"] as? String)
+            let url = config["url"] as? String
+            let command = (config["command"] as? String) ?? url
+            let args = config["args"] as? [String] ?? []
             let disabled = config["disabled"] as? Bool ?? false
             return MCPServerEntry(
                 id: key,
                 name: key,
                 command: command,
-                isEnabled: !disabled
+                isEnabled: !disabled,
+                url: url,
+                args: args
             )
         }
         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }

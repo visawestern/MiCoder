@@ -179,7 +179,8 @@ struct AgentResourceInstaller {
             source: .mimo,
             isEnabled: true,
             transport: item.transportKind == "http" ? .http : .stdio,
-            lastHealthCheck: nil
+            lastHealthCheck: nil,
+            lastHealthStatus: nil
         )
         try MCPRegistryManager.upsert(record, homeDirectory: homeDirectory, fileManager: fileManager)
     }

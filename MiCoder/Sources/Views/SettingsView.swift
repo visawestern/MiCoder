@@ -1369,22 +1369,33 @@ struct MCPServersSettingsView: View {
 }
 
 /// Installed MCP row with full admin: health dot, enable/disable (writes the
-/// `disabled` flag to mcp.json), remove (plan Раздел 4 Блок 4 п.37).
+/// `disabled` flag to mcp.json), remove (plan Раздел 4 Блок 4 п.37). The dot
+/// reflects the *real* health probe (E11): green = alive, red = failing,
+/// gray = disabled / not yet checked — never the enabled preference alone.
 struct InstalledMCPRow: View {
     let server: MCPServerEntry
     let onChanged: () -> Void
 
     @State private var showRemoveConfirmation = false
+    @State private var healthStatus: MCPHealthStatus = .unknown
 
     private var configURL: URL {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".micoder/mcp.json")
     }
     private var home: URL { FileManager.default.homeDirectoryForCurrentUser }
 
+    private var healthColor: Color {
+        switch healthStatus {
+        case .healthy: return Color.mimo.success
+        case .unhealthy: return Color.mimo.error
+        case .unknown: return Color.mimo.textMuted
+        }
+    }
+
     var body: some View {
         HStack(spacing: 10) {
             Circle()
-                .fill(server.isEnabled ? Color.mimo.success : Color.mimo.textMuted)
+                .fill(healthColor)
                 .frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 4) {
                 Text(server.name)
@@ -1419,6 +1430,32 @@ struct InstalledMCPRow: View {
             Button("Remove", role: .destructive) { remove() }
         } message: {
             Text("This removes \"\(server.name)\" from \(configURL.path) and the registry. This cannot be undone.")
+        }
+        .task(id: server.id) {
+            await refreshHealth()
+        }
+    }
+
+    /// Runs a real health probe (HTTP GET or stdio PATH resolution) and maps
+    /// the stored registry result into the dot, re-probing only when the last
+    /// result is stale or absent.
+    private func refreshHealth() async {
+        let registryStatus = MCPRegistryManager.load(homeDirectory: home)
+            .first(where: { $0.id == server.id })
+        let mapped = MCPHealthCheckLogic.status(
+            isEnabled: server.isEnabled,
+            lastCheck: registryStatus?.lastHealthCheck,
+            lastStatus: registryStatus?.lastHealthStatus
+        )
+        if mapped == .unknown {
+            let checker = MCPHealthChecker()
+            if let fresh = try? await checker.check(server, homeDirectory: home) {
+                healthStatus = fresh ? .healthy : .unhealthy
+                return
+            }
+            healthStatus = .unknown
+        } else {
+            healthStatus = mapped
         }
     }
 
