@@ -943,11 +943,13 @@ struct ChatPanelView: View {
         // E09/E10: real tool operations feed the project's undo stack and
         // request_history — pass the per-project undo manager + session so
         // write/edit tool calls snapshot, record undo entries and history rows.
+        // E12: run_command executes only at .fullAccess (gate enforced here).
         let workspacePath = appState.selectedWorkspace?.path ?? FileManager.default.currentDirectoryPath
         let executor = ProjectWebToolExecutor(
             projectRoot: workspacePath,
             undoManager: (try? ProjectUndoManager(projectPath: workspacePath)),
-            sessionId: messageStore.currentSessionID
+            sessionId: messageStore.currentSessionID,
+            accessLevel: appState.accessLevel
         )
         let driver = WebChatDriver(bridge: bridge, executor: executor, selectors: selectors,
                                    config: config, projectRoot: workspacePath)

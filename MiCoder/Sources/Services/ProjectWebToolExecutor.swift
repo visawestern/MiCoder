@@ -7,24 +7,35 @@ import Foundation
 /// When an `undoManager` is provided (normal production use), file-modifying
 /// tools snapshot + record undo entries and append `request_history` rows, so
 /// real tool operations feed the project's undo stack (Раздел 7 п.12-14).
+/// `accessLevel` enforces the gate (Раздел 12 п.18): mutating tools follow the
+/// edit policy, `run_command` only ever executes at `.fullAccess` and runs as a
+/// real bounded shell process against the project directory.
 struct ProjectWebToolExecutor: WebToolExecutor {
     let projectRoot: String
     let fileManager: FileManager
     let undoManager: ProjectUndoManager?
     let sessionId: String?
+    let accessLevel: AccessLevel
 
     init(projectRoot: String,
          fileManager: FileManager = .default,
          undoManager: ProjectUndoManager? = nil,
-         sessionId: String? = nil) {
+         sessionId: String? = nil,
+         accessLevel: AccessLevel = .askBeforeChanges) {
         self.projectRoot = projectRoot
         self.fileManager = fileManager
         self.undoManager = undoManager
         self.sessionId = sessionId
+        self.accessLevel = accessLevel
     }
 
     func execute(_ call: WebToolCall) async -> String {
         let root = URL(fileURLWithPath: projectRoot)
+        // The access gate runs before any side effect: a gated tool is never
+        // executed, it is reported back to the model as needing approval.
+        if WebToolAccessGate.permission(for: call, accessLevel: accessLevel) == .requireApproval {
+            return approvalMessage(for: call)
+        }
         switch WebEmulatedTool(rawValue: call.name) {
         case .readFile:
             guard let path = call.arguments["path"] else { return "error: missing path" }
@@ -74,13 +85,22 @@ struct ProjectWebToolExecutor: WebToolExecutor {
             let path = call.arguments["path"] ?? "."
             return grep(pattern: pattern, in: root.appendingPathComponent(path))
         case .runCommand:
-            // Command execution is gated by the app's access-level policy and is
-            // intentionally not auto-run from a web model here; surface intent.
+            // E12: at .fullAccess the command actually runs — a bounded real
+            // shell process rooted at the project directory, returning stdout +
+            // stderr + exit code. At any lower level the gate above already
+            // returned the approval message and nothing executed.
             let cmd = call.arguments["command"] ?? ""
-            return "run_command requested (requires approval): \(cmd)"
+            return ProjectShellRunner.run(command: cmd, workingDirectory: projectRoot).output
         case .none:
             return "error: unknown tool \(call.name)"
         }
+    }
+
+    /// Message fed back to the model when the access gate blocks a tool.
+    /// Includes the tool name and the level that is required, so the model can
+    /// report the limitation honestly instead of silently skipping work.
+    private func approvalMessage(for call: WebToolCall) -> String {
+        "\(call.name) requires approval (AccessLevel: \(accessLevel.rawValue)); not executed"
     }
 
     /// Runs a file-modifying tool under the project's undo manager when one is
