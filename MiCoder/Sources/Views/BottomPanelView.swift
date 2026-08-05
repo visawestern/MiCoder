@@ -484,7 +484,7 @@ struct GitPanelView: View {
         appState.isGitBusy = true
         Task {
             do {
-                let message = "Auto-commit from MiMo"
+                let message = "Auto-commit from MiCoder"
                 let result = try GitRepository.commitAll(in: repoPath, message: message)
                 await MainActor.run {
                     appState.isGitBusy = false

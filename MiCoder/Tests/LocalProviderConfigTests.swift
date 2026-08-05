@@ -51,12 +51,6 @@ struct LocalProviderConfigTests {
         #expect(options.first?.isCustom == true)
     }
 
-    @Test func neutralizeServeBrandingRemovesMiMoServe() {
-        #expect(LocalProviderLogic.neutralizeServeBranding("MiMo Serve") == "Local Agent")
-        #expect(LocalProviderLogic.neutralizeServeBranding("Connected to MiMoServe") == "Connected to Local Agent")
-        #expect(LocalProviderLogic.neutralizeServeBranding("OpenAI") == "OpenAI")
-    }
-
     @Test func configRoundTripsThroughCodable() throws {
         let cfg = LocalProviderConfig(kind: .openCode, port: 5000)
         let data = try JSONEncoder().encode(cfg)

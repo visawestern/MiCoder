@@ -122,16 +122,6 @@ enum LocalProviderLogic {
             ProviderOption(id: $0.id, name: $0.displayName, isCustom: true, isConnected: $0.isEnabled)
         }
     }
-
-    /// Rewrite any user-facing "MiMo Serve" branding to a neutral label
-    /// (plan Блок 2 п.7/п.12/п.20). Applied to server-provided provider names.
-    static func neutralizeServeBranding(_ name: String) -> String {
-        var result = name
-        for branded in ["MiMo Serve", "MiMoServe", "Mimo Serve"] {
-            result = result.replacingOccurrences(of: branded, with: "Local Agent")
-        }
-        return result
-    }
 }
 
 /// Confirmation step for auto-detection (E23 — Раздел 9 п.30): the detector

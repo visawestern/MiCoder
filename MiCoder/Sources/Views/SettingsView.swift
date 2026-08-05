@@ -1304,7 +1304,7 @@ struct InstalledSkillRow: View {
     }
 
     private func remove() {
-        // Remove the skill directory (both MiMo and Cursor paths) + registry record.
+        // Remove the skill directory + registry record.
         for base in [".micoder/skills"] {
             let dir = home.appendingPathComponent("\(base)/\(skill.id)")
             try? FileManager.default.removeItem(at: dir)
@@ -1561,7 +1561,7 @@ struct CommandsSettingsView: View {
                 .interfaceFont(size: 24, weight: .bold)
                 .foregroundColor(Color.mimo.textPrimary)
 
-            Text("Manage MiMo Agent .md command files. Commands can be invoked with /command-name in chat.")
+            Text("Manage MiCoder Agent .md command files. Commands can be invoked with /command-name in chat.")
                 .interfaceFont(size: 14)
                 .foregroundColor(Color.mimo.textSecondary)
 
@@ -2374,7 +2374,7 @@ struct SettingsToggleRow: View {
 /// Unified Providers tab (plan Раздел 1): the rich model/provider/details
 /// columns from ModelSettingsView, the provider-management list from
 /// ProvidersSettingsView, and a Local Providers section (Ollama / OpenCode /
-/// MiMo CLI) with auto-detect by address.
+/// MiCoder CLI) with auto-detect by address.
 struct UnifiedProvidersView: View {
     @EnvironmentObject var appState: AppState
     let availableWidth: CGFloat
@@ -2409,7 +2409,7 @@ struct LocalProvidersSection: View {
             Text("Local providers")
                 .interfaceFont(size: 18, weight: .semibold)
                 .foregroundColor(Color.mimo.textPrimary)
-            Text("Run models locally via Ollama, OpenCode, or MiMo CLI/Serve. Enter an address to auto-detect the provider and load its models.")
+            Text("Run models locally via Ollama, OpenCode, or MiCoder CLI/Serve. Enter an address to auto-detect the provider and load its models.")
                 .interfaceFont(size: 13)
                 .foregroundColor(Color.mimo.textSecondary)
 

@@ -499,7 +499,7 @@ struct WorkspacesOverviewSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Workspaces")
+                Text("Overview")
                     .interfaceFont(size: 18, weight: .semibold)
                 Spacer()
                 Button(action: { dismiss() }) {

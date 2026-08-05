@@ -110,3 +110,14 @@ Everything INSIDE the repo now says MiCoder.
 | F5 | Раздел 9 п.34 non-local warning was set then immediately overwritten with "" → the security warning NEVER displayed | MED | FIXED — warning computed upfront and composed with the detect result; tests `warningForNonLocal` |
 
 Full suite after fixes: **1701 tests / 231 suites green** (baseline 1638/225). Details: `docs/DEVILS_ADVOCATE_ROUND_22_2026-08-05.md`.
+
+### Round 23 (2026-08-05) — Settings tab contract, rebrand leftovers, overview title, dead code
+
+| ID | Area | Severity | Status |
+|----|------|----------|--------|
+| E25 | `SettingsTabNavigationTests` asserted `allCases.count == 11` incl. `.modelSettings` — validated the raw enum, not the UI list (`visibleCases` = 10, merged Providers tab) | MED | FIXED — test split into back-compat raw-enum + `visibleCases == 10` (no `.modelSettings`, order matches SettingsView) |
+| E26 | User-facing MiMo brand strings remained: "Manage MiMo Agent…", "or MiMo CLI/Serve", "Auto-commit from MiMo" (Раздел 13 п.11) | MED | FIXED — "MiCoder" everywhere + stale comments cleaned (SettingsView, BottomPanelView) |
+| E27 | Overview sheet still titled `Text("Workspaces")` (SidebarView.swift:502; only occurrence; sidebar section title already removed) | MED | FIXED — "Overview" (Раздел 13 п.7) |
+| E28 | `LocalProviderLogic.neutralizeServeBranding` defined but never called in Sources (dead code; only its own test referenced it) — violates Round 18 clean-slate rule | MED | FIXED — removed function + its test; red source-inspection test → green |
+
+Full suite after fixes: **1706 tests / 232 suites green** (baseline 1701/231). Details: `docs/DEVILS_ADVOCATE_ROUND_23_2026-08-05.md`.

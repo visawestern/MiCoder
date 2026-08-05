@@ -700,17 +700,27 @@ struct RemoteConnectionTests {
 @Suite("Settings Tab Navigation")
 struct SettingsTabNavigationTests {
 
-    @Test("SettingsTab has all expected cases")
+    @Test("SettingsTab raw enum keeps the back-compat .modelSettings case (deep links / stored tab)")
     func settingsTabAllCases() {
+        // `.modelSettings` is kept for back-compat but must NEVER be in the
+        // visible tab list: the plan (Раздел 1 Блок 3) merged Model settings
+        // into a single Providers tab, and SettingsView renders only
+        // `SettingsTab.visibleCases`. Asserting `allCases.count == 11` (the old
+        // contract) validated the wrong thing — the UI shows 10 tabs.
         #expect(SettingsTab.allCases.count == 11)
+        #expect(SettingsTab.allCases.contains(.modelSettings))
+    }
+
+    @Test("the visible tab list is the consolidated 10-tab Providers set, no Model settings")
+    func settingsTabVisibleList() {
+        #expect(SettingsTab.visibleCases.count == 10)
+        #expect(!SettingsTab.visibleCases.contains(.modelSettings))
         let expected: [SettingsTab] = [
-            .general, .codePreview, .modelSettings, .providers, .skills,
+            .general, .codePreview, .providers, .skills,
             .mcpServers, .plugins, .commands, .indexing,
             .storage, .usage
         ]
-        for tab in expected {
-            #expect(SettingsTab.allCases.contains(tab), "SettingsTab should contain \(tab)")
-        }
+        #expect(SettingsTab.visibleCases == expected)
     }
 
     @Test("SettingsTab each case has unique id matching rawValue")
