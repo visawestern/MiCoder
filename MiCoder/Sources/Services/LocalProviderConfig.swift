@@ -11,6 +11,10 @@ enum LocalProviderKind: String, Codable, CaseIterable, Identifiable {
     case ollama
     case openCode
     case localAgent
+    /// ACP-protocol server (probe: GET /acp/v1/models). Kept as its own kind so
+    /// an auto-detected ACP server is NOT stored as OpenCode: OpenCode routes
+    /// to OpenAI /v1/chat/completions, which a real ACP server doesn't speak.
+    case acp
 
     var id: String { rawValue }
 
@@ -19,6 +23,7 @@ enum LocalProviderKind: String, Codable, CaseIterable, Identifiable {
         case .ollama: return "Ollama"
         case .openCode: return "OpenCode"
         case .localAgent: return "Local Agent"
+        case .acp: return "ACP"
         }
     }
 
@@ -27,6 +32,7 @@ enum LocalProviderKind: String, Codable, CaseIterable, Identifiable {
         case .ollama: return "desktopcomputer"
         case .openCode: return "terminal"
         case .localAgent: return "cpu"
+        case .acp: return "terminal.fill"
         }
     }
 
@@ -36,6 +42,7 @@ enum LocalProviderKind: String, Codable, CaseIterable, Identifiable {
         case .ollama: return "/api/tags"
         case .openCode: return "/health"
         case .localAgent: return "/global/health"
+        case .acp: return "/models" // relative to the /acp/v1 API base
         }
     }
 
@@ -44,6 +51,7 @@ enum LocalProviderKind: String, Codable, CaseIterable, Identifiable {
         case .ollama: return 11434
         case .openCode: return 4096
         case .localAgent: return 4096
+        case .acp: return 8080
         }
     }
 }
@@ -76,7 +84,14 @@ struct LocalProviderConfig: Identifiable, Codable, Equatable {
     /// Base URL for the serve endpoint (used for health-check and model list).
     var serveBaseURL: String { "http://\(host):\(port)" }
 
-    var healthURL: String { serveBaseURL + kind.healthPath }
+    /// Endpoint the client actually talks to. ACP servers speak the ACP
+    /// protocol under `/acp/v1` (the ACPClient appends `chat/completions` to
+    /// this base); every other kind uses the plain origin.
+    var apiBaseURL: String {
+        kind == .acp ? serveBaseURL + "/acp/v1" : serveBaseURL
+    }
+
+    var healthURL: String { apiBaseURL + kind.healthPath }
 
     var displayName: String { kind.displayName }
 }
@@ -116,5 +131,86 @@ enum LocalProviderLogic {
             result = result.replacingOccurrences(of: branded, with: "Local Agent")
         }
         return result
+    }
+}
+
+/// Confirmation step for auto-detection (E23 — Раздел 9 п.30): the detector
+/// must never add a provider on its own; it presents the finding and the user
+/// explicitly confirms ("Подтвердить и добавить") or cancels. This logic builds
+/// the confirmation copy and the config that confirmation would add, keeping
+/// the no-auto-add rule testable and out of the view.
+enum LocalProviderConfirmLogic {
+
+    /// Short title naming the detected provider kind.
+    static func title(for info: DetectedProviderInfo) -> String {
+        "Detected: \(displayName(for: info.kind))"
+    }
+
+    /// Full confirmation copy: endpoint + model count.
+    static func message(for info: DetectedProviderInfo, host: String, port: Int) -> String {
+        "Found a \(displayName(for: info.kind)) provider at \(host):\(port) with \(info.models.count) model(s). Add it?"
+    }
+
+    /// The config that confirming would add — maps the detected kind to the
+    /// unified local-provider card set. ACP stays ACP (never folded into
+    /// OpenCode, which would route to an endpoint the ACP server doesn't speak).
+    static func config(from info: DetectedProviderInfo, host: String, port: Int) -> LocalProviderConfig {
+        let kind: LocalProviderKind
+        switch info.kind {
+        case .ollama: kind = .ollama
+        case .mimoCLI: kind = .localAgent
+        case .acp: kind = .acp
+        case .openAICompatible: kind = .openCode
+        }
+        return LocalProviderConfig(kind: kind, host: host, port: port, models: info.models)
+    }
+
+    /// True when a config for the same host:port is already configured —
+    /// confirming a duplicate would add nothing (E23 dedupe, kept testable and
+    /// out of the view).
+    static func isDuplicate(_ locals: [LocalProviderConfig], of cfg: LocalProviderConfig) -> Bool {
+        locals.contains { $0.host == cfg.host && $0.port == cfg.port }
+    }
+
+    static func displayName(for kind: DetectedProviderInfo.Kind) -> String {
+        switch kind {
+        case .ollama: return "Ollama"
+        case .mimoCLI: return "Local Agent"
+        case .acp: return "ACP"
+        case .openAICompatible: return "OpenAI-compatible"
+        }
+    }
+}
+
+/// User-facing status lines for the auto-detect flow (E23). Detection must
+/// never add a provider on its own, and the status line must not claim a
+/// provider was added when it was only detected, cancelled, or confirmed —
+/// the old single "Detected: …" line was still shown after a cancel.
+enum AutoDetectStatusText {
+    /// Heuristic warning for non-local addresses (plan Блок 3 п.34). Returns
+    /// nil for local addresses so the caller can compose it ahead of the result.
+    static func warningForNonLocal(_ host: String) -> String? {
+        ProviderAutoDetector.isLikelyLocal(host) ? nil : "Warning: \(host) is not a local address."
+    }
+
+    /// Shown right after detection, BEFORE the user confirms.
+    static func detected(_ info: DetectedProviderInfo, host: String, port: Int) -> String {
+        "Detected: \(LocalProviderConfirmLogic.displayName(for: info.kind)), \(info.models.count) model(s). Confirm to add."
+    }
+
+    static func nothingDetected(host: String, port: Int) -> String {
+        "Nothing detected at \(host):\(port). Add manually below."
+    }
+
+    static func confirmed(_ info: DetectedProviderInfo, host: String, port: Int) -> String {
+        "Added: \(LocalProviderConfirmLogic.displayName(for: info.kind)) at \(host):\(port)."
+    }
+
+    static func cancelled() -> String {
+        "Detection cancelled — nothing was added."
+    }
+
+    static func invalidAddress() -> String {
+        "Enter an address as host:port."
     }
 }

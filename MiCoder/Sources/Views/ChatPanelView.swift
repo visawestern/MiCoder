@@ -519,13 +519,14 @@ struct ChatPanelView: View {
         // Resolve how this message is delivered based on the selected provider
         // (web / local / custom OpenAI-compatible / ACP / serve) so sending
         // adapts to the current model instead of only the serve path.
+        let localProviders = LocalProviderLogic.load()
         let route = SendRouteResolver.route(
             selectedProviderID: appState.selectedProviderID,
             selectedModel: appState.selectedModel,
             serverConnected: appState.serverConnected,
             isACP: appState.isSelectedACPProvider,
             customProviders: appState.customProviders,
-            localProviders: LocalProviderLogic.load(),
+            localProviders: localProviders,
             webProviderIDs: appState.webProviderIDs
         )
 
@@ -625,7 +626,18 @@ struct ChatPanelView: View {
             }
 
             // ── ACP provider branch ──────────────────────────────
-            if appState.isSelectedACPProvider, let acpClient = appState.acpClient {
+            // Custom ACP providers (custom.type == .acp) and auto-detected
+            // local ACP providers both land here via the resolver's `.acp`
+            // route. The old code only handled the custom case, so a detected
+            // ACP provider fell through into the serve branch and never sent.
+            let acpClient: ACPClient?
+            if case .acp = route,
+               let local = localProviders.first(where: { $0.id == appState.selectedProviderID && $0.isEnabled }) {
+                acpClient = ACPClient(baseURLString: local.apiBaseURL)
+            } else {
+                acpClient = appState.isSelectedACPProvider ? appState.acpClient : nil
+            }
+            if let acpClient = acpClient {
                 // Build ACP request messages from user text + files
                 let acpMessages = buildACPMessages(text: text, files: files, images: images)
                 let acpAgent = SessionSendLogic.sendMode(for: agentModeOverride ?? appState.agentMode)

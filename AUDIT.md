@@ -98,3 +98,15 @@ NOTE: The GitHub repo itself is still `visawestern/mimo-macos-de098ca6` — rena
 the remote (or creating a fresh `MiCoder` repo) is an owner action on GitHub /
 OpenResearch that changes the project binding, so it needs the user's explicit go.
 Everything INSIDE the repo now says MiCoder.
+
+### Round 22 (2026-08-05) — E23/E24 auto-detect chain: confirmation + overall timeout
+
+| ID | Area | Severity | Status |
+|----|------|----------|--------|
+| F1 | E24 overall timeout gated probe START, not DURATION; default 10s > 4×stepTimeout(2s)=8s → deadline never fired on the real path (dead code); a hanging probe ate a full step timeout | HIGH | FIXED — hard deadline: each probe raced against remaining budget and cancelled in-flight (`probeOnce`); `URLSessionProviderProbe` cancellation-aware; red test `hangingProbeCancelledAtDeadline` (3.0s fail → 0.252s pass) |
+| F2 | E23 status line "Detected: X, N models." stayed on screen after Cancel — implied a provider was added when it wasn't | MED | FIXED — `AutoDetectStatusText` state machine (detected/confirmed/cancelled/nothing/invalid); cancel now says "nothing was added" |
+| F3 | Detected ACP server stored as `.openCode` → routed to OpenAI `/v1/chat/completions` (protocol an ACP server doesn't speak); `SendRoute.acp` was produced but never consumed by the send path (dead route) | HIGH | FIXED — `LocalProviderKind.acp` + `apiBaseURL` (`/acp/v1`); resolver routes ACP locals to `.acp`; ChatPanelView ACP branch consumes the route via `ACPClient(apiBaseURL)` |
+| F4 | Auto-detect UI strings hardcoded English (plan Раздел 2/п.39 wants 10 languages) | LOW | OPEN — documented; localization is a separate Раздел 2 iteration |
+| F5 | Раздел 9 п.34 non-local warning was set then immediately overwritten with "" → the security warning NEVER displayed | MED | FIXED — warning computed upfront and composed with the detect result; tests `warningForNonLocal` |
+
+Full suite after fixes: **1701 tests / 231 suites green** (baseline 1638/225). Details: `docs/DEVILS_ADVOCATE_ROUND_22_2026-08-05.md`.

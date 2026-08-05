@@ -2400,6 +2400,9 @@ struct LocalProvidersSection: View {
     @State private var detecting = false
     @State private var detectResult: String = ""
     @State private var locals: [LocalProviderConfig] = LocalProviderLogic.load()
+    // E23: auto-detection must never add a provider on its own — it presents
+    // the finding and the user explicitly confirms or cancels.
+    @State private var pendingDetection: PendingDetection?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -2458,6 +2461,23 @@ struct LocalProvidersSection: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }
+        .alert(item: $pendingDetection) { pending in
+            Alert(
+                title: Text(LocalProviderConfirmLogic.title(for: pending.info)),
+                message: Text(LocalProviderConfirmLogic.message(for: pending.info,
+                                                                host: pending.host,
+                                                                port: pending.port)),
+                primaryButton: .default(Text("Confirm and add")) {
+                    confirmPendingDetection()
+                },
+                secondaryButton: .cancel {
+                    // E23: a cancel must not leave "Detected: …" on screen —
+                    // nothing was added, so say so.
+                    detectResult = AutoDetectStatusText.cancelled()
+                    pendingDetection = nil
+                }
+            )
+        }
     }
 
     private func parseAddress() -> (host: String, port: Int)? {
@@ -2468,12 +2488,13 @@ struct LocalProvidersSection: View {
 
     private func runAutoDetect() {
         guard let (host, port) = parseAddress() else {
-            detectResult = "Enter an address as host:port."
+            detectResult = AutoDetectStatusText.invalidAddress()
             return
         }
-        if !ProviderAutoDetector.isLikelyLocal(host) {
-            detectResult = "Warning: \(host) is not a local address."
-        }
+        // E24/п.34: keep the non-local warning visible — it used to be set here
+        // and then immediately wiped by `detectResult = ""` below, so the
+        // "is this really your local server?" warning never displayed.
+        let warning = AutoDetectStatusText.warningForNonLocal(host)
         detecting = true
         detectResult = ""
         Task {
@@ -2481,25 +2502,29 @@ struct LocalProvidersSection: View {
             let info = await ProviderAutoDetector.detect(host: host, port: port, probe: probe)
             await MainActor.run {
                 detecting = false
+                let line: String
                 if let info = info {
-                    detectResult = "Detected: \(info.kind), \(info.models.count) models."
-                    let kind: LocalProviderKind
-                    switch info.kind {
-                    case .ollama: kind = .ollama
-                    case .mimoCLI: kind = .localAgent
-                    default: kind = .openCode
-                    }
-                    let cfg = LocalProviderConfig(kind: kind, host: host, port: port,
-                                                  models: info.models)
-                    if !locals.contains(where: { $0.host == host && $0.port == port }) {
-                        locals.append(cfg)
-                        LocalProviderLogic.save(locals)
-                    }
+                    line = AutoDetectStatusText.detected(info, host: host, port: port)
+                    // E23: never add on our own — hold the finding for the
+                    // user's explicit confirm/cancel decision.
+                    pendingDetection = PendingDetection(info: info, host: host, port: port)
                 } else {
-                    detectResult = "Nothing detected at \(host):\(port). Add manually below."
+                    line = AutoDetectStatusText.nothingDetected(host: host, port: port)
                 }
+                detectResult = [warning, line].compactMap { $0 }.joined(separator: " ")
             }
         }
+    }
+
+    private func confirmPendingDetection() {
+        guard let pending = pendingDetection else { return }
+        let cfg = LocalProviderConfirmLogic.config(from: pending.info, host: pending.host, port: pending.port)
+        if !LocalProviderConfirmLogic.isDuplicate(locals, of: cfg) {
+            locals.append(cfg)
+            LocalProviderLogic.save(locals)
+        }
+        detectResult = AutoDetectStatusText.confirmed(pending.info, host: pending.host, port: pending.port)
+        pendingDetection = nil
     }
 
     private func addLocal(kind: LocalProviderKind) {
@@ -2519,6 +2544,15 @@ struct LocalProvidersSection: View {
             LocalProviderLogic.save(locals)
         }
     }
+}
+
+/// A detected provider held for the user's explicit confirm/cancel decision
+/// (E23). `Identifiable` so it can drive `.alert(item:)`.
+struct PendingDetection: Identifiable {
+    let id = UUID()
+    let info: DetectedProviderInfo
+    let host: String
+    let port: Int
 }
 
 struct LocalProviderCard: View {

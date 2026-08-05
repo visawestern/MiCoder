@@ -31,36 +31,83 @@ enum ProviderAutoDetector {
 
     /// Probe an endpoint and classify it. Probes run from most-specific to
     /// most-generic to avoid misclassifying a specific server as generic
-    /// OpenAI-compatible (plan Блок 3 п.26).
+    /// OpenAI-compatible (plan Блок 3 п.26). The whole sequence is bounded by
+    /// `overallTimeout` (E24): each probe is raced against the deadline and
+    /// cancelled in-flight once it passes, so a misbehaving endpoint cannot
+    /// stretch detection beyond the budget (a start-gate alone would still
+    /// allow a single hanging probe to eat a full step timeout, and the
+    /// default 4 × stepTimeout would then exceed the overall timeout).
     static func detect(host: String, port: Int, probe: ProviderProbe) async -> DetectedProviderInfo? {
+        await detect(host: host, port: port, probe: probe, overallTimeout: overallTimeout)
+    }
+
+    static func detect(host: String, port: Int, probe: ProviderProbe,
+                       overallTimeout: TimeInterval) async -> DetectedProviderInfo? {
         let base = "http://\(host):\(port)"
+        let deadline = Date().addingTimeInterval(overallTimeout)
 
         // (1) Ollama: GET /api/tags
-        if let result = await probe.get(url: "\(base)/api/tags", headers: [:]),
+        if let result = await probeOnce(probe, url: "\(base)/api/tags", headers: [:], deadline: deadline),
            let models = parseOllamaTags(result.1) {
             return DetectedProviderInfo(kind: .ollama, baseURL: base, models: models)
         }
 
         // (2) MiMo CLI/Serve: GET /global/health
-        if let health = await probe.get(url: "\(base)/global/health", headers: [:]), health.0 == 200 {
-            let models = (await probe.get(url: "\(base)/global/models", headers: [:]))
+        if let health = await probeOnce(probe, url: "\(base)/global/health", headers: [:], deadline: deadline),
+           health.0 == 200 {
+            let models = (await probeOnce(probe, url: "\(base)/global/models", headers: [:], deadline: deadline))
                 .flatMap { parseOpenAIModels($0.1) } ?? []
             return DetectedProviderInfo(kind: .mimoCLI, baseURL: base, models: models)
         }
 
         // (3) ACP: GET /acp/v1/models
-        if let result = await probe.get(url: "\(base)/acp/v1/models", headers: [:]),
+        if let result = await probeOnce(probe, url: "\(base)/acp/v1/models", headers: [:], deadline: deadline),
            let models = parseOpenAIModels(result.1) {
             return DetectedProviderInfo(kind: .acp, baseURL: base, models: models)
         }
 
         // (4) Generic OpenAI-compatible: GET /v1/models (fallback)
-        if let result = await probe.get(url: "\(base)/v1/models", headers: [:]),
+        if let result = await probeOnce(probe, url: "\(base)/v1/models", headers: [:], deadline: deadline),
            let models = parseOpenAIModels(result.1) {
             return DetectedProviderInfo(kind: .openAICompatible, baseURL: base, models: models)
         }
 
         return nil
+    }
+
+    /// Runs one probe but refuses to wait past `deadline`. The probe races a
+    /// deadline timer; whichever finishes first wins, and the loser is
+    /// cancelled so the group exits promptly (E24). This bounds probe
+    /// DURATION, not just probe start — the cancellation contract is
+    /// cooperative: probes must respond to task cancellation
+    /// (`URLSessionProviderProbe` does; a probe that ignores cancellation
+    /// still yields to its own step timeout).
+    private static func probeOnce(_ probe: ProviderProbe, url: String,
+                                  headers: [String: String],
+                                  deadline: Date) async -> (Int, Data)? {
+        if deadlinePassed(deadline) { return nil }
+        let probeTask = Task { await probe.get(url: url, headers: headers) }
+        let timeoutTask = Task { () -> (Int, Data)? in
+            let remaining = deadline.timeIntervalSinceNow
+            if remaining > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+            }
+            return nil
+        }
+        return await withTaskGroup(of: (Int, Data)?.self) { group -> (Int, Data)? in
+            group.addTask { await probeTask.value }
+            group.addTask { await timeoutTask.value }
+            let first = await group.next() ?? nil
+            // Cancel the loser so the group stops waiting on it immediately.
+            probeTask.cancel()
+            timeoutTask.cancel()
+            return first
+        }
+    }
+
+    /// True when the overall detection deadline has already passed.
+    private static func deadlinePassed(_ deadline: Date) -> Bool {
+        Date() >= deadline
     }
 
     /// Heuristic warning for non-local addresses (plan Блок 3 п.34).
@@ -93,7 +140,10 @@ enum ProviderAutoDetector {
     }
 }
 
-/// Live probe backed by URLSession with a per-request timeout.
+/// Live probe backed by URLSession with a per-request timeout. Cancellation-
+/// aware: cancelling the awaiting task cancels the in-flight URLSession task,
+/// so the await returns promptly (the E24 deadline race relies on this to cut
+/// a hanging probe short instead of waiting out its own step timeout).
 struct URLSessionProviderProbe: ProviderProbe {
     let session: URLSession
 
@@ -108,15 +158,35 @@ struct URLSessionProviderProbe: ProviderProbe {
         guard let url = URL(string: url) else { return nil }
         var request = URLRequest(url: url)
         for (k, v) in headers { request.setValue(v, forHTTPHeaderField: k) }
-        return await withCheckedContinuation { continuation in
-            let task = session.dataTask(with: request) { data, response, _ in
-                guard let http = response as? HTTPURLResponse, let data = data else {
-                    continuation.resume(returning: nil)
-                    return
+        let session = self.session
+        let box = URLSessionTaskBox()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<(Int, Data)?, Never>) in
+                let task = session.dataTask(with: request) { data, response, _ in
+                    if let http = response as? HTTPURLResponse, let data = data {
+                        continuation.resume(returning: (http.statusCode, data))
+                    } else {
+                        continuation.resume(returning: nil)
+                    }
                 }
-                continuation.resume(returning: (http.statusCode, data))
+                box.task = task
+                if Task.isCancelled { task.cancel() } else { task.resume() }
             }
-            task.resume()
+        } onCancel: {
+            box.task?.cancel()
         }
+    }
+}
+
+/// Thread-safe holder for the in-flight `URLSessionDataTask` so `onCancel` can
+/// cancel it even though the handler may run on a different thread than the
+/// one that created the task.
+private final class URLSessionTaskBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _task: URLSessionDataTask?
+
+    var task: URLSessionDataTask? {
+        get { lock.lock(); defer { lock.unlock() }; return _task }
+        set { lock.lock(); defer { lock.unlock() }; _task = newValue }
     }
 }

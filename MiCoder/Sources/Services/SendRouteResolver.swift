@@ -33,17 +33,18 @@ enum SendRouteResolver {
            webProviderIDs.contains(webID) {
             return .web(configID: webID)
         }
-        // 2) Local provider (Ollama/OpenCode/MiMo CLI) → OpenAI-compatible HTTP.
-        //    Ollama and OpenCode (and generic OpenAI-compatible servers like
-        //    LM Studio / vLLM detected as OpenCode) expose /v1/chat/completions;
-        //    MiMo CLI serve uses its own base (audit P10).
+        // 2) Local provider (Ollama/OpenCode/MiMo CLI/ACP) → OpenAI-compatible
+        //    HTTP, except ACP which keeps its own route (an ACP server speaks
+        //    /acp/v1, not OpenAI /v1/chat/completions).
         if let local = localProviders.first(where: { $0.id == selectedProviderID && $0.isEnabled }) {
-            let base: String
             switch local.kind {
-            case .ollama, .openCode: base = "\(local.serveBaseURL)/v1"
-            case .localAgent: base = local.serveBaseURL
+            case .ollama, .openCode:
+                return .openAICompatible(baseURL: "\(local.apiBaseURL)/v1", apiKey: nil, model: selectedModel)
+            case .localAgent:
+                return .openAICompatible(baseURL: local.apiBaseURL, apiKey: nil, model: selectedModel)
+            case .acp:
+                return .acp
             }
-            return .openAICompatible(baseURL: base, apiKey: nil, model: selectedModel)
         }
         // 3) ACP provider.
         if isACP { return .acp }
