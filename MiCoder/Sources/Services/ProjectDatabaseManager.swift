@@ -384,7 +384,7 @@ final class ProjectDatabaseManager {
     /// inode an open handle may still reference).
     static func evictProject(projectPath: String) {
         let normalized = ChatSession.normalizedPath(projectPath)
-        poolQueue.sync { pool.removeValue(forKey: normalized) }
+        _ = poolQueue.sync { pool.removeValue(forKey: normalized) }
     }
 
     static func isPooled(projectPath: String) -> Bool {

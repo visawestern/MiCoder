@@ -14,7 +14,9 @@ struct ChatPanelView: View {
     @State private var isChatBottomVisible = true
     @State private var canLoadOlderMessages = false
     @State private var scrolledSessionID: String?
+    @State private var draftSaveTask: Task<Void, Never>?
     private let sseClient = SSEClient()
+    private let db = DatabaseManager.shared
     
     var body: some View {
         VStack(spacing: 0) {
@@ -101,6 +103,19 @@ struct ChatPanelView: View {
                             scrolledSessionID = newID
                             DispatchQueue.main.async {
                                 proxy.scrollTo(ChatScrollLogic.bottomAnchorID, anchor: .bottom)
+                            }
+                            // Load draft for new session
+                            loadDraft(for: newID)
+                        }
+                        .onChange(of: messageText) { newText in
+                            // Debounced draft save
+                            draftSaveTask?.cancel()
+                            draftSaveTask = Task {
+                                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s debounce
+                                guard !Task.isCancelled else { return }
+                                await MainActor.run {
+                                    saveDraft(newText)
+                                }
                             }
                         }
                         .onAppear {
@@ -410,6 +425,7 @@ struct ChatPanelView: View {
         let files = attachmentStore.attachedFiles
         let images = attachmentStore.attachedImages
         messageText = ""
+        clearDraft()
         attachmentStore.clear()
         
         if appState.isLoading {
@@ -916,6 +932,19 @@ struct ChatPanelView: View {
         }
         do {
             try await bridge.navigate(to: config.chatURL)
+            // Wait for chat interface to be ready (input element present).
+            // Some sites need extra time to hydrate the chat UI after auth restore.
+            var ready = false
+            for _ in 0..<30 {
+                if (try? await bridge.exists(selector: selectors.input)) ?? false {
+                    ready = true
+                    break
+                }
+                await bridge.wait(ms: 500)
+            }
+            if !ready {
+                appendWebStatus(to: assistantID, line: "Chat input not found — page may need manual login.")
+            }
         } catch {
             messageStore.update(id: assistantID) { m in
                 m.content = "Could not open \(config.chatURL): \(error.localizedDescription). Check that the site is reachable and you are logged in."
@@ -1248,6 +1277,44 @@ struct ChatPanelView: View {
         streamingText = ""
         currentAssistantMessageID = nil
         refreshGitForCurrentSession()
+    }
+
+// MARK: - Draft persistence
+    private func loadDraft(for sessionID: String?) {
+        guard let sessionID = sessionID, !sessionID.isEmpty else {
+            messageText = ""
+            return
+        }
+        Task {
+            do {
+                let draft = try DatabaseManager.shared.getSessionDraftText(sessionId: sessionID)
+                await MainActor.run {
+                    messageText = draft ?? ""
+                }
+            } catch {
+                // Ignore draft load errors silently
+            }
+        }
+    }
+    
+    private func saveDraft(_ text: String) {
+        guard let sessionID = messageStore.currentSessionID, !sessionID.isEmpty else { return }
+        Task {
+            do {
+                try DatabaseManager.shared.setSessionDraftText(sessionId: sessionID, text: text.isEmpty ? nil : text)
+            } catch {
+                // Ignore draft save errors silently
+            }
+        }
+    }
+    
+    private func clearDraft() {
+        guard let sessionID = messageStore.currentSessionID, !sessionID.isEmpty else { return }
+        Task {
+            do {
+                try DatabaseManager.shared.setSessionDraftText(sessionId: sessionID, text: nil)
+            } catch { }
+        }
     }
 }
 

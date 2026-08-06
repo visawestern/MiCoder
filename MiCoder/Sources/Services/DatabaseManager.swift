@@ -7,7 +7,7 @@ class DatabaseManager {
     static let shared = DatabaseManager()
     
     /// Current schema version — increment when tables change
-    private static let schemaVersion: Int = 2
+    private static let schemaVersion: Int = 3
     
     private var db: Connection?
     private let dbPath: String
@@ -57,6 +57,7 @@ class DatabaseManager {
     private let sessionActiveTimeSeconds = Expression<Int64>("active_time_seconds")
     private let sessionMetadata = Expression<String?>("metadata")
     private let sessionGoal = Expression<String?>("session_goal")
+    private let sessionDraftText = Expression<String?>("draft_text")
     
     // Messages table
     private let messages = Table("messages")
@@ -219,6 +220,7 @@ class DatabaseManager {
             t.column(sessionActiveTimeSeconds, defaultValue: 0)
             t.column(sessionMetadata)
             t.column(sessionGoal)
+            t.column(sessionDraftText)
             t.foreignKey(sessionProjectId, references: projects, projectId)
         })
         
@@ -542,10 +544,24 @@ class DatabaseManager {
     }
 
     /// Read a session's persisted goal.
+    /// Read a session's persisted goal.
     func getSessionGoal(sessionId id: String) throws -> String? {
         guard let db = db else { throw DatabaseError.notInitialized }
         guard let row = try db.pluck(sessions.filter(sessionId == id)) else { return nil }
         return row[sessionGoal]
+    }
+    
+    /// Persist a session's draft text. nil clears it.
+    func setSessionDraftText(sessionId id: String, text: String?) throws {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        try db.run(sessions.filter(sessionId == id).update(sessionDraftText <- text))
+    }
+    
+    /// Read a session's persisted draft text.
+    func getSessionDraftText(sessionId id: String) throws -> String? {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        guard let row = try db.pluck(sessions.filter(sessionId == id)) else { return nil }
+        return row[sessionDraftText]
     }
     
     func getSessionsByProject(projectId: String, includeArchived: Bool = false) throws -> [SessionRecord] {
@@ -570,7 +586,8 @@ class DatabaseManager {
                 agentMode: row[sessionAgentMode],
                 isArchived: row[sessionIsArchived],
                 tokensUsed: Int(row[sessionTokensUsed]),
-                costUsd: row[sessionCostUsd]
+                costUsd: row[sessionCostUsd],
+                draftText: row[sessionDraftText]
             ))
         }
         return results
@@ -593,7 +610,8 @@ class DatabaseManager {
                 agentMode: row[sessionAgentMode],
                 isArchived: row[sessionIsArchived],
                 tokensUsed: Int(row[sessionTokensUsed]),
-                costUsd: row[sessionCostUsd]
+                costUsd: row[sessionCostUsd],
+                draftText: row[sessionDraftText]
             ))
         }
         return results
@@ -779,6 +797,10 @@ class DatabaseManager {
             try addColumnIfMissing(table: "projects", column: "auto_import_from_cli", definition: "INTEGER NOT NULL DEFAULT 0")
             // Session goal set via /goal, shown in the TopBar (plan Раздел 5 Блок 1 п.10).
             try addColumnIfMissing(table: "sessions", column: "session_goal", definition: "TEXT")
+        case 3:
+            // Draft text persistence for sessions (Feature 5: projects don't
+            // disappear without messages; store drafts + sent messages).
+            try addColumnIfMissing(table: "sessions", column: "draft_text", definition: "TEXT")
         default:
             break
         }
@@ -1031,6 +1053,7 @@ struct SessionRecord {
     let isArchived: Bool
     let tokensUsed: Int
     let costUsd: Double
+    let draftText: String?
 }
 
 struct MessageRecord {

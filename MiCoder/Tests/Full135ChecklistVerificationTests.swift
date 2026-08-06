@@ -65,7 +65,7 @@ struct DBTests {
 // MARK: - PART 2 (Items 21-45): Сессии и проекты  
 @Suite("Part 2: Sessions (21-45)")
 struct SessTests {
-    let db = DatabaseManager.shared
+    let db = DatabaseManager(inMemory: true)
     @Test("21-23. Project CRUD") func t21() throws {
         let p=uid(); try db.insertProject(id:p,name:"P",path:"/t/\(p)")
         #expect(try db.getAllProjects().contains(where:{$0.id==p}))
@@ -105,7 +105,7 @@ struct SessTests {
 // MARK: - PART 3 (Items 46-70): Сообщения
 @Suite("Part 3: Messages (46-70)")
 struct MsgTests {
-    let db = DatabaseManager.shared
+    let db = DatabaseManager(inMemory: true)
     @Test("46. Message schema") func t46() throws {
         let p=uid(),s=uid(),m=uid()
         try db.insertProject(id:p,name:"P",path:"/t/\(p)"); try db.insertSession(id:s,projectId:p,title:"S",directory:"/t")
@@ -161,7 +161,7 @@ struct MsgTests {
 // MARK: - PART 4 (Items 71-92): Tool calls
 @Suite("Part 4: Tool calls (71-92)")
 struct TCTests {
-    let db = DatabaseManager.shared
+    let db = DatabaseManager(inMemory: true)
     @Test("71-72. Tool call CRUD") func t71() throws {
         let tcid=uid(), now=Int64(Date().timeIntervalSince1970)
         try db.exec("INSERT INTO tool_calls(id,message_id,tool_name,arguments,status,started_at,execution_time_ms) VALUES('\(tcid)','m','bash','{}','completed',\(now),1500)")

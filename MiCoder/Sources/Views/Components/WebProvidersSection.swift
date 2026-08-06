@@ -1,6 +1,14 @@
 import SwiftUI
 import WebKit
 
+// Preference key for auto-sizing TextEditor height
+private struct TextHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 28
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 /// Web-free provider management (Kimi/Qwen/ChatGPT) — plan Раздел 12 Блок 4.
 /// Configure system prompt / model / effort / tool-call delay / keep-alive,
 /// acknowledge ToS, and log in via an embedded web view that captures cookies.
@@ -44,7 +52,9 @@ struct WebProvidersSection: View {
                 WebProviderCard(config: $cfg,
                                 onSave: { save() },
                                 onLogin: { loginConfig = cfg },
-                                onRemove: { remove(cfg) })
+                                onRemove: { remove(cfg) },
+                                onRefreshModels: { Task { await refreshModels(for: cfg) } },
+                                homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
             }
         }
         .sheet(item: $loginConfig) { cfg in
@@ -105,16 +115,99 @@ struct WebProviderCard: View {
     let onSave: () -> Void
     let onLogin: () -> Void
     let onRemove: () -> Void
+    let onRefreshModels: () -> Void
+    let homeDirectory: URL
+
+    @State private var isRefreshing = false
+    @State private var lastRefreshError: String?
+    @State private var systemPromptHeight: CGFloat = 28
+    @State private var showSaveConfirmation = false
+
+    private var isConnected: Bool {
+        WebProviderConnectivity.isConnected(config, homeDirectory: homeDirectory)
+    }
+
+    // System prompt templates with tool-specific instructions
+    private static let systemPromptTemplates: [(name: String, prompt: String)] = [
+        ("Default", ""),
+        ("Code Agent", """
+You are a code-focused AI agent. You can:
+- Read/write files in the project directory
+- Run shell commands (bash)
+- Search/replace in files
+- List directories
+
+Always prefer using tools over explaining. When asked to modify code, make the minimal necessary changes. Run tests after changes.
+"""),
+        ("Code Reviewer", """
+You are a senior code reviewer. Focus on:
+- Correctness and edge cases
+- Security vulnerabilities
+- Performance implications
+- Code style and maintainability
+- Test coverage
+
+Be specific about issues and suggest concrete improvements.
+"""),
+        ("Debugging Assistant", """
+You are a debugging expert. Help the user by:
+- Analyzing error messages and stack traces
+- Suggesting hypotheses for root causes
+- Proposing minimal reproduction steps
+- Recommending debugging strategies (logging, breakpoints, etc.)
+- Verifying fixes with tests
+"""),
+        ("Documentation Writer", """
+You are a technical writer. Create clear, concise documentation:
+- API references with examples
+- Architecture overviews
+- Setup/installation guides
+- Changelog entries
+
+Use clear headings, code examples, and cross-references.
+"""),
+    ]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(config.displayName)
-                    .interfaceFont(size: 14, weight: .semibold)
-                    .foregroundColor(Color.mimo.textPrimary)
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(isConnected ? Color.mimo.success : Color.mimo.error)
+                        .frame(width: 8, height: 8)
+                    Text(config.displayName)
+                        .interfaceFont(size: 14, weight: .semibold)
+                        .foregroundColor(Color.mimo.textPrimary)
+                }
                 Spacer()
-                Button("Log in") { onLogin() }
+                if !isConnected {
+                    Button("Log in") { onLogin() }
+                        .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+                } else {
+                    Button(action: {
+                        isRefreshing = true
+                        lastRefreshError = nil
+                        Task {
+                            onRefreshModels()
+                            await MainActor.run {
+                                isRefreshing = false
+                            }
+                        }
+                    }) {
+                        if isRefreshing {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                                .interfaceFont(size: 12)
+                        }
+                    }
                     .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+                    .disabled(isRefreshing)
+                    .help(isRefreshing ? "Refreshing models…" : "Refresh models from web UI")
+                    if let err = lastRefreshError {
+                        Text(err).interfaceFont(size: 10).foregroundColor(Color.mimo.error)
+                    }
+                }
                 Button(action: onRemove) {
                     Image(systemName: "trash").interfaceFont(size: 12).foregroundColor(Color.mimo.error)
                 }
@@ -122,11 +215,63 @@ struct WebProviderCard: View {
             }
 
             // System prompt
-            Text("System prompt").interfaceFont(size: 11, weight: .medium).foregroundColor(Color.mimo.textMuted)
-            TextEditor(text: $config.systemPrompt)
-                .frame(height: 60)
-                .font(.system(size: 12))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("System prompt").interfaceFont(size: 11, weight: .medium).foregroundColor(Color.mimo.textMuted)
+                    Spacer()
+                    Menu {
+                        ForEach(Self.systemPromptTemplates, id: \.name) { template in
+                            Button(template.name) {
+                                config.systemPrompt = template.prompt
+                            }
+                        }
+                        Divider()
+                        Button("Clear") { config.systemPrompt = "" }
+                    } label: {
+                        Label("Templates", systemImage: "doc.on.doc")
+                            .interfaceFont(size: 10)
+                            .foregroundColor(Color.mimo.brand)
+                    }
+                    .menuStyle(.borderlessButton)
+                    .fixedSize()
+                    Spacer()
+                    Button("Save") {
+                        onSave()
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            showSaveConfirmation = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                            withAnimation { showSaveConfirmation = false }
+                        }
+                    }
+                    .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.success)
+                    .opacity(showSaveConfirmation ? 1 : 0.5)
+                    .disabled(config.systemPrompt.isEmpty)
+                }
+
+                // Auto-sizing TextEditor: starts at 1 line (~28pt), grows with content
+                ZStack(alignment: .topLeading) {
+                    if config.systemPrompt.isEmpty {
+                        Text("Optional system prompt… templates available above")
+                            .interfaceFont(size: 12)
+                            .foregroundColor(Color.mimo.textMuted)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 6)
+                    }
+                    TextEditor(text: $config.systemPrompt)
+                        .font(.system(size: 12))
+                        .frame(minHeight: systemPromptHeight, maxHeight: 120)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear.preference(key: TextHeightPreferenceKey.self, value: geo.size.height)
+                            }
+                        )
+                        .onPreferenceChange(TextHeightPreferenceKey.self) { h in
+                            systemPromptHeight = max(28, min(h + 8, 120))
+                        }
+                }
+            }
 
             // Model + effort are NOT chosen here (plan Раздел 13 п.5): the model
             // is picked in the chat input like any other provider, and effort is

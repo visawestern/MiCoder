@@ -301,8 +301,8 @@ extension AppState {
     /// Автобэкап перед VACUUM (plan Раздел 8 п.49) — на случай повреждения
     /// при сжатии остаётся рабочая копия.
     func vacuumProject(path: String) -> Bool {
-        try? ProjectAutoBackupLogic.createBackup(projectPath: path)
-        try? ProjectAutoBackupLogic.prune(projectPath: path)
+        _ = try? ProjectAutoBackupLogic.createBackup(projectPath: path)
+        _ = try? ProjectAutoBackupLogic.prune(projectPath: path)
         guard let db = try? ProjectDatabaseManager.manager(forProjectPath: path) else { return false }
         do {
             try db.vacuum()

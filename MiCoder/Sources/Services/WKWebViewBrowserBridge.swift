@@ -23,8 +23,14 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
     func navigate(to url: String) async throws {
         guard let u = URL(string: url) else { return }
         webView.load(URLRequest(url: u))
-        // Give the page a moment to start loading.
-        await wait(ms: 800)
+        // Wait for page to start loading
+        await wait(ms: 500)
+        // Wait for document readyState === 'complete'
+        for _ in 0..<30 {
+            let ready = (try? await eval("document.readyState === 'complete'")) as? Bool ?? false
+            if ready { return }
+            await wait(ms: 500)
+        }
     }
 
     func typeText(_ text: String, into selector: String, humanized: Bool) async throws {

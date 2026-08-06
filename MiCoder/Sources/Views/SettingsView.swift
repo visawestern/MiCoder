@@ -2116,8 +2116,8 @@ struct StorageSettingsView: View {
         // Auto-backup the project DB before deletion (plan Раздел 8 п.49).
         // The backup must SURVIVE the deletion, so it's moved to a global
         // deleted-backups area (inside .micoder it would be removed with it).
-        try? ProjectAutoBackupLogic.createBackup(projectPath: entry.path)
-        try? ProjectAutoBackupLogic.preserveForDeletion(projectPath: entry.path)
+        _ = try? ProjectAutoBackupLogic.createBackup(projectPath: entry.path)
+        _ = try? ProjectAutoBackupLogic.preserveForDeletion(projectPath: entry.path)
         try? StorageAuditLog.append(action: "project.delete",
                                     detail: "path=\(entry.path)",
                                     homeDirectory: home)

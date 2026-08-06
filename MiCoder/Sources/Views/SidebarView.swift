@@ -15,6 +15,17 @@ struct SidebarView: View {
                 SidebarActionRow(icon: "folder.badge.plus", label: "New Project", shortcut: "⌘⇧P") {
                     appState.showProjectCreation = true
                 }
+                SidebarActionRow(icon: "folder", label: "Open Project…", shortcut: "⌘O") {
+                    let panel = NSOpenPanel()
+                    panel.canChooseFiles = false
+                    panel.canChooseDirectories = true
+                    panel.allowsMultipleSelection = false
+                    panel.prompt = "Open"
+                    panel.message = "Select a folder to open as a project"
+                    if panel.runModal() == .OK, let url = panel.url {
+                        appState.addWorkspace(path: url.path)
+                    }
+                }
             }
             .padding(.horizontal, 8)
             .padding(.bottom, 8)
