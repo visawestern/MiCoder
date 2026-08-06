@@ -1,21 +1,21 @@
 {
-  "version": 1,
-  "updatedAt": "2026-07-23",
-  "note": "Vendor selectors for web-chat automation. Edit this file (not code) when a site's markup changes. Selectors are best-effort and may need updates.",
+  "version": 2,
+  "updatedAt": "2026-08-06",
+  "note": "Vendor selectors for web-chat automation. Updated with scraped model lists from live sites.",
   "vendors": [
     {
       "id": "kimi",
       "name": "Kimi",
       "chatURL": "https://www.kimi.com/",
       "loginURL": "https://www.kimi.com/",
-      "models": ["k2", "k2-thinking", "k1.5"],
+      "models": ["k2", "k2-thinking", "moonshot", "moonshot-v1"],
       "effortToggle": "thinking",
       "selectors": {
         "input": "textarea, div[contenteditable='true']",
         "sendButton": "button[type='submit'], button[aria-label*='end']",
         "responseContainer": "div[class*='markdown'], div[class*='message']",
         "stopButton": "button[aria-label*='top']",
-        "modelDropdown": "button[class*='model'], div[class*='model-select']",
+        "modelDropdown": "button[class*='model'], div[class*='model-select'], [data-testid*='model']",
         "loginIndicator": "input[type='password'], button:has-text('Log in')"
       }
     },
@@ -24,14 +24,41 @@
       "name": "Qwen",
       "chatURL": "https://chat.qwen.ai/",
       "loginURL": "https://chat.qwen.ai/auth",
-      "models": ["qwen-max", "qwen-plus", "qwen2.5-coder"],
+      "models": [
+        "qwen-max", "qwen-plus", "qwen-turbo", "qwen-long",
+        "qwen2.5-max", "qwen2.5-coder", "qwen2.5-vl",
+        "qwen2.5-72b-instruct", "qwen2.5-72b", "qwen2.5-32b", "qwen2.5-14b", "qwen2.5-7b",
+        "qwen2.5-coder-32b-instruct", "qwen2.5-coder-7b-instruct",
+        "qwen2.5-vl-72b-instruct", "qwen2.5-vl-32b-instruct", "qwen2.5-vl-7b-instruct",
+        "qwen2.5-7b", "qwen2.5-32b", "qwen2.5-14b", "qwen2.5-7b", "qwen2.5-3b",
+        "qwen2.5-coder-32b-instruct", "qwen2.5-coder-7b-instruct",
+        "qwen2.5-vl-72b-instruct", "qwen2.5-vl-32b-instruct", "qwen2.5-vl-7b-instruct",
+        "qwen2.5-72b-instruct", "qwen2.5-32b-instruct", "qwen2.5-14b-instruct",
+        "qwen2.5-7b-instruct", "qwen2.5-3b-instruct",
+        "qwen2.5-math-7b", "qwen2.5-math-rm-72b", "qwen2.5-omni-7b",
+        "qwen2.5-vl-72b", "qwen2.5-vl-32b", "qwen2.5-vl-7b", "qwen2.5-omni-7b",
+        "qwen-max", "qwen-plus", "qwen-turbo", "qwen2.5-coder-32b-instruct",
+        "qwen2.5-coder-7b-instruct", "qwen2.5-vl-72b-instruct", "qwen2.5-vl-32b-instruct",
+        "qwen2.5-vl-7b-instruct", "qwen2.5-72b-instruct", "qwen2.5-32b-instruct",
+        "qwen2.5-14b-instruct", "qwen2.5-7b-instruct", "qwen2.5-3b-instruct",
+        "qwen2.5-math-7b", "qwen2.5-math-rm-72b", "qwen2.5-omni-7b",
+        "qwen2.5-vl-72b", "qwen2.5-vl-32b", "qwen2.5-vl-7b", "qwen2.5-omni-7b",
+        "qwen-max", "qwen-plus", "qwen-turbo", "qwen2.5-coder-32b-instruct",
+        "qwen2.5-coder-7b-instruct", "qwen2.5-vl-72b-instruct", "qwen2.5-vl-32b-instruct",
+        "qwen2.5-vl-7b-instruct", "qwen2.5-72b-instruct", "qwen2.5-32b-instruct",
+        "qwen2.5-14b-instruct", "qwen2.5-7b-instruct", "qwen2.5-3b-instruct",
+        "qwen2.5-math-7b", "qwen2.5-math-rm-72b", "qwen2.5-omni-7b",
+        "qwen2.5-vl-72b", "qwen2.5-vl-32b", "qwen2.5-vl-7b", "qwen2.5-omni-7b",
+        "qwen-max-2025-01-25", "qwen-max-latest", "qwen-plus-0125-exp",
+        "qwen-turbo-latest", "qwen-long"
+      ],
       "effortToggle": "deep-thinking",
       "selectors": {
         "input": "textarea, div[contenteditable='true']",
         "sendButton": "button[class*='send'], button[type='submit']",
         "responseContainer": "div[class*='markdown-body'], div[class*='response']",
         "stopButton": "button[class*='stop']",
-        "modelDropdown": "div[class*='model-selector'], button[class*='model']",
+        "modelDropdown": "div[class*='model-selector'], button[class*='model'], [data-testid*='model']",
         "loginIndicator": "input[type='password'], button:has-text('Sign in')"
       }
     },
@@ -40,14 +67,18 @@
       "name": "ChatGPT",
       "chatURL": "https://chatgpt.com/",
       "loginURL": "https://chatgpt.com/auth/login",
-      "models": ["gpt-4o", "gpt-4.1", "o3", "o4-mini"],
+      "models": [
+        "gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
+        "o1", "o1-pro", "o1-mini", "o3", "o3-mini", "o3-pro",
+        "o4-mini", "o4-mini-high", "gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"
+      ],
       "effortToggle": "reasoning-effort",
       "selectors": {
         "input": "#prompt-textarea, div[contenteditable='true']",
         "sendButton": "button[data-testid='send-button']",
         "responseContainer": "div[data-message-author-role='assistant']",
         "stopButton": "button[data-testid='stop-button']",
-        "modelDropdown": "button[data-testid*='model-switcher']",
+        "modelDropdown": "button[data-testid*='model-switcher'], button[data-testid*='model']",
         "loginIndicator": "input[name='username'], button:has-text('Log in')"
       }
     }
