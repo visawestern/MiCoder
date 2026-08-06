@@ -904,6 +904,72 @@ class AppState: ObservableObject {
         }
     }
     #endif
+    /// Refresh available effort/thinking levels for a web provider by reading
+    /// the effort dropdown on the provider's web page.
+    /// Returns a status message describing the result.
+    @MainActor
+    func refreshWebEffort(for config: WebProviderConfig) async -> String {
+        #if canImport(WebKit)
+        guard let effortSelector = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)?.effortDropdown else {
+            return "This provider does not expose an effort/thinking dropdown selector yet."
+        }
+        guard let store = WebSessionManager.restore(providerId: config.id,
+                                                    homeDirectory: FileManager.default.homeDirectoryForCurrentUser),
+              !store.cookies.isEmpty,
+              !WebSessionManager.isExpired(store) else {
+            return "Log in first, then capture the web session before refreshing effort levels."
+        }
+
+        let selectors = WebVendorSelectors(
+            input: "textarea, div[contenteditable='true']",
+            sendButton: "button[type='submit'], button[aria-label*='send'], button[data-testid='send-button']",
+            responseContainer: "div[data-message-author-role='assistant'], div[class*='markdown'], div[class*='message']",
+            stopButton: "button[aria-label*='stop'], button[data-testid='stop-button'], button[class*='stop']"
+        )
+        let bridge = WKWebViewBrowserBridge(webView: webView(for: config), selectors: selectors)
+        do {
+            try await bridge.setCookies(store.cookies)
+            try await bridge.navigate(to: config.chatURL)
+            var inputFound = false
+            for _ in 0..<30 {
+                if try await bridge.exists(selector: selectors.input) {
+                    inputFound = true
+                    break
+                }
+                await bridge.wait(ms: 500)
+            }
+            guard inputFound else {
+                return "Chat input was not found. The saved session may have expired; log in again."
+            }
+            guard let efforts = await WebModelDiscovery.discoverEffort(using: bridge,
+                                                                       effortDropdownSelector: effortSelector,
+                                                                       vendor: config.vendor) else {
+                return "Could not read the effort levels from \(config.displayName). Try Refresh after the chat page finishes loading."
+            }
+            var updated = config
+            updated.effort = efforts.first ?? .medium
+            updated.discoveredEffortLevels = efforts
+            WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
+            if selectedProviderID == "web:\(config.id)" {
+                selectProvider(selectedProviderID, persistPreference: false)
+            }
+            return "Loaded \(efforts.count) effort level\(efforts.count == 1 ? "" : "s") from \(config.displayName)."
+        } catch {
+            return "Could not refresh effort levels: \(error.localizedDescription)"
+        }
+        #else
+        return "Web providers require WebKit (macOS)."
+        #endif
+    }
+
+    /// Refresh both models and effort levels for a web provider.
+    @MainActor
+    func refreshWebModelsAndEffort(for config: WebProviderConfig) async -> (modelsMsg: String, effortMsg: String) {
+        let modelsMsg = await refreshWebModels(for: config)
+        let effortMsg = await refreshWebEffort(for: config)
+        return (modelsMsg, effortMsg)
+    }
+
 
     /// Web providers whose chat session has already been seeded with the tool
     /// preamble this app run — so we send the preamble only on the first turn

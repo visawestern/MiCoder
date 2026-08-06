@@ -45,6 +45,79 @@ enum WebModelListParser {
         return s
     }
 
+    
+    /// Parse effort/thinking/reasoning levels from a dropdown text.
+    static func parseEffortLevels(dropdownText: String, vendor: WebChatVendor) -> [WebEffort] {
+        let separators = CharacterSet(charactersIn: "\n|,")
+        let rawTokens = dropdownText
+            .components(separatedBy: separators)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+
+        var seen = Set<WebEffort>()
+        var result: [WebEffort] = []
+        for token in rawTokens {
+            guard let effort = normalizeEffort(token, vendor: vendor) else { continue }
+            if seen.contains(effort) { continue }
+            seen.insert(effort)
+            result.append(effort)
+        }
+        return result
+    }
+
+    /// Normalize a single dropdown label into an effort level, or nil if it's UI chrome.
+    static func normalizeEffort(_ raw: String, vendor: WebChatVendor) -> WebEffort? {
+        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !s.isEmpty else { return nil }
+        // Strip leading selection markers / emojis commonly present in web menus.
+        for prefix in ["✓", "✔", "•", "- ", "* "] {
+            if s.hasPrefix(prefix) { s.removeFirst(prefix.count); s = s.trimmingCharacters(in: .whitespaces) }
+        }
+        // Drop obvious non-effort UI entries.
+        let lower = s.lowercased()
+        let noise = ["new", "upgrade", "plus", "pro plan", "manage", "settings",
+                     "see all", "more", "beta", "coming soon", "sign in", "log in",
+                     "default", "auto", "balanced", "creative", "precise"]
+        if noise.contains(lower) { return nil }
+        // Map vendor-specific labels to WebEffort
+        switch vendor {
+        case .kimi:
+            if lower.contains("thinking") || lower.contains("深度") || lower.contains("推理") {
+                return .high
+            }
+            if lower.contains("快速") || lower.contains("快") || lower.contains("fast") {
+                return .low
+            }
+            return .medium
+        case .qwen:
+            if lower.contains("deep") || lower.contains("深度") || lower.contains("推理") || lower.contains("thinking") {
+                return .high
+            }
+            if lower.contains("快") || lower.contains("fast") || lower.contains("速度") {
+                return .low
+            }
+            return .medium
+        case .chatgpt:
+            if lower.contains("high") || lower.contains("高") || lower.contains("pro") {
+                return .high
+            }
+            if lower.contains("low") || lower.contains("低") || lower.contains("快") {
+                return .low
+            }
+            if lower.contains("medium") || lower.contains("中") || lower.contains("balanced") {
+                return .medium
+            }
+            return .medium
+        case .custom:
+            if lower.contains("high") || lower.contains("高") || lower.contains("pro") || lower.contains("deep") || lower.contains("thinking") {
+                return .high
+            }
+            if lower.contains("low") || lower.contains("低") || lower.contains("快") || lower.contains("speed") {
+                return .low
+            }
+            return .medium
+        }
+    }
+
     /// Merge freshly parsed models into a config, preserving user selection if
     /// still present (plan Раздел 13 п.4).
     static func updated(_ config: WebProviderConfig, withDropdownText text: String) -> WebProviderConfig {
@@ -56,3 +129,4 @@ enum WebModelListParser {
         return updated
     }
 }
+

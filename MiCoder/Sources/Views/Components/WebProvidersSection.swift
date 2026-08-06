@@ -54,6 +54,7 @@ struct WebProvidersSection: View {
                                 onLogin: { loginConfig = cfg },
                                 onRemove: { remove(cfg) },
                                 onRefreshModels: { Task { await refreshModels(for: cfg) } },
+                                onRefreshEffort: { Task { await refreshEffort(for: cfg) } },
                                 homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
             }
         }
@@ -96,6 +97,14 @@ struct WebProvidersSection: View {
         providers = WebProviderStore.load()
         #endif
     }
+
+    /// Refresh the available effort/thinking levels for a web provider.
+    private func refreshEffort(for cfg: WebProviderConfig) async {
+        #if canImport(WebKit)
+        _ = await appState.refreshWebEffort(for: cfg)
+        providers = WebProviderStore.load()
+        #endif
+    }
 }
 
 /// Editable card for one web provider (plan Раздел 12 Блок 4 п.43-47).
@@ -105,6 +114,7 @@ struct WebProviderCard: View {
     let onLogin: () -> Void
     let onRemove: () -> Void
     let onRefreshModels: () -> Void
+    let onRefreshEffort: () -> Void
     let homeDirectory: URL
 
     @State private var isRefreshing = false
@@ -173,28 +183,40 @@ Use clear headings, code examples, and cross-references.
                     Button("Log in") { onLogin() }
                         .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
                 } else {
-                    Button(action: {
-                        isRefreshing = true
-                        lastRefreshError = nil
-                        Task {
-                            onRefreshModels()
-                            await MainActor.run {
-                                isRefreshing = false
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            isRefreshing = true
+                            lastRefreshError = nil
+                            Task {
+                                onRefreshModels()
+                                await MainActor.run {
+                                    isRefreshing = false
+                                }
+                            }
+                        }) {
+                            if isRefreshing {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                                    .interfaceFont(size: 12)
                             }
                         }
-                    }) {
-                        if isRefreshing {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Image(systemName: "arrow.clockwise")
+                        .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+                        .disabled(isRefreshing)
+                        .help(isRefreshing ? "Refreshing models…" : "Refresh models from web UI")
+                        
+                        Button(action: {
+                            Task { onRefreshEffort() }
+                        }) {
+                            Image(systemName: "brain.head.profile")
                                 .interfaceFont(size: 12)
                         }
-                    }
-                    .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
-                    .disabled(isRefreshing)
-                    .help(isRefreshing ? "Refreshing models…" : "Refresh models from web UI")
-                    if let err = lastRefreshError {
-                        Text(err).interfaceFont(size: 10).foregroundColor(Color.mimo.error)
+                        .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+                        .help("Refresh effort/thinking levels from web UI")
+                        
+                        if let err = lastRefreshError {
+                            Text(err).interfaceFont(size: 10).foregroundColor(Color.mimo.error)
+                        }
                     }
                 }
                 Button(action: onRemove) {

@@ -20,7 +20,7 @@ enum WebToolAccessGate {
     static func permission(for call: WebToolCall, accessLevel: AccessLevel) -> WebToolPermission {
         switch WebEmulatedTool(rawValue: call.name) {
         // Read-only tools — always allowed
-        case .readFile, .listDir, .grep, .gitStatus, .gitDiff, .gitLog, .gitBranch, .glob, .todoRead:
+        case .readFile, .listDir, .grep, .gitStatus, .gitDiff, .gitLog, .glob, .todoRead:
             return .allow
         // File-modifying tools — allowed at all levels (undo stack provides safety)
         case .writeFile, .editFile, .todoWrite:

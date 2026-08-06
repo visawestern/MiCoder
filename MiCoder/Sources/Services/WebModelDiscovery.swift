@@ -15,6 +15,7 @@ private struct WebVendorCatalogEntryDTO: Decodable {
     let selectors: Selectors
     struct Selectors: Decodable {
         let modelDropdown: String?
+        let effortDropdown: String?
     }
 }
 
@@ -24,6 +25,7 @@ struct WebProviderCatalog {
     struct VendorEntry: Equatable {
         let id: String
         let modelDropdown: String
+        let effortDropdown: String?
     }
 
     private struct RootDTO: Decodable { let vendors: [WebVendorCatalogEntryDTO] }
@@ -45,7 +47,7 @@ struct WebProviderCatalog {
             let map: [String: VendorEntry] = Dictionary(uniqueKeysWithValues:
                 root.vendors.compactMap { dto in
                     guard let selector = dto.selectors.modelDropdown, !selector.isEmpty else { return nil }
-                    return (dto.id, VendorEntry(id: dto.id, modelDropdown: selector))
+                    return (dto.id, VendorEntry(id: dto.id, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown))
                 })
             return WebProviderCatalog(entries: map)
         }
@@ -61,7 +63,7 @@ struct WebProviderCatalog {
             let map: [String: VendorEntry] = Dictionary(uniqueKeysWithValues:
                 root.vendors.compactMap { dto in
                     guard let selector = dto.selectors.modelDropdown, !selector.isEmpty else { return nil }
-                    return (dto.id, VendorEntry(id: dto.id, modelDropdown: selector))
+                    return (dto.id, VendorEntry(id: dto.id, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown))
                 })
             return WebProviderCatalog(entries: map)
         }
@@ -98,6 +100,23 @@ enum WebModelDiscovery {
             return nil
         }
     }
+
+    /// Discover the vendor's real effort/thinking levels from the web UI.
+    /// Returns nil if the effort dropdown isn't found or fails.
+    static func discoverEffort(using bridge: BrowserAutomationBridge,
+                              effortDropdownSelector: String,
+                              vendor: WebChatVendor) async -> [WebEffort]? {
+        do {
+            try await bridge.click(selector: effortDropdownSelector)
+            await bridge.wait(ms: 200)
+            let text = try await bridge.readText(selector: effortDropdownSelector)
+            let efforts = WebModelListParser.parseEffortLevels(dropdownText: text, vendor: vendor)
+            return efforts.isEmpty ? nil : efforts
+        } catch {
+            return nil
+        }
+    }
+
 }
 
 extension WebProviderConnectivity {

@@ -80,6 +80,12 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
     /// Real models parsed from the vendor's web UI model dropdown (plan Раздел
     /// 13 п.4). Empty until the driver discovers them; never hardcoded guesses.
     var discoveredModels: [String]
+    /// Discovered effort/thinking levels from the vendor's web UI (plan Раздел 13 п.4).
+    /// Empty until the driver discovers them.
+    var discoveredEffortLevels: [WebEffort]
+    /// CSS/XPath selector for the effort/thinking/reasoning dropdown (plan Раздел 13 п.4).
+    /// If present, the driver will use this to discover/change effort levels.
+    var effortDropdown: String?
 
     init(id: String = UUID().uuidString,
          vendor: WebChatVendor,
@@ -96,7 +102,9 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
          headless: Bool = false,
          maxToolIterations: Int = 25,
          acknowledgedToS: Bool = false,
-         discoveredModels: [String] = []) {
+         discoveredModels: [String] = [],
+         discoveredEffortLevels: [WebEffort] = [],
+         effortDropdown: String? = nil) {
         self.id = id
         self.vendor = vendor
         self.displayName = displayName ?? vendor.displayName
@@ -113,6 +121,8 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
         self.maxToolIterations = maxToolIterations
         self.acknowledgedToS = acknowledgedToS
         self.discoveredModels = discoveredModels
+        self.discoveredEffortLevels = discoveredEffortLevels
+        self.effortDropdown = effortDropdown
     }
 
     /// A web provider is usable only when the user has acknowledged the ToS
