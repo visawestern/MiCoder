@@ -2,7 +2,16 @@ import SwiftUI
 
 struct AccessLevelMenu: View {
     @EnvironmentObject var appState: AppState
-    
+
+    private var canSelectPlan: Bool {
+        ProviderCapabilityGates.canSelectPlanAgent(
+            modelID: appState.selectedModel,
+            providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
+            providers: appState.serverProviders,
+            customProviders: appState.customProviders
+        )
+    }
+
     var body: some View {
         Menu {
             ForEach(AccessLevel.allCases) { level in
@@ -30,12 +39,15 @@ struct AccessLevelMenu: View {
                     Text("Switch to Plan agent")
                 }
             }
-            .disabled(!ProviderCapabilityGates.canSelectPlanAgent(
-                modelID: appState.selectedModel,
-                providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
-                providers: appState.serverProviders,
-                customProviders: appState.customProviders
-            ))
+            .disabled(!canSelectPlan)
+            .overlay {
+                if !canSelectPlan {
+                    // `.help()` doesn't render on disabled controls — put the
+                    // explanation on a transparent hit-testable overlay instead.
+                    Color.clear.contentShape(Rectangle())
+                        .help("Plan mode is unavailable for the selected provider/model.")
+                }
+            }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: appState.accessLevel.icon)

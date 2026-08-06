@@ -18,7 +18,7 @@ struct DatabaseBridgeProjectRoutingTests {
     func createAndLoadSessionsRouteToProjectDB() throws {
         let projectPath = try makeTempProjectDir()
         defer { try? FileManager.default.removeItem(atPath: projectPath) }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: projectPath)
 
         DatabaseBridge.shared.createSession(id: "s1", projectId: projectPath, title: "Chat", directory: projectPath)
         let sessions = DatabaseBridge.shared.loadSessions(projectId: projectPath)
@@ -35,7 +35,7 @@ struct DatabaseBridgeProjectRoutingTests {
             try? FileManager.default.removeItem(atPath: projectPath)
             DatabaseBridge.shared.setActiveProject(path: nil)
         }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: projectPath)
 
         DatabaseBridge.shared.setActiveProject(path: projectPath)
         DatabaseBridge.shared.createSession(id: "s1", projectId: projectPath, title: "Chat", directory: projectPath)
@@ -59,7 +59,8 @@ struct DatabaseBridgeProjectRoutingTests {
             try? FileManager.default.removeItem(atPath: projectB)
             DatabaseBridge.shared.setActiveProject(path: nil)
         }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: projectA)
+        ProjectDatabaseManager.evictProject(projectPath: projectB)
 
         DatabaseBridge.shared.setActiveProject(path: projectA)
         DatabaseBridge.shared.createSession(id: "sA", projectId: projectA, title: "A", directory: projectA)
@@ -83,7 +84,7 @@ struct DatabaseBridgeProjectRoutingTests {
             try? FileManager.default.removeItem(atPath: projectPath)
             DatabaseBridge.shared.setActiveProject(path: nil)
         }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: projectPath)
 
         DatabaseBridge.shared.setActiveProject(path: projectPath)
         DatabaseBridge.shared.createSession(id: "s1", projectId: projectPath, title: "Chat", directory: projectPath)

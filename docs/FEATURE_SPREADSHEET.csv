@@ -3,7 +3,7 @@ App,APP-01,Window Management,"As a user, I want the app to open with proper wind
 App,APP-02,Menu Bar Commands,"As a user, I want standard keyboard shortcuts for Cut/Copy/Paste/Select All",Cmd+X/C/V/A work in all text fields via NSApp.sendAction,none,PASS,MiCoderApp.swift
 App,APP-03,New Task Command,"As a user, I want Cmd+N to create a new task",Cmd+N calls startNewTask and clears the chat,none,PASS,MiCoderApp.swift
 App,APP-04,Search Command,"As a user, I want Cmd+K to open search palette",Cmd+K opens SearchPaletteView sheet,SearchPaletteLogicTests,PASS,MiCoderApp.swift
-App,APP-05,Rebrand to MiCoder,"As a user, I want the app branded MiCoder, not MiMo","App name, ~/.micoder paths, com.micoder keys; legacy ~/.mimocode paths are NOT migrated (clean slate — HTTP-only)",none,PARTIAL,"3 user-facing 'MiMo' strings remain (SettingsView, BottomPanelView)"
+App,APP-05,Rebrand to MiCoder,"As a user, I want the app branded MiCoder, not MiMo","App name, ~/.micoder paths, com.micoder keys; legacy ~/.mimocode paths are NOT migrated (clean slate — HTTP-only)",none,PASS,"Fixed in Round 23 (E26): 'Manage MiCoder Agent', 'MiCoder CLI/Serve', 'Auto-commit from MiCoder' — no user-facing 'MiMo' strings remain"
 Sidebar,SID-01,Workspace List Display,"As a user, I want to see all my workspaces in the left sidebar","Workspaces displayed in list or grid view, sorted, filtered by query",SidebarParityTests,PASS,SidebarView.swift
 Sidebar,SID-02,Workspace Section Header,"As a user, I want to expand/collapse the workspaces section",Click chevron toggles expanded; sort/filter/search/view-mode buttons visible,none,PASS,SidebarView.swift
 Sidebar,SID-03,Workspace Sort,"As a user, I want to sort workspaces by name/recent/task count",Sort menu cycles WorkspaceSortOrder,none,PASS,SidebarView.swift
@@ -26,8 +26,9 @@ Sidebar,SID-19,Resizable Sidebar,"As a user, I want to drag the sidebar edge to 
 Sidebar,SID-20,Group/Project Pill,"As a user, I want to switch sidebar grouping between #Group and Project",SidebarGroupingPill toggles mode; persisted,SidebarGroupingLogic tests,PASS,SidebarView.swift
 Sidebar,SID-21,Sidebar Archive Popover,"As a user, I want quick access to archived projects from the sidebar",archivebox icon opens ArchivedProjectsPopover; restore inline,none,PASS,SidebarView.swift
 Sidebar,SID-22,'Workspaces' Overview Title,"As a user, I want the overview sheet titled per Kimi reference (no 'Workspaces' section)",Sidebar section header removed; overview sheet still titled 'Workspaces',none,PARTIAL,SidebarView.swift line ~502
+Sidebar,SID-23,Notifications Mark All Read,"As a user, I want to mark all notifications read from the sidebar",Bell opens NotificationsSheet; 'Mark All Read' resets unreadCount badge; empty state 'No notifications' + hint,Checklist review 2026-08-05,PASS,SidebarView.swift (NotificationsSection)
 Content,CON-01,Chat Panel Layout,"As a user, I want the chat area to show messages or initial empty state",Empty state or scrollable message list,ChatPanelLayoutTests,PASS,ChatPanelView.swift
-Content,CON-02,Empty State Logo,"As a user, I want to see the MiCoder logo on the initial screen",MiMoLogoMark(size: 140) centered when no messages,none,PASS,EmptyChatStateView.swift
+Content,CON-02,Empty State Logo,"As a user, I want to see the independent MiCoder code mark on the initial screen",MiCoderLogoMark(size: 140) centered when no messages,ChatPanelLayoutTests,PASS,EmptyChatStateView.swift + MiCoderLogoMark.swift
 Content,CON-03,Empty State Title,"As a user, I want contextual text on the empty screen",Session title > workspace name > 'Select a workspace' fallback,none,PASS,EmptyChatStateView.swift
 Content,CON-04,Message List Display,"As a user, I want to see all messages in a scrollable chat","LazyVStack with work-time separators, auto-scroll",ChatScrollBehaviorTests,PASS,ChatPanelView.swift
 Content,CON-05,Work Time Separators,"As a user, I want time separators between messages >5s apart",'Worked for Xm Ys' label between messages,none,PASS,ChatPanelView.swift
@@ -121,7 +122,7 @@ Git,GIT-03,Branch Display & Switching,"As a user, I want to see and switch git b
 Git,GIT-04,Commit Changes,"As a user, I want to commit working tree changes",commitGitChanges with user message,GitRepositoryTests,PASS,MiCoderApp.swift
 Git,GIT-05,Push Changes,"As a user, I want to push commits to remote",pushGitChanges; upstream setup,GitPushUpstreamTests,PASS,MiCoderApp.swift
 Git,GIT-06,Auto Git Refresh,"As a user, I want git status refreshed automatically",GitRefreshCoalescer dedup,GitRefreshLogicTests,PASS,
-Git,GIT-07,Auto-Commit,"As a user, I want optional auto-commit of changes",BottomPanelView 'Auto-commit from MiMo' toggle,none,PARTIAL,Label still says MiMo (rebrand)
+Git,GIT-07,Auto-Commit,"As a user, I want optional auto-commit of changes",BottomPanelView 'Auto-commit from MiCoder' toggle,none,PASS,"Label fixed in Round 23 (was 'MiMo'); toggle present"
 Git,GIT-08,Git Publish / PR Flow,"As a user, I want to publish a branch and open a PR",GitPublishFlowLogic + GitHubCLIService,GitPublishFlowLogicTests,PASS,
 Settings,SET-01,Settings Overlay,"As a user, I want settings as an overlay with dimmed backdrop",ZStack overlay; click outside dismisses; Escape closes,SettingsOutsideDismissTests,PASS,ContentView.swift
 Settings,SET-02,General Settings Tab,"As a user, I want theme (dark/light) and language config",Appearance with theme picker + language selector,SettingsIntegrationTests + SecurityThemeLogicTests,PASS,SettingsView.swift
@@ -143,6 +144,7 @@ Terminal,TERM-01,Terminal Panel,"As a user, I want a terminal/command panel at t
 Terminal,TERM-02,Command Execution,"As a user, I want to run bash commands",TerminalLine .command/.output/.error; runs via Process,TerminalPanelTests,PASS,BottomPanelView.swift
 Terminal,TERM-03,Command Timeout,"As a user, I want commands to timeout after 30s",30s timeout; auto-cancels,TerminalPanelTests,PASS,BottomPanelView.swift
 Terminal,TERM-04,Terminal History,"As a user, I want to see previous command output",Terminal lines preserved; scrolled display,TerminalPanelTests,PASS,BottomPanelView.swift
+Terminal,TERM-05,Terminal Built-in Helpers,"As a user, I want clear/sleep/help shortcuts in the terminal",'clear — Clear screen' wipes output; 'sleep [seconds] — Pause execution' shows countdown with safeSeconds cap; 'help'/'?' lists helpers,Checklist review 2026-08-05,PASS,BottomPanelView.swift
 RightPanel,RTP-01,Plan/Goal Panel,"As a user, I want to see execution steps in the right panel",RightPanelView displays currentSteps; showGoal,RightPanelTests,PASS,RightPanelView.swift
 RightPanel,RTP-02,Task Step Display,"As a user, I want step-by-step progress",Steps with status; ExecutionStepSyncLogic,RightPanelTests,PASS,
 Clipboard,CLP-01,Image Paste,"As a user, I want to paste images from clipboard",ChatPasteCoordinator detects images; imports,ClipboardPasteTests,PASS,ChatPasteCoordinator.swift

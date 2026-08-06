@@ -110,9 +110,8 @@ struct E04ProjectOpenIntegrityTests {
         let dbURL = ProjectDatabaseLocator.databaseURL(projectPath: projectPath)
         try writeGarbageOver(dbURL)
 
-        // Re-open right before the precondition assert: other suites run in
-        // parallel and may evictAll() the shared pool in between setup steps.
-        _ = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
+        // With cross-suite interference gone (scoped eviction), the pooled entry
+        // from the first open survives, so it stays pooled up to the restore.
         #expect(ProjectDatabaseManager.isPooled(projectPath: projectPath))
         _ = try ProjectOpenIntegrity.restoreLatestBackup(projectPath: projectPath)
         #expect(!ProjectDatabaseManager.isPooled(projectPath: projectPath))

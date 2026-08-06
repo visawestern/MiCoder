@@ -349,7 +349,7 @@ struct GitToolsSection: View {
             await appState.pushGitChanges()
         } else {
             await MainActor.run {
-                appState.gitStatusMessage = "Commit failed — push cancelled."
+                appState.gitStatusMessage = "Commit failed — push was skipped."
             }
         }
     }

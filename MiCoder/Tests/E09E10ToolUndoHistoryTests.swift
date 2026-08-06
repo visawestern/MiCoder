@@ -15,7 +15,7 @@ struct E09E10ToolUndoHistoryTests {
     func writeFileRecordsUndoAndHistory() async throws {
         let root = try makeTempProjectDir()
         defer { try? FileManager.default.removeItem(atPath: root) }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: root)
         let undo = try ProjectUndoManager(projectPath: root)
         try undo.db.insertSession(id: "s1", title: "Session", directory: root)
         let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1")
@@ -38,7 +38,7 @@ struct E09E10ToolUndoHistoryTests {
     func editFileUndoRestoresContent() async throws {
         let root = try makeTempProjectDir()
         defer { try? FileManager.default.removeItem(atPath: root) }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: root)
         let undo = try ProjectUndoManager(projectPath: root)
         try undo.db.insertSession(id: "s1", title: "Session", directory: root)
         let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1")
@@ -58,7 +58,7 @@ struct E09E10ToolUndoHistoryTests {
     func undoFileCreationRemovesCreatedFile() async throws {
         let root = try makeTempProjectDir()
         defer { try? FileManager.default.removeItem(atPath: root) }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: root)
         let undo = try ProjectUndoManager(projectPath: root)
         try undo.db.insertSession(id: "s1", title: "Session", directory: root)
         let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1")
@@ -77,7 +77,7 @@ struct E09E10ToolUndoHistoryTests {
     func failedOperationLeavesNoTraces() async throws {
         let root = try makeTempProjectDir()
         defer { try? FileManager.default.removeItem(atPath: root) }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: root)
         let undo = try ProjectUndoManager(projectPath: root)
         try undo.db.insertSession(id: "s1", title: "Session", directory: root)
         let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1")

@@ -32,17 +32,17 @@ struct ChatPanelLayoutTests {
         #expect(!ChatScrollLogic.shouldAutoScroll(wasAtBottom: false))
     }
 
-    @Test("Mi logo mark uses Xiaomi orange branding")
+    @Test("MiCoder logo mark uses independent code branding")
     func logoMarkText() {
-        #expect(MiMoLogoSpec.markText == "mi")
-        #expect(MiMoLogoSpec.accentHex == "FF6900")
+        #expect(MiCoderLogoSpec.markText == "MiCoder code mark")
+        #expect(MiCoderLogoSpec.accentHex == "6EE7F2")
     }
 
-    @Test("Bundled Mi logo asset is available")
+    @Test("Bundled MiCoder logo asset is available")
     func bundledLogoAsset() {
-        MiMoLogoLoader.resourceBundle = Bundle.module
-        #expect(MiMoLogoLoader.image != nil)
-        #expect(MiMoLogoLoader.resourceName == "MiLogo")
+        MiCoderLogoLoader.resourceBundle = Bundle.module
+        #expect(MiCoderLogoLoader.image != nil)
+        #expect(MiCoderLogoLoader.resourceName == "MiCoderLogo")
     }
 
     @Test("ClipboardProvider reads NSImage pasteboard constructor")

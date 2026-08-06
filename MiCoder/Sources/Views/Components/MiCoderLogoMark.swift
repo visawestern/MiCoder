@@ -1,13 +1,13 @@
 import SwiftUI
 import AppKit
 
-/// Official Mi logo from `mimo-coder/assets/images/logo.png`.
-struct MiMoLogoMark: View {
+/// Independent MiCoder code-and-spark mark.
+struct MiCoderLogoMark: View {
     var size: CGFloat = 140
 
     var body: some View {
         Group {
-            if let image = MiMoLogoLoader.image {
+            if let image = MiCoderLogoLoader.image {
                 Image(nsImage: image)
                     .resizable()
                     .interpolation(.high)
@@ -18,12 +18,12 @@ struct MiMoLogoMark: View {
         }
         .scaledToFit()
         .frame(width: size, height: size)
-        .accessibilityLabel(MiMoLogoSpec.markText)
+        .accessibilityLabel(MiCoderLogoSpec.markText)
     }
 }
 
-enum MiMoLogoLoader {
-    static let resourceName = "MiLogo"
+enum MiCoderLogoLoader {
+    static let resourceName = "MiCoderLogo"
 
     /// The bundle used to locate resource files.
     ///
@@ -36,7 +36,7 @@ enum MiMoLogoLoader {
     static var resourceBundle: Bundle = .main
 
     static var image: NSImage? {
-        guard let url = resourceBundle.url(forResource: resourceName, withExtension: "png") else {
+        guard let url = resourceBundle.url(forResource: resourceName, withExtension: "svg") else {
             return NSImage(named: NSImage.Name(resourceName))
         }
         return NSImage(contentsOf: url)

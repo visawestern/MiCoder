@@ -2,9 +2,10 @@ import Testing
 import Foundation
 @testable import MiCoder
 
-// Serialized: every test exercises the shared static connection pool, so
-// running them concurrently would let one test's evictAll()/evictIdle()
-// calls race against another test's pool lookups.
+// Serialized internally. Cross-suite interference was eliminated by switching
+// every test's reset from the global `evictAll()` sledgehammer to scoped
+// `evictProject(ownPath)` — every test's path is a unique UUID, so evicting
+// your own path can never evict another suite's pooled connection.
 @Suite("ProjectDatabaseManager — per-project SQLite storage", .serialized)
 struct ProjectDatabaseManagerTests {
 
@@ -45,14 +46,11 @@ struct ProjectDatabaseManagerTests {
         let projectPath = try makeTempProjectDir()
         defer { try? FileManager.default.removeItem(atPath: projectPath) }
 
-        // Guard against races: parallel suites (DatabaseBridge, ProjectHistoryIntegrity,
-        // ProjectDatabaseMigration, etc.) call evictAll() on the shared static pool
-        // between our two lookups, which would make `first !== second`. Reset the
-        // pool and retry so the test asserts the real behavior (normalization →
-        // same pool key) instead of racing other suites.
+        // Scoped reset: evict only OUR path (the global evictAll() used to evict
+        // other parallel suites' entries mid-test, racing their lookups).
         var matched = false
         for _ in 0..<5 where !matched {
-            ProjectDatabaseManager.evictAll()
+            ProjectDatabaseManager.evictProject(projectPath: projectPath)
             let first = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
             let second = try ProjectDatabaseManager.manager(forProjectPath: projectPath + "/")
             matched = first === second
@@ -168,13 +166,11 @@ struct ProjectDatabaseManagerTests {
     func stableIdentityPersists() throws {
         let projectPath = try makeTempProjectDir()
         defer { try? FileManager.default.removeItem(atPath: projectPath) }
-        ProjectDatabaseManager.evictAll()
-
         let first = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
         let stableId = try first.stableProjectId()
         #expect(!stableId.isEmpty)
 
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: projectPath)
         let reopened = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
         #expect(try reopened.stableProjectId() == stableId)
     }
@@ -183,17 +179,11 @@ struct ProjectDatabaseManagerTests {
     func idleConnectionsAreEvicted() throws {
         let projectPath = try makeTempProjectDir()
         defer { try? FileManager.default.removeItem(atPath: projectPath) }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: projectPath)
 
         let manager = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
         let normalized = ChatSession.normalizedPath(projectPath)
 
-        // Guard against races: parallel suites (DatabaseBridge, ProjectHistoryIntegrity,
-        // ProjectDatabaseMigration, etc.) call evictAll() on the shared static pool
-        // between our manager creation and this check. If evicted, re-register.
-        if !ProjectDatabaseManager.isPooled(projectPath: normalized) {
-            _ = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
-        }
         #expect(ProjectDatabaseManager.isPooled(projectPath: normalized),
                 "Manager must be in the pool before eviction is tested")
 
@@ -209,7 +199,7 @@ struct ProjectDatabaseManagerTests {
 
         let first = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
         try first.insertSession(id: "s1", title: "Persisted chat", directory: projectPath)
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: projectPath)
 
         let reopened = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
         let sessions = try reopened.getAllSessions()

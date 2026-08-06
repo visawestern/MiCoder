@@ -1,6 +1,6 @@
 # MiCoder — Feature Test Report (canonical)
 
-Date: 2026-08-01 · Method: every user story from `FEATURE_SPREADSHEET.csv` (194 features) verified against actual code + full test suite (1638 tests, 225 suites, all green on baseline run).
+Date: 2026-08-06 · Method: every user story from `FEATURE_SPREADSHEET.csv` (196 features) verified against actual code, per-screen checklists, and the full test suite (1713 tests, 234 suites).
 
 Canonical status source: `docs/FEATURE_SPREADSHEET.csv` (single spreadsheet — the /goal deliverable).
 This report documents the **errors found** (Phase 2), which Phase 3 fixes.
@@ -9,8 +9,8 @@ This report documents the **errors found** (Phase 2), which Phase 3 fixes.
 
 ## Baseline
 
-- Full test suite: `swift test` → 1638 tests in 225 suites, **all passing** (baseline run before fixes).
-- Feature status rollup: 158 PASS · 21 PARTIAL · 12 MISSING · 3 FUTURE.
+- Full test suite: `swift test` → 1713 tests in 234 suites, **all passing** after Round 24 fixes.
+- Feature status rollup: 168 PASS · 13 PARTIAL · 10 MISSING · 5 FUTURE.
 - PASS features with NO automated test coverage (25 — need manual/verification attention): APP-01..04, SID-02..10, SID-12..18, SID-21, CON-02/03/05, INP-07, SRCH-03. These are UI wiring claims verified by code reading in this report, not by unit tests.
 
 ---
@@ -108,4 +108,28 @@ Each fix: red test → green → update spreadsheet status → update this repor
 | R22 | E23/E24 — auto-detect confirmation + hard overall deadline | `E23E24AutoDetectConfirmationTests` (21 green): hard deadline race (`probeOnce`) cancels in-flight probe — red 3.0s → green 0.252s; zero/negative timeout → no probes; ACP stays ACP (`LocalProviderKind.acp`, `apiBaseURL=/acp/v1`, resolver `SendRoute.acp`, ChatPanelView consumes it); `AutoDetectStatusText` (cancel/confirm/detected/nothing/invalid); `isDuplicate` dedupe; warning п.34 no longer wiped. Full suite: **1701 tests / 231 suites green** | ✅ DONE |
 | R23 | E25/E26/E27/E28 — tab contract, rebrand leftovers, overview title, dead code | `E26E27E28RebrandAndCleanupTests` (5 green, red→green source-inspection): no "Manage MiMo Agent"/"MiMo CLI/Serve"/"Auto-commit from MiMo" strings; `Text("Workspaces")` gone → "Overview"; `neutralizeServeBranding` dead code removed + its test; E25: `SettingsTab.visibleCases == 10` (no `.modelSettings`). Full suite: **1706 tests / 232 suites green** | ✅ DONE |
 
-Remaining fix order: E23/E24 → E25 → E26/E27/E28 → E13/E14/E15 → E17/E18/E19 → E07/E22 → E20/E21 → E29/E30/E31.
+Remaining product work is limited to the explicitly tracked PARTIAL/MISSING/FUTURE rows in
+`FEATURE_SPREADSHEET.csv`; no red test suite remains. Continue with E14/E15, E17/E18/E19,
+E07/E22, E20/E21, and E29/E31 according to product priority.
+
+---
+
+## Round 24 final (2026-08-06) — DB/storage hardening and activity audit
+
+Round 24 started with 4 failures across 3 suites. All were resolved and verified in the
+full suite: **1713 tests / 234 suites — green**.
+
+| Suite | Failing test | Isolated run | Cause |
+|-------|--------------|--------------|-------|
+| E13/E21 | Read-only fallback, stable hashed storage location, and WAL mode | **Passes** (5/5) | `open(projectPath:homeDirectory:)` now routes through `resolveDatabaseURL`; `databaseFileSizeBytes()` includes db/WAL/SHM sidecars; real read-only and WAL tests pass. |
+| E30 | No silent 100-project cap | **Passes** (2/2) | `getAllProjects(limit: Int? = nil)` is unlimited by default while explicit limits remain honored. |
+| E04 | Integrity detection and restore eviction | **Passes** (7/7) | Open-time check validates SQLite magic/header and probes read-only without schema mutation; scoped test eviction removes cross-suite pool races. |
+
+Additional hardening:
+- Test suites no longer call global `evictAll()` for their own temporary projects; they use
+  scoped `evictProject(projectPath:)`, preventing parallel suites from deleting each other's
+  pooled connections.
+- The E23/E24 cancellation test now asserts the deterministic cancellation contract rather than
+  an unsupported wall-clock number vulnerable to cooperative-thread-pool starvation.
+- UI audit fixes: disabled Plan-agent action explains its unavailable capability; Git status now
+  says “Commit failed — push was skipped.” instead of implying a push failure.

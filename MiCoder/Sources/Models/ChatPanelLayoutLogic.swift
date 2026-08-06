@@ -10,11 +10,11 @@ enum ChatPanelLayoutLogic {
     }
 }
 
-enum MiMoLogoSpec {
-    static let markText = "mi"
-    static let accentHex = "FF6900"
+enum MiCoderLogoSpec {
+    static let markText = "MiCoder code mark"
+    static let accentHex = "6EE7F2"
 
     static var accentColor: Color {
-        Color(red: 1, green: 0.412, blue: 0)
+        Color(red: 0.431, green: 0.906, blue: 0.949)
     }
 }

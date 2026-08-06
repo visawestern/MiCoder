@@ -1,5 +1,6 @@
 import Foundation
 import SQLite
+import CryptoKit
 #if canImport(SQLite3)
 import SQLite3
 #endif
@@ -102,6 +103,13 @@ final class ProjectDatabaseManager {
     private let db: Connection
     private let queue: DispatchQueue
     private(set) var lastAccessedAt: Date
+
+    /// Current SQLite journal mode of the connection — "wal" after the E21
+    /// setup in `openConnection`. Exposed for diagnostics and the E21 test.
+    var journalMode: String? {
+        guard let row = try? db.prepare("PRAGMA journal_mode").next() else { return nil }
+        return row[0] as? String
+    }
 
     // MARK: - Table Definitions (mirrors the shape of the legacy global schema,
     // minus the now-redundant `project_id` column since the file itself is
@@ -210,6 +218,48 @@ final class ProjectDatabaseManager {
     /// refuses to create directories for arbitrary strings so callers can't
     /// litter the filesystem by passing a non-project identifier by mistake.
     private static func open(projectPath: String) throws -> ProjectDatabaseManager {
+        try open(projectPath: projectPath,
+                 homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+    }
+
+    /// Where the per-project DB file lives (E13, plan Раздел 8 п.51).
+    /// Default: `<project>/.micoder/project.db`. When that directory cannot be
+    /// created (read-only / system-protected path), the DB falls back to
+    /// `<home>/.micoder/projects/<stable-hash>/project.db` so history and undo
+    /// still work instead of the open failing. `attemptCreate` is injectable
+    /// for deterministic tests; the default performs the real creation.
+    static func resolveDatabaseURL(
+        projectPath: String,
+        homeDirectory: URL,
+        attemptCreate: (URL) -> Bool = { url in
+            (try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)) != nil
+        }
+    ) -> URL {
+        let inProject = URL(fileURLWithPath: projectPath).appendingPathComponent(".micoder")
+        if attemptCreate(inProject) {
+            return inProject.appendingPathComponent("project.db")
+        }
+        let hash = stableHash(projectPath)
+        let fallbackDir = homeDirectory
+            .appendingPathComponent(".micoder", isDirectory: true)
+            .appendingPathComponent("projects", isDirectory: true)
+            .appendingPathComponent(hash, isDirectory: true)
+        _ = (try? FileManager.default.createDirectory(at: fallbackDir, withIntermediateDirectories: true))
+        return fallbackDir.appendingPathComponent("project.db")
+    }
+
+    /// Stable, path-derived identifier for the fallback DB directory
+    /// (Foundation `hashValue` is randomized per process — not usable).
+    private static func stableHash(_ path: String) -> String {
+        let digest = SHA256.hash(data: Data(path.utf8))
+        return String(digest.map { String(format: "%02x", $0) }.joined().prefix(16))
+    }
+
+    /// `open(projectPath:)` with an injectable home directory. The home
+    /// parameter keeps E13's read-only fallback testable without touching the
+    /// real user home: a project on a read-only/system-protected path must
+    /// still open, with its DB stored under `<home>/.micoder/projects/<hash>/`.
+    static func open(projectPath: String, homeDirectory: URL) throws -> ProjectDatabaseManager {
         let normalized = ChatSession.normalizedPath(projectPath)
         guard normalized.hasPrefix("/") else {
             throw ProjectDatabaseError.invalidProjectPath
@@ -221,15 +271,20 @@ final class ProjectDatabaseManager {
             throw ProjectDatabaseError.projectDirectoryNotFound(normalized)
         }
 
-        let mimocodeDir = URL(fileURLWithPath: normalized).appendingPathComponent(".micoder")
-        try FileManager.default.createDirectory(at: mimocodeDir, withIntermediateDirectories: true)
-        let dbURL = mimocodeDir.appendingPathComponent("project.db")
+        // E13 (plan Раздел 8 п.51): the in-project `<project>/.micoder/` dir is
+        // used when writable; otherwise the DB falls back to
+        // `<home>/.micoder/projects/<stable-hash>/project.db` so read-only and
+        // system-protected projects still open instead of failing.
+        let dbURL = resolveDatabaseURL(projectPath: normalized, homeDirectory: homeDirectory)
         return try openConnection(atFileURL: dbURL, projectPath: normalized)
     }
 
     private static func openConnection(atFileURL dbURL: URL, projectPath: String) throws -> ProjectDatabaseManager {
         let connection = try Connection(dbURL.path)
         connection.busyTimeout = 5.0
+        // E21 (plan Раздел 7 п.46): WAL journaling — concurrent readers don't
+        // block the writer and the -wal file makes crash recovery trivial.
+        try connection.execute("PRAGMA journal_mode=WAL")
 
         let manager = ProjectDatabaseManager(projectPath: projectPath, databaseFileURL: dbURL, db: connection)
         try manager.createSchema()
@@ -802,7 +857,18 @@ final class ProjectDatabaseManager {
     /// Uses the raw SQLite C API: the SQLite.swift wrapper doesn't surface
     /// PRAGMA result rows, and quick_check returns no rows on a fresh DB.
     func integrityCheck() throws -> String? {
-        let handle = db.handle
+        try Self.integrityQuickCheck(on: db)
+    }
+
+    /// Read-only `PRAGMA integrity_quick_check` against a bare connection.
+    /// Used by `ProjectOpenIntegrity.checkOnOpen` so the open-time corruption
+    /// probe never routes through `openConnection` (which runs `createSchema()`
+    /// + `PRAGMA journal_mode=WAL` and would re-initialize a corrupt/garbage
+    /// file, masking the corruption — a data-loss bug). A fresh read-only
+    /// connection validates the on-disk file as-is, deterministically and
+    /// independently of the connection-pool state.
+    static func integrityQuickCheck(on connection: Connection) throws -> String? {
+        let handle = connection.handle
         let context = UnsafeMutableRawPointer(Unmanaged.passRetained(NSMutableString()).toOpaque())
         let sql = "PRAGMA integrity_quick_check"
         let rc = sqlite3_exec(handle, sql, { ctx, colCount, values, _ in
@@ -821,8 +887,15 @@ final class ProjectDatabaseManager {
     }
 
     func databaseFileSizeBytes() -> UInt64 {
-        guard let attrs = try? FileManager.default.attributesOfItem(atPath: databaseFileURL.path) else { return 0 }
-        return (attrs[.size] as? UInt64) ?? 0
+        func size(_ url: URL) -> UInt64 {
+            guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path) else { return 0 }
+            return (attrs[.size] as? UInt64) ?? 0
+        }
+        // WAL (E21): the main .db file stays at its page size while new writes
+        // land in the -wal sidecar, so "real on-disk usage" = db + wal + shm.
+        return size(databaseFileURL)
+            + size(URL(fileURLWithPath: databaseFileURL.path + "-wal"))
+            + size(URL(fileURLWithPath: databaseFileURL.path + "-shm"))
     }
 
     func sessionCount() throws -> Int {

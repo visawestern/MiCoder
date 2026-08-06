@@ -155,7 +155,9 @@ class DatabaseManager {
         return manager
     }
     
-    private init(inMemory: Bool) {
+    /// In-memory instance for tests (E30: a real DB with >100 projects must
+    /// prove the sidebar list is not silently capped).
+    init(inMemory: Bool) {
         self.isInMemory = true
         self.dbPath = ":memory:"
         initialize()
@@ -415,7 +417,11 @@ class DatabaseManager {
         ))
     }
     
-    func getAllProjects(limit: Int = 100) throws -> [ProjectRecord] {
+    /// All projects, most-recently-opened first. The default is intentionally
+    /// UNLIMITED (E30): the sidebar loads the full project list, and a silent
+    /// `LIMIT 100` used to hide every project beyond the 100 most recent with
+    /// no indication. Callers that genuinely want a cap pass `limit` explicitly.
+    func getAllProjects(limit: Int? = nil) throws -> [ProjectRecord] {
         guard let db = db else { throw DatabaseError.notInitialized }
         
         var results: [ProjectRecord] = []

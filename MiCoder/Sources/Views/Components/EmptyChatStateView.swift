@@ -18,7 +18,7 @@ struct EmptyChatStateView: View {
                 Spacer(minLength: 0)
 
                 VStack(spacing: ChatPanelLayoutLogic.emptyStateStackSpacing) {
-                    MiMoLogoMark(size: 140)
+                    MiCoderLogoMark(size: 140)
 
                     if let session = appState.selectedSession {
                         Text(session.title)

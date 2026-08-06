@@ -37,7 +37,7 @@ struct ProjectHistoryIntegrityTests {
     func pointInTimeUndoRestoresOnlyTargetedFile() throws {
         let projectPath = try makeTempProjectDir()
         defer { try? FileManager.default.removeItem(atPath: projectPath) }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: projectPath)
 
         let fileA = (projectPath as NSString).appendingPathComponent("a.txt")
         let fileB = (projectPath as NSString).appendingPathComponent("b.txt")
@@ -68,7 +68,7 @@ struct ProjectHistoryIntegrityTests {
     func undoingUsedEntryFails() throws {
         let projectPath = try makeTempProjectDir()
         defer { try? FileManager.default.removeItem(atPath: projectPath) }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: projectPath)
 
         let fileA = (projectPath as NSString).appendingPathComponent("a.txt")
         try "v1".write(toFile: fileA, atomically: true, encoding: .utf8)
@@ -94,7 +94,8 @@ struct ProjectHistoryIntegrityTests {
             try? FileManager.default.removeItem(atPath: sourcePath)
             try? FileManager.default.removeItem(atPath: destPath)
         }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: sourcePath)
+        ProjectDatabaseManager.evictProject(projectPath: destPath)
 
         let source = try ProjectDatabaseManager.manager(forProjectPath: sourcePath)
         try source.insertSession(id: "s1", title: "Chat to export", directory: sourcePath, branch: "main")
@@ -131,7 +132,8 @@ struct ProjectHistoryIntegrityTests {
             try? FileManager.default.removeItem(atPath: sourcePath)
             try? FileManager.default.removeItem(atPath: destPath)
         }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: sourcePath)
+        ProjectDatabaseManager.evictProject(projectPath: destPath)
 
         let source = try ProjectDatabaseManager.manager(forProjectPath: sourcePath)
         try source.insertSession(id: "s1", title: "Chat", directory: sourcePath)
@@ -151,7 +153,7 @@ struct ProjectHistoryIntegrityTests {
         let registry = DatabaseManager.createInMemory()
         let originalPath = try makeTempProjectDir("relink-original")
         defer { try? FileManager.default.removeItem(atPath: originalPath) }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: originalPath)
 
         // Register the project and capture the stable id written into its own project.db.
         try registry.insertProject(id: ChatSession.normalizedPath(originalPath), name: "Original", path: originalPath)
@@ -169,7 +171,8 @@ struct ProjectHistoryIntegrityTests {
             atPath: (originalPath as NSString).appendingPathComponent(".micoder"),
             toPath: movedMimocodeDir
         )
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: originalPath)
+        ProjectDatabaseManager.evictProject(projectPath: renamedPath)
         let movedDB = try ProjectDatabaseManager.manager(forProjectPath: renamedPath)
         #expect(try movedDB.stableProjectId() == stableId, "moving the .micoder folder must preserve the stable id")
 
@@ -190,7 +193,7 @@ struct ProjectHistoryIntegrityTests {
         let registry = DatabaseManager.createInMemory()
         let projectPath = try makeTempProjectDir("stable-lookup")
         defer { try? FileManager.default.removeItem(atPath: projectPath) }
-        ProjectDatabaseManager.evictAll()
+        ProjectDatabaseManager.evictProject(projectPath: projectPath)
 
         let projectDB = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
         let stableId = try projectDB.stableProjectId()
