@@ -16,6 +16,8 @@ struct ProjectWebToolExecutor: WebToolExecutor {
     let undoManager: ProjectUndoManager?
     let sessionId: String?
     let accessLevel: AccessLevel
+    var bridge: WKWebViewBrowserBridge?
+    var selectors: WebVendorSelectors?
 
     init(projectRoot: String,
          fileManager: FileManager = .default,
@@ -91,6 +93,53 @@ struct ProjectWebToolExecutor: WebToolExecutor {
             // returned the approval message and nothing executed.
             let cmd = call.arguments["command"] ?? ""
             return ProjectShellRunner.run(command: cmd, workingDirectory: projectRoot).output
+        // Git operations
+        case .gitStatus:
+            return ProjectShellRunner.run(command: "git status", workingDirectory: projectRoot).output
+        case .gitDiff:
+            let staged = call.arguments["staged"] == "true"
+            let cmd = staged ? "git diff --cached" : "git diff"
+            return ProjectShellRunner.run(command: cmd, workingDirectory: projectRoot).output
+        case .gitLog:
+            let limit = call.arguments["limit"] ?? "10"
+            return ProjectShellRunner.run(command: "git log --oneline -\(limit)", workingDirectory: projectRoot).output
+        case .gitBranch:
+            if let branch = call.arguments["branch"], call.arguments["create"] == "true" {
+                return ProjectShellRunner.run(command: "git checkout -b \(branch)", workingDirectory: projectRoot).output
+            }
+            return ProjectShellRunner.run(command: "git branch", workingDirectory: projectRoot).output
+        case .gitCheckout:
+            guard let branch = call.arguments["branch"] else { return "error: missing branch" }
+            return ProjectShellRunner.run(command: "git checkout \(branch)", workingDirectory: projectRoot).output
+        case .gitCommit:
+            guard let message = call.arguments["message"] else { return "error: missing message" }
+            let addAll = call.arguments["addAll"] == "true"
+            let addCmd = addAll ? "git add -A && " : ""
+            return ProjectShellRunner.run(command: "\(addCmd)git commit -m \"\(message)\"", workingDirectory: projectRoot).output
+        case .gitPush:
+            let remote = call.arguments["remote"] ?? "origin"
+            let branch = call.arguments["branch"] ?? ""
+            let branchArg = branch.isEmpty ? "" : " \(branch)"
+            return ProjectShellRunner.run(command: "git push \(remote)\(branchArg)", workingDirectory: projectRoot).output
+        case .gitPull:
+            let remote = call.arguments["remote"] ?? "origin"
+            let branch = call.arguments["branch"] ?? ""
+            let branchArg = branch.isEmpty ? "" : " \(branch)"
+            return ProjectShellRunner.run(command: "git pull \(remote)\(branchArg)", workingDirectory: projectRoot).output
+        // File search & glob
+        case .glob:
+            let pattern = call.arguments["pattern"] ?? "*"
+            let path = call.arguments["path"] ?? "."
+            return glob(pattern: pattern, in: root.appendingPathComponent(path))
+        case .todoRead:
+            // TODO: implement todo reading from session
+            return "(todo list not yet implemented)"
+        case .todoWrite:
+            // TODO: implement todo writing to session
+            return "(todo write not yet implemented)"
+        case .task:
+            // Sub-agent task tool - launch async sub-agent
+            return await executeTask(call: call)
         case .none:
             return "error: unknown tool \(call.name)"
         }
@@ -136,5 +185,69 @@ struct ProjectWebToolExecutor: WebToolExecutor {
             }
         }
         return hits.isEmpty ? "(no matches)" : hits.joined(separator: "\n")
+    }
+
+    private func glob(pattern: String, in dir: URL) -> String {
+        let fileManager = self.fileManager
+        let enumerator = fileManager.enumerator(at: dir, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles])
+        var matches: [String] = []
+        let patternRegex = pattern
+            .replacingOccurrences(of: ".", with: "\\.")
+            .replacingOccurrences(of: "*", with: ".*")
+            .replacingOccurrences(of: "?", with: ".")
+        guard let regex = try? NSRegularExpression(pattern: "^" + patternRegex + "$") else {
+            return "error: invalid glob pattern"
+        }
+        while let fileURL = enumerator?.nextObject() as? URL {
+            let relPath = fileURL.path.replacingOccurrences(of: dir.path + "/", with: "")
+            let fileName = fileURL.lastPathComponent
+            if regex.firstMatch(in: fileName, range: NSRange(location: 0, length: fileName.count)) != nil {
+                matches.append(relPath)
+            }
+        }
+        return matches.isEmpty ? "(no matches)" : matches.joined(separator: "\n")
+    }
+
+    private func executeTask(call: WebToolCall) async -> String {
+        guard let description = call.arguments["description"],
+              let prompt = call.arguments["prompt"] else {
+            return "error: missing description or prompt"
+        }
+
+        var config = WebProviderConfig(vendor: .kimi, toolCallDelayMs: 800, acknowledgedToS: true)
+        config.selectedModel = "k2"
+        let selectors = WebVendorSelectors(
+            input: "textarea, div[contenteditable='true']",
+            sendButton: "button[type='submit'], button[aria-label*='end'], button[data-testid='send-button']",
+            responseContainer: "div[data-message-author-role='assistant'], div[class*='markdown'], div[class*='message']",
+            stopButton: "button[aria-label*='top'], button[data-testid='stop-button'], button[class*='stop']"
+        )
+
+        let driver = WebChatDriver(bridge: bridge!, executor: self, selectors: selectors, config: config, projectRoot: projectRoot, accessLevel: accessLevel)
+
+        let fullPrompt = """
+            \(prompt)
+
+            You are a sub-agent working on a specific task. Your task description:
+            \(description)
+
+            Work autonomously and return a comprehensive result when done.
+            """
+
+        var result = ""
+        await driver.runTurn(userMessage: fullPrompt, isFirstMessage: true) { event in
+            switch event {
+            case .final(let text):
+                result = text
+            case .error(let err):
+                result = "error: \(err)"
+            case .iterationLimitReached:
+                result = "error: iteration limit reached"
+            default:
+                break
+            }
+        }
+
+        return result
     }
 }

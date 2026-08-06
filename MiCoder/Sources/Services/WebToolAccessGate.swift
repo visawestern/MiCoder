@@ -19,15 +19,22 @@ enum WebToolAccessGate {
 
     static func permission(for call: WebToolCall, accessLevel: AccessLevel) -> WebToolPermission {
         switch WebEmulatedTool(rawValue: call.name) {
-        case .readFile, .listDir, .grep, .writeFile, .editFile:
+        // Read-only tools — always allowed
+        case .readFile, .listDir, .grep, .gitStatus, .gitDiff, .gitLog, .gitBranch, .glob, .todoRead:
             return .allow
+        // File-modifying tools — allowed at all levels (undo stack provides safety)
+        case .writeFile, .editFile, .todoWrite:
+            return .allow
+        // Git mutating operations
+        case .gitBranch, .gitCheckout, .gitCommit, .gitPush, .gitPull:
+            return accessLevel == .askBeforeChanges ? .requireApproval : .allow
+        // Shell access — strongest capability, only at fullAccess
         case .runCommand:
-            // Shell access is the strongest capability; only full access runs
-            // commands without asking (plan Раздел 12 п.18).
             return accessLevel == .fullAccess ? .allow : .requireApproval
+        // Sub-agent task tool
+        case .task:
+            return accessLevel == .askBeforeChanges ? .requireApproval : .allow
         case .none:
-            // Unknown tools are allowed past the gate so the executor reports
-            // "unknown tool" (the real error) instead of a misleading approval.
             return .allow
         }
     }

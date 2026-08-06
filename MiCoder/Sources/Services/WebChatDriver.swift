@@ -11,6 +11,7 @@ struct WebChatDriver {
     let selectors: WebVendorSelectors
     let config: WebProviderConfig
     let projectRoot: String
+    let accessLevel: AccessLevel
     /// Injectable RNG for deterministic anti-ban jitter in tests.
     var randomUnit: () -> Double = { Double.random(in: 0..<1) }
     /// Poll interval and stability window for end-of-generation detection.
@@ -66,7 +67,7 @@ struct WebChatDriver {
                 var resultsBlock = ""
                 for call in calls {
                     emit(.toolCall(call))
-                    if let validationError = WebToolProtocolEmulator.validate(call, projectRoot: projectRoot) {
+                    if let validationError = WebToolProtocolEmulator.validate(call, projectRoot: projectRoot, accessLevel: accessLevel) {
                         let msg = "validation error: \(validationError)"
                         resultsBlock += WebToolProtocolEmulator.formatToolResult(name: call.name, result: msg) + "\n"
                         emit(.toolResult(name: call.name, result: msg))

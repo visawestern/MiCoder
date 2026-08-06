@@ -6,6 +6,11 @@
 `MarkdownTextView.swift`, `LanguagePickerDropdown.swift`, `PlanQuestionCardView.swift`,
 `ChatImageViews.swift`, `EmptyChatStateView.swift`.
 
+Ручная сверка проводки: 2026-08-06; `swift test` — 1716/1716 PASS. Статус ✅
+означает проверенный кодовый маршрут и тесты. Реальный провайдер, pasteboard,
+drag-and-drop, Finder и WebKit требуют отдельного live-QA и не выдаются за
+кликнутые вручную.
+
 ## Ввод сообщения
 
 | № | Действие | Где | Триггер | Ожидаемое поведение | Статус |
@@ -59,6 +64,16 @@
   объясняет причину (нет тултипа), пользователь может решить, что кнопка сломана.
 - ⚠️ Пункт 5–6: «Open folder»/«Show in Finder» и «Remove» — дублирование в `AttachedFilesStrip`;
   поведение идентичное, но визуально два места управления файлом.
+
+## Цепочная проверка PASS
+
+Все внутренние пункты ✅ вручную прослежены от composer/message-row до routing,
+SSE/message-store и renderer; повторный полный `swift test` прошёл. Внешние
+provider/WebKit/Finder сценарии сохраняют ⚠️. Детали:
+[`12-chain-verification-2026-08-06.md`](12-chain-verification-2026-08-06.md).
+
+Web-provider E2E, модели и tool loop дополнительно проверены и зафиксированы
+в [`13-web-provider-e2e-2026-08-06.md`](13-web-provider-e2e-2026-08-06.md).
 
 ## Следующий обязательный цикл
 

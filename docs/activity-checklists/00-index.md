@@ -1,7 +1,8 @@
 # Activity Checklist — MiCoder (macOS SwiftUI)
 
 Папка с по-экрановыми чеклистами действий/кнопок MiCoder. Составлено **вручную по коду**
-(`MiCoder/Sources/Views/**`), без живого UI-сеанса.
+(`MiCoder/Sources/Views/**`), без живого UI-сеанса. Последняя ручная сверка
+проводки: **2026-08-06**; полный `swift test`: **1716/1716 PASS**, 234 suite.
 
 ## Методология и ограничения
 
@@ -32,19 +33,27 @@
 | `Views/RightPanelView.swift` | 462 | `03-right-panel.md` |
 | `Views/BottomPanelView.swift` | 805 | `04-bottom-panel.md` |
 | `Views/SettingsView.swift` | 2960 | `05-settings.md` |
-| `Views/TopBarView.swift`, `TaskHeaderView.swift`, `StatusBarView.swift`, `NewProjectSheet.swift` | 4 файла | `06-topbar-taskheader-statusbar-newproject.md` |
-| `Views/ContentView.swift`, `App/MiCoderApp.swift` | оболочка, меню, модальные маршруты | `07-app-shell-modals-and-menu.md` |
-| `Views/ContentView.swift`, `App/MiCoderApp.swift` | корневой экран, модальные маршруты и меню macOS | `07-app-shell-modals-and-menu.md` |
+| `Views/TopBarView.swift` | верхняя панель | `06-top-bar.md` |
+| `Views/TaskHeaderView.swift` | заголовок выбранной задачи | `07-task-header.md` |
+| `Views/StatusBarView.swift` | строка состояния | `08-status-bar.md` |
+| `Views/NewProjectSheet.swift` | создание проекта | `09-new-project.md` |
+| `Views/ContentView.swift` | корневая компоновка и модальные маршруты | `10-app-shell.md` |
+| `App/MiCoderApp.swift` | окно и системное меню macOS | `11-macos-menu.md` |
 
 ## Сквозные риски (не экранные)
 
-- ⚠️ Полный `swift test` нестабилен из-за deadline-проверки
-  `E23E24AutoDetectConfirmationTests`; отдельный повтор прошёл 20/20. Перед релизом стоит
-  повторить полный прогон в чистом процессе и устранить зависимость этого теста от нагрузки.
+- ✅ Полный `swift test` в текущем чистом прогоне прошёл: 1716 тестов в 234 suite.
 - ⚠️ `docs/FEATURE_SPREADSHEET.csv` APP-05 (`Rebrand to MiCoder`) = PARTIAL «3 user-facing 'MiMo'
   strings remain» — **устарело**: Round 23 их починил, спредшит будет обновлён на следующем шаге.
 - ⚠️ Web-провайдеры требуют WebKit — на неподдерживающих сборках показано
   «Web providers require WebKit (macOS).» (защита по дизайну).
+
+## Повторная цепочная проверка
+
+Все строки со статусом ✅ повторно вручную прослежены до конечного состояния
+и подтверждены полным запуском тестов 2026-08-06. Детальная матрица
+«контрол → handler → сервис/результат → тест» находится в
+[`12-chain-verification-2026-08-06.md`](12-chain-verification-2026-08-06.md).
 
 ## Следующий обязательный цикл
 

@@ -357,9 +357,29 @@ struct ModelSettingsProviderColumns: View {
     let availableWidth: CGFloat
     @State private var detailProviderID: String = ""
     @State private var customAPIKeyDraft: String = ""
+    @State private var customBaseURLDraft: String = ""
 
     private var options: [ProviderOption] {
         appState.providerOptions
+    }
+
+    private func webConfig(for providerID: String) -> WebProviderConfig? {
+        guard let id = WebProviderConnectivity.configID(fromOptionID: providerID) else { return nil }
+        return WebProviderStore.load().first(where: { $0.id == id })
+    }
+
+    private func models(for providerID: String) -> [String] {
+        if let web = webConfig(for: providerID) {
+            return WebProviderConnectivity.models(for: web)
+        }
+        if let local = LocalProviderLogic.load().first(where: { $0.id == providerID }) {
+            return local.models
+        }
+        return ProviderSettingsLogic.models(
+            for: providerID,
+            in: appState.serverProviders,
+            customProviders: appState.customProviders
+        )
     }
 
     var body: some View {
@@ -390,7 +410,10 @@ struct ModelSettingsProviderColumns: View {
                         .frame(minWidth: 280, maxWidth: .infinity, alignment: .topLeading)
                         .layoutPriority(1)
                 }
-                .frame(minHeight: 280, maxHeight: 320)
+                // Custom-provider credentials and endpoint controls need more
+                // room than the old 320pt card allowed; otherwise the Save /
+                // Refresh actions were clipped and effectively unreachable.
+                .frame(minHeight: 320, maxHeight: 480)
             } else {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .top, spacing: 12) {
@@ -506,17 +529,21 @@ struct ModelSettingsProviderColumns: View {
                     Circle()
                         .fill(option.isConnected ? Color.mimo.success : Color.mimo.warning)
                         .frame(width: 8, height: 8)
-                    Text(option.isCustom ? "Custom provider" : "Local Agent")
+                    Text(webConfig(for: option.id) != nil ? "Web session" : (option.isCustom ? "Custom provider" : "Local Agent"))
                         .interfaceFont(size: 12)
                         .foregroundColor(Color.mimo.textSecondary)
                 }
 
                 detailSummary(for: option)
                 if option.isCustom, let custom = appState.customProviders.first(where: { $0.id == option.id }) {
-                    Text(custom.baseURL)
-                        .interfaceFont(size: 11, design: .monospaced)
-                        .foregroundColor(Color.mimo.textMuted)
-                        .lineLimit(2)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Base URL")
+                            .interfaceFont(size: 11, weight: .medium)
+                            .foregroundColor(Color.mimo.textSecondary)
+                        TextField("https://api.example.com/v1", text: $customBaseURLDraft)
+                            .zcodeTextFieldStyle()
+                            .interfaceFont(size: 11, design: .monospaced)
+                    }
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text("API Key")
@@ -527,19 +554,25 @@ struct ModelSettingsProviderColumns: View {
                             .onAppear {
                                 // Read from Keychain first, fall back to plain storage
                                 customAPIKeyDraft = custom.getSecureAPIKey() ?? ""
+                                customBaseURLDraft = custom.baseURL
                             }
                             .onChange(of: detailProviderID) { _ in
                                 customAPIKeyDraft = custom.getSecureAPIKey() ?? ""
+                                customBaseURLDraft = custom.baseURL
                             }
-                        Button("Save API Key") {
+                        Button("Save configuration") {
                             let newKey = customAPIKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                            // Save to Keychain via updateCustomProvider (which now saves to Keychain)
+                            let newURL = customBaseURLDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                            // Save the endpoint and API key, then reload models.
                             var updated = custom
                             updated.apiKey = newKey
+                            updated.baseURL = newURL
                             appState.updateCustomProvider(updated)
                         }
                         .buttonStyle(.bordered)
-                        .disabled(customAPIKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines) == (custom.getSecureAPIKey() ?? ""))
+                        .disabled(customBaseURLDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                  (customAPIKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines) == (custom.getSecureAPIKey() ?? "") &&
+                                   customBaseURLDraft.trimmingCharacters(in: .whitespacesAndNewlines) == custom.baseURL))
                     }
 
                     VStack(alignment: .leading, spacing: 6) {
@@ -584,6 +617,31 @@ struct ModelSettingsProviderColumns: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundColor(Color.mimo.error)
+
+                    Button("Refresh models") {
+                        appState.refreshModels(for: custom.id)
+                    }
+                    .buttonStyle(.bordered)
+
+                    if let message = appState.providerModelLoadMessage(for: custom.id) {
+                        Text(message)
+                            .interfaceFont(size: 10)
+                            .foregroundColor(message.hasPrefix("Loaded") ? Color.mimo.success : Color.mimo.warning)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                if let web = webConfig(for: option.id) {
+                    Text(web.chatURL)
+                        .interfaceFont(size: 11, design: .monospaced)
+                        .foregroundColor(Color.mimo.textMuted)
+                        .lineLimit(2)
+                    Text(WebProviderConnectivity.connectionSummary(web, connected: true))
+                        .interfaceFont(size: 10)
+                        .foregroundColor(Color.mimo.textSecondary)
+                    Button("Refresh web models") {
+                        Task { _ = await appState.refreshWebModels(for: web) }
+                    }
+                    .buttonStyle(.bordered)
                 }
                 if !appState.supportsToolcallForSelection && appState.selectedProviderID == option.id {
                     Text("Tools unavailable for current model")
@@ -606,11 +664,7 @@ struct ModelSettingsProviderColumns: View {
     }
 
     private func detailModelCount(for providerID: String) -> Int {
-        ProviderSettingsLogic.models(
-            for: providerID,
-            in: appState.serverProviders,
-            customProviders: appState.customProviders
-        ).count
+        models(for: providerID).count
     }
 
     @ViewBuilder
@@ -691,11 +745,7 @@ struct ModelSettingsProviderColumns: View {
                 .interfaceFont(size: 12, weight: .semibold)
                 .foregroundColor(Color.mimo.textMuted)
 
-            let models = ProviderSettingsLogic.models(
-                for: detailProviderID.isEmpty ? appState.selectedProviderID : detailProviderID,
-                in: appState.serverProviders,
-                customProviders: appState.customProviders
-            )
+            let models = models(for: detailProviderID.isEmpty ? appState.selectedProviderID : detailProviderID)
             let providerID = detailProviderID.isEmpty ? appState.selectedProviderID : detailProviderID
 
             if models.isEmpty {

@@ -17,6 +17,21 @@ enum WebEmulatedTool: String, CaseIterable {
     case listDir = "list_dir"
     case grep = "grep"
     case runCommand = "run_command"
+    // Git operations
+    case gitStatus = "git_status"
+    case gitDiff = "git_diff"
+    case gitLog = "git_log"
+    case gitBranch = "git_branch"
+    case gitCheckout = "git_checkout"
+    case gitCommit = "git_commit"
+    case gitPush = "git_push"
+    case gitPull = "git_pull"
+    // File search & glob
+    case glob = "glob"
+    case todoRead = "todo_read"
+    case todoWrite = "todo_write"
+    // Sub-agent / task tool
+    case task = "task"
 
     var argumentSchema: String {
         switch self {
@@ -26,6 +41,18 @@ enum WebEmulatedTool: String, CaseIterable {
         case .listDir: return #"{"path": "<relative path>"}"#
         case .grep: return #"{"pattern": "<regex>", "path": "<relative path>"}"#
         case .runCommand: return #"{"command": "<shell command>"}"#
+        case .gitStatus: return #"{"path": "<relative path>"}"#
+        case .gitDiff: return #"{"path": "<relative path>", "staged": <bool>}"#
+        case .gitLog: return #"{"path": "<relative path>", "limit": <int>}"#
+        case .gitBranch: return #"{"branch": "<branch name>", "create": <bool>}"#
+        case .gitCheckout: return #"{"branch": "<branch name>"}"#
+        case .gitCommit: return #"{"message": "<commit message>", "addAll": <bool>}"#
+        case .gitPush: return #"{"remote": "<remote name>", "branch": "<branch name>"}"#
+        case .gitPull: return #"{"remote": "<remote name>", "branch": "<branch name>"}"#
+        case .glob: return #"{"pattern": "<glob pattern>", "path": "<relative path>"}"#
+        case .todoRead: return #"{}"#
+        case .todoWrite: return #"{"todos": [{"id": "<id>", "content": "<text>", "status": "<pending|in_progress|completed>"}]}"#
+        case .task: return #"{"description": "<task description>", "prompt": "<detailed prompt>", "subagentType": "<general|code|debug|review>"}"#
         }
     }
 
@@ -37,6 +64,18 @@ enum WebEmulatedTool: String, CaseIterable {
         case .listDir: return "List entries of a directory."
         case .grep: return "Search files for a regex pattern."
         case .runCommand: return "Run a shell command (requires approval)."
+        case .gitStatus: return "Show git status (modified, staged, untracked files)."
+        case .gitDiff: return "Show git diff (staged or unstaged)."
+        case .gitLog: return "Show git commit history."
+        case .gitBranch: return "List or create git branches."
+        case .gitCheckout: return "Switch git branch."
+        case .gitCommit: return "Create a git commit."
+        case .gitPush: return "Push commits to remote."
+        case .gitPull: return "Pull commits from remote."
+        case .glob: return "Find files matching a glob pattern."
+        case .todoRead: return "Read the current todo list."
+        case .todoWrite: return "Write/update the todo list."
+        case .task: return "Launch a sub-agent for a complex task (runs in background, returns result)."
         }
     }
 }
@@ -172,6 +211,33 @@ enum WebToolProtocolEmulator {
             return WebEmulatedTool.grep.rawValue
         case "run_command", "run", "execute", "shell":
             return WebEmulatedTool.runCommand.rawValue
+        // Git operations
+        case "git_status", "status", "gs":
+            return WebEmulatedTool.gitStatus.rawValue
+        case "git_diff", "diff", "gd":
+            return WebEmulatedTool.gitDiff.rawValue
+        case "git_log", "log":
+            return WebEmulatedTool.gitLog.rawValue
+        case "git_branch", "branch", "gb":
+            return WebEmulatedTool.gitBranch.rawValue
+        case "git_checkout", "checkout", "co", "gco":
+            return WebEmulatedTool.gitCheckout.rawValue
+        case "git_commit", "commit", "gc":
+            return WebEmulatedTool.gitCommit.rawValue
+        case "git_push", "push", "gp":
+            return WebEmulatedTool.gitPush.rawValue
+        case "git_pull", "pull", "gl":
+            return WebEmulatedTool.gitPull.rawValue
+        // File search & glob
+        case "glob", "glob_search", "find_files":
+            return WebEmulatedTool.glob.rawValue
+        case "todo_read", "todos", "todo":
+            return WebEmulatedTool.todoRead.rawValue
+        case "todo_write", "todo_add", "todo_update":
+            return WebEmulatedTool.todoWrite.rawValue
+        // Sub-agent / task tool
+        case "task", "subagent", "agent", "spawn":
+            return WebEmulatedTool.task.rawValue
         default:
             return nil
         }
@@ -225,13 +291,17 @@ enum WebToolProtocolEmulator {
     }
 
     /// Validate a tool call's arguments before executing (plan Блок 2 п.18):
-    /// paths must stay within the project root; destructive tools flagged.
-    /// Returns `nil` when valid, or the specific validation error.
-    static func validate(_ call: WebToolCall, projectRoot: String) -> WebToolValidationError? {
+    /// paths must stay within the project root UNLESS accessLevel allows broader access;
+    /// destructive tools flagged. Returns `nil` when valid, or the specific validation error.
+    static func validate(_ call: WebToolCall, projectRoot: String, accessLevel: AccessLevel = .askBeforeChanges) -> WebToolValidationError? {
         guard WebEmulatedTool(rawValue: call.name) != nil else {
             return .unknownTool(call.name)
         }
-        if let path = call.arguments["path"], !isPathInsideRoot(path, root: projectRoot) {
+        // Path boundary check is now permission-based, not hard restriction.
+        // At .fullAccess, any path is allowed. At lower levels, restrict to project root.
+        if accessLevel != .fullAccess,
+           let path = call.arguments["path"],
+           !isPathInsideRoot(path, root: projectRoot) {
             return .pathEscapesProject(path)
         }
         return nil

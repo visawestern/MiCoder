@@ -113,6 +113,10 @@ class AppState: ObservableObject {
     }
     @Published var serverProviders: [MimoProviderResponse] = []
     @Published var customProviders: [CustomProvider] = []
+    /// Per-provider result of the last model refresh. Exposed in Settings so a
+    /// bad URL, authentication failure, or unsupported response is actionable
+    /// instead of looking like a mysterious empty model list.
+    @Published private(set) var providerModelLoadMessages: [String: String] = [:]
     
     @Published var workspaces: [Workspace] = []
     private var isNavigatingHistory = false
@@ -443,6 +447,19 @@ class AppState: ObservableObject {
             defaults.set(providerID, forKey: "com.micoder.preferredProviderID")
         }
 
+        // Web providers are persisted locally rather than returned by
+        // `mimo serve`, so ProviderSelectionLogic cannot resolve their models.
+        // Select their discovered model (or the clearly-labelled pre-discovery
+        // fallback) directly instead of leaving the chat with an empty model.
+        if let webID = WebProviderConnectivity.configID(fromOptionID: providerID),
+           let config = WebProviderStore.load().first(where: { $0.id == webID }) {
+            let models = WebProviderConnectivity.models(for: config)
+            selectedModel = models.contains(selectedModel) ? selectedModel : (models.first ?? "")
+            defaults.set(selectedModel, forKey: "com.micoder.selectedModel")
+            selectedVariant = ""
+            return
+        }
+
         let result = ProviderSelectionLogic.cascade(
             to: providerID,
             currentModelID: selectedModel,
@@ -729,12 +746,30 @@ class AppState: ObservableObject {
         }
     }
     
+    func refreshModels(for providerID: String) {
+        guard let provider = customProviders.first(where: { $0.id == providerID }) else { return }
+        loadModelsFromCustomProvider(provider)
+    }
+
+    func providerModelLoadMessage(for providerID: String) -> String? {
+        providerModelLoadMessages[providerID]
+    }
+
     private func loadModelsFromCustomProvider(_ provider: CustomProvider) {
         // Custom providers are stored locally and merged into the picker only.
         // MiMo Serve reads provider credentials from mimocode.json on disk; this
         // app does not push custom provider config to the server API.
         Task {
-            guard let url = URL(string: "\(provider.baseURL)/models") else { return }
+            let trimmedBaseURL = provider.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            guard let url = URL(string: trimmedBaseURL.hasSuffix("/models")
+                                ? trimmedBaseURL
+                                : "\(trimmedBaseURL)/models") else {
+                await MainActor.run {
+                    self.providerModelLoadMessages[provider.id] = "Invalid provider URL."
+                }
+                return
+            }
             var request = URLRequest(url: url)
             request.timeoutInterval = 10
             // Use Keychain-backed API key if available, fall back to plain storage
@@ -744,21 +779,48 @@ class AppState: ObservableObject {
             }
             
             do {
-                let (data, _) = try await URLSession.shared.data(for: request)
-                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let data = json["data"] as? [[String: Any]] {
-                    let models = data.compactMap { $0["id"] as? String }
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse,
+                      (200..<300).contains(http.statusCode) else {
+                    let body = String(data: data, encoding: .utf8) ?? ""
                     await MainActor.run {
-                        if let index = customProviders.firstIndex(where: { $0.id == provider.id }) {
-                            customProviders[index].models = models
-                        }
-                        if selectedProviderID == provider.id || selectedProviderID.isEmpty {
-                            validateAndReconcileSelections()
-                        }
+                        self.providerModelLoadMessages[provider.id] = "Model request failed (HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)): \(String(body.prefix(180)))"
+                    }
+                    return
+                }
+                guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    await MainActor.run {
+                        self.providerModelLoadMessages[provider.id] = "The provider returned an invalid model-list response."
+                    }
+                    return
+                }
+                // OpenAI-compatible: { data: [{ id }] }; Ollama: { models:
+                // [{ name }] }; Google: { models: [{ name: "models/..." }] }.
+                let openAIModels = (json["data"] as? [[String: Any]])?.compactMap { $0["id"] as? String } ?? []
+                let namedModels = (json["models"] as? [[String: Any]])?.compactMap {
+                    ($0["id"] as? String) ?? ($0["name"] as? String)
+                }.map { $0.replacingOccurrences(of: "models/", with: "") } ?? []
+                let models = Array(Set(openAIModels + namedModels)).sorted()
+                guard !models.isEmpty else {
+                    await MainActor.run {
+                        self.providerModelLoadMessages[provider.id] = "No models were found in this provider's response. Check its API base URL."
+                    }
+                    return
+                }
+                await MainActor.run {
+                    if let index = customProviders.firstIndex(where: { $0.id == provider.id }) {
+                        customProviders[index].models = models
+                        saveCustomProviders()
+                    }
+                    providerModelLoadMessages[provider.id] = "Loaded \(models.count) model\(models.count == 1 ? "" : "s")."
+                    if selectedProviderID == provider.id || selectedProviderID.isEmpty {
+                        validateAndReconcileSelections()
                     }
                 }
             } catch {
-                print("Failed to load models from \(provider.name): \(error)")
+                await MainActor.run {
+                    self.providerModelLoadMessages[provider.id] = "Could not load models: \(error.localizedDescription)"
+                }
             }
         }
     }
@@ -785,6 +847,61 @@ class AppState: ObservableObject {
         let wv = WKWebView(frame: .zero)
         webViews[config.id] = wv
         return wv
+    }
+
+    /// Refresh the *real* model list for an authenticated web provider. The
+    /// login sheet uses a separate WKWebView, so this method first restores the
+    /// captured cookies into the persistent chat web view, opens the vendor
+    /// page, waits for its composer, then opens and reads the model dropdown.
+    /// It returns an actionable message instead of silently leaving 0 models.
+    @MainActor
+    func refreshWebModels(for config: WebProviderConfig) async -> String {
+        guard let selector = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)?.modelDropdown else {
+            return "This provider does not expose a model-list selector yet."
+        }
+        guard let store = WebSessionManager.restore(providerId: config.id,
+                                                    homeDirectory: FileManager.default.homeDirectoryForCurrentUser),
+              !store.cookies.isEmpty,
+              !WebSessionManager.isExpired(store) else {
+            return "Log in first, then capture the web session before refreshing models."
+        }
+
+        let selectors = WebVendorSelectors(
+            input: "textarea, div[contenteditable='true']",
+            sendButton: "button[type='submit'], button[aria-label*='send'], button[data-testid='send-button']",
+            responseContainer: "div[data-message-author-role='assistant'], div[class*='markdown'], div[class*='message']",
+            stopButton: "button[aria-label*='stop'], button[data-testid='stop-button'], button[class*='stop']"
+        )
+        let bridge = WKWebViewBrowserBridge(webView: webView(for: config), selectors: selectors)
+        do {
+            try await bridge.setCookies(store.cookies)
+            try await bridge.navigate(to: config.chatURL)
+            var inputFound = false
+            for _ in 0..<30 {
+                if try await bridge.exists(selector: selectors.input) {
+                    inputFound = true
+                    break
+                }
+                await bridge.wait(ms: 500)
+            }
+            guard inputFound else {
+                return "Chat input was not found. The saved session may have expired; log in again."
+            }
+            guard let models = await WebModelDiscovery.discover(using: bridge,
+                                                                 dropdownSelector: selector,
+                                                                 vendor: config.vendor) else {
+                return "Could not read the model list from (config.displayName). Try Refresh after the chat page finishes loading."
+            }
+            var updated = config
+            updated.discoveredModels = models
+            WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
+            if selectedProviderID == "web:\(config.id)" {
+                selectProvider(selectedProviderID, persistPreference: false)
+            }
+            return "Loaded \(models.count) model\(models.count == 1 ? "" : "s") from \(config.displayName)."
+        } catch {
+            return "Could not refresh models: \(error.localizedDescription)"
+        }
     }
     #endif
 

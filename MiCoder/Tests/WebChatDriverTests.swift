@@ -63,7 +63,8 @@ struct WebChatDriverTests {
         var driver = WebChatDriver(
             bridge: bridge, executor: executor, selectors: selectors,
             config: WebProviderConfig(vendor: .kimi, toolCallDelayMs: 0, acknowledgedToS: true),
-            projectRoot: "/proj"
+            projectRoot: "/proj",
+            accessLevel: .askBeforeChanges
         )
         driver.randomUnit = { 0.5 }
         driver.pollIntervalMs = 0
@@ -145,6 +146,7 @@ struct WebChatDriverTests {
             bridge: bridge, executor: exec, selectors: selectors,
             config: WebProviderConfig(vendor: .kimi, toolCallDelayMs: 0, maxToolIterations: 3, acknowledgedToS: true),
             projectRoot: "/proj",
+            accessLevel: .askBeforeChanges,
             randomUnit: { 0.5 }, pollIntervalMs: 0, stabilityChecks: 1
         )
         var events: [WebChatEvent] = []

@@ -91,20 +91,9 @@ struct WebProvidersSection: View {
 
     /// Discover the vendor's real models from the page after connect (Round 9 A).
     private func refreshModels(for cfg: WebProviderConfig) async {
-        guard WebModelDiscovery.canRefresh(cfg),
-              let selector = try? WebProviderCatalog.loadBundled().selectors(for: cfg.vendor.id)?.modelDropdown else { return }
         #if canImport(WebKit)
-        let webView = appState.webView(for: cfg)
-        let selectors = WebVendorSelectors(input: "", sendButton: "", responseContainer: "", stopButton: "")
-        let bridge = WKWebViewBrowserBridge(webView: webView, selectors: selectors)
-        if let models = await WebModelDiscovery.discover(using: bridge,
-                                                         dropdownSelector: selector,
-                                                         vendor: cfg.vendor) {
-            var updated = cfg
-            updated.discoveredModels = models
-            providers = WebProviderStore.upsert(updated, in: providers)
-            save()
-        }
+        _ = await appState.refreshWebModels(for: cfg)
+        providers = WebProviderStore.load()
         #endif
     }
 }

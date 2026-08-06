@@ -1,6 +1,6 @@
 # Чеклист: Настройки (SettingsView.swift)
 
-Источник: `Views/SettingsView.swift` (2960 LOC). Окно min 800×600, `SettingsSidebar` 220pt + `SettingsContent`.
+Источник: `Views/SettingsView.swift` (2960 LOC). Окно min 800×600, `SettingsSidebar` 220pt + `SettingsContent`. Ручная сверка проводки 2026-08-06; `swift test` — 1716/1716 PASS. Нативные Keychain, file picker и web-login не были кликнуты в живом сеансе и отмечены ниже как live-QA.
 Табы — `SettingsTab.visibleCases` (10 шт., `.modelSettings` скрыт и слит в Providers).
 
 ## Общее
@@ -85,11 +85,40 @@
 | 30 | Статистика расходов | Таб Usage (chart.bar) | Открытие | «App usage», график «by usage», токены `\(promptTokens)↑ \(completionTokens)↓`, стоимость «per 1K» | ✅ |
 | 31 | Фильтр периода | Выбор дней | Клик | Диапазоны 3/7/30/90/180/365 дней; «1 year» | ✅ |
 
+## Полный административный охват
+
+| № | Действие | Где | Ожидаемое поведение | Статус |
+|---|---|---|---|---|
+| 32 | Theme и интерфейсный масштаб | General | Выбрать тему и один из уровней zoom; состояние сохраняется в settings. | ✅ |
+| 33 | Темы code preview | Code preview | Выбрать light/dark syntax theme и размер шрифта. | ✅ |
+| 34 | Проверить подключение нового provider | Add Provider | Test connection показывает результат, не добавляя provider до Confirm and add. | ⚠️ Нужен доступный endpoint. |
+| 35 | Сохранить/заменить API key | Provider detail | Записать ключ через Keychain и обновить provider. | ⚠️ Нужен live-QA Keychain. |
+| 36 | Enable Tool Calling / ACP | Add Provider и Provider detail | Изменить capability-флаги; ACP показывается только для ACP provider. | ✅ |
+| 37 | Удалить custom provider | Provider detail/card | Удалить provider после destructive action; список обновляется. | ✅ |
+| 38 | Model action menu | Model row | Select provider, открыть parameters, скопировать model info и включить tool-result fix для Agent Router при наличии. | ✅ |
+| 39 | Local provider cards | Providers | Добавить Ollama/OpenCode/MiCoder CLI, затем enable/disable или удалить конфигурацию. | ⚠️ Auto-detect требует доступный локальный сервис. |
+| 40 | Search resources | Skills/MCP/Plugins/Commands | Фильтровать библиотеку/локальные записи по text query; пустое состояние объясняет дальнейшее действие. | ✅ |
+| 41 | Skill admin | Installed skill row | Install, enable/disable, uninstall с destructive confirmation. | ✅ |
+| 42 | MCP admin и health | Installed MCP row | Install, enable/disable, удалить с confirmation; индикатор отражает health probe, а не preference. | ⚠️ Health требует доступный MCP server. |
+| 43 | Project registry: relink | Storage | Открыть picker, выбрать новую папку для stale project и обновить запись. | ⚠️ Нужен live-QA picker. |
+| 44 | Project registry: archive/restore/delete | Storage | Архивировать или восстановить запись; удаление требует ввода точного имени. | ✅ |
+| 45 | Backup export/import | Storage | Экспортировать DB+snapshots ZIP или импортировать backup в выбранный проект. | ⚠️ Нужен live-QA файловых диалогов. |
+
 ## Найденные проблемы / замечания
 
 - ⚠️ Вкладка «Plugins» и «Commands» визуально близки (обе про расширяемость); без явных подсказок
   пользователь может спутать назначение (план: раздел 1).
 - ⚠️ Удаление проекта/записи требует ввода имени — намеренно, но UX не объясняет причину до диалога.
+
+## Цепочная проверка PASS
+
+Все пункты ✅ вручную прослежены от Settings control до `AppState`, registry,
+storage и provider services; повторный полный `swift test` прошёл. Keychain,
+file picker и реальные network probes остаются live-QA. Детали:
+[`12-chain-verification-2026-08-06.md`](12-chain-verification-2026-08-06.md).
+
+Для Web Providers отдельная E2E-проверка discovery и browser tool loop:
+[`13-web-provider-e2e-2026-08-06.md`](13-web-provider-e2e-2026-08-06.md).
 
 ## Следующий обязательный цикл
 

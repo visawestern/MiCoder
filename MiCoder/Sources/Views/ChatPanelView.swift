@@ -972,13 +972,13 @@ struct ChatPanelView: View {
         // isn't found.
         let dropdownSelector: String? = (try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id))?.modelDropdown
         if let dropdownSelector,
-           let dropdownText = try? await bridge.readText(selector: dropdownSelector),
-           !dropdownText.isEmpty {
-            let updated = WebModelListParser.updated(config, withDropdownText: dropdownText)
-            if !updated.discoveredModels.isEmpty {
-                let merged = WebProviderStore.upsert(updated, in: WebProviderStore.load())
-                WebProviderStore.save(merged)
-            }
+           let models = await WebModelDiscovery.discover(using: bridge,
+                                                          dropdownSelector: dropdownSelector,
+                                                          vendor: config.vendor) {
+            var updated = config
+            updated.discoveredModels = models
+            let merged = WebProviderStore.upsert(updated, in: WebProviderStore.load())
+            WebProviderStore.save(merged)
         }
 
         // E09/E10: real tool operations feed the project's undo stack and
@@ -986,14 +986,16 @@ struct ChatPanelView: View {
         // write/edit tool calls snapshot, record undo entries and history rows.
         // E12: run_command executes only at .fullAccess (gate enforced here).
         let workspacePath = appState.selectedWorkspace?.path ?? FileManager.default.currentDirectoryPath
-        let executor = ProjectWebToolExecutor(
+        var executor = ProjectWebToolExecutor(
             projectRoot: workspacePath,
             undoManager: (try? ProjectUndoManager(projectPath: workspacePath)),
             sessionId: messageStore.currentSessionID,
             accessLevel: appState.accessLevel
         )
+        executor.bridge = bridge
+        executor.selectors = selectors
         let driver = WebChatDriver(bridge: bridge, executor: executor, selectors: selectors,
-                                   config: config, projectRoot: workspacePath)
+                                   config: config, projectRoot: workspacePath, accessLevel: appState.accessLevel)
 
         // Send the tool-protocol preamble only on the first turn of a session
         // (audit P2); later turns continue the same web conversation.
