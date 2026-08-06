@@ -119,8 +119,7 @@ struct WebProviderCard: View {
 
     @State private var isRefreshing = false
     @State private var lastRefreshError: String?
-    @State private var systemPromptHeight: CGFloat = 28
-    @State private var showSaveConfirmation = false
+    @State private var systemPromptHeight: CGFloat = 24
 
     private var isConnected: Bool {
         WebProviderConnectivity.isConnected(config, homeDirectory: homeDirectory)
@@ -225,8 +224,8 @@ Use clear headings, code examples, and cross-references.
                 .buttonStyle(.plain)
             }
 
-            // System prompt
-            VStack(alignment: .leading, spacing: 6) {
+            // System prompt — compact when empty, grows with content
+            if config.systemPrompt.isEmpty {
                 HStack {
                     Text("System prompt").interfaceFont(size: 11, weight: .medium).foregroundColor(Color.mimo.textMuted)
                     Spacer()
@@ -245,42 +244,19 @@ Use clear headings, code examples, and cross-references.
                     }
                     .menuStyle(.borderlessButton)
                     .fixedSize()
-                    Spacer()
-                    Button("Save") {
-                        onSave()
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            showSaveConfirmation = true
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                            withAnimation { showSaveConfirmation = false }
-                        }
-                    }
-                    .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.success)
-                    .opacity(showSaveConfirmation ? 1 : 0.5)
-                    .disabled(config.systemPrompt.isEmpty)
                 }
-
-                // Auto-sizing TextEditor: starts at 1 line (~28pt), grows with content
-                ZStack(alignment: .topLeading) {
-                    if config.systemPrompt.isEmpty {
-                        Text("Optional system prompt… templates available above")
-                            .interfaceFont(size: 12)
-                            .foregroundColor(Color.mimo.textMuted)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 6)
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("System prompt").interfaceFont(size: 11, weight: .medium).foregroundColor(Color.mimo.textMuted)
+                        Spacer()
+                        Button("Clear") { config.systemPrompt = "" }
+                            .interfaceFont(size: 10).buttonStyle(.plain).foregroundColor(Color.mimo.error)
                     }
                     TextEditor(text: $config.systemPrompt)
                         .font(.system(size: 12))
-                        .frame(minHeight: systemPromptHeight, maxHeight: 120)
+                        .frame(minHeight: 24, maxHeight: 100)
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
-                        .background(
-                            GeometryReader { geo in
-                                Color.clear.preference(key: TextHeightPreferenceKey.self, value: geo.size.height)
-                            }
-                        )
-                        .onPreferenceChange(TextHeightPreferenceKey.self) { h in
-                            systemPromptHeight = max(28, min(h + 8, 120))
-                        }
                 }
             }
 

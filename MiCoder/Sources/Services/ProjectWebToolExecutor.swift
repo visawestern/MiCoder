@@ -42,6 +42,13 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         case .readFile:
             guard let path = call.arguments["path"] else { return "error: missing path" }
             let url = root.appendingPathComponent(path)
+            // Detect image files and return a clear "not supported" message
+            // instead of a confusing "cannot read" error.
+            let ext = url.pathExtension.lowercased()
+            let imageExtensions = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "svg"]
+            if imageExtensions.contains(ext) {
+                return "error: cannot read \"\(path)\" (this model does not support image input)"
+            }
             guard let content = try? String(contentsOf: url, encoding: .utf8) else {
                 return "error: cannot read \(path)"
             }

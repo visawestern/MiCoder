@@ -89,10 +89,22 @@ enum WebModelDiscovery {
                         dropdownSelector: String,
                         vendor: WebChatVendor) async -> [String]? {
         do {
+            // Wait for the dropdown to be present on the page (up to 10s).
+            // Dynamic UIs may take time to hydrate after navigation.
+            var dropdownReady = false
+            for _ in 0..<20 {
+                if (try? await bridge.exists(selector: dropdownSelector)) ?? false {
+                    dropdownReady = true
+                    break
+                }
+                await bridge.wait(ms: 500)
+            }
+            guard dropdownReady else { return nil }
+
             // Open the dropdown first so dynamic UIs populate the options.
             try await bridge.click(selector: dropdownSelector)
-            // Small settle before reading (host-side; tests are instant).
-            await bridge.wait(ms: 200)
+            // Settle before reading (host-side; tests are instant).
+            await bridge.wait(ms: 500)
             let text = try await bridge.readText(selector: dropdownSelector)
             let models = WebModelListParser.parse(dropdownText: text, vendor: vendor)
             return models.isEmpty ? nil : models
@@ -107,8 +119,19 @@ enum WebModelDiscovery {
                               effortDropdownSelector: String,
                               vendor: WebChatVendor) async -> [WebEffort]? {
         do {
+            // Wait for the effort dropdown to be present (up to 10s).
+            var dropdownReady = false
+            for _ in 0..<20 {
+                if (try? await bridge.exists(selector: effortDropdownSelector)) ?? false {
+                    dropdownReady = true
+                    break
+                }
+                await bridge.wait(ms: 500)
+            }
+            guard dropdownReady else { return nil }
+
             try await bridge.click(selector: effortDropdownSelector)
-            await bridge.wait(ms: 200)
+            await bridge.wait(ms: 500)
             let text = try await bridge.readText(selector: effortDropdownSelector)
             let efforts = WebModelListParser.parseEffortLevels(dropdownText: text, vendor: vendor)
             return efforts.isEmpty ? nil : efforts
