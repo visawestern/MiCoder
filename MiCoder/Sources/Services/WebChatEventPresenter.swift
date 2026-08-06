@@ -28,6 +28,10 @@ enum WebChatEventPresenter {
             return .status("Conversation too long — starting a fresh session and carrying over context…")
         case .sessionRestarted:
             return .status("New session started; continuing.")
+        case .modelInjectionFailed(let msg):
+            return .status("Model note: \(msg)")
+        case .effortInjectionFailed(let msg):
+            return .status("Effort note: \(msg)")
         case .promptSplit(let parts):
             return .status("Large prompt sent in \(parts) parts.")
         case .toolCall(let call):

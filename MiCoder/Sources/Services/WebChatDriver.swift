@@ -17,12 +17,21 @@ struct WebChatDriver {
     /// Poll interval and stability window for end-of-generation detection.
     var pollIntervalMs: Int = 200
     var stabilityChecks: Int = 3
+    /// When false, model/effort injection is skipped (used in unit tests where
+    /// the fake bridge has no real web UI to configure).
+    var injectModelAndEffortEnabled: Bool = true
 
     /// Run one user turn: inject the message, then loop tool-calls until the
     /// model produces a final answer or hits the iteration limit. Emits events
     /// (streaming/toolCall/toolResult/captcha/final) via `emit`.
     func runTurn(userMessage: String, isFirstMessage: Bool, emit: (WebChatEvent) -> Void) async {
         do {
+            // Inject the selected model and effort before sending, so the web
+            // UI reflects the user's current selection (plan Раздел 13 п.5).
+            if injectModelAndEffortEnabled {
+                try await injectModelAndEffort(emit: emit)
+            }
+
             // On the first message of a session, prepend the tool-protocol preamble.
             var message = userMessage
             if isFirstMessage {
@@ -169,6 +178,75 @@ struct WebChatDriver {
         case .loggedOut:
             return .loggedOut
         case .connected, .unknown:
+            return nil
+        }
+    }
+
+    /// Inject the currently selected model and effort into the web UI before
+    /// sending a message. Reads the vendor selectors from the catalog; if the
+    /// dropdowns are present, clicks them and selects the matching option.
+    /// Best-effort — failures are surfaced as events but don't abort the turn.
+    private func injectModelAndEffort(emit: (WebChatEvent) -> Void) async throws {
+        // Resolve vendor-specific selectors from the catalog.
+        guard let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id) else {
+            return
+        }
+
+        // Inject model selection.
+        if !config.selectedModel.isEmpty,
+           let modelSelector = catalogEntry.modelDropdown.split(separator: ",").first.map(String.init) {
+            do {
+                try await bridge.click(selector: modelSelector.trimmingCharacters(in: .whitespaces))
+                await bridge.wait(ms: 300)
+                let optionSelector = "[role='option']:has-text('\(config.selectedModel)'), [class*='option']:has-text('\(config.selectedModel)')"
+                if (try? await bridge.exists(selector: optionSelector)) ?? false {
+                    try await bridge.click(selector: optionSelector)
+                    await bridge.wait(ms: 200)
+                }
+            } catch {
+                emit(.modelInjectionFailed("Could not set model: \(error.localizedDescription)"))
+            }
+        }
+
+        // Inject effort selection.
+        if let effortSelector = catalogEntry.effortDropdown?.split(separator: ",").first.map(String.init),
+           let effortLabel = effortLabel(for: config.effort) {
+            do {
+                try await bridge.click(selector: effortSelector.trimmingCharacters(in: .whitespaces))
+                await bridge.wait(ms: 300)
+                let optionSelector = "[role='option']:has-text('\(effortLabel)'), [class*='option']:has-text('\(effortLabel)')"
+                if (try? await bridge.exists(selector: optionSelector)) ?? false {
+                    try await bridge.click(selector: optionSelector)
+                    await bridge.wait(ms: 200)
+                }
+            } catch {
+                emit(.effortInjectionFailed("Could not set effort: \(error.localizedDescription)"))
+            }
+        }
+    }
+
+    /// Map a WebEffort to a vendor-specific label for matching in the dropdown.
+    private func effortLabel(for effort: WebEffort) -> String? {
+        switch config.vendor {
+        case .kimi:
+            switch effort {
+            case .low: return "快"
+            case .medium: return "标准"
+            case .high: return "深度思考"
+            }
+        case .qwen:
+            switch effort {
+            case .low: return "快"
+            case .medium: return "标准"
+            case .high: return "深度思考"
+            }
+        case .chatgpt:
+            switch effort {
+            case .low: return "low"
+            case .medium: return "medium"
+            case .high: return "high"
+            }
+        case .custom:
             return nil
         }
     }

@@ -34,6 +34,14 @@ struct WebChatDriverTests {
         }
         func exists(selector: String) async throws -> Bool {
             if selector.contains("stop") || selector.contains("top") { return stopButtonVisible }
+            // Option selectors (model/effort dropdown items) only "exist" if they
+            // reference a model/effort that is in the scripted responses. This
+            // prevents injection from advancing the response index in tests.
+            if selector.contains("option") || selector.contains("has-text") {
+                return responses.contains { response in
+                    selector.contains(response) || selector.lowercased().contains(response.lowercased())
+                }
+            }
             return hasInput
         }
         func pageText() async throws -> String { pageTextValue }
@@ -66,6 +74,9 @@ struct WebChatDriverTests {
             projectRoot: "/proj",
             accessLevel: .askBeforeChanges
         )
+        // Disable model/effort injection in tests — the fake bridge has no real
+        // web UI, and injection clicks would advance the scripted response index.
+        driver.injectModelAndEffortEnabled = false
         driver.randomUnit = { 0.5 }
         driver.pollIntervalMs = 0
         driver.stabilityChecks = 1

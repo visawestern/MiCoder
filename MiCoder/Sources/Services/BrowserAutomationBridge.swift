@@ -69,6 +69,8 @@ enum WebChatEvent: Equatable {
     case promptSplit(parts: Int)        // large prompt sent as N messages
     case sessionLimitReached            // model reported conversation too long
     case sessionRestarted               // fresh session seeded with carry-over
+    case modelInjectionFailed(String)   // could not set the selected model in web UI
+    case effortInjectionFailed(String)  // could not set the selected effort in web UI
 }
 
 /// Vendor selector set resolved from web_providers_catalog.json (plan Блок 1 п.10).

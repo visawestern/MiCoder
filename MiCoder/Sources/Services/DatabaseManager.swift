@@ -552,9 +552,25 @@ class DatabaseManager {
     }
     
     /// Persist a session's draft text. nil clears it.
+    /// Uses INSERT OR REPLACE so a draft can be saved even before the session
+    /// has any messages (the session row is created if missing).
     func setSessionDraftText(sessionId id: String, text: String?) throws {
         guard let db = db else { throw DatabaseError.notInitialized }
-        try db.run(sessions.filter(sessionId == id).update(sessionDraftText <- text))
+        // If the session row doesn't exist yet, update() is a no-op.
+        // Fall back to insert-or-replace so drafts persist for new sessions.
+        let existing = try db.pluck(sessions.filter(sessionId == id))
+        if existing == nil {
+            try db.run(sessions.insert(or: .replace,
+                                       sessionId <- id,
+                                       sessionProjectId <- "",
+                                       sessionTitle <- "New Chat",
+                                       sessionCreatedAt <- Int64(Date().timeIntervalSince1970),
+                                       sessionUpdatedAt <- Int64(Date().timeIntervalSince1970),
+                                       sessionDirectory <- "",
+                                       sessionDraftText <- text))
+        } else {
+            try db.run(sessions.filter(sessionId == id).update(sessionDraftText <- text))
+        }
     }
     
     /// Read a session's persisted draft text.

@@ -128,6 +128,20 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
     /// A web provider is usable only when the user has acknowledged the ToS
     /// caveat (model is chosen later in the chat input, not in settings).
     var isReady: Bool { acknowledgedToS }
+
+    /// Add a custom model name to the provider's model list.
+    /// No-op if the name is empty or already present (dedup by exact match).
+    mutating func addCustomModel(_ name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard !discoveredModels.contains(trimmed) else { return }
+        discoveredModels.append(trimmed)
+    }
+
+    /// Remove a custom model from the provider's model list.
+    mutating func removeCustomModel(_ name: String) {
+        discoveredModels.removeAll { $0 == name }
+    }
 }
 
 /// Persistence for web providers (plan Раздел 12 Блок 1 п.7).

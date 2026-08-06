@@ -213,6 +213,12 @@ struct ProjectWebToolExecutor: WebToolExecutor {
               let prompt = call.arguments["prompt"] else {
             return "error: missing description or prompt"
         }
+        // Bridge is injected by the chat panel; without it we cannot drive a
+        // browser. Surface the limitation as a catchable error rather than
+        // force-unwrapping (which SIGILLed the process, pre-fix).
+        guard let bridge else {
+            return "error: sub-agent requires an active browser session (bridge not available)"
+        }
 
         var config = WebProviderConfig(vendor: .kimi, toolCallDelayMs: 800, acknowledgedToS: true)
         config.selectedModel = "k2"
@@ -223,7 +229,7 @@ struct ProjectWebToolExecutor: WebToolExecutor {
             stopButton: "button[aria-label*='top'], button[data-testid='stop-button'], button[class*='stop']"
         )
 
-        let driver = WebChatDriver(bridge: bridge!, executor: self, selectors: selectors, config: config, projectRoot: projectRoot, accessLevel: accessLevel)
+        let driver = WebChatDriver(bridge: bridge, executor: self, selectors: selectors, config: config, projectRoot: projectRoot, accessLevel: accessLevel)
 
         let fullPrompt = """
             \(prompt)

@@ -291,6 +291,10 @@ Use clear headings, code examples, and cross-references.
                 .interfaceFont(size: 11)
                 .foregroundColor(Color.mimo.textMuted)
 
+            // Custom models — manually add any model id (duplicates with
+            // auto-discovered are allowed; they just become separate entries).
+            CustomModelEditor(config: $config, onSave: onSave)
+
             // Delay + keep-alive
             HStack(spacing: 12) {
                 VStack(alignment: .leading) {
@@ -325,6 +329,69 @@ Use clear headings, code examples, and cross-references.
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.mimo.border, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .onChange(of: config) { _ in onSave() }
+    }
+}
+
+/// Editor for custom web-model ids. Users can add any model name manually;
+/// it is appended to the provider's discoveredModels and persisted.
+struct CustomModelEditor: View {
+    @Binding var config: WebProviderConfig
+    let onSave: () -> Void
+    @State private var newModelName = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Custom models")
+                .interfaceFont(size: 11, weight: .medium)
+                .foregroundColor(Color.mimo.textMuted)
+
+            // Existing custom models with remove buttons
+            if !config.discoveredModels.isEmpty {
+                ForEach(config.discoveredModels, id: \.self) { model in
+                    HStack(spacing: 6) {
+                        Text(model)
+                            .interfaceFont(size: 11)
+                            .foregroundColor(Color.mimo.textPrimary)
+                            .lineLimit(1)
+                        Spacer()
+                        Button(action: {
+                            config.removeCustomModel(model)
+                            onSave()
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .interfaceFont(size: 12)
+                                .foregroundColor(Color.mimo.textMuted)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            // Add new custom model
+            HStack(spacing: 6) {
+                TextField("Add model name…", text: $newModelName)
+                    .interfaceFont(size: 11)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit {
+                        addModel()
+                    }
+                Button("Add") {
+                    addModel()
+                }
+                .interfaceFont(size: 11)
+                .buttonStyle(.plain)
+                .foregroundColor(Color.mimo.brand)
+                .disabled(newModelName.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+    }
+
+    private func addModel() {
+        let name = newModelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        config.addCustomModel(name)
+        newModelName = ""
+        onSave()
     }
 }
 
