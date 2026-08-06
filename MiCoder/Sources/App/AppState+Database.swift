@@ -246,7 +246,7 @@ extension AppState {
     /// touch `DatabaseManager.shared`.
     func resetStorage(scope: StorageResetScope,
                       homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
-                      resetDatabase: () -> Void = { try? DatabaseManager.shared.reset() }) {
+                      resetDatabase: () -> Void = { try? DatabaseManager.shared.wipeAndReopen() }) {
         let home = homeDirectory
         let plan = StorageResetLogic.plan(for: scope, homeDirectory: home)
 
@@ -256,11 +256,24 @@ extension AppState {
                                     detail: "scope=\(plan.scope) paths=\(plan.deletesPaths.joined(separator: ", "))",
                                     homeDirectory: home)
 
-        // Delete exactly the planned paths.
+        // Delete exactly the planned paths and their SQLite sidecars
+        // (-journal/-wal/-shm). The live connection is still open for this
+        // brief instant; the default `resetDatabase` closure immediately closes
+        // it (wipeAndReopen) so the deleted inode can never poison later
+        // statements, and `SQLiteSafeQuery` makes any transient error during
+        // the window throw instead of crash (SIGILL).
         for path in plan.deletesPaths {
             try? FileManager.default.removeItem(atPath: path)
+            for suffix in ["-journal", "-wal", "-shm"] {
+                try? FileManager.default.removeItem(atPath: path + suffix)
+            }
         }
-        // Reinitialize the app database (recreates the cleared mimo.db).
+
+        // Reinitialize the app database (recreates the cleared mimo.db on
+        // disk). Default = wipeAndReopen(): closes the stale open handle to
+        // the removed file, ensures the file+sidecars are gone, and opens a
+        // brand-new empty database. Tests substitute a no-op closure so the
+        // real singleton is never touched.
         resetDatabase()
 
         clearInMemoryState()

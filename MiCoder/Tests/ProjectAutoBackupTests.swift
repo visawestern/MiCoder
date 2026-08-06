@@ -80,23 +80,95 @@ struct ProjectAutoBackupTests {
     }
 
     @Test func preserveForDeletionSurvivesProjectRemoval() throws {
+        let home = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pauto-home-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: home) }
         let projectDir = try makeProject()
-        defer { try? FileManager.default.removeItem(at: projectDir.deletingLastPathComponent()) }
 
         let db = try ProjectDatabaseManager.manager(forProjectPath: projectDir.path)
         try db.insertSession(id: "s1", title: "T", directory: projectDir.path)
         try db.insertMessage(id: "m1", sessionId: "s1", role: "user", content: "x", isFinished: true)
         try ProjectAutoBackupLogic.createBackup(projectPath: projectDir.path)
 
-        let preserved = try ProjectAutoBackupLogic.preserveForDeletion(projectPath: projectDir.path)
+        // Inject a temp home so the preserved copy never touches the real
+        // ~/.micoder (it used to, which is how real deleted-backups filled up).
+        let preserved = try ProjectAutoBackupLogic.preserveForDeletion(
+            projectPath: projectDir.path, homeDirectory: home)
         #expect(preserved != nil)
-        // The preserved copy must live OUTSIDE the project (global deleted area),
-        // so it survives the project's .micoder being removed.
         #expect(!preserved!.path.hasPrefix(projectDir.path))
+        #expect(preserved!.path.hasPrefix(home.appendingPathComponent(".micoder/deleted-backups").path))
 
         // Now delete the project data entirely — the preserved backup remains.
         try? FileManager.default.removeItem(at: ProjectDatabaseLocator.projectMimoDir(projectPath: projectDir.path))
         #expect(FileManager.default.fileExists(atPath: preserved!.path))
+    }
+
+    @Test func deletedBackupsArePrunedByCount() throws {
+        let home = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pauto-home-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+
+        for i in 1...5 {
+            try ProjectAutoBackupLogic.writeDeletedBackupFile(
+                named: "Proj-2026-08-0\(i).db", homeDirectory: home, content: "\(i)")
+        }
+        try ProjectAutoBackupLogic.pruneDeletedBackups(homeDirectory: home, keepCount: 2)
+        let remaining = try ProjectAutoBackupLogic.listDeletedBackups(homeDirectory: home)
+        #expect(remaining.count == 2)
+        // Newest-first ordering: the two newest survive.
+        let names = Set(remaining.map { $0.lastPathComponent })
+        #expect(!names.contains("Proj-2026-08-01.db"))
+        #expect(!names.contains("Proj-2026-08-02.db"))
+        #expect(names.contains("Proj-2026-08-04.db"))
+        #expect(names.contains("Proj-2026-08-05.db"))
+    }
+
+    @Test func deletedBackupsArePrunedByAge() throws {
+        let home = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pauto-home-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+
+        let stale = ProjectAutoBackupLogic.deletedBackupsDirectory(homeDirectory: home)
+            .appendingPathComponent("old.db")
+        try ProjectAutoBackupLogic.writeDeletedBackupFile(
+            named: "old.db", homeDirectory: home, content: "x")
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(-30 * 86400)],
+            ofItemAtPath: stale.path
+        )
+        try ProjectAutoBackupLogic.writeDeletedBackupFile(
+            named: "fresh.db", homeDirectory: home, content: "y")
+
+        try ProjectAutoBackupLogic.pruneDeletedBackups(homeDirectory: home, olderThanDays: 7)
+        let remaining = try ProjectAutoBackupLogic.listDeletedBackups(homeDirectory: home)
+        #expect(remaining.count == 1)
+        #expect(remaining.first?.lastPathComponent == "fresh.db")
+    }
+
+    @Test func preserveForDeletionPrunesTheGlobalArea() throws {
+        let home = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pauto-home-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+        let projectDir = try makeProject()
+
+        // Pre-fill the global area past the retention cap.
+        for i in 1...12 {
+            try ProjectAutoBackupLogic.writeDeletedBackupFile(
+                named: "Proj-2026-07-0\(i).db", homeDirectory: home, content: "\(i)")
+        }
+        let db = try ProjectDatabaseManager.manager(forProjectPath: projectDir.path)
+        try db.insertSession(id: "s1", title: "T", directory: projectDir.path)
+        try ProjectAutoBackupLogic.createBackup(projectPath: projectDir.path)
+
+        try ProjectAutoBackupLogic.preserveForDeletion(
+            projectPath: projectDir.path,
+            homeDirectory: home,
+            deletedKeepCount: 10,
+            deletedOlderThanDays: 60)
+
+        let remaining = try ProjectAutoBackupLogic.listDeletedBackups(homeDirectory: home)
+        // 12 prefilled + 1 new = 13; count-pruned back to the newest 10.
+        #expect(remaining.count == 10)
     }
 
     // MARK: - Helpers

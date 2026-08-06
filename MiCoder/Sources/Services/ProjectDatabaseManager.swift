@@ -106,9 +106,12 @@ final class ProjectDatabaseManager {
 
     /// Current SQLite journal mode of the connection — "wal" after the E21
     /// setup in `openConnection`. Exposed for diagnostics and the E21 test.
+    /// (Stepped via `failableNext` — `.next()` force-unwraps the step error.)
     var journalMode: String? {
-        guard let row = try? db.prepare("PRAGMA journal_mode").next() else { return nil }
-        return row[0] as? String
+        guard let statement = try? db.prepare("PRAGMA journal_mode"),
+              let row = try? statement.failableNext(),
+              let mode = row[0] as? String else { return nil }
+        return mode
     }
 
     // MARK: - Table Definitions (mirrors the shape of the legacy global schema,
@@ -596,7 +599,7 @@ final class ProjectDatabaseManager {
         if !includeArchived {
             query = sessions.filter(sessionIsArchived == false).order(sessionUpdatedAt.desc)
         }
-        return try db.prepare(query).map(rowToSessionRecord)
+        return try SQLiteSafeQuery.rows(db.prepareRowIterator(query)).map(rowToSessionRecord)
     }
 
     func updateSessionTimestamp(id: String) throws {
@@ -667,7 +670,7 @@ final class ProjectDatabaseManager {
         if let limit {
             query = query.limit(limit, offset: offset)
         }
-        return try db.prepare(query).map { row in
+        return try SQLiteSafeQuery.rows(db.prepareRowIterator(query)).map { row in
             ProjectMessageRecord(
                 id: row[messageId],
                 sessionId: row[messageSessionId],
@@ -709,7 +712,7 @@ final class ProjectDatabaseManager {
     func getMessageParts(messageId messageIdValue: String) throws -> [ProjectMessagePartRecord] {
         touch()
         let query = messageParts.filter(partMessageId == messageIdValue).order(partSequenceOrder.asc)
-        return try db.prepare(query).map { row in
+        return try SQLiteSafeQuery.rows(db.prepareRowIterator(query)).map { row in
             ProjectMessagePartRecord(
                 id: row[partId],
                 messageId: row[partMessageId],
@@ -747,7 +750,7 @@ final class ProjectDatabaseManager {
         if let limit {
             query = base.order(requestHistoryCreatedAt.asc).limit(limit)
         }
-        return try db.prepare(query).map { row in
+        return try SQLiteSafeQuery.rows(db.prepareRowIterator(query)).map { row in
             ProjectRequestHistoryRecord(
                 id: row[requestHistoryId],
                 sessionId: row[requestHistorySessionId],
@@ -790,7 +793,7 @@ final class ProjectDatabaseManager {
         if onlyUsable {
             query = query.filter(undoCanUndo == true)
         }
-        return try db.prepare(query.order(undoCreatedAt.desc)).map { row in
+        return try SQLiteSafeQuery.rows(db.prepareRowIterator(query.order(undoCreatedAt.desc))).map { row in
             ProjectUndoEntryRecord(
                 id: row[undoId],
                 sessionId: row[undoSessionId],
@@ -838,7 +841,7 @@ final class ProjectDatabaseManager {
             LIMIT ?
         """
         var ids: [String] = []
-        for row in try db.prepare(sql, [query, limit]) {
+        for row in try SQLiteSafeQuery.rows(db.prepare(sql, [query, limit])) {
             if let id = row[0] as? String {
                 ids.append(id)
             }

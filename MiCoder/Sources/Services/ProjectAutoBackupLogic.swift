@@ -72,16 +72,73 @@ enum ProjectAutoBackupLogic {
     /// Move the newest backup to a global deleted-backups area so it survives
     /// the project's `.micoder` directory being removed (plan п.49: the backup
     /// must outlive the deletion it was taken for). Returns the preserved URL.
+    /// After the copy, the global area is pruned so it cannot grow unbounded
+    /// (kept: newest `deletedKeepCount`, anything older than
+    /// `deletedOlderThanDays`).
     @discardableResult
-    static func preserveForDeletion(projectPath: String) throws -> URL? {
+    static func preserveForDeletion(projectPath: String,
+                                    homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+                                    deletedKeepCount: Int = 10,
+                                    deletedOlderThanDays: Int = 60) throws -> URL? {
         guard let newest = try listBackups(projectPath: projectPath).first else { return nil }
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let deletedDir = home.appendingPathComponent(".micoder/deleted-backups", isDirectory: true)
+        let deletedDir = deletedBackupsDirectory(homeDirectory: homeDirectory)
         try FileManager.default.createDirectory(at: deletedDir, withIntermediateDirectories: true)
         let folder = (projectPath as NSString).lastPathComponent
         let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
         let dest = deletedDir.appendingPathComponent("\(folder)-\(stamp).db")
         try FileManager.default.copyItem(at: newest, to: dest)
+        try? pruneDeletedBackups(homeDirectory: homeDirectory,
+                                 keepCount: deletedKeepCount,
+                                 olderThanDays: deletedOlderThanDays)
         return dest
+    }
+
+    /// The global deleted-backups directory (created on demand).
+    static func deletedBackupsDirectory(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL {
+        homeDirectory.appendingPathComponent(".micoder/deleted-backups", isDirectory: true)
+    }
+
+    /// Preserved backups, newest first (same ordering as `listBackups`).
+    static func listDeletedBackups(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) throws -> [URL] {
+        let dir = deletedBackupsDirectory(homeDirectory: homeDirectory)
+        guard FileManager.default.fileExists(atPath: dir.path) else { return [] }
+        let files = try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.creationDateKey], options: [])
+        return files
+            .filter { $0.pathExtension == "db" }
+            .sorted {
+                let a = (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
+                let b = (try? $1.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
+                return a > b
+            }
+    }
+
+    /// Prune the global deleted-backups area: keep only the newest
+    /// `keepCount`, and drop anything older than `olderThanDays` days. Both
+    /// criteria are applied independently, mirroring `prune`.
+    static func pruneDeletedBackups(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+                                    keepCount: Int = 10,
+                                    olderThanDays: Int = 60) throws {
+        var backups = try listDeletedBackups(homeDirectory: homeDirectory)
+        let cutoff = Date().addingTimeInterval(-Double(olderThanDays) * 86400)
+        backups = backups.filter {
+            let date = (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
+            return date > cutoff
+        }
+        if backups.count > keepCount {
+            backups.removeLast(backups.count - keepCount)
+        }
+        let survivors = Set(backups)
+        for file in try listDeletedBackups(homeDirectory: homeDirectory) where !survivors.contains(file) {
+            try? FileManager.default.removeItem(at: file)
+        }
+    }
+
+    /// Test helper: write a placeholder file into the deleted-backups area.
+    static func writeDeletedBackupFile(named name: String,
+                                       homeDirectory: URL,
+                                       content: String) throws {
+        let dir = deletedBackupsDirectory(homeDirectory: homeDirectory)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try content.data(using: .utf8)?.write(to: dir.appendingPathComponent(name))
     }
 }

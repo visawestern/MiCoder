@@ -425,7 +425,7 @@ class DatabaseManager {
         guard let db = db else { throw DatabaseError.notInitialized }
         
         var results: [ProjectRecord] = []
-        for row in try db.prepare(projects.order(projectLastOpenedAt.desc).limit(limit)) {
+        for row in try SQLiteSafeQuery.rows(db.prepareRowIterator(projects.order(projectLastOpenedAt.desc).limit(limit))) {
             results.append(ProjectRecord(
                 id: row[projectId],
                 name: row[projectName],
@@ -558,7 +558,7 @@ class DatabaseManager {
         query = query.order(sessionUpdatedAt.desc)
         
         var results: [SessionRecord] = []
-        for row in try db.prepare(query) {
+        for row in try SQLiteSafeQuery.rows(db.prepareRowIterator(query)) {
             results.append(SessionRecord(
                 id: row[sessionId],
                 projectId: row[sessionProjectId],
@@ -581,7 +581,7 @@ class DatabaseManager {
         guard let db = db else { throw DatabaseError.notInitialized }
 
         var results: [SessionRecord] = []
-        for row in try db.prepare(sessions.order(sessionUpdatedAt.desc)) {
+        for row in try SQLiteSafeQuery.rows(db.prepareRowIterator(sessions.order(sessionUpdatedAt.desc))) {
             results.append(SessionRecord(
                 id: row[sessionId],
                 projectId: row[sessionProjectId],
@@ -653,7 +653,7 @@ class DatabaseManager {
         }
         
         var results: [MessageRecord] = []
-        for row in try db.prepare(query) {
+        for row in try SQLiteSafeQuery.rows(db.prepareRowIterator(query)) {
             results.append(MessageRecord(
                 id: row[messageId],
                 sessionId: row[messageSessionId],
@@ -699,7 +699,7 @@ class DatabaseManager {
         let query = messageParts.filter(partMessageId == messageId).order(partSequenceOrder.asc)
         
         var results: [MessagePartRecord] = []
-        for row in try db.prepare(query) {
+        for row in try SQLiteSafeQuery.rows(db.prepareRowIterator(query)) {
             results.append(MessagePartRecord(
                 id: row[partId],
                 messageId: row[partMessageId],
@@ -729,7 +729,7 @@ class DatabaseManager {
         """
         
         var messageIds: [String] = []
-        for row in try db.prepare(sql, [query, limit]) {
+        for row in try SQLiteSafeQuery.rows(db.prepare(sql, [query, limit])) {
             if let id = row[0] as? String {
                 messageIds.append(id)
             }
@@ -786,7 +786,7 @@ class DatabaseManager {
 
     private func addColumnIfMissing(table: String, column: String, definition: String) throws {
         guard let db = db else { return }
-        let existingColumns = try db.prepare("PRAGMA table_info(\(table))").compactMap { row -> String? in
+        let existingColumns = try SQLiteSafeQuery.rows(db.prepare("PRAGMA table_info(\(table))")).compactMap { row -> String? in
             row[1] as? String
         }
         guard !existingColumns.contains(column) else { return }
@@ -815,6 +815,40 @@ class DatabaseManager {
         try createFTS5Index()
         try runMigrationsIfNeeded()
     }
+
+    /// Close the live connection and drop it, so the on-disk file is no longer
+    /// held by an open handle. Part of the "clear app cache" reset — deleting a
+    /// DB file underneath an open connection orphans the inode and makes every
+    /// later statement fail with "attempt to write a readonly database" (and,
+    /// because SQLite.swift force-unwraps step errors during iteration, that
+    /// used to crash the process with SIGILL). After `disconnectForReset`, the
+    /// file can be removed cleanly and `reopenAfterReset` builds a fresh one.
+    func disconnectForReset() {
+        // SQLite.swift's `Connection` closes the handle in `deinit`, so
+        // releasing the strong reference is the supported way to close it.
+        db = nil
+    }
+
+    /// Reopen the database after a reset (creates a brand-new empty file at
+    /// `dbPath`). No-op-safe when the connection is already gone.
+    func reopenAfterReset() {
+        guard db == nil else { return }
+        initialize()
+    }
+
+    /// Full wipe: close the connection, delete the database file and its SQLite
+    /// sidecars (`-journal`, `-wal`, `-shm`), then reopen a fresh empty
+    /// database. This is the honest implementation of "clear app cache" — the
+    /// file on disk is really gone and a clean one is recreated, instead of
+    /// dropping tables into an unlinked inode.
+    func wipeAndReopen() throws {
+        disconnectForReset()
+        for suffix in ["", "-journal", "-wal", "-shm"] {
+            try? FileManager.default.removeItem(atPath: dbPath + suffix)
+        }
+        initialize()
+        guard db != nil else { throw DatabaseError.notInitialized }
+    }
     
     // MARK: - Maintenance
     
@@ -835,7 +869,7 @@ class DatabaseManager {
     func query(_ sql: String) throws -> [[Any]] {
         guard let db = db else { throw DatabaseError.notInitialized }
         var results: [[Any]] = []
-        for row in try db.prepare(sql) {
+        for row in try SQLiteSafeQuery.rows(db.prepare(sql)) {
             results.append(row as [Any])
         }
         return results
@@ -915,7 +949,7 @@ class DatabaseManager {
         guard let db = db else { throw DatabaseError.notInitialized }
         var points: [UsageDataPoint] = []
         let query = messages.filter(messageRole == "assistant")
-        for row in try db.prepare(query) {
+        for row in try SQLiteSafeQuery.rows(db.prepareRowIterator(query)) {
             let prompt = Int(row[messagePromptTokens] ?? 0)
             let completion = Int(row[messageCompletionTokens] ?? 0)
             guard prompt > 0 || completion > 0 else { continue }
@@ -935,13 +969,13 @@ class DatabaseManager {
         guard let db = db else { throw DatabaseError.notInitialized }
         var results: [(String, Int, Int)] = []
         // Active
-        for row in try db.prepare("SELECT project_id, COUNT(*) FROM sessions WHERE is_archived = 0 GROUP BY project_id") {
+        for row in try SQLiteSafeQuery.rows(db.prepare("SELECT project_id, COUNT(*) FROM sessions WHERE is_archived = 0 GROUP BY project_id")) {
             if let pid = row[0] as? String, let count = row[1] as? Int64 {
                 results.append((pid, Int(count), 0))
             }
         }
         // Archived
-        for row in try db.prepare("SELECT project_id, COUNT(*) FROM sessions WHERE is_archived = 1 GROUP BY project_id") {
+        for row in try SQLiteSafeQuery.rows(db.prepare("SELECT project_id, COUNT(*) FROM sessions WHERE is_archived = 1 GROUP BY project_id")) {
             if let pid = row[0] as? String, let count = row[1] as? Int64 {
                 if let idx = results.firstIndex(where: { $0.0 == pid }) {
                     results[idx] = (pid, results[idx].1, Int(count))
