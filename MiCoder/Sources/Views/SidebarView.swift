@@ -9,13 +9,13 @@ struct SidebarView: View {
             sidebarNavigationRow
             
             VStack(alignment: .leading, spacing: 2) {
-                SidebarActionRow(icon: SidebarLayout.newTaskIcon, label: "New task", shortcut: "⌘N") {
+                SidebarActionRow(icon: SidebarLayout.newTaskIcon, label: L.t("New task"), shortcut: "⌘N") {
                     appState.startNewTask(in: appState.selectedWorkspace)
                 }
-                SidebarActionRow(icon: "folder.badge.plus", label: "New Project", shortcut: "⌘⇧P") {
+                SidebarActionRow(icon: "folder.badge.plus", label: L.t("New Project"), shortcut: "⌘⇧P") {
                     appState.showProjectCreation = true
                 }
-                SidebarActionRow(icon: "folder", label: "Open Project…", shortcut: "⌘O") {
+                SidebarActionRow(icon: "folder", label: L.t("Open Project…"), shortcut: "⌘O") {
                     let panel = NSOpenPanel()
                     panel.canChooseFiles = false
                     panel.canChooseDirectories = true
@@ -42,7 +42,7 @@ struct SidebarView: View {
                     Image(systemName: "magnifyingglass")
                         .interfaceFont(size: 11)
                         .foregroundColor(Color.mimo.textMuted)
-                    TextField("Filter workspaces", text: $appState.workspaceFilterQuery)
+                    TextField(L.t("Filter workspaces"), text: $appState.workspaceFilterQuery)
                         .zcodeTextFieldStyle()
                         .interfaceFont(size: 12)
                 }
@@ -69,7 +69,7 @@ struct SidebarView: View {
                         }
                         
                         if appState.displayedWorkspaces.isEmpty {
-                            Text(appState.workspaces.isEmpty ? "No workspaces" : "No matching workspaces")
+                            Text(appState.workspaces.isEmpty ? L.t("No workspaces") : "No matching workspaces")
                                 .interfaceFont(size: 12)
                                 .foregroundColor(Color.mimo.textMuted)
                                 .padding(.horizontal, 14)

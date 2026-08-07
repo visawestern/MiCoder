@@ -144,7 +144,7 @@ final class NotificationService: ObservableObject {
     func generationStopped() {
         info(
             title: "Generation Stopped",
-            message: "The AI response was stopped by the user."
+            message: L.t("The AI response was stopped by the user.")
         )
     }
     
@@ -159,21 +159,21 @@ final class NotificationService: ObservableObject {
     func serverDisconnected() {
         warning(
             title: "Server Disconnected",
-            message: "Connection to the local agent was lost."
+            message: L.t("Connection to the local agent was lost.")
         )
     }
     
     func serverConnected() {
         success(
             title: "Server Connected",
-            message: "Connected to the local agent successfully."
+            message: L.t("Connected to the local agent successfully.")
         )
     }
     
     func sessionBusy() {
         warning(
             title: "Session Busy",
-            message: "The session is processing another request. Please wait or stop current generation."
+            message: L.t("The session is processing another request. Please wait or stop current generation.")
         )
     }
 }

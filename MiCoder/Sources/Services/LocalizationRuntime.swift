@@ -107,6 +107,8 @@ enum LocalizationRuntime {
         "Plan mode is unavailable for the selected provider/model.": "Режим планирования недоступен для выбранного провайдера/модели.",
         "Stop generation": "Остановить генерацию",
         "Tools unavailable for the current model or provider.": "Инструменты недоступны для текущей модели или провайдера.",
+        "Tool-call delay: %d ms": "Задержка вызова инструментов: %d мс",
+        "Keep-alive: %ds": "Поддержание связи: %dс",
         "Uninstalled %d": "Удалено %d",
         "This deletes": "Это удалит",
         "from": "из",

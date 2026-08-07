@@ -558,7 +558,7 @@ struct SplitToolInspectorView: View {
                     Button {
                         isExpanded = false
                     } label: {
-                        Label("Collapse", systemImage: "chevron.up")
+                        Label(L.t("Collapse"), systemImage: "chevron.up")
                             .interfaceFont(size: 11, weight: .medium)
                     }
                     .buttonStyle(.plain)
