@@ -9,7 +9,7 @@
 - Канонический реестр user stories: `docs/FEATURE_SPREADSHEET.csv`.
 - Полный тест: `1726 tests / 236 suites — green`.
 - Сборка: `swift build — green`.
-- Сводка spreadsheet: `168 PASS`, `13 PARTIAL`, `10 MISSING`, `5 FUTURE`.
+- Сводка spreadsheet: `172 PASS`, `11 PARTIAL`, `8 MISSING`, `5 FUTURE`.
 
 ## Активити
 

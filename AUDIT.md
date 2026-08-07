@@ -140,3 +140,16 @@ Full suite after fixes: **1726 tests / 236 suites green** (baseline 1716/234). D
 | P5 | `ChatPanelView.handleSSEEvent` — `if let finish` block had misleading indentation (looked like dead code; was actually correct but unreadable) | LOW | FIXED — corrected indentation to show the `if let finish` belongs to the outer `if let info` block |
 
 Full suite after fixes: **1726 tests / 236 suites green** (baseline 1726/236). Details: `docs/DEVILS_ADVOCATE_ROUND_25_2026-08-07.md`.
+
+### Round 26 (2026-08-07) — Documentation audit + integration/perf/security review
+
+| ID | Area | Severity | Status |
+|----|------|----------|--------|
+| D1 | `FEATURE_SPREADSHEET.csv` listed SID-22 as PARTIAL — was fixed to PASS in Round 23 (E27) | DOC | FIXED — updated to PASS |
+| D2 | `FEATURE_SPREADSHEET.csv` listed PROV-11 as PARTIAL — confirmation flow was implemented in Round 22 (E23) | DOC | FIXED — updated to PASS |
+| D3 | `FEATURE_SPREADSHEET.csv` listed STO-08 as MISSING — WAL journal mode was implemented in Round 21 (E21) | DOC | FIXED — updated to PASS |
+| D4 | `FEATURE_SPREADSHEET.csv` listed STO-26 as MISSING — read-only fallback was implemented in Round 21 (E13) | DOC | FIXED — updated to PASS |
+
+Also verified: integration flows (send/session/undo/todo), performance (no main-thread blocking), security (path safety, shell timeout, access gates, keychain storage).
+
+Full suite: **1726 tests / 236 suites green**. Details: `docs/DEVILS_ADVOCATE_ROUND_26_2026-08-07.md`.

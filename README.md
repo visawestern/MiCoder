@@ -28,11 +28,11 @@ in one native SwiftUI application.
 The current codebase has been audited screen-by-screen and tracked in the canonical feature
 spreadsheet:
 
-- `168 PASS`
-- `13 PARTIAL`
-- `10 MISSING`
+- `172 PASS`
+- `11 PARTIAL`
+- `8 MISSING`
 - `5 FUTURE`
-- `1713 tests / 234 suites` passing
+- `1726 tests / 236 suites` passing
 
 Incomplete behavior is intentionally marked in `docs/FEATURE_SPREADSHEET.csv`; it is not
 presented as complete functionality.
