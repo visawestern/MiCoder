@@ -326,12 +326,7 @@ class DatabaseBridge: ObservableObject {
             try insert(partId, messageId, "tool_call", nil, name, args, result, callId, sequenceOrder)
             
         case .stepStart:
-            try db.insertMessagePart(
-                id: partId,
-                messageId: messageId,
-                type: "step_start",
-                sequenceOrder: sequenceOrder
-            )
+            try insert(partId, messageId, "step_start", nil, nil, nil, nil, nil, sequenceOrder)
             
         case .stepFinish:
             try insert(partId, messageId, "step_finish", nil, nil, nil, nil, nil, sequenceOrder)

@@ -1,13 +1,13 @@
 # MiCoder — Сводный отчёт проекта
 
-Дата: 2026-08-06
+Дата: 2026-08-07
 
 ## Результат текущего цикла
 
 - Все активити покрыты отдельными Markdown-чеклистами в `docs/activity-checklists/`.
 - Каждый пункт содержит действие, триггер, ожидаемое поведение, качество и источник кода.
 - Канонический реестр user stories: `docs/FEATURE_SPREADSHEET.csv`.
-- Полный тест: `1713 tests / 234 suites — green`.
+- Полный тест: `1726 tests / 236 suites — green`.
 - Сборка: `swift build — green`.
 - Сводка spreadsheet: `168 PASS`, `13 PARTIAL`, `10 MISSING`, `5 FUTURE`.
 
@@ -30,6 +30,9 @@
 - Test isolation: scoped project eviction вместо глобального `evictAll()`.
 - UX: объяснение disabled Plan-agent и точное сообщение о пропущенном push.
 - Rebrand: stale user-facing MiMo strings обновлены на MiCoder.
+- **P1**: `DatabaseBridge.saveMessagePart` — `.stepStart` теперь использует `insert` closure (данные пишутся в project DB, а не в legacy global).
+- **P3**: `Message.reasoningDuration` — добавлен `reasoningEndedAt`, значение замораживается после завершения reasoning.
+- **P4**: `ProjectWebToolExecutor.todoRead/todoWrite` — реализована полноценная persistence в `<project>/.micoder/todos.json` (было: stub-заглушки).
 
 ## Остаток по концепту
 

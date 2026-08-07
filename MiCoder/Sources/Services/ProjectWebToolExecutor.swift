@@ -139,11 +139,12 @@ struct ProjectWebToolExecutor: WebToolExecutor {
             let path = call.arguments["path"] ?? "."
             return glob(pattern: pattern, in: root.appendingPathComponent(path))
         case .todoRead:
-            // TODO: implement todo reading from session
-            return "(todo list not yet implemented)"
+            return todoRead()
         case .todoWrite:
-            // TODO: implement todo writing to session
-            return "(todo write not yet implemented)"
+            guard let todosJson = call.arguments["todos"] else {
+                return "error: missing 'todos' argument (expected JSON array)"
+            }
+            return todoWrite(todosJson: todosJson)
         case .task:
             // Sub-agent task tool - launch async sub-agent
             return await executeTask(call: call)
@@ -174,6 +175,64 @@ struct ProjectWebToolExecutor: WebToolExecutor {
             type: "file_edit",
             payload: "{\"path\":\"\(fileURL.path)\",\"operation\":\"\(operation)\"}"
         )
+    }
+
+    // MARK: - Todo persistence (plan Раздел 12 — real tool ops, not stubs)
+
+    private func todoFileURL() -> URL {
+        URL(fileURLWithPath: projectRoot).appendingPathComponent(".micoder/todos.json")
+    }
+
+    /// Read the current todo list from `<project>/.micoder/todos.json`.
+    private func todoRead() -> String {
+        let url = todoFileURL()
+        guard let data = try? Data(contentsOf: url),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+              !json.isEmpty else {
+            return "[]"
+        }
+        var lines: [String] = []
+        for item in json {
+            let id = item["id"] as? String ?? "?"
+            let content = item["content"] as? String ?? ""
+            let status = item["status"] as? String ?? "pending"
+            lines.append("[\(status)] \(id): \(content)")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// Replace the todo list with the provided JSON array and persist it.
+    private func todoWrite(todosJson: String) -> String {
+        guard let data = todosJson.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) else {
+            return "error: invalid JSON — expected a JSON array of todo objects"
+        }
+        // Accept both a bare array and {"todos": [...]} wrapper.
+        let todos: [[String: Any]]
+        if let array = json as? [[String: Any]] {
+            todos = array
+        } else if let dict = json as? [String: Any],
+                  let array = dict["todos"] as? [[String: Any]] {
+            todos = array
+        } else {
+            return "error: expected a JSON array or {\"todos\": [...]} object"
+        }
+        // Validate each todo has required fields.
+        for item in todos {
+            guard let id = item["id"] as? String, !id.isEmpty,
+                  let content = item["content"] as? String, !content.isEmpty else {
+                return "error: each todo must have non-empty 'id' and 'content' strings"
+            }
+        }
+        let url = todoFileURL()
+        do {
+            try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let outData = try JSONSerialization.data(withJSONObject: todos, options: [.prettyPrinted, .sortedKeys])
+            try outData.write(to: url)
+            return "ok: saved \(todos.count) todo\(todos.count == 1 ? "" : "s")"
+        } catch {
+            return "error: \(error.localizedDescription)"
+        }
     }
 
     private func grep(pattern: String, in dir: URL) -> String {

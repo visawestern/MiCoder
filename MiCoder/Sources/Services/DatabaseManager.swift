@@ -544,7 +544,6 @@ class DatabaseManager {
     }
 
     /// Read a session's persisted goal.
-    /// Read a session's persisted goal.
     func getSessionGoal(sessionId id: String) throws -> String? {
         guard let db = db else { throw DatabaseError.notInitialized }
         guard let row = try db.pluck(sessions.filter(sessionId == id)) else { return nil }

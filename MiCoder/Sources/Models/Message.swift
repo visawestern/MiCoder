@@ -103,14 +103,20 @@ struct Message: Identifiable {
     var reasoning: String
     var isFinished: Bool
     var reasoningStartedAt: Date?
+    var reasoningEndedAt: Date?
     var attachedImages: [ClipboardImage]?
-    
+
+    /// Elapsed reasoning time. While reasoning is in progress (no end
+    /// timestamp yet) this measures from start to now so a live UI can show
+    /// a running count; once `reasoningEndedAt` is set the value freezes at
+    /// the final duration instead of growing indefinitely.
     var reasoningDuration: TimeInterval? {
         guard let startedAt = reasoningStartedAt else { return nil }
-        return Date().timeIntervalSince(startedAt)
+        let end = reasoningEndedAt ?? Date()
+        return end.timeIntervalSince(startedAt)
     }
     
-    init(id: String = UUID().uuidString, serverID: String? = nil, role: MessageRole, content: String, agentName: String? = nil, toolCalls: [ToolCall]? = nil, isStreaming: Bool = false, action: MessageAction? = nil, files: [FileInfo]? = nil, command: String? = nil, tokensAdded: Int? = nil, tokensRemoved: Int? = nil, parts: [MessagePartContent] = [], reasoning: String = "", isFinished: Bool = false, reasoningStartedAt: Date? = nil, attachedImages: [ClipboardImage]? = nil) {
+    init(id: String = UUID().uuidString, serverID: String? = nil, role: MessageRole, content: String, agentName: String? = nil, toolCalls: [ToolCall]? = nil, isStreaming: Bool = false, action: MessageAction? = nil, files: [FileInfo]? = nil, command: String? = nil, tokensAdded: Int? = nil, tokensRemoved: Int? = nil, parts: [MessagePartContent] = [], reasoning: String = "", isFinished: Bool = false, reasoningStartedAt: Date? = nil, reasoningEndedAt: Date? = nil, attachedImages: [ClipboardImage]? = nil) {
         self.id = id
         self.serverID = serverID
         self.role = role
@@ -128,6 +134,7 @@ struct Message: Identifiable {
         self.reasoning = reasoning
         self.isFinished = isFinished
         self.reasoningStartedAt = reasoningStartedAt
+        self.reasoningEndedAt = reasoningEndedAt
         self.attachedImages = attachedImages
     }
 }

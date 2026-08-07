@@ -121,3 +121,14 @@ Full suite after fixes: **1701 tests / 231 suites green** (baseline 1638/225). D
 | E28 | `LocalProviderLogic.neutralizeServeBranding` defined but never called in Sources (dead code; only its own test referenced it) — violates Round 18 clean-slate rule | MED | FIXED — removed function + its test; red source-inspection test → green |
 
 Full suite after fixes: **1706 tests / 232 suites green** (baseline 1701/231). Details: `docs/DEVILS_ADVOCATE_ROUND_23_2026-08-05.md`.
+
+### Round 24 (2026-08-07) — saveMessagePart routing, reasoningDuration, todo stubs
+
+| ID | Area | Severity | Status |
+|----|------|----------|--------|
+| P1 | `DatabaseBridge.saveMessagePart` — `.stepStart` bypassed the injected `insert` closure, writing to the legacy global DB instead of the active project DB | HIGH | FIXED — now uses the `insert` closure like every other branch; 2 red→green routing tests |
+| P2 | `DatabaseManager.getSessionGoal` — duplicate doc comment (copy-paste artifact) | LOW | FIXED — removed duplicate line |
+| P3 | `Message.reasoningDuration` — measured `Date().timeIntervalSince(startedAt)`, so the value kept growing after reasoning completed instead of freezing | MED | FIXED — added `reasoningEndedAt: Date?`; duration uses `endedAt ?? Date()`; 4 new tests |
+| P4 | `ProjectWebToolExecutor.todoRead/todoWrite` — returned `"(todo list not yet implemented)"` / `"(todo write not yet implemented)"` stubs despite being declared, documented, parsed, and access-gated | HIGH | FIXED — real JSON file persistence at `<project>/.micoder/todos.json`; 4 new tests |
+
+Full suite after fixes: **1726 tests / 236 suites green** (baseline 1716/234). Details: `docs/DEVILS_ADVOCATE_ROUND_24_2026-08-07.md`.

@@ -102,4 +102,65 @@ struct DatabaseBridgeProjectRoutingTests {
         let bogus = "not-a-real-path-\(UUID().uuidString)"
         #expect(DatabaseBridge.shared.loadSessions(projectId: bogus).isEmpty)
     }
+
+    // MARK: - saveMessagePart routing (audit: stepStart used to bypass the
+    // injected inserter and write to the legacy global DB instead of the
+    // active project DB).
+
+    @Test("stepStart part is written to the active project database, not the legacy global one")
+    func stepStartPartRoutesToProjectDB() throws {
+        let unique = UUID().uuidString
+        let projectPath = try makeTempProjectDir("step-\(unique)")
+        defer {
+            try? FileManager.default.removeItem(atPath: projectPath)
+            DatabaseBridge.shared.setActiveProject(path: nil)
+        }
+        ProjectDatabaseManager.evictProject(projectPath: projectPath)
+
+        DatabaseBridge.shared.setActiveProject(path: projectPath)
+        DatabaseBridge.shared.createSession(id: "s-step-\(unique)", projectId: projectPath, title: "Chat", directory: projectPath)
+
+        var msg = Message(id: "m-step-\(unique)", role: .assistant, content: "working...")
+        msg.parts = [.stepStart, .text("done")]
+
+        DatabaseBridge.shared.saveMessage(msg, sessionId: "s-step-\(unique)")
+
+        let projectDB = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
+        let parts = try projectDB.getMessageParts(messageId: "m-step-\(unique)")
+        #expect(parts.count == 2, "both stepStart and text parts must be in the project DB")
+        #expect(parts.first?.type == "step_start", "first part must be step_start, not routed to legacy DB")
+    }
+
+    @Test("all part types land in the active project database")
+    func allPartTypesRouteToProjectDB() throws {
+        let unique = UUID().uuidString
+        let projectPath = try makeTempProjectDir("all-\(unique)")
+        defer {
+            try? FileManager.default.removeItem(atPath: projectPath)
+            DatabaseBridge.shared.setActiveProject(path: nil)
+        }
+        ProjectDatabaseManager.evictProject(projectPath: projectPath)
+
+        DatabaseBridge.shared.setActiveProject(path: projectPath)
+        DatabaseBridge.shared.createSession(id: "s-all-\(unique)", projectId: projectPath, title: "Chat", directory: projectPath)
+
+        var msg = Message(id: "m-all-\(unique)", role: .assistant, content: "")
+        msg.parts = [
+            .text("hello"),
+            .reasoning("thinking"),
+            .toolCall(name: "read", args: "{\"f\":\"/x\"}", result: "content", callID: "c1"),
+            .stepStart,
+            .stepFinish,
+            .image(base64: "abc123", mimeType: "image/png")
+        ]
+
+        DatabaseBridge.shared.saveMessage(msg, sessionId: "s-all-\(unique)")
+
+        let projectDB = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
+        let parts = try projectDB.getMessageParts(messageId: "m-all-\(unique)")
+        #expect(parts.count == 6, "all 6 parts must be in the project DB")
+
+        let types = parts.map(\.type)
+        #expect(types == ["text", "reasoning", "tool_call", "step_start", "step_finish", "image"])
+    }
 }
