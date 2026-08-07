@@ -460,7 +460,7 @@ struct ModelSettingsProviderColumns: View {
                     icon: "server.rack",
                     title: "No providers yet",
                     hint: "Connect the local agent or add a custom provider to get started.",
-                    actionTitle: "Add provider",
+                    actionTitle: L.t("Add provider"),
                     action: { showAddProvider = true }
                 )
             } else {
@@ -612,7 +612,7 @@ struct ModelSettingsProviderColumns: View {
                     Button(role: .destructive) {
                         appState.removeCustomProvider(custom)
                     } label: {
-                        Label("Remove provider", systemImage: "trash")
+                        Label(L.t("Remove provider"), systemImage: "trash")
                             .interfaceFont(size: 12)
                     }
                     .buttonStyle(.plain)
@@ -881,7 +881,7 @@ struct ModelSettingsProviderColumns: View {
                     }
                     appState.selectModel(modelID)
                 }) {
-                    Label("Select", systemImage: isSelected ? "checkmark.circle.fill" : "circle")
+                    Label(L.t("Select"), systemImage: isSelected ? "checkmark.circle.fill" : "circle")
                 }
 
                 Divider()
@@ -889,7 +889,7 @@ struct ModelSettingsProviderColumns: View {
                 Button(action: {
                     // Show model parameters in a popover/inline detail
                 }) {
-                    Label("Parameters", systemImage: "slider.horizontal.3")
+                    Label(L.t("Parameters"), systemImage: "slider.horizontal.3")
                 }
 
                 if let meta = meta {
@@ -908,7 +908,7 @@ struct ModelSettingsProviderColumns: View {
                         """
                         NSPasteboard.general.setString(info, forType: .string)
                     }) {
-                        Label("Copy info", systemImage: "doc.on.doc")
+                        Label(L.t("Copy info"), systemImage: "doc.on.doc")
                     }
                 }
 
@@ -1755,7 +1755,7 @@ struct StorageSettingsView: View {
                     HStack(spacing: 16) {
                         StorageStatView(title: "Messages", value: "\(stats.messageCount)", icon: "message")
                         StorageStatView(title: "Active chats", value: "\(stats.totalActiveSessions)", icon: "bubble.left")
-                        StorageStatView(title: "Archived", value: "\(stats.totalArchivedSessions)", icon: "archivebox")
+                        StorageStatView(title: L.t("Archived"), value: "\(stats.totalArchivedSessions)", icon: "archivebox")
                     }
                     
                     if !stats.sessionCountsByProject.isEmpty {
@@ -2708,8 +2708,8 @@ struct ProvidersSettingsView: View {
             
             // Stats chips
             HStack(spacing: 16) {
-                ProviderCountChip(title: "Providers", count: providerCount)
-                ProviderCountChip(title: "Models", count: modelCount)
+                ProviderCountChip(title: L.t("Providers"), count: providerCount)
+                ProviderCountChip(title: L.t("Models"), count: modelCount)
                 Spacer()
             }
             
@@ -2785,7 +2785,7 @@ struct ProviderCountChip: View {
     
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: title == "Providers" ? "server.rack" : "cpu")
+            Image(systemName: title == L.t("Providers") ? "server.rack" : "cpu")
                 .interfaceFont(size: 10)
                 .foregroundColor(Color.mimo.textMuted)
             Text(title)
@@ -2965,7 +2965,7 @@ struct ModelDetailSpoiler: View {
                         .foregroundColor(Color.mimo.textSecondary)
                     
                     ParameterDetailRow(label: "ID", value: meta.id)
-                    ParameterDetailRow(label: "Name", value: meta.name ?? "—")
+                    ParameterDetailRow(label: L.t("Name"), value: meta.name ?? "—")
                     ParameterDetailRow(label: "Provider", value: meta.providerID ?? providerID)
                     
                     if let context = meta.limit?.context {
