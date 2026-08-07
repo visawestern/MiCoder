@@ -153,3 +153,11 @@ Full suite after fixes: **1726 tests / 236 suites green** (baseline 1726/236). D
 Also verified: integration flows (send/session/undo/todo), performance (no main-thread blocking), security (path safety, shell timeout, access gates, keychain storage).
 
 Full suite: **1726 tests / 236 suites green**. Details: `docs/DEVILS_ADVOCATE_ROUND_26_2026-08-07.md`.
+
+### Round 27 (2026-08-07) — Edge case testing + code quality review
+
+Edge case testing of MessageStore, DatabaseBridge, ChatPanelView, Message, ProjectWebToolExecutor, ProjectShellRunner, SSEClient — all handle boundary conditions correctly (empty inputs, nil state, duplicate IDs, missing files, timeouts). No critical issues found.
+
+Code quality review: consistent error handling, no force-unwraps in production code, thread-safe database operations, path safety, no retain cycles, idempotent operations, comprehensive test coverage.
+
+Full suite: **1726 tests / 236 suites green**. Details: `docs/DEVILS_ADVOCATE_ROUND_27_2026-08-07.md`.
