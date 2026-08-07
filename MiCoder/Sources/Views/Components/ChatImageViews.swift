@@ -52,7 +52,7 @@ struct SentImagePreviewSheet: View {
             VStack(spacing: 16) {
                 HStack {
                     Spacer()
-                    Text("Image Preview")
+                    Text(L.t(AppLocalizationKey.locImagePreview))
                         .interfaceFont(size: 14, weight: .medium)
                         .foregroundColor(Color.mimo.textPrimary)
                     Spacer()
@@ -76,7 +76,7 @@ struct SentImagePreviewSheet: View {
                 }
 
                 Button(action: { dismiss() }) {
-                    Text("Close")
+                    Text(L.t(AppLocalizationKey.locClose))
                         .interfaceFont(size: 12, weight: .medium)
                         .foregroundColor(.white)
                         .padding(.horizontal, 24)
@@ -91,7 +91,7 @@ struct SentImagePreviewSheet: View {
             .background(Color.mimo.background)
         } else {
             VStack(spacing: 12) {
-                Text("Cannot preview image")
+                Text(L.t(AppLocalizationKey.locCannotPreviewImage))
                     .foregroundColor(Color.mimo.textMuted)
                 Button("Close") { dismiss() }
                     .buttonStyle(.plain)

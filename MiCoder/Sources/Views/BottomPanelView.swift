@@ -681,7 +681,7 @@ struct ChangesList: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Changes")
+                Text(L.t(AppLocalizationKey.locChanges))
                     .interfaceFont(size: 11, weight: .bold)
                     .foregroundColor(Color.mimo.textMuted)
                     .tracking(1)
@@ -705,7 +705,7 @@ struct ChangesList: View {
                     .fill(Color.mimo.codeBg)
                     .frame(height: 48)
                     .overlay(
-                        Text("No changes")
+                        Text(L.t(AppLocalizationKey.locChanges1))
                             .interfaceFont(size: 12)
                             .foregroundColor(Color.mimo.textMuted)
                     )

@@ -20,7 +20,7 @@ struct AgentResourceLibraryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Library")
+            Text(L.t(AppLocalizationKey.locLibrary))
                 .interfaceFont(size: 12, weight: .semibold)
                 .foregroundColor(Color.mimo.textMuted)
 

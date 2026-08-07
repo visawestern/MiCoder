@@ -154,7 +154,7 @@ struct PlanQuestionCardView: View {
         HStack(spacing: 8) {
             if questions.count > 1, PlanQuestionWizardLogic.previousStep(from: currentStep) != nil {
                 Button(action: goBack) {
-                    Text("Back")
+                    Text(L.t(AppLocalizationKey.locBack))
                         .interfaceFont(size: 11, weight: .semibold, design: .monospaced)
                         .foregroundColor(Color.mimo.textPrimary)
                         .frame(maxWidth: .infinity)
@@ -170,9 +170,9 @@ struct PlanQuestionCardView: View {
             }
 
             if PlanQuestionWizardLogic.isLastStep(step: currentStep, total: questions.count) {
-                SciFiPrimaryButton(title: "Transmit", enabled: canSubmit, theme: theme, action: submit)
+                SciFiPrimaryButton(title: L.t(AppLocalizationKey.locTransmit), enabled: canSubmit, theme: theme, action: submit)
             } else {
-                SciFiPrimaryButton(title: "Next", enabled: canAdvance, theme: theme, action: goNext)
+                SciFiPrimaryButton(title: L.t(AppLocalizationKey.locNext), enabled: canAdvance, theme: theme, action: goNext)
             }
         }
     }

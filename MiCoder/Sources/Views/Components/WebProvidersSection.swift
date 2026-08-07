@@ -19,10 +19,10 @@ struct WebProvidersSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Web providers (browser)")
+            Text(L.t(AppLocalizationKey.locWebProvidersBrowser))
                 .interfaceFont(size: 18, weight: .semibold)
                 .foregroundColor(Color.mimo.textPrimary)
-            Text("Use free web models (Kimi, Qwen, ChatGPT) through a controlled browser. Tools (read_file/write_file/…) are emulated over the chat. Automating a third-party service may violate its Terms of Service — enable only if you accept that.")
+            Text(L.t(AppLocalizationKey.locUseFreeWebModelsKimiQwenChatgptThroughControlle))
                 .interfaceFont(size: 12)
                 .foregroundColor(Color.mimo.textSecondary)
 
@@ -227,7 +227,7 @@ Use clear headings, code examples, and cross-references.
             // System prompt — compact when empty, grows with content
             if config.systemPrompt.isEmpty {
                 HStack {
-                    Text("System prompt").interfaceFont(size: 11, weight: .medium).foregroundColor(Color.mimo.textMuted)
+                    Text(L.t(AppLocalizationKey.locSystemPrompt)).interfaceFont(size: 11, weight: .medium).foregroundColor(Color.mimo.textMuted)
                     Spacer()
                     Menu {
                         ForEach(Self.systemPromptTemplates, id: \.name) { template in
@@ -248,7 +248,7 @@ Use clear headings, code examples, and cross-references.
             } else {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text("System prompt").interfaceFont(size: 11, weight: .medium).foregroundColor(Color.mimo.textMuted)
+                        Text(L.t(AppLocalizationKey.locSystemPrompt)).interfaceFont(size: 11, weight: .medium).foregroundColor(Color.mimo.textMuted)
                         Spacer()
                         Button("Clear") { config.systemPrompt = "" }
                             .interfaceFont(size: 10).buttonStyle(.plain).foregroundColor(Color.mimo.error)
@@ -263,7 +263,7 @@ Use clear headings, code examples, and cross-references.
             // Model + effort are NOT chosen here (plan Раздел 13 п.5): the model
             // is picked in the chat input like any other provider, and effort is
             // determined dynamically from the model's capabilities.
-            Text("Model & effort are chosen in the chat input after connecting.")
+            Text(L.t(AppLocalizationKey.locModelEffortAreChosenTheChatInputAfterConnecting))
                 .interfaceFont(size: 11)
                 .foregroundColor(Color.mimo.textMuted)
 
@@ -291,8 +291,8 @@ Use clear headings, code examples, and cross-references.
 
             // Transport + ToS
             Picker("Transport", selection: $config.transport) {
-                Text("Managed browser").tag(WebTransport.playwrightMCP)
-                Text("Existing Chrome (cookies)").tag(WebTransport.cdpCookies)
+                Text(L.t(AppLocalizationKey.locManagedBrowser)).tag(WebTransport.playwrightMCP)
+                Text(L.t(AppLocalizationKey.locExistingChromeCookies)).tag(WebTransport.cdpCookies)
             }
             .pickerStyle(.segmented)
 
@@ -317,7 +317,7 @@ struct CustomModelEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Custom models")
+            Text(L.t(AppLocalizationKey.locCustomModels))
                 .interfaceFont(size: 11, weight: .medium)
                 .foregroundColor(Color.mimo.textMuted)
 

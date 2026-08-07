@@ -43,7 +43,7 @@ struct ChatPanelView: View {
                                     HStack {
                                         Spacer()
                                         ProgressView().scaleEffect(0.8)
-                                        Text("Loading older messages...")
+                                        Text(L.t(AppLocalizationKey.locLoadingOlderMessages))
                                             .interfaceFont(size: 12)
                                             .foregroundColor(Color.mimo.textMuted)
                                         Spacer()

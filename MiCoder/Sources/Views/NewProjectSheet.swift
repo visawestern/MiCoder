@@ -13,7 +13,7 @@ struct NewProjectSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
             HStack {
-                Text("New Project")
+                Text(L.t(AppLocalizationKey.locNewProject))
                     .interfaceFont(size: 18, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 Spacer()
@@ -26,7 +26,7 @@ struct NewProjectSheet: View {
             
             // Project name
             VStack(alignment: .leading, spacing: 6) {
-                Text("Project Name")
+                Text(L.t(AppLocalizationKey.locProjectName))
                     .interfaceFont(size: 12, weight: .medium)
                     .foregroundColor(Color.mimo.textSecondary)
                 TextField("My Project", text: $projectName)
@@ -36,7 +36,7 @@ struct NewProjectSheet: View {
             
             // Folder picker
             VStack(alignment: .leading, spacing: 6) {
-                Text("Folder")
+                Text(L.t(AppLocalizationKey.locFolder))
                     .interfaceFont(size: 12, weight: .medium)
                     .foregroundColor(Color.mimo.textSecondary)
                 
@@ -68,7 +68,7 @@ struct NewProjectSheet: View {
                 Spacer()
                 
                 Button(action: createProject) {
-                    Text("Create Project")
+                    Text(L.t(AppLocalizationKey.locCreateProject))
                         .interfaceFont(size: 13, weight: .medium)
                 }
                 .disabled(projectName.trimmingCharacters(in: .whitespaces).isEmpty || projectPath.trimmingCharacters(in: .whitespaces).isEmpty)

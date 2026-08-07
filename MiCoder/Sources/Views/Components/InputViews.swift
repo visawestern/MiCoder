@@ -14,7 +14,7 @@ struct AttachedFilesStrip: View {
                         .foregroundColor(Color.mimo.textMuted)
                     Spacer()
                     Button(action: { attachedFiles.removeAll() }) {
-                        Text("Clear all")
+                        Text(L.t(AppLocalizationKey.locClearAll))
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.brand)
                     }
@@ -119,7 +119,7 @@ struct ImagePreviewStrip: View {
                         .foregroundColor(Color.mimo.textMuted)
                     Spacer()
                     Button(action: { attachedImages.removeAll() }) {
-                        Text("Clear all")
+                        Text(L.t(AppLocalizationKey.locClearAll))
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.brand)
                     }
@@ -194,7 +194,7 @@ struct ImagePreviewSheet: View {
             VStack(spacing: 16) {
                 HStack {
                     Spacer()
-                    Text("Image Preview")
+                    Text(L.t(AppLocalizationKey.locImagePreview))
                         .interfaceFont(size: 14, weight: .medium)
                         .foregroundColor(Color.mimo.textPrimary)
                     Spacer()
@@ -225,7 +225,7 @@ struct ImagePreviewSheet: View {
                         HStack(spacing: 6) {
                             Image(systemName: "trash")
                                 .interfaceFont(size: 12)
-                            Text("Remove")
+                            Text(L.t(AppLocalizationKey.locRemove))
                                 .interfaceFont(size: 12)
                         }
                         .foregroundColor(.red)
@@ -236,7 +236,7 @@ struct ImagePreviewSheet: View {
                     .buttonStyle(.plain)
                     
                     Button(action: onDismiss) {
-                        Text("Keep")
+                        Text(L.t(AppLocalizationKey.locKeep))
                             .interfaceFont(size: 12, weight: .medium)
                             .foregroundColor(.white)
                             .padding(.horizontal, 24)
@@ -252,7 +252,7 @@ struct ImagePreviewSheet: View {
             .background(Color.mimo.background)
         } else {
             VStack {
-                Text("Cannot preview image")
+                Text(L.t(AppLocalizationKey.locCannotPreviewImage))
                     .foregroundColor(Color.mimo.textMuted)
                 Button("Close") { onDismiss() }
                     .buttonStyle(.plain)
@@ -663,13 +663,13 @@ struct WorkspaceDropdown: View {
                     Button(action: { openFolder() }) {
                         HStack(spacing: 8) {
                             Image(systemName: "folder.badge.plus").interfaceFont(size: 12).foregroundColor(Color.mimo.textMuted)
-                            Text("Open folder").interfaceFont(size: 13).foregroundColor(Color.mimo.textPrimary)
+                            Text(L.t(AppLocalizationKey.locOpenFolder)).interfaceFont(size: 13).foregroundColor(Color.mimo.textPrimary)
                         }.padding(.horizontal, 8).padding(.vertical, 6).contentShape(Rectangle())
                     }.buttonStyle(.plain)
                     Button(action: { isPresented = false; appState.showRemoteConnection = true }) {
                         HStack(spacing: 8) {
                             Image(systemName: "cloud").interfaceFont(size: 12).foregroundColor(Color.mimo.textMuted)
-                            Text("Remote connection").interfaceFont(size: 13).foregroundColor(Color.mimo.textPrimary)
+                            Text(L.t(AppLocalizationKey.locRemoteConnection)).interfaceFont(size: 13).foregroundColor(Color.mimo.textPrimary)
                         }.padding(.horizontal, 8).padding(.vertical, 6).contentShape(Rectangle())
                     }.buttonStyle(.plain)
                 }

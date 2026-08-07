@@ -39,7 +39,7 @@ struct PlusMenuView: View {
                 .buttonStyle(.plain)
             }
             if !canUseTools {
-                Text("Tools unavailable for this model")
+                Text(L.t(AppLocalizationKey.locToolsUnavailableForThisModel))
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
                     .padding(.horizontal, 12)

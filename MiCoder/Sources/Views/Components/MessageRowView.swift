@@ -355,7 +355,7 @@ struct ThinkingSpoilerView: View {
                             .interfaceFont(size: 11)
                     }
 
-                    Text("Thinking")
+                    Text(L.t(AppLocalizationKey.locThinking))
                         .interfaceFont(size: 12, weight: .medium)
 
                     if let duration = duration, !isThinking {
@@ -566,21 +566,21 @@ struct SplitToolInspectorView: View {
 
                     Spacer(minLength: 0)
 
-                    inspectorAction(icon: "doc.on.doc", title: "Copy All") {
+                    inspectorAction(icon: "doc.on.doc", title: L.t(AppLocalizationKey.locCopyAll)) {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(
                             ToolCallInspectorLogic.copyText(for: steps),
                             forType: .string
                         )
                     }
-                    inspectorAction(icon: "arrow.counterclockwise", title: "Retry") {
+                    inspectorAction(icon: "arrow.counterclockwise", title: L.t(AppLocalizationKey.locRetry)) {
                         NotificationCenter.default.post(
                             name: .retryMessage,
                             object: nil,
                             userInfo: ["messageId": messageID]
                         )
                     }
-                    inspectorAction(icon: "pencil", title: "Edit") {
+                    inspectorAction(icon: "pencil", title: L.t(AppLocalizationKey.locEdit)) {
                         NotificationCenter.default.post(
                             name: .editMessage,
                             object: nil,

@@ -185,4 +185,7 @@ enum L {
     static func t(_ key: String, _ args: CVarArg...) -> String {
         LocalizationRuntime.t(key, args)
     }
+    static func t(_ key: AppLocalizationKey) -> String {
+        AppLocalization.string(key, language: LocalizationRuntime.currentLanguage)
+    }
 }

@@ -252,7 +252,7 @@ struct GeneralSettingsView: View {
             }
             
             SettingsCard {
-                SettingsRow(title: "HTTP Proxy", description: "Route model, MCP, command-tool, and app renderer egress traffic through this proxy. Leave blank for direct connections; system environment variables are not read. Restart the app to take effect.") {
+                SettingsRow(title: L.t(AppLocalizationKey.locHttpProxy), description: L.t(AppLocalizationKey.locRouteModelMcpCommandtoolAndAppRendererEgressTra)) {
                     TextField("Leave blank for direct connection", text: $appState.settings.httpProxy)
                         .zcodeTextFieldStyle()
                         .interfaceFont(size: 13)
@@ -267,12 +267,12 @@ struct CodePreviewSettingsView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("Code preview")
+            Text(L.t(AppLocalizationKey.locCodePreview))
                 .interfaceFont(size: 24, weight: .bold)
                 .foregroundColor(Color.mimo.textPrimary)
             
             SettingsCard {
-                SettingsRow(title: "Light code theme", description: "Theme used for code blocks while the interface is in light mode.") {
+                SettingsRow(title: L.t(AppLocalizationKey.locLightCodeTheme), description: L.t(AppLocalizationKey.locThemeUsedForCodeBlocksWhileTheInterfaceLightMod)) {
                     SettingsMenuLabel(title: appState.settings.lightCodeTheme) {
                         ForEach(["GitHub Light", "GitHub Dark", "One Light", "Solarized Light"], id: \.self) { theme in
                             Button(theme) {
@@ -282,7 +282,7 @@ struct CodePreviewSettingsView: View {
                     }
                 }
                 
-                SettingsRow(title: "Dark code theme", description: "Theme used for code blocks while the interface is in dark mode.") {
+                SettingsRow(title: L.t(AppLocalizationKey.locDarkCodeTheme), description: L.t(AppLocalizationKey.locThemeUsedForCodeBlocksWhileTheInterfaceDarkMode)) {
                     SettingsMenuLabel(title: appState.settings.darkCodeTheme) {
                         ForEach(["GitHub Dark", "GitHub Light", "One Dark", "Solarized Dark", "Dracula"], id: \.self) { theme in
                             Button(theme) {
@@ -292,11 +292,11 @@ struct CodePreviewSettingsView: View {
                     }
                 }
                 
-                SettingsToggleRow(title: "Show line numbers", description: "Display line numbers in code previews.", isOn: $appState.settings.showLineNumbers)
+                SettingsToggleRow(title: L.t(AppLocalizationKey.locShowLineNumbers), description: L.t(AppLocalizationKey.locDisplayLineNumbersCodePreviews), isOn: $appState.settings.showLineNumbers)
                 
-                SettingsToggleRow(title: "Wrap long lines", description: "Wrap long content inside the preview area automatically.", isOn: $appState.settings.wrapLongLines)
+                SettingsToggleRow(title: L.t(AppLocalizationKey.locWrapLongLines), description: L.t(AppLocalizationKey.locWrapLongContentInsideThePreviewAreaAutomaticall), isOn: $appState.settings.wrapLongLines)
                 
-                SettingsRow(title: "Code font size", description: "Adjust the default font size used by code previews.") {
+                SettingsRow(title: L.t(AppLocalizationKey.locCodeFontSize), description: L.t(AppLocalizationKey.locAdjustTheDefaultFontSizeUsedCodePreviews)) {
                     HStack {
                         Slider(value: Binding(
                             get: { Double(appState.settings.codeFontSize) },
@@ -324,11 +324,11 @@ struct ModelSettingsView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("Model settings")
+            Text(L.t(AppLocalizationKey.locModelSettings))
                 .interfaceFont(size: 24, weight: .bold)
                 .foregroundColor(Color.mimo.textPrimary)
             
-            Text("Configure model providers and manage available models.")
+            Text(L.t(AppLocalizationKey.locConfigureModelProvidersAndManageAvailableModels))
                 .interfaceFont(size: 14)
                 .foregroundColor(Color.mimo.textSecondary)
             
@@ -385,14 +385,14 @@ struct ModelSettingsProviderColumns: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Providers & models")
+                Text(L.t(AppLocalizationKey.locProvidersModels))
                     .interfaceFont(size: 16, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 Spacer()
                 Button(action: { showAddProvider = true }) {
                     HStack(spacing: 4) {
                         Image(systemName: "plus")
-                        Text("Add provider")
+                        Text(L.t(AppLocalizationKey.locAddProvider1))
                     }
                     .interfaceFont(size: 13)
                     .foregroundColor(Color.mimo.brand)
@@ -450,7 +450,7 @@ struct ModelSettingsProviderColumns: View {
 
     private var providerListColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Providers")
+            Text(L.t(AppLocalizationKey.locProviders))
                 .interfaceFont(size: 12, weight: .semibold)
                 .foregroundColor(Color.mimo.textMuted)
                 .padding(.bottom, 8)
@@ -458,8 +458,8 @@ struct ModelSettingsProviderColumns: View {
             if options.isEmpty {
                 SettingsCardEmptyState(
                     icon: "server.rack",
-                    title: "No providers yet",
-                    hint: "Connect the local agent or add a custom provider to get started.",
+                    title: L.t(AppLocalizationKey.locProvidersYet),
+                    hint: L.t(AppLocalizationKey.locConnectTheLocalAgentAddCustomProviderGetStarted),
                     actionTitle: L.t("Add provider"),
                     action: { showAddProvider = true }
                 )
@@ -517,7 +517,7 @@ struct ModelSettingsProviderColumns: View {
 
     private var providerDetailColumn: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Details")
+            Text(L.t(AppLocalizationKey.locDetails))
                 .interfaceFont(size: 12, weight: .semibold)
                 .foregroundColor(Color.mimo.textMuted)
 
@@ -537,7 +537,7 @@ struct ModelSettingsProviderColumns: View {
                 detailSummary(for: option)
                 if option.isCustom, let custom = appState.customProviders.first(where: { $0.id == option.id }) {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Base URL")
+                        Text(L.t(AppLocalizationKey.locBaseUrl))
                             .interfaceFont(size: 11, weight: .medium)
                             .foregroundColor(Color.mimo.textSecondary)
                         TextField("https://api.example.com/v1", text: $customBaseURLDraft)
@@ -546,7 +546,7 @@ struct ModelSettingsProviderColumns: View {
                     }
 
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("API Key")
+                        Text(L.t(AppLocalizationKey.locApiKey))
                             .interfaceFont(size: 11, weight: .medium)
                             .foregroundColor(Color.mimo.textSecondary)
                         SecureField(custom.type == .openModel ? "om-..." : "sk-...", text: $customAPIKeyDraft)
@@ -586,7 +586,7 @@ struct ModelSettingsProviderColumns: View {
                         ))
                         .toggleStyle(.switch)
                         .interfaceFont(size: 11)
-                        Text("Enable function/tool calling support")
+                        Text(L.t(AppLocalizationKey.locEnableFunctiontoolCallingSupport))
                             .interfaceFont(size: 10)
                             .foregroundColor(Color.mimo.textSecondary)
                     }
@@ -603,7 +603,7 @@ struct ModelSettingsProviderColumns: View {
                             ))
                             .toggleStyle(.switch)
                             .interfaceFont(size: 11)
-                            Text("Enable Agent Coder Protocol")
+                            Text(L.t(AppLocalizationKey.locEnableAgentCoderProtocol))
                                 .interfaceFont(size: 10)
                                 .foregroundColor(Color.mimo.textSecondary)
                         }
@@ -644,15 +644,15 @@ struct ModelSettingsProviderColumns: View {
                     .buttonStyle(.bordered)
                 }
                 if !appState.supportsToolcallForSelection && appState.selectedProviderID == option.id {
-                    Text("Tools unavailable for current model")
+                    Text(L.t(AppLocalizationKey.locToolsUnavailableForCurrentModel))
                         .interfaceFont(size: 11)
                         .foregroundColor(Color.mimo.warning)
                 }
             } else {
                 SettingsCardEmptyState(
                     icon: "slider.horizontal.3",
-                    title: "No provider selected",
-                    hint: "Pick a provider on the left to view its connection and settings."
+                    title: L.t(AppLocalizationKey.locProviderSelected),
+                    hint: L.t(AppLocalizationKey.locPickProviderTheLeftViewItsConnectionAndSettings)
                 )
             }
         }
@@ -741,7 +741,7 @@ struct ModelSettingsProviderColumns: View {
 
     private var modelsColumn: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Models")
+            Text(L.t(AppLocalizationKey.locModels))
                 .interfaceFont(size: 12, weight: .semibold)
                 .foregroundColor(Color.mimo.textMuted)
 
@@ -751,7 +751,7 @@ struct ModelSettingsProviderColumns: View {
             if models.isEmpty {
                 SettingsCardEmptyState(
                     icon: "cpu",
-                    title: "No models loaded",
+                    title: L.t(AppLocalizationKey.locModelsLoaded),
                     hint: providerID.isEmpty
                         ? "Select a provider to browse its models."
                         : "Start the local agent or check the provider connection to load models."
@@ -1020,7 +1020,7 @@ struct CustomProviderCard: View {
             
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("URL:")
+                    Text(L.t(AppLocalizationKey.locUrl))
                         .interfaceFont(size: 11)
                         .foregroundColor(Color.mimo.textMuted)
                     Text(provider.baseURL)
@@ -1032,7 +1032,7 @@ struct CustomProviderCard: View {
                 
                 if !provider.models.isEmpty {
                     HStack {
-                        Text("Models:")
+                        Text(L.t(AppLocalizationKey.locModels1))
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.textMuted)
                         Text("\(provider.models.count) available")
@@ -1061,7 +1061,7 @@ struct AddProviderSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Add Provider")
+                Text(L.t(AppLocalizationKey.locAddProvider))
                     .interfaceFont(size: 16, weight: .semibold)
                 Spacer()
                 Button(action: { isPresented = false }) {
@@ -1078,7 +1078,7 @@ struct AddProviderSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Provider Type")
+                        Text(L.t(AppLocalizationKey.locProviderType))
                             .interfaceFont(size: 13, weight: .medium)
                             .foregroundColor(Color.mimo.textPrimary)
                         
@@ -1096,7 +1096,7 @@ struct AddProviderSheet: View {
                     }
                     
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Name")
+                        Text(L.t(AppLocalizationKey.locName))
                             .interfaceFont(size: 13, weight: .medium)
                             .foregroundColor(Color.mimo.textPrimary)
                         TextField("e.g., My OpenRouter", text: $name)
@@ -1104,7 +1104,7 @@ struct AddProviderSheet: View {
                     }
                     
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Base URL")
+                        Text(L.t(AppLocalizationKey.locBaseUrl))
                             .interfaceFont(size: 13, weight: .medium)
                             .foregroundColor(Color.mimo.textPrimary)
                         TextField("API endpoint URL", text: $url)
@@ -1114,7 +1114,7 @@ struct AddProviderSheet: View {
                     
                     if type != .ollama && type != .acp && requiresAPIKey {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("API Key")
+                            Text(L.t(AppLocalizationKey.locApiKey))
                                 .interfaceFont(size: 13, weight: .medium)
                                 .foregroundColor(Color.mimo.textPrimary)
                             SecureField(type == .openModel ? "om-..." : "sk-...", text: $apiKey)
@@ -1125,7 +1125,7 @@ struct AddProviderSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle("Requires API Key", isOn: $requiresAPIKey)
                             .interfaceFont(size: 13, weight: .medium)
-                        Text("Disable for local models or providers that don't need authentication")
+                        Text(L.t(AppLocalizationKey.locDisableForLocalModelsProvidersThatDontNeedAuthe))
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.textSecondary)
                     }
@@ -1133,7 +1133,7 @@ struct AddProviderSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Toggle("Enable Tool Calling", isOn: $supportsTools)
                             .interfaceFont(size: 13, weight: .medium)
-                        Text("Enable function/tool calling support for this provider")
+                        Text(L.t(AppLocalizationKey.locEnableFunctiontoolCallingSupportForThisProvider))
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.textSecondary)
                     }
@@ -1142,7 +1142,7 @@ struct AddProviderSheet: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Toggle("Enable ACP Protocol", isOn: $acpEnabled)
                                 .interfaceFont(size: 13, weight: .medium)
-                            Text("Enable Agent Coder Protocol for autonomous coding tasks")
+                            Text(L.t(AppLocalizationKey.locEnableAgentCoderProtocolForAutonomousCodingTask))
                                 .interfaceFont(size: 11)
                                 .foregroundColor(Color.mimo.textSecondary)
                         }
@@ -1178,7 +1178,7 @@ struct AddProviderSheet: View {
                         ProgressView()
                             .scaleEffect(0.8)
                     } else {
-                        Text("Test Connection")
+                        Text(L.t(AppLocalizationKey.locTestConnection))
                     }
                 }
                 .buttonStyle(.bordered)
@@ -1212,7 +1212,7 @@ struct AddProviderSheet: View {
                     apiKey = ""
                     requiresAPIKey = true
                 }) {
-                    Text("Add Provider")
+                    Text(L.t(AppLocalizationKey.locAddProvider))
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -1240,16 +1240,16 @@ struct SkillsSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("Skills")
+            Text(L.t(AppLocalizationKey.locSkills))
                 .interfaceFont(size: 24, weight: .bold)
                 .foregroundColor(Color.mimo.textPrimary)
 
-            Text("Browse the library and install skills in one click, or manage local skills under ~/.micoder/skills.")
+            Text(L.t(AppLocalizationKey.locBrowseTheLibraryAndInstallSkillsOneClickManageL))
                 .interfaceFont(size: 14)
                 .foregroundColor(Color.mimo.textSecondary)
 
             if !appState.supportsToolcallForSelection {
-                Text("Tools unavailable for the current model or provider.")
+                Text(L.t(AppLocalizationKey.locToolsUnavailableForTheCurrentModelProvider))
                     .interfaceFont(size: 12)
                     .foregroundColor(Color.mimo.warning)
             }
@@ -1268,7 +1268,7 @@ struct SkillsSettingsView: View {
                 .foregroundColor(Color.mimo.textMuted)
 
             if filtered.isEmpty {
-                emptyState("No skills installed yet", subtitle: "Pick a skill from the library above and tap Install.")
+                emptyState("No skills installed yet", subtitle: L.t(AppLocalizationKey.locPickSkillFromTheLibraryAboveAndTapInstall))
             } else {
                 ForEach(filtered) { skill in
                     InstalledSkillRow(skill: skill, record: record(for: skill.id), onChanged: reloadSkills)
@@ -1375,16 +1375,16 @@ struct MCPServersSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("MCP Servers")
+            Text(L.t(AppLocalizationKey.locMcpServers))
                 .interfaceFont(size: 24, weight: .bold)
                 .foregroundColor(Color.mimo.textPrimary)
 
-            Text("Browse the library and install MCP servers in one click. Configurations are saved to ~/.micoder/mcp.json.")
+            Text(L.t(AppLocalizationKey.locBrowseTheLibraryAndInstallMcpServersOneClickCon))
                 .interfaceFont(size: 14)
                 .foregroundColor(Color.mimo.textSecondary)
 
             if !appState.supportsToolcallForSelection {
-                Text("Tools unavailable for the current model or provider.")
+                Text(L.t(AppLocalizationKey.locToolsUnavailableForTheCurrentModelProvider))
                     .interfaceFont(size: 12)
                     .foregroundColor(Color.mimo.warning)
             }
@@ -1403,7 +1403,7 @@ struct MCPServersSettingsView: View {
                 .foregroundColor(Color.mimo.textMuted)
 
             if filtered.isEmpty {
-                emptyState("No MCP servers configured", subtitle: "Pick a server from the library above and tap Install.")
+                emptyState("No MCP servers configured", subtitle: L.t(AppLocalizationKey.locPickServerFromTheLibraryAboveAndTapInstall))
             } else {
                 ForEach(filtered) { server in
                     InstalledMCPRow(server: server, onChanged: reloadServers)
@@ -1553,16 +1553,16 @@ struct PluginsSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("Plugins")
+            Text(L.t(AppLocalizationKey.locPlugins))
                 .interfaceFont(size: 24, weight: .bold)
                 .foregroundColor(Color.mimo.textPrimary)
 
-            Text("Enable or disable installed plugins. Plugins bundle skills, commands, and MCP servers.")
+            Text(L.t(AppLocalizationKey.locEnableDisableInstalledPluginsPluginsBundleSkill))
                 .interfaceFont(size: 14)
                 .foregroundColor(Color.mimo.textSecondary)
 
             if !appState.supportsToolcallForSelection {
-                Text("Tools unavailable for the current model or provider.")
+                Text(L.t(AppLocalizationKey.locToolsUnavailableForTheCurrentModelProvider))
                     .interfaceFont(size: 12)
                     .foregroundColor(Color.mimo.warning)
             }
@@ -1571,7 +1571,7 @@ struct PluginsSettingsView: View {
                 .zcodeTextFieldStyle()
 
             if filtered.isEmpty {
-                emptyState("No plugins installed", subtitle: "Plugins live under ~/.micoder/plugins")
+                emptyState("No plugins installed", subtitle: L.t(AppLocalizationKey.locPluginsLiveUnderMicoderplugins))
             } else {
                 ForEach(filtered) { plugin in
                     HStack {
@@ -1607,16 +1607,16 @@ struct CommandsSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("Commands")
+            Text(L.t(AppLocalizationKey.locCommands))
                 .interfaceFont(size: 24, weight: .bold)
                 .foregroundColor(Color.mimo.textPrimary)
 
-            Text("Manage MiCoder Agent .md command files. Commands can be invoked with /command-name in chat.")
+            Text(L.t(AppLocalizationKey.locManageMicoderAgentCommandFilesCommandsCanInvoke))
                 .interfaceFont(size: 14)
                 .foregroundColor(Color.mimo.textSecondary)
 
             if !appState.supportsToolcallForSelection {
-                Text("Tools unavailable for the current model or provider.")
+                Text(L.t(AppLocalizationKey.locToolsUnavailableForTheCurrentModelProvider))
                     .interfaceFont(size: 12)
                     .foregroundColor(Color.mimo.warning)
             }
@@ -1625,7 +1625,7 @@ struct CommandsSettingsView: View {
                 .zcodeTextFieldStyle()
 
             if filtered.isEmpty {
-                emptyState("No user commands", subtitle: "Add .md files to ~/.micoder/commands")
+                emptyState("No user commands", subtitle: L.t(AppLocalizationKey.locAddFilesMicodercommands))
             } else {
                 ForEach(filtered) { command in
                     HStack {
@@ -1687,18 +1687,18 @@ struct IndexingSettingsView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("Indexing")
+            Text(L.t(AppLocalizationKey.locIndexing))
                 .interfaceFont(size: 24, weight: .bold)
                 .foregroundColor(Color.mimo.textPrimary)
             
-            Text("Codebase")
+            Text(L.t(AppLocalizationKey.locCodebase))
                 .interfaceFont(size: 14, weight: .semibold)
                 .foregroundColor(Color.mimo.textMuted)
             
             SettingsCard {
-                SettingsToggleRow(title: "Index new folders", description: "Automatically index any new folders with fewer than 50,000 files.", isOn: indexNewFoldersBinding)
+                SettingsToggleRow(title: L.t(AppLocalizationKey.locIndexNewFolders), description: L.t(AppLocalizationKey.locAutomaticallyIndexAnyNewFoldersWithFewerThan500), isOn: indexNewFoldersBinding)
                 
-                SettingsToggleRow(title: "Index repositories for instant grep (Beta)", description: "Automatically index repositories to speed up Grep searches. All data is stored locally.", isOn: indexRepositoriesBinding)
+                SettingsToggleRow(title: L.t(AppLocalizationKey.locIndexRepositoriesForInstantGrepBeta), description: L.t(AppLocalizationKey.locAutomaticallyIndexRepositoriesSpeedGrepSearches), isOn: indexRepositoriesBinding)
             }
         }
     }
@@ -1730,7 +1730,7 @@ struct StorageSettingsView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("Storage & Database")
+            Text(L.t(AppLocalizationKey.locStorageDatabase))
                 .interfaceFont(size: 24, weight: .bold)
                 .foregroundColor(Color.mimo.textPrimary)
 
@@ -1740,27 +1740,27 @@ struct StorageSettingsView: View {
             // Statistics card
             SettingsCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Usage")
+                    Text(L.t(AppLocalizationKey.locUsage))
                         .interfaceFont(size: 13, weight: .semibold)
                         .foregroundColor(Color.mimo.textPrimary)
                     
                     HStack(spacing: 16) {
-                        StorageStatView(title: "Database", value: stats.databaseSizeFormatted, icon: "externaldrive")
-                        StorageStatView(title: "Snapshots", value: stats.snapshotSizeFormatted, icon: "clock.arrow.circlepath")
-                        StorageStatView(title: "Total", value: stats.totalSizeFormatted, icon: "externaldrive.fill")
+                        StorageStatView(title: L.t(AppLocalizationKey.locDatabase), value: stats.databaseSizeFormatted, icon: "externaldrive")
+                        StorageStatView(title: L.t(AppLocalizationKey.locSnapshots), value: stats.snapshotSizeFormatted, icon: "clock.arrow.circlepath")
+                        StorageStatView(title: L.t(AppLocalizationKey.locTotal), value: stats.totalSizeFormatted, icon: "externaldrive.fill")
                     }
                     
                     Divider()
                     
                     HStack(spacing: 16) {
-                        StorageStatView(title: "Messages", value: "\(stats.messageCount)", icon: "message")
-                        StorageStatView(title: "Active chats", value: "\(stats.totalActiveSessions)", icon: "bubble.left")
+                        StorageStatView(title: L.t(AppLocalizationKey.locMessages), value: "\(stats.messageCount)", icon: "message")
+                        StorageStatView(title: L.t(AppLocalizationKey.locActiveChats), value: "\(stats.totalActiveSessions)", icon: "bubble.left")
                         StorageStatView(title: L.t("Archived"), value: "\(stats.totalArchivedSessions)", icon: "archivebox")
                     }
                     
                     if !stats.sessionCountsByProject.isEmpty {
                         Divider()
-                        Text("Per project")
+                        Text(L.t(AppLocalizationKey.locPerProject))
                             .interfaceFont(size: 11, weight: .medium)
                             .foregroundColor(Color.mimo.textMuted)
                         
@@ -1790,24 +1790,24 @@ struct StorageSettingsView: View {
             // Auto-archive card
             SettingsCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Auto-archive")
+                    Text(L.t(AppLocalizationKey.locAutoarchive))
                         .interfaceFont(size: 13, weight: .semibold)
                         .foregroundColor(Color.mimo.textPrimary)
                     
-                    Text("Inactive chats are automatically archived after the selected period to save space. They are loaded on demand and unarchived when you send a new message.")
+                    Text(L.t(AppLocalizationKey.locInactiveChatsAreAutomaticallyArchivedAfterTheSe))
                         .interfaceFont(size: 11)
                         .foregroundColor(Color.mimo.textSecondary)
                     
                     HStack(spacing: 8) {
-                        Text("Archive after:")
+                        Text(L.t(AppLocalizationKey.locArchiveAfter))
                             .interfaceFont(size: 12)
                             .foregroundColor(Color.mimo.textSecondary)
                         Picker("", selection: $archiveDays) {
-                            Text("3 days").tag(3.0)
-                            Text("7 days").tag(7.0)
-                            Text("14 days").tag(14.0)
-                            Text("30 days").tag(30.0)
-                            Text("90 days").tag(90.0)
+                            Text(L.t(AppLocalizationKey.locDays1)).tag(3.0)
+                            Text(L.t(AppLocalizationKey.locDays3)).tag(7.0)
+                            Text(L.t(AppLocalizationKey.locDays)).tag(14.0)
+                            Text(L.t(AppLocalizationKey.locDays2)).tag(30.0)
+                            Text(L.t(AppLocalizationKey.locDays4)).tag(90.0)
                         }
                         .pickerStyle(.menu)
                         .frame(width: 120)
@@ -1826,20 +1826,20 @@ struct StorageSettingsView: View {
             // Cleanup card
             SettingsCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Cleanup")
+                    Text(L.t(AppLocalizationKey.locCleanup))
                         .interfaceFont(size: 13, weight: .semibold)
                         .foregroundColor(Color.mimo.textPrimary)
                     
                     HStack(spacing: 8) {
-                        Text("Delete chats older than:")
+                        Text(L.t(AppLocalizationKey.locDeleteChatsOlderThan))
                             .interfaceFont(size: 12)
                             .foregroundColor(Color.mimo.textSecondary)
                         Picker("", selection: $deleteDays) {
-                            Text("7 days").tag(7.0)
-                            Text("30 days").tag(30.0)
-                            Text("90 days").tag(90.0)
-                            Text("180 days").tag(180.0)
-                            Text("1 year").tag(365.0)
+                            Text(L.t(AppLocalizationKey.locDays3)).tag(7.0)
+                            Text(L.t(AppLocalizationKey.locDays2)).tag(30.0)
+                            Text(L.t(AppLocalizationKey.locDays4)).tag(90.0)
+                            Text(L.t(AppLocalizationKey.loc180Days)).tag(180.0)
+                            Text(L.t(AppLocalizationKey.locYear)).tag(365.0)
                         }
                         .pickerStyle(.menu)
                         .frame(width: 120)
@@ -1905,7 +1905,7 @@ struct StorageSettingsView: View {
                     refreshStats()
                 }
             } message: {
-                Text("This will permanently delete ALL archived chats and their messages. This action cannot be undone.")
+                Text(L.t(AppLocalizationKey.locThisWillPermanentlyDeleteAllArchivedChatsAndThe))
             }
             .alert(resetAlertTitle, isPresented: $showResetConfirmation) {
                 Button("Cancel", role: .cancel) {}
@@ -1957,7 +1957,7 @@ struct StorageSettingsView: View {
     private var projectsAdminSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Projects")
+                Text(L.t(AppLocalizationKey.locProjects))
                     .interfaceFont(size: 16, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 Spacer()
@@ -1974,7 +1974,7 @@ struct StorageSettingsView: View {
                         .interfaceFont(size: 12)
                         .foregroundColor(Color.mimo.warning)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Storage quota exceeded")
+                        Text(L.t(AppLocalizationKey.locStorageQuotaExceeded))
                             .interfaceFont(size: 12, weight: .semibold)
                             .foregroundColor(Color.mimo.textPrimary)
                         Text("Total project databases use \(quota.totalBytes.formatted(.byteCount(style: .file))), above the \(quota.thresholdBytes.formatted(.byteCount(style: .file))) threshold. Archiving inactive projects would free \(quota.archivableBytes.formatted(.byteCount(style: .file))).")
@@ -1997,14 +1997,14 @@ struct StorageSettingsView: View {
             let archived = ProjectRegistryLogic.archived(projectEntries)
             let orphans = ProjectRegistryLogic.orphaned(projectEntries)
             if active.isEmpty && archived.isEmpty && orphans.isEmpty {
-                Text("No projects registered yet.")
+                Text(L.t(AppLocalizationKey.locProjectsRegisteredYet))
                     .interfaceFont(size: 12).foregroundColor(Color.mimo.textMuted)
             }
             ForEach(active) { entry in
                 projectRow(entry, archived: false)
             }
             if !archived.isEmpty {
-                Text("Archived")
+                Text(L.t(AppLocalizationKey.locArchived))
                     .interfaceFont(size: 11, weight: .semibold).foregroundColor(Color.mimo.textMuted)
                 ForEach(archived) { entry in
                     projectRow(entry, archived: true)
@@ -2013,7 +2013,7 @@ struct StorageSettingsView: View {
             if !orphans.isEmpty {
                 // Plan Раздел 8 п.31: registry entries whose path no longer exists
                 // are shown explicitly, with "Find new path" (relink) or "Delete record".
-                Text("Orphaned (path missing)")
+                Text(L.t(AppLocalizationKey.locOrphanedPathMissing))
                     .interfaceFont(size: 11, weight: .semibold).foregroundColor(Color.mimo.warning)
                 ForEach(orphans) { entry in
                     orphanRow(entry)
@@ -2243,16 +2243,16 @@ struct UsageSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
             HStack {
-                Text("Usage")
+                Text(L.t(AppLocalizationKey.locUsage))
                     .interfaceFont(size: 24, weight: .bold)
                     .foregroundColor(Color.mimo.textPrimary)
-                Text("App usage")
+                Text(L.t(AppLocalizationKey.locAppUsage))
                     .interfaceFont(size: 14)
                     .foregroundColor(Color.mimo.textMuted)
             }
             
             HStack(spacing: 8) {
-                Text("Time range")
+                Text(L.t(AppLocalizationKey.locTimeRange))
                     .interfaceFont(size: 12)
                     .foregroundColor(Color.mimo.textMuted)
                 
@@ -2267,19 +2267,19 @@ struct UsageSettingsView: View {
             }
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 16) {
-                UsageStatCard(title: "Total tokens", value: formatTokens(totals.tokens), icon: "flame")
-                UsageStatCard(title: "Total cost", value: UsageStatisticsAggregator.costLabel(totals.cost), icon: "dollarsign.circle")
-                UsageStatCard(title: "Messages", value: formattedMessages, icon: "message")
-                UsageStatCard(title: "Active days", value: "\(UsageStatisticsAggregator.activeDays(filteredPoints))", icon: "calendar")
-                UsageStatCard(title: "Database size", value: stats?.databaseSizeFormatted ?? "—", icon: "internaldrive")
-                UsageStatCard(title: "Favorite model",
+                UsageStatCard(title: L.t(AppLocalizationKey.locTotalTokens), value: formatTokens(totals.tokens), icon: "flame")
+                UsageStatCard(title: L.t(AppLocalizationKey.locTotalCost), value: UsageStatisticsAggregator.costLabel(totals.cost), icon: "dollarsign.circle")
+                UsageStatCard(title: L.t(AppLocalizationKey.locMessages), value: formattedMessages, icon: "message")
+                UsageStatCard(title: L.t(AppLocalizationKey.locActiveDays), value: "\(UsageStatisticsAggregator.activeDays(filteredPoints))", icon: "calendar")
+                UsageStatCard(title: L.t(AppLocalizationKey.locDatabaseSize), value: stats?.databaseSizeFormatted ?? "—", icon: "internaldrive")
+                UsageStatCard(title: L.t(AppLocalizationKey.locFavoriteModel),
                               value: UsageStatisticsAggregator.favoriteModel(filteredPoints) ?? "None",
-                              subtitle: "by usage", icon: "brain")
+                              subtitle: L.t(AppLocalizationKey.locUsage1), icon: "brain")
             }
 
             // Per-model breakdown (plan Раздел 10 Блок 2 п.16)
             if !byModel.isEmpty {
-                Text("By model")
+                Text(L.t(AppLocalizationKey.locModel))
                     .interfaceFont(size: 16, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 VStack(spacing: 6) {
@@ -2303,7 +2303,7 @@ struct UsageSettingsView: View {
                     }
                 }
             } else {
-                Text("No usage data for the selected period.")
+                Text(L.t(AppLocalizationKey.locUsageDataForTheSelectedPeriod))
                     .interfaceFont(size: 12)
                     .foregroundColor(Color.mimo.textMuted)
             }
@@ -2456,10 +2456,10 @@ struct LocalProvidersSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Local providers")
+            Text(L.t(AppLocalizationKey.locLocalProviders))
                 .interfaceFont(size: 18, weight: .semibold)
                 .foregroundColor(Color.mimo.textPrimary)
-            Text("Run models locally via Ollama, OpenCode, or MiCoder CLI/Serve. Enter an address to auto-detect the provider and load its models.")
+            Text(L.t(AppLocalizationKey.locRunModelsLocallyViaOllamaOpencodeMicoderCliserv))
                 .interfaceFont(size: 13)
                 .foregroundColor(Color.mimo.textSecondary)
 
@@ -2517,7 +2517,7 @@ struct LocalProvidersSection: View {
                 message: Text(LocalProviderConfirmLogic.message(for: pending.info,
                                                                 host: pending.host,
                                                                 port: pending.port)),
-                primaryButton: .default(Text("Confirm and add")) {
+                primaryButton: .default(Text(L.t(AppLocalizationKey.locConfirmAndAdd))) {
                     confirmPendingDetection()
                 },
                 secondaryButton: .cancel {
@@ -2698,11 +2698,11 @@ struct ProvidersSettingsView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("Providers")
+            Text(L.t(AppLocalizationKey.locProviders))
                 .interfaceFont(size: 24, weight: .bold)
                 .foregroundColor(Color.mimo.textPrimary)
             
-            Text("Manage custom model providers and view server-connected providers.")
+            Text(L.t(AppLocalizationKey.locManageCustomModelProvidersAndViewServerconnecte))
                 .interfaceFont(size: 14)
                 .foregroundColor(Color.mimo.textSecondary)
             
@@ -2742,7 +2742,7 @@ struct ProvidersSettingsView: View {
             Button(action: { showAddProvider = true }) {
                 HStack(spacing: 4) {
                     Image(systemName: "plus")
-                    Text("Add")
+                    Text(L.t(AppLocalizationKey.locAdd))
                 }
                 .interfaceFont(size: 13)
                 .foregroundColor(Color.mimo.brand)
@@ -2753,12 +2753,12 @@ struct ProvidersSettingsView: View {
     
     private var providersList: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Providers")
+            Text(L.t(AppLocalizationKey.locProviders))
                 .interfaceFont(size: 16, weight: .semibold)
                 .foregroundColor(Color.mimo.textPrimary)
             
             if filteredProviders.isEmpty {
-                Text("No providers configured")
+                Text(L.t(AppLocalizationKey.locProvidersConfigured))
                     .interfaceFont(size: 13)
                     .foregroundColor(Color.mimo.textMuted)
                     .padding(16)
@@ -2905,7 +2905,7 @@ struct ModelParameterSpoiler: View {
                 }
                 .interfaceFont(size: 11)
             } else {
-                Text("No parameters available")
+                Text(L.t(AppLocalizationKey.locParametersAvailable))
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
             }
@@ -2947,7 +2947,7 @@ struct ModelDetailSpoiler: View {
         VStack(alignment: .leading, spacing: 12) {
             Button(action: { withAnimation { isExpanded.toggle() } }) {
                 HStack {
-                    Text("Model Details")
+                    Text(L.t(AppLocalizationKey.locModelDetails))
                         .interfaceFont(size: 12, weight: .semibold)
                         .foregroundColor(Color.mimo.textPrimary)
                     Spacer()
@@ -2960,7 +2960,7 @@ struct ModelDetailSpoiler: View {
             
             if isExpanded, let meta = meta {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Configuration")
+                    Text(L.t(AppLocalizationKey.locConfiguration))
                         .interfaceFont(size: 11, weight: .semibold)
                         .foregroundColor(Color.mimo.textSecondary)
                     

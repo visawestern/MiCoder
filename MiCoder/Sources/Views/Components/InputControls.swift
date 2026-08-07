@@ -36,7 +36,7 @@ struct AccessLevelMenu: View {
             Button(action: { appState.agentMode = .plan }) {
                 HStack {
                     Image(systemName: AgentMode.plan.icon)
-                    Text("Switch to Plan agent")
+                    Text(L.t(AppLocalizationKey.locSwitchPlanAgent))
                 }
             }
             .disabled(!canSelectPlan)
@@ -124,7 +124,7 @@ struct ProviderSelectorMenu: View {
     var body: some View {
         Menu {
             if options.isEmpty {
-                Text("Connect the local agent or add a custom provider")
+                Text(L.t(AppLocalizationKey.locConnectTheLocalAgentAddCustomProvider))
                     .interfaceFont(size: 11)
             } else {
                 ForEach(options) { option in
@@ -135,7 +135,7 @@ struct ProviderSelectorMenu: View {
                                 .frame(width: 6, height: 6)
                             Text(option.name)
                             if option.isCustom {
-                                Text("Custom")
+                                Text(L.t(AppLocalizationKey.locCustom))
                                     .interfaceFont(size: 10)
                                     .foregroundColor(Color.mimo.textMuted)
                             }
@@ -175,10 +175,10 @@ struct ModelSelectorMenu: View {
     var body: some View {
         Menu {
             if appState.selectedProviderID.isEmpty {
-                Text("Select a provider first")
+                Text(L.t(AppLocalizationKey.locSelectProviderFirst))
                     .interfaceFont(size: 11)
             } else if models.isEmpty {
-                Text("No models for this provider")
+                Text(L.t(AppLocalizationKey.locModelsForThisProvider))
                     .interfaceFont(size: 11)
             } else {
                 ForEach(models, id: \.self) { model in
@@ -234,10 +234,10 @@ struct ModelParametersButton: View {
                 Text("Parameters — \(appState.selectedModel)")
                     .interfaceFont(size: 12, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
-                field("Temperature (0–2)", text: $temperatureText, placeholder: "default")
-                field("Max tokens", text: $maxTokensText, placeholder: "default")
-                field("Top P (0–1)", text: $topPText, placeholder: "default")
-                Text("System prompt").interfaceFont(size: 11).foregroundColor(Color.mimo.textMuted)
+                field("Temperature (0–2)", text: $temperatureText, placeholder: L.t(AppLocalizationKey.locDefault))
+                field("Max tokens", text: $maxTokensText, placeholder: L.t(AppLocalizationKey.locDefault))
+                field("Top P (0–1)", text: $topPText, placeholder: L.t(AppLocalizationKey.locDefault))
+                Text(L.t(AppLocalizationKey.locSystemPrompt)).interfaceFont(size: 11).foregroundColor(Color.mimo.textMuted)
                 TextEditor(text: $systemText)
                     .frame(height: 60).font(.system(size: 12))
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
@@ -497,11 +497,11 @@ struct RemoteConnectionSheet: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Remote connection")
+            Text(L.t(AppLocalizationKey.locRemoteConnection))
                 .interfaceFont(size: 18, weight: .semibold)
                 .foregroundColor(Color.mimo.textPrimary)
             
-            Text("Connect to a local agent instance on another host.")
+            Text(L.t(AppLocalizationKey.locConnectLocalAgentInstanceAnotherHost))
                 .interfaceFont(size: 13)
                 .foregroundColor(Color.mimo.textSecondary)
             

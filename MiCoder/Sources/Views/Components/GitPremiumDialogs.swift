@@ -422,7 +422,7 @@ struct PullRequestDialogView: View {
     var body: some View {
         PremiumDialogChrome(
             icon: "arrow.branch",
-            title: "Create Pull Request",
+            title: L.t(AppLocalizationKey.locCreatePullRequest),
             subtitle: ghPath == nil && checkedStatus ? nil : nil
         ) {
             VStack(alignment: .leading, spacing: 12) {
@@ -434,7 +434,7 @@ struct PullRequestDialogView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Title")
+                    Text(L.t(AppLocalizationKey.locTitle))
                         .interfaceFont(size: 11, weight: .medium)
                         .foregroundColor(Color.mimo.textSecondary)
                     TextField("Short summary of the change", text: $title)
@@ -442,7 +442,7 @@ struct PullRequestDialogView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Description (optional)")
+                    Text(L.t(AppLocalizationKey.locDescriptionOptional))
                         .interfaceFont(size: 11, weight: .medium)
                         .foregroundColor(Color.mimo.textSecondary)
                     TextField("What changed and why", text: $prBody, axis: .vertical)
@@ -455,7 +455,7 @@ struct PullRequestDialogView: View {
                 isPresented = false
             }
             PremiumPrimaryButton(
-                title: "Create PR",
+                title: L.t(AppLocalizationKey.locCreate),
                 systemImage: "arrow.branch",
                 isBusy: isBusy,
                 isEnabled: !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && ghPath != nil

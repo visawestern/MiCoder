@@ -341,7 +341,7 @@ struct NotificationsSheet: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Notifications")
+                Text(L.t(AppLocalizationKey.locNotifications1))
                     .interfaceFont(size: 18, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 Spacer()
@@ -370,10 +370,10 @@ struct NotificationsSheet: View {
                     Image(systemName: "bell.slash")
                         .interfaceFont(size: 32)
                         .foregroundColor(Color.mimo.textMuted.opacity(0.5))
-                    Text("No notifications")
+                    Text(L.t(AppLocalizationKey.locNotifications))
                         .interfaceFont(size: 14)
                         .foregroundColor(Color.mimo.textSecondary)
-                    Text("Task completions and system alerts will appear here.")
+                    Text(L.t(AppLocalizationKey.locTaskCompletionsAndSystemAlertsWillAppearHere))
                         .interfaceFont(size: 12)
                         .foregroundColor(Color.mimo.textMuted)
                         .multilineTextAlignment(.center)
@@ -510,7 +510,7 @@ struct WorkspacesOverviewSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Overview")
+                Text(L.t(AppLocalizationKey.locOverview))
                     .interfaceFont(size: 18, weight: .semibold)
                 Spacer()
                 Button(action: { dismiss() }) {
@@ -683,7 +683,7 @@ struct WorkspaceSidebarSection: View {
             if isExpanded {
                 VStack(alignment: .leading, spacing: 0) {
                     if workspaceSessions.isEmpty {
-                        Text("No tasks yet")
+                        Text(L.t(AppLocalizationKey.locTasksYet))
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.textMuted)
                             .padding(.leading, 50)
@@ -752,7 +752,7 @@ struct SessionTaskRow: View {
                     
                     if isSelected {
                         // "now" badge
-                        Text("now")
+                        Text(L.t(AppLocalizationKey.locNow))
                             .interfaceFont(size: 9, weight: .medium)
                             .foregroundColor(Color.mimo.textPrimary)
                             .padding(.horizontal, 5)
@@ -819,7 +819,7 @@ struct SearchPaletteView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Search")
+                Text(L.t(AppLocalizationKey.locSearch))
                     .interfaceFont(size: 20, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 Spacer()
@@ -858,7 +858,7 @@ struct SearchPaletteView: View {
                 }
             }
 
-            Text("Esc to close")
+            Text(L.t(AppLocalizationKey.locEscClose))
                 .interfaceFont(size: 11)
                 .foregroundColor(Color.mimo.textMuted)
         }
@@ -912,12 +912,12 @@ struct ArchivedProjectsPopover: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Archived projects")
+            Text(L.t(AppLocalizationKey.locArchivedProjects))
                 .interfaceFont(size: 13, weight: .semibold)
                 .foregroundColor(Color.mimo.textPrimary)
 
             if archived.isEmpty {
-                Text("No archived projects")
+                Text(L.t(AppLocalizationKey.locArchivedProjects1))
                     .interfaceFont(size: 12)
                     .foregroundColor(Color.mimo.textMuted)
             } else {
@@ -950,7 +950,7 @@ struct ArchivedProjectsPopover: View {
                 appState.showSettings = true
                 appState.settingsTab = .storage
             }) {
-                Text("Open full storage panel")
+                Text(L.t(AppLocalizationKey.locOpenFullStoragePanel))
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.brand)
             }
