@@ -95,12 +95,14 @@ struct LocalizationCoverageTests {
         }
     }
 
-    @Test("Missing translations fall back to English gracefully")
-    func englishFallbackForMissing() {
-        // For now the system deliberately falls back to English when an extra-language
-        // key isn't translated — so we assert the *known* missing keys do that.
+    @Test("Extra-language translations are present (not English fallback)")
+    func extraLanguagesTranslated() {
+        // Full localization: verify French has its own translation (not English fallback).
         let s = AppLocalization.string(.settingsBackToWorkspace, language: .french)
-        #expect(s == "Retour à l'espace", "French override exists in extraTranslations")
+        #expect(s == "Retour à l'espace de travail", "French translation exists")
+        // Verify it differs from English (actual translation, not fallback).
+        let en = AppLocalization.string(.settingsBackToWorkspace, language: .english)
+        #expect(s != en, "French translation differs from English")
     }
 
     @Test("English and Russian are present for known keys")

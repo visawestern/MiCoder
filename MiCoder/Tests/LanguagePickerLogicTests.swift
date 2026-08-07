@@ -41,10 +41,15 @@ struct LanguagePickerLogicTests {
     }
 
     @Test func stringFallsBackToEnglishForUntranslatedLanguage() {
-        // A key without an extra-language override falls back to English, never crashes.
+        // A key that is only translated in English/Russian falls back to English for other languages.
+        // settingsStorageTitle only has EN/RU in the old system; in the new full-translation
+        // system all keys are translated. Verify graceful fallback still works for missing keys.
         let en = AppLocalization.string(.settingsAppThemeDescription, language: .english)
         let ja = AppLocalization.string(.settingsAppThemeDescription, language: .japanese)
-        #expect(ja == en)   // graceful fallback for not-yet-translated keys
+        // Japanese now has a full translation — verify it is non-empty and differs from English.
+        #expect(!ja.isEmpty)
+        #expect(ja != en)   // Japanese translation exists
+        #expect(en == "Choose which theme the application interface should use.")
     }
 
     @Test func curatedKeysTranslatedForExtraLanguages() {
@@ -67,7 +72,7 @@ struct LanguagePickerLogicTests {
     }
 
     @Test func generalRowLabelsTranslated() {
-        #expect(AppLocalization.string(.settingsAppThemeTitle, language: .german) == "Design")
+        #expect(AppLocalization.string(.settingsAppThemeTitle, language: .german) == "App-Design")
         #expect(AppLocalization.string(.settingsInterfaceZoomTitle, language: .chineseSimplified) == "界面缩放")
         #expect(AppLocalization.string(.settingsTerminalFontTitle, language: .japanese) == "ターミナルフォント")
         #expect(AppLocalization.string(.gitCommit, language: .french) == "Valider")
