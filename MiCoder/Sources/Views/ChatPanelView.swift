@@ -1236,10 +1236,10 @@ struct ChatPanelView: View {
                         }
                         currentAssistantMessageID = reconciledID
                     }
-                if let finish = info["finish"] as? String, finish == "stop" {
-                    messageStore.setFinished(id: messageID)
+                    if let finish = info["finish"] as? String, finish == "stop" {
+                        messageStore.setFinished(id: messageID)
+                    }
                 }
-            }
             
         default:
             break

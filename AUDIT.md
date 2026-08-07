@@ -132,3 +132,11 @@ Full suite after fixes: **1706 tests / 232 suites green** (baseline 1701/231). D
 | P4 | `ProjectWebToolExecutor.todoRead/todoWrite` — returned `"(todo list not yet implemented)"` / `"(todo write not yet implemented)"` stubs despite being declared, documented, parsed, and access-gated | HIGH | FIXED — real JSON file persistence at `<project>/.micoder/todos.json`; 4 new tests |
 
 Full suite after fixes: **1726 tests / 236 suites green** (baseline 1716/234). Details: `docs/DEVILS_ADVOCATE_ROUND_24_2026-08-07.md`.
+
+### Round 25 (2026-08-07) — Views layer + remaining services audit
+
+| ID | Area | Severity | Status |
+|----|------|----------|--------|
+| P5 | `ChatPanelView.handleSSEEvent` — `if let finish` block had misleading indentation (looked like dead code; was actually correct but unreadable) | LOW | FIXED — corrected indentation to show the `if let finish` belongs to the outer `if let info` block |
+
+Full suite after fixes: **1726 tests / 236 suites green** (baseline 1726/236). Details: `docs/DEVILS_ADVOCATE_ROUND_25_2026-08-07.md`.
