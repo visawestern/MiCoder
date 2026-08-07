@@ -196,6 +196,9 @@ class AppState: ObservableObject {
 
     func setLanguage(_ language: AppLanguage) {
         updateSettings { $0.language = language.rawValue }
+        LocalizationRuntime.currentLanguage = language
+        // Force UI refresh by bumping the language counter
+        objectWillChange.send()
     }
     @Published var accessLevel: AccessLevel = .askBeforeChanges {
         didSet {
@@ -316,6 +319,8 @@ class AppState: ObservableObject {
             return AppTheme(rawValue: raw) ?? .dark
         }()
         // settings is already loaded by its own didSet-based persistence
+        // Sync LocalizationRuntime with the loaded language
+        LocalizationRuntime.currentLanguage = appLanguage
 
         migrateLegacyPreferences()
 
