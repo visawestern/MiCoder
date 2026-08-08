@@ -12,10 +12,10 @@ struct SidebarView: View {
                 SidebarActionRow(icon: SidebarLayout.newTaskIcon, label: L.t("New task"), shortcut: "⌘N") {
                     appState.startNewTask(in: appState.selectedWorkspace)
                 }
-                SidebarActionRow(icon: "folder.badge.plus", label: L.t("New Project"), shortcut: "⌘⇧P") {
+                SidebarActionRow(icon: "folder.badge.plus", label: L.t(AppLocalizationKey.locNewProject), shortcut: "⌘⇧P") {
                     appState.showProjectCreation = true
                 }
-                SidebarActionRow(icon: "folder", label: L.t("Open Project…"), shortcut: "⌘O") {
+                SidebarActionRow(icon: "folder", label: L.t(AppLocalizationKey.locOpenProject), shortcut: "⌘O") {
                     let panel = NSOpenPanel()
                     panel.canChooseFiles = false
                     panel.canChooseDirectories = true

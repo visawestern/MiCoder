@@ -612,7 +612,7 @@ struct ModelSettingsProviderColumns: View {
                     Button(role: .destructive) {
                         appState.removeCustomProvider(custom)
                     } label: {
-                        Label(L.t("Remove provider"), systemImage: "trash")
+                        Label(L.t(AppLocalizationKey.locRemoveProvider), systemImage: "trash")
                             .interfaceFont(size: 12)
                     }
                     .buttonStyle(.plain)
@@ -881,7 +881,7 @@ struct ModelSettingsProviderColumns: View {
                     }
                     appState.selectModel(modelID)
                 }) {
-                    Label(L.t("Select"), systemImage: isSelected ? "checkmark.circle.fill" : "circle")
+                    Label(L.t(AppLocalizationKey.locSelect), systemImage: isSelected ? "checkmark.circle.fill" : "circle")
                 }
 
                 Divider()
@@ -889,7 +889,7 @@ struct ModelSettingsProviderColumns: View {
                 Button(action: {
                     // Show model parameters in a popover/inline detail
                 }) {
-                    Label(L.t("Parameters"), systemImage: "slider.horizontal.3")
+                    Label(L.t(AppLocalizationKey.locParameters), systemImage: "slider.horizontal.3")
                 }
 
                 if let meta = meta {
@@ -908,7 +908,7 @@ struct ModelSettingsProviderColumns: View {
                         """
                         NSPasteboard.general.setString(info, forType: .string)
                     }) {
-                        Label(L.t("Copy info"), systemImage: "doc.on.doc")
+                        Label(L.t(AppLocalizationKey.locCopyInfo), systemImage: "doc.on.doc")
                     }
                 }
 

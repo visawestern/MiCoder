@@ -438,6 +438,15 @@ enum AppLocalizationKey: String {
     case locWrapLongContentInsideThePreviewAreaAutomaticall
     case locWrapLongLines
     case locYear
+    case locRemoveProvider
+    case locSelect
+    case locParameters
+    case locCopyInfo
+    case locNewTask
+    case locOpenProject
+    case locFilterWorkspaces
+    case locNoWorkspaces
+    case locCollapse
 }
 
 enum AppLocalization {
@@ -486,6 +495,15 @@ enum AppLocalization {
     }
 
     private static let translations: [String: [String: String]] = [
+        "locSelect": ["en": "Select", "ru": "Выбрать", "es": "Seleccionar", "fr": "Sélectionner", "de": "Auswählen", "zh": "选择", "ja": "選択", "ko": "선택", "pt": "Selecionar", "ar": "تحديد"],
+        "locRemoveProvider": ["en": "Remove provider", "ru": "Удалить провайдер", "es": "Eliminar proveedor", "fr": "Supprimer le fournisseur", "de": "Anbieter entfernen", "zh": "移除提供商", "ja": "プロバイダーを削除", "ko": "공급자 제거", "pt": "Remover provedor", "ar": "إزالة الموفر"],
+        "locParameters": ["en": "Parameters", "ru": "Параметры", "es": "Parámetros", "fr": "Paramètres", "de": "Parameter", "zh": "参数", "ja": "パラメーター", "ko": "매개변수", "pt": "Parâmetros", "ar": "المعلمات"],
+        "locOpenProject": ["en": "Open Project…", "ru": "Открыть проект…", "es": "Abrir proyecto…", "fr": "Ouvrir le projet…", "de": "Projekt öffnen…", "zh": "打开项目…", "ja": "プロジェクトを開く…", "ko": "프로젝트 열기…", "pt": "Abrir projeto…", "ar": "فتح المشروع…"],
+        "locNoWorkspaces": ["en": "No workspaces", "ru": "Нет рабочих областей", "es": "Sin áreas de trabajo", "fr": "Aucun espace de travail", "de": "Keine Arbeitsbereiche", "zh": "暂无工作区", "ja": "ワークスペースなし", "ko": "작업 공간 없음", "pt": "Sem áreas de trabalho", "ar": "لا توجد مساحات عمل"],
+        "locNewTask": ["en": "New task", "ru": "Новая задача", "es": "Nueva tarea", "fr": "Nouvelle tâche", "de": "Neue Aufgabe", "zh": "新任务", "ja": "新しいタスク", "ko": "새 작업", "pt": "Nova tarefa", "ar": "مهمة جديدة"],
+        "locFilterWorkspaces": ["en": "Filter workspaces", "ru": "Фильтр рабочих областей", "es": "Filtrar áreas de trabajo", "fr": "Filtrer les espaces de travail", "de": "Arbeitsbereiche filtern", "zh": "筛选工作区", "ja": "ワークスペースをフィルター", "ko": "작업 공간 필터", "pt": "Filtrar áreas de trabalho", "ar": "تصفية مساحات العمل"],
+        "locCopyInfo": ["en": "Copy info", "ru": "Копировать инфо", "es": "Copiar información", "fr": "Copier les infos", "de": "Info kopieren", "zh": "复制信息", "ja": "情報をコピー", "ko": "정보 복사", "pt": "Copiar informações", "ar": "نسخ المعلومات"],
+        "locCollapse": ["en": "Collapse", "ru": "Свернуть", "es": "Colapsar", "fr": "Réduire", "de": "Einklappen", "zh": "折叠", "ja": "折りたたむ", "ko": "접기", "pt": "Recolher", "ar": "طي"],
         "locYear": ["en": "1 year", "ru": "1 year", "es": "1 año", "fr": "1 an", "de": "1 Jahr", "zh": "1 年", "ja": "1年", "ko": "1년", "pt": "1 ano"],
         "locDays": ["en": "14 days", "ru": "14 days", "es": "14 días", "fr": "14 jours", "de": "14 Tage", "zh": "14 天", "ja": "14日", "ko": "14일", "pt": "14 dias", "ar": "14 يومًا"],
         "loc180Days": ["en": "180 days", "ru": "180 days", "es": "180 días", "fr": "180 jours", "de": "180 Tage", "zh": "180 天", "ja": "180日", "ko": "180일", "pt": "180 dias", "ar": "180 يومًا"],
