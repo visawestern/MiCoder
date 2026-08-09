@@ -11,7 +11,7 @@ struct StatusBarView: View {
                 Circle()
                     .fill(appState.serverConnected ? Color.mimo.success : Color.mimo.error)
                     .frame(width: 6, height: 6)
-                Text(appState.serverConnected ? "Connected" : "Disconnected")
+                Text(appState.serverConnected ? L.t(AppLocalizationKey.locConnected) : L.t(AppLocalizationKey.locDisconnected))
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
             }

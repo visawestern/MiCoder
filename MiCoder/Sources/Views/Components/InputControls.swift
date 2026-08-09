@@ -148,7 +148,7 @@ struct ProviderSelectorMenu: View {
                 }
             }
             Divider()
-            Button("Manage providers") {
+            Button(L.t(AppLocalizationKey.locManageProviders)) {
                 appState.showSettings = true
                 appState.settingsTab = .providers
             }
@@ -193,13 +193,13 @@ struct ModelSelectorMenu: View {
                 }
             }
             Divider()
-            Button("Manage models") {
+            Button(L.t(AppLocalizationKey.locManageModels)) {
                 appState.showSettings = true
                 appState.settingsTab = .providers
             }
         } label: {
             HStack(spacing: 4) {
-                Text(appState.selectedModel.isEmpty ? "Model" : appState.selectedModel)
+                Text(appState.selectedModel.isEmpty ? L.t(AppLocalizationKey.locModelPlaceholder) : appState.selectedModel)
                     .interfaceFont(size: 11)
                     .lineLimit(1)
             }
@@ -305,7 +305,7 @@ struct VariantMenu: View {
     var body: some View {
         Menu {
             if availableVariants.isEmpty {
-                Text(disabledReason ?? "No variants available")
+                Text(disabledReason ?? L.t(AppLocalizationKey.locNoVariants))
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
             } else {
@@ -324,7 +324,7 @@ struct VariantMenu: View {
             HStack(spacing: 4) {
                 Image(systemName: "brain")
                     .interfaceFont(size: 11)
-                Text(appState.selectedVariant.isEmpty ? "Variant" : ProviderSettingsLogic.variantLabel(appState.selectedVariant))
+                Text(appState.selectedVariant.isEmpty ? L.t(AppLocalizationKey.locVariantPlaceholder) : ProviderSettingsLogic.variantLabel(appState.selectedVariant))
                     .interfaceFont(size: 11)
             }
             .foregroundColor(availableVariants.isEmpty ? Color.mimo.textMuted : Color.mimo.textSecondary)
@@ -506,9 +506,9 @@ struct RemoteConnectionSheet: View {
                 .foregroundColor(Color.mimo.textSecondary)
             
             HStack(spacing: 12) {
-                TextField("Host", text: $host)
+                TextField(L.t(AppLocalizationKey.locHost), text: $host)
                     .zcodeTextFieldStyle()
-                TextField("Port", text: $port)
+                TextField(L.t(AppLocalizationKey.locPort), text: $port)
                     .zcodeTextFieldStyle()
                     .frame(width: 80)
             }

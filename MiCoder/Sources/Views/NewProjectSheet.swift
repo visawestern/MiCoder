@@ -51,7 +51,7 @@ struct NewProjectSheet: View {
                             .foregroundColor(Color.mimo.textSecondary)
                     }
                     .buttonStyle(.plain)
-                    .help("Choose folder")
+                    .help(L.t(AppLocalizationKey.locChooseFolder))
                 }
             }
             

@@ -504,6 +504,15 @@ enum AppLocalizationKey: String, CaseIterable {
     case locWebNoSelector
     case locShowInFinder
     case locStop
+    case locModelPlaceholder
+    case locVariantPlaceholder
+    case locManageModels
+    case locManageProviders
+    case locHost
+    case locPort
+    case locNoVariants
+    case locSearchWorkspaces
+    case locSelectWorkspace
     case locWebNoModels
     case locGenerationStopped
     case locTaskCompletedMessage
@@ -536,6 +545,7 @@ enum AppLocalizationKey: String, CaseIterable {
     case locTerminal
     case locCopyChat
     case locPickElement
+    case locNotConfigured
     case locConnectionFailed
     case locRequiresAPIKey
     case locEnableToolCalling
@@ -1094,6 +1104,15 @@ enum AppLocalization {
         "locWebNoSelector": ["en": "No model selector configured for this vendor", "ru": "Селектор моделей не настроен", "es": "Selector de modelos no configurado", "fr": "Sélecteur de modèles non configuré", "de": "Modellauswahl nicht konfiguriert", "zh": "未配置模型选择器", "ja": "モデルセレクター未設定", "ko": "모델 선택기가 구성되지 않음", "pt": "Seletor de modelos não configurado", "ar": "لم يتم تكوين محدد النماذج"],
         "locShowInFinder": ["en": "Show in Finder", "ru": "Показать в Finder", "es": "Mostrar en Finder", "fr": "Afficher dans le Finder", "de": "Im Finder anzeigen", "zh": "在 Finder 中显示", "ja": "Finder に表示", "ko": "Finder에 표시", "pt": "Mostrar no Finder", "ar": "إظهار في Finder"],
         "locStop": ["en": "Stop", "ru": "Остановить", "es": "Detener", "fr": "Arrêter", "de": "Stoppen", "zh": "停止", "ja": "停止", "ko": "중지", "pt": "Parar", "ar": "إيقاف"],
+        "locModelPlaceholder": ["en": "Model", "ru": "Модель", "es": "Modelo", "fr": "Modèle", "de": "Modell", "zh": "模型", "ja": "モデル", "ko": "모델", "pt": "Modelo", "ar": "النموذج"],
+        "locVariantPlaceholder": ["en": "Variant", "ru": "Вариант", "es": "Variante", "fr": "Variante", "de": "Variante", "zh": "变体", "ja": "バリアント", "ko": "변형", "pt": "Variante", "ar": "المتغير"],
+        "locManageModels": ["en": "Manage models", "ru": "Управление моделями", "es": "Gestionar modelos", "fr": "Gérer les modèles", "de": "Modelle verwalten", "zh": "管理模型", "ja": "モデルを管理", "ko": "모델 관리", "pt": "Gerir modelos", "ar": "إدارة النماذج"],
+        "locManageProviders": ["en": "Manage providers", "ru": "Управление провайдерами", "es": "Gestionar proveedores", "fr": "Gérer les fournisseurs", "de": "Anbieter verwalten", "zh": "管理提供商", "ja": "プロバイダーを管理", "ko": "공급자 관리", "pt": "Gerir provedores", "ar": "إدارة الموفرين"],
+        "locHost": ["en": "Host", "ru": "Хост", "es": "Host", "fr": "Hôte", "de": "Host", "zh": "主机", "ja": "ホスト", "ko": "호스트", "pt": "Host", "ar": "المضيف"],
+        "locPort": ["en": "Port", "ru": "Порт", "es": "Puerto", "fr": "Port", "de": "Port", "zh": "端口", "ja": "ポート", "ko": "포트", "pt": "Porta", "ar": "المنفذ"],
+        "locNoVariants": ["en": "No variants available", "ru": "Нет доступных вариантов", "es": "No hay variantes disponibles", "fr": "Aucune variante disponible", "de": "Keine Varianten verfügbar", "zh": "没有可用的变体", "ja": "バリアントがありません", "ko": "사용 가능한 변형 없음", "pt": "Nenhuma variante disponível", "ar": "لا توجد متغيرات متاحة"],
+        "locSearchWorkspaces": ["en": "Search workspaces", "ru": "Поиск рабочих областей", "es": "Buscar espacios de trabajo", "fr": "Rechercher des espaces de travail", "de": "Arbeitsbereiche suchen", "zh": "搜索工作区", "ja": "ワークスペースを検索", "ko": "작업 공간 검색", "pt": "Pesquisar espaços de trabalho", "ar": "البحث عن مساحات العمل"],
+        "locSelectWorkspace": ["en": "Select workspace", "ru": "Выберите рабочую область", "es": "Seleccionar espacio de trabajo", "fr": "Sélectionner un espace de travail", "de": "Arbeitsbereich auswählen", "zh": "选择工作区", "ja": "ワークスペースを選択", "ko": "작업 공간 선택", "pt": "Selecionar espaço de trabalho", "ar": "حدد مساحة العمل"],
         "locWebNoModels": ["en": "No models found on page", "ru": "Модели не найдены на странице", "es": "No se encontraron modelos", "fr": "Aucun modèle trouvé", "de": "Keine Modelle gefunden", "zh": "页面中未找到模型", "ja": "ページにモデルが見つかりません", "ko": "페이지에서 모델을 찾을 수 없음", "pt": "Nenhum modelo encontrado", "ar": "لم يتم العثور على نماذج"],
 
         "locGenerationStopped": ["en": "Generation stopped", "ru": "Генерация остановлена", "es": "Generación detenida", "fr": "Génération arrêtée", "de": "Generierung gestoppt", "zh": "生成已停止", "ja": "生成が停止しました", "ko": "생성 중지됨", "pt": "Geração parada", "ar": "تم إيقاف التوليد"],
@@ -1127,6 +1146,7 @@ enum AppLocalization {
         "locTerminal": ["en": "Terminal", "ru": "Терминал", "es": "Terminal", "fr": "Terminal", "de": "Terminal", "zh": "终端", "ja": "ターミナル", "ko": "터미널", "pt": "Terminal", "ar": "طرفية"],
         "locCopyChat": ["en": "Copy entire chat", "ru": "Копировать весь чат", "es": "Copiar chat completo", "fr": "Copier le chat entier", "de": "Gespräch kopieren", "zh": "复制整个对话", "ja": "チャット全体을 コピー", "ko": "전체 채팅 복사", "pt": "Copiar chat completo", "ar": "نسخ المحادثة بالكامل"],
         "locPickElement": ["en": "Pick an element on the page to use as model selector", "ru": "Выберите элемент на странице для использования как селектор моделей", "es": "Elige un elemento en la página para usar como selector de modelos", "fr": "Choisissez un élément sur la page à utiliser comme sélecteur de modèles", "de": "Element auf der Seite als Modellauswahl auswählen", "zh": "在页面上选择一个元素用作模型选择器", "ja": "ページ上の要素を選択してモデルセレクターとして使用", "ko": "모델 선택기로 사용할 페이지 요소 선택", "pt": "Escolha um elemento na página para usar como seletor de modelos", "ar": "اختر عنصراً في الصفحة لاستخدامه كمحدد للنماذج"],
+        "locNotConfigured": ["en": "Not configured", "ru": "Не настроено", "es": "No configurado", "fr": "Non configuré", "de": "Nicht konfiguriert", "zh": "未配置", "ja": "未設定", "ko": "구성되지 않음", "pt": "Não configurado", "ar": "غير مُكوَّن"],
         "locConnectionFailed": ["en": "Failed to connect. Check URL and credentials.", "ru": "Не удалось подключиться. Проверьте URL и учетные данные.", "es": "Error al conectar. Compruebe URL y credenciales.", "fr": "Échec de la connexion. Vérifiez l'URL et les identifiants.", "de": "Verbindung fehlgeschlagen. URL und Anmeldedaten prüfen.", "zh": "连接失败。请检查 URL 和凭据。", "ja": "接続に失敗しました。URLと認証情報を確認してください。", "ko": "연결 실패. URL과 자격 증명을 확인하세요.", "pt": "Falha na ligação. Verifique o URL e as credenciais.", "ar": "فشل الاتصال. تحقق من عنوان URL وبيانات الاعتماد."],
         "locRequiresAPIKey": ["en": "Requires API Key", "ru": "Требуется API-ключ", "es": "Requiere clave API", "fr": "Nécessite une clé API", "de": "Erfordert API-Schlüssel", "zh": "需要 API 密钥", "ja": "APIキーが必要", "ko": "API 키 필요", "pt": "Requer chave API", "ar": "يتطلب مفتاح API"],
         "locEnableToolCalling": ["en": "Enable Tool Calling", "ru": "Включить вызов инструментов", "es": "Habilitar llamada a herramientas", "fr": "Activer l'appel d'outils", "de": "Tool-Aufruf aktivieren", "zh": "启用工具调用", "ja": "ツール呼び出しを有効化", "ko": "도구 호출 활성화", "pt": "Ativar chamada de ferramentas", "ar": "تفعيل استدعاء الأدوات"],

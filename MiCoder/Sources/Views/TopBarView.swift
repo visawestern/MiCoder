@@ -52,14 +52,14 @@ struct TopBarView: View {
             // Action buttons
             TopBarButton(
                 icon: "flag",
-                label: "Goal",
+                label: L.t(AppLocalizationKey.locGoal),
                 isActive: appState.showGoal,
                 action: { appState.showGoal.toggle() }
             )
             
             TopBarButton(
                 icon: "terminal",
-                label: "Terminal",
+                label: L.t(AppLocalizationKey.locTerminal),
                 isActive: appState.showTerminal,
                 action: { appState.showTerminal.toggle() }
             )

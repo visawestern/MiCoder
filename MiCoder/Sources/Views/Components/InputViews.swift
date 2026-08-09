@@ -43,7 +43,7 @@ struct AttachedFilesStrip: View {
                                             .foregroundColor(Color.mimo.textMuted)
                                     }
                                     .buttonStyle(.plain)
-                                    .help("Show in Finder")
+                                    .help(L.t(AppLocalizationKey.locShowInFinder))
                                 }
 
                                 Button(action: {
@@ -429,7 +429,7 @@ struct CenteredInputCard: View {
                 HStack(spacing: 6) {
                     Image(systemName: "folder.fill")
                         .interfaceFont(size: 11)
-                    Text(appState.selectedWorkspace?.name ?? "Select workspace")
+                    Text(appState.selectedWorkspace?.name ?? L.t(AppLocalizationKey.locSelectWorkspace))
                         .interfaceFont(size: 12, weight: .medium)
                         .lineLimit(1)
                     Image(systemName: "chevron.down")
@@ -642,7 +642,7 @@ struct WorkspaceDropdown: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").interfaceFont(size: 12).foregroundColor(Color.mimo.textMuted)
-                TextField("Search workspaces", text: $searchText).textFieldStyle(.plain).interfaceFont(size: 13)
+                TextField(L.t(AppLocalizationKey.locSearchWorkspaces), text: $searchText).textFieldStyle(.plain).interfaceFont(size: 13)
             }.padding(8)
             Divider()
             ScrollView {

@@ -59,7 +59,7 @@ struct TaskHeaderView: View {
                     .foregroundColor(chatCopied ? Color.mimo.success : Color.mimo.textSecondary)
             }
             .buttonStyle(.plain)
-            .help(chatCopied ? "Copied" : "Copy entire chat")
+            .help(chatCopied ? L.t(AppLocalizationKey.locCopied) : L.t(AppLocalizationKey.locCopyChat))
             
             Button(action: { appState.showTerminal.toggle() }) {
                 Image(systemName: "terminal")
@@ -67,7 +67,7 @@ struct TaskHeaderView: View {
                     .foregroundColor(appState.showTerminal ? Color.mimo.brand : Color.mimo.textSecondary)
             }
             .buttonStyle(.plain)
-            .help("Terminal")
+            .help(L.t(AppLocalizationKey.locTerminal))
             
             Button(action: { appState.showGoal.toggle() }) {
                 Image(systemName: TaskHeaderLayout.rightSidebarIcon)

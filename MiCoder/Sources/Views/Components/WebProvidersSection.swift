@@ -460,7 +460,7 @@ struct WebProviderLoginView: View {
                     Label("\(capturedCookies.count) cookies", systemImage: "lock.fill")
                         .interfaceFont(size: 10).foregroundColor(Color.mimo.success)
                 } else {
-                    Label("Not configured", systemImage: "exclamationmark.circle")
+                    Label(L.t(AppLocalizationKey.locNotConfigured), systemImage: "exclamationmark.circle")
                         .interfaceFont(size: 10).foregroundColor(Color.mimo.warning)
                 }
 
@@ -471,7 +471,7 @@ struct WebProviderLoginView: View {
                         .foregroundColor(showElementPicker ? Color.mimo.success : Color.mimo.textSecondary)
                 }
                 .buttonStyle(.plain)
-                .help("Pick an element on the page to use as model selector")
+                .help(L.t(AppLocalizationKey.locPickElement))
 
                 // Detect models button
                 Button(action: detectModelsFromPage) {
@@ -676,11 +676,11 @@ struct ElementPickerOverlay: View {
             let highlighted = null;
 
             function makeOverlay(el) {
-                if (overlay) overlay.remove();
+                clearOverlay();
                 let rect = el.getBoundingClientRect();
                 overlay = document.createElement('div');
                 overlay.__mimoPicker = true;
-                overlay.style.cssText = 'position:fixed;z-index:999999;border:2px solid #007AFF;background:rgba(0,122,255,0.15);pointer-events:none;top:' + rect.top + 'px;left:' + rect.left + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;border-radius:4px;';
+                overlay.style.cssText = 'position:fixed;z-index:999999;border:2px solid #007AFF;background:rgba(0,122,255,0.15);pointer-events:none;top:' + rect.top + 'px;left:' + rect.left + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;border-radius:4px;transition:all 0.1s;';
                 document.body.appendChild(overlay);
             }
 
@@ -688,38 +688,64 @@ struct ElementPickerOverlay: View {
                 if (overlay) { overlay.remove(); overlay = null; }
             }
 
+            // Mouseover to highlight
             document.addEventListener('mouseover', function(e) {
                 if (!window.__mimoPickerActive) return;
-                let target = e.target.closest('[class],button,a,select,[role="button"],[role="listbox"],[role="combobox"],div,span');
-                if (!target) return;
-                if (target.__mimoPicker) return;
-                highlighted = target;
-                makeOverlay(target);
+                // Walk up to find a meaningful element
+                let target = e.target;
+                while (target && target !== document.body) {
+                    if (target.__mimoPicker) return;
+                    if (target.tagName && !['HTML','HEAD','BODY','SCRIPT','STYLE','META','LINK'].includes(target.tagName)) {
+                        highlighted = target;
+                        makeOverlay(target);
+                        return;
+                    }
+                    target = target.parentElement;
+                }
             }, true);
 
-            document.addEventListener('click', function(e) {
+            // Click to select — stop everything
+            function handlePick(e) {
                 if (!window.__mimoPickerActive) return;
                 e.preventDefault();
                 e.stopPropagation();
+                e.stopImmediatePropagation();
+
                 if (highlighted) {
-                    let text = highlighted.innerText || highlighted.textContent || '';
-                    let cls = highlighted.className || '';
-                    let tag = highlighted.tagName.toLowerCase();
+                    let text = (highlighted.innerText || highlighted.textContent || '').trim();
+                    let cls = (highlighted.className && typeof highlighted.className === 'string') ? highlighted.className : '';
+                    let tag = highlighted.tagName ? highlighted.tagName.toLowerCase() : 'div';
+
                     // Build a stable selector
                     let sel = '';
-                    if (highlighted.id) sel = '#' + highlighted.id;
-                    else if (cls && typeof cls === 'string' && cls.length < 80) {
-                        let c = cls.trim().split(/\\s+/).slice(0,3).map(s => '.' + s.replace(/[^a-zA-Z0-9_-]/g, '\\\\$&')).join('');
-                        sel = tag + c;
+                    if (highlighted.id) {
+                        sel = '#' + highlighted.id;
+                    } else if (cls && cls.length < 120) {
+                        let parts = cls.trim().split(/\\s+/).filter(s => s.length > 0 && s.length < 40).slice(0, 3);
+                        let cleanParts = parts.map(s => {
+                            return '.' + s.replace(/[^a-zA-Z0-9_-]/g, function(m) { return '\\\\' + m; });
+                        });
+                        sel = tag + cleanParts.join('');
+                        if (cleanParts.length === 0) sel = tag;
                     } else {
                         sel = tag;
                     }
-                    window.__mimoPickedElement = { selector: sel, text: text.substring(0, 200), tag: tag, className: cls.substring(0, 100) };
+
+                    window.__mimoPickedElement = {
+                        selector: sel,
+                        text: text.substring(0, 200),
+                        tag: tag,
+                        className: cls.substring(0, 100)
+                    };
                     window.__mimoPickerActive = false;
                     clearOverlay();
+                    // Remove this listener after pick
+                    document.removeEventListener('click', handlePick, true);
                 }
                 return false;
-            }, true);
+            }
+
+            document.addEventListener('click', handlePick, true);
         })();
         """
         webView.evaluateJavaScript(script, completionHandler: nil)
@@ -728,23 +754,25 @@ struct ElementPickerOverlay: View {
     private func removePickerScript() {
         webView.evaluateJavaScript("window.__mimoPickerActive = false;", completionHandler: nil)
         // Read picked element
-        webView.evaluateJavaScript("JSON.stringify(window.__mimoPickedElement || {})") { result, _ in
-            if let json = result as? String,
-               let data = json.data(using: .utf8),
-               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let selector = dict["selector"] as? String, !selector.isEmpty {
-                let element = WebProviderLoginView.PickedElement(
-                    selector: selector,
-                    text: dict["text"] as? String ?? "",
-                    tag: dict["tag"] as? String ?? "",
-                    className: dict["className"] as? String ?? ""
-                )
-                DispatchQueue.main.async {
-                    self.pickedElement = element
-                    self.isShowing = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            self.webView.evaluateJavaScript("JSON.stringify(window.__mimoPickedElement || {})") { result, _ in
+                if let json = result as? String,
+                   let data = json.data(using: .utf8),
+                   let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let selector = dict["selector"] as? String, !selector.isEmpty {
+                    let element = WebProviderLoginView.PickedElement(
+                        selector: selector,
+                        text: dict["text"] as? String ?? "",
+                        tag: dict["tag"] as? String ?? "",
+                        className: dict["className"] as? String ?? ""
+                    )
+                    DispatchQueue.main.async {
+                        self.pickedElement = element
+                        self.isShowing = false
+                    }
+                } else {
+                    DispatchQueue.main.async { self.isShowing = false }
                 }
-            } else {
-                DispatchQueue.main.async { self.isShowing = false }
             }
         }
     }
