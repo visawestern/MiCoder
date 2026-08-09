@@ -33,7 +33,7 @@ struct TappableChatImage: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .help("View image")
+                .help(L.t(AppLocalizationKey.locViewImage))
             }
         }
         .sheet(item: $previewImage) { img in
@@ -93,7 +93,7 @@ struct SentImagePreviewSheet: View {
             VStack(spacing: 12) {
                 Text(L.t(AppLocalizationKey.locCannotPreviewImage))
                     .foregroundColor(Color.mimo.textMuted)
-                Button("Close") { dismiss() }
+                Button(L.t(AppLocalizationKey.locClose)) { dismiss() }
                     .buttonStyle(.plain)
                     .foregroundColor(Color.mimo.brand)
             }

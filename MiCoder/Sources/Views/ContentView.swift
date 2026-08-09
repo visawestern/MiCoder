@@ -97,7 +97,7 @@ struct ContentView: View {
             ),
             presenting: appState.projectIntegrityAlert
         ) { alert in
-            Button("Restore from backup") {
+            Button(L.t(AppLocalizationKey.locRestoreFromBackup)) {
                 let path = alert.projectPath
                 Task {
                     do {
@@ -110,7 +110,7 @@ struct ContentView: View {
                     }
                 }
             }
-            Button("Ignore", role: .cancel) {
+            Button(L.t(AppLocalizationKey.locIgnore), role: .cancel) {
                 appState.projectIntegrityAlert = nil
             }
         } message: { alert in

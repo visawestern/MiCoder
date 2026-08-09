@@ -29,7 +29,7 @@ struct NewProjectSheet: View {
                 Text(L.t(AppLocalizationKey.locProjectName))
                     .interfaceFont(size: 12, weight: .medium)
                     .foregroundColor(Color.mimo.textSecondary)
-                TextField("My Project", text: $projectName)
+                TextField(L.t(AppLocalizationKey.locMyProject), text: $projectName)
                     .zcodeTextFieldStyle()
                     .interfaceFont(size: 13)
             }
@@ -59,7 +59,7 @@ struct NewProjectSheet: View {
             
             // Actions
             HStack {
-                Button("Cancel") {
+                Button(L.t(AppLocalizationKey.locCancel)) {
                     dismiss()
                 }
                 .interfaceFont(size: 13)

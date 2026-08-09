@@ -772,7 +772,7 @@ struct ElementDetailSheet: View {
             .cornerRadius(8)
 
             HStack {
-                Button("Cancel", role: .cancel) { dismiss() }
+                Button(L.t(AppLocalizationKey.locCancel), role: .cancel) { dismiss() }
                 Spacer()
                 Button("Use as Model Selector") {
                     onApply(element.selector)

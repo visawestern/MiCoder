@@ -254,7 +254,7 @@ struct ImagePreviewSheet: View {
             VStack {
                 Text(L.t(AppLocalizationKey.locCannotPreviewImage))
                     .foregroundColor(Color.mimo.textMuted)
-                Button("Close") { onDismiss() }
+                Button(L.t(AppLocalizationKey.locClose)) { onDismiss() }
                     .buttonStyle(.plain)
                     .foregroundColor(Color.mimo.brand)
             }

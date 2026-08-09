@@ -440,9 +440,9 @@ struct GitPanelView: View {
             )
             .padding(.horizontal, 16)
             .alert("Create New Branch", isPresented: $showBranchCreation) {
-                TextField("Branch name", text: $newBranchName)
-                Button("Create") { createBranch() }
-                Button("Cancel", role: .cancel) { newBranchName = "" }
+                TextField(L.t(AppLocalizationKey.locBranchName), text: $newBranchName)
+                Button(L.t(AppLocalizationKey.locCreate)) { createBranch() }
+                Button(L.t(AppLocalizationKey.locCancel), role: .cancel) { newBranchName = "" }
             } message: {
                 Text("Enter a name for the new branch. Current branch: \(appState.gitBranch)")
             }
