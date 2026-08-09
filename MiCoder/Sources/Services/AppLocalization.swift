@@ -513,6 +513,12 @@ enum AppLocalizationKey: String, CaseIterable {
     case locNoVariants
     case locSearchWorkspaces
     case locSelectWorkspace
+    case locPlanModeUnavailable
+    case locProvider
+    case locModelParameters
+    case locParametersFor
+    case locStopGeneration
+    case locSendMessage
     case locWebNoModels
     case locGenerationStopped
     case locTaskCompletedMessage
@@ -1113,7 +1119,13 @@ enum AppLocalization {
         "locNoVariants": ["en": "No variants available", "ru": "Нет доступных вариантов", "es": "No hay variantes disponibles", "fr": "Aucune variante disponible", "de": "Keine Varianten verfügbar", "zh": "没有可用的变体", "ja": "バリアントがありません", "ko": "사용 가능한 변형 없음", "pt": "Nenhuma variante disponível", "ar": "لا توجد متغيرات متاحة"],
         "locSearchWorkspaces": ["en": "Search workspaces", "ru": "Поиск рабочих областей", "es": "Buscar espacios de trabajo", "fr": "Rechercher des espaces de travail", "de": "Arbeitsbereiche suchen", "zh": "搜索工作区", "ja": "ワークスペースを検索", "ko": "작업 공간 검색", "pt": "Pesquisar espaços de trabalho", "ar": "البحث عن مساحات العمل"],
         "locSelectWorkspace": ["en": "Select workspace", "ru": "Выберите рабочую область", "es": "Seleccionar espacio de trabajo", "fr": "Sélectionner un espace de travail", "de": "Arbeitsbereich auswählen", "zh": "选择工作区", "ja": "ワークスペースを選択", "ko": "작업 공간 선택", "pt": "Selecionar espaço de trabalho", "ar": "حدد مساحة العمل"],
-        "locWebNoModels": ["en": "No models found on page", "ru": "Модели не найдены на странице", "es": "No se encontraron modelos", "fr": "Aucun modèle trouvé", "de": "Keine Modelle gefunden", "zh": "页面中未找到模型", "ja": "ページにモデルが見つかりません", "ko": "페이지에서 모델을 찾을 수 없음", "pt": "Nenhum modelo encontrado", "ar": "لم يتم العثور على نماذج"],
+                "locPlanModeUnavailable": ["en": "Plan mode is unavailable for the selected provider/model.", "ru": "Режим планирования недоступен для выбранного провайдера/модели.", "es": "El modo de planificación no está disponible para el proveedor/modelo seleccionado.", "fr": "Le mode planification n'est pas disponible pour le fournisseur/modèle sélectionné.", "de": "Planmodus ist für den gewählten Anbieter/Modell nicht verfügbar.", "zh": "计划模式对所选提供商/模型不可用。", "ja": "選択したプロバイダー/モデルでは計画モードは利用できません。", "ko": "선택한 공급자/모델에 대해 계획 모드를 사용할 수 없습니다.", "pt": "O modo de planejamento não está disponível para o provedor/modelo selecionado.", "ar": "وضع التخطيط غير متوفر للموفر/النموذج المحدد."],
+        "locProvider": ["en": "Provider", "ru": "Провайдер", "es": "Proveedor", "fr": "Fournisseur", "de": "Anbieter", "zh": "提供商", "ja": "プロバイダー", "ko": "공급자", "pt": "Provedor", "ar": "الموفر"],
+        "locModelParameters": ["en": "Model parameters", "ru": "Параметры модели", "es": "Parámetros del modelo", "fr": "Paramètres du modèle", "de": "Modellparameter", "zh": "模型参数", "ja": "モデルパラメータ", "ko": "모델 매개변수", "pt": "Parâmetros do modelo", "ar": "معلمات النموذج"],
+        "locParametersFor": ["en": "Parameters", "ru": "Параметры", "es": "Parámetros", "fr": "Paramètres", "de": "Parameter", "zh": "参数", "ja": "パラメータ", "ko": "매개변수", "pt": "Parâmetros", "ar": "المعلمات"],
+        "locStopGeneration": ["en": "Stop generation", "ru": "Остановить генерацию", "es": "Detener generación", "fr": "Arrêter la génération", "de": "Generierung stoppen", "zh": "停止生成", "ja": "生成を停止", "ko": "생성 중지", "pt": "Parar geração", "ar": "إيقاف التوليد"],
+        "locSendMessage": ["en": "Send message", "ru": "Отправить сообщение", "es": "Enviar mensaje", "fr": "Envoyer le message", "de": "Nachricht senden", "zh": "发送消息", "ja": "メッセージを送信", "ko": "메시지 보내기", "pt": "Enviar mensagem", "ar": "إرسال الرسالة"],
+"locWebNoModels": ["en": "No models found on page", "ru": "Модели не найдены на странице", "es": "No se encontraron modelos", "fr": "Aucun modèle trouvé", "de": "Keine Modelle gefunden", "zh": "页面中未找到模型", "ja": "ページにモデルが見つかりません", "ko": "페이지에서 모델을 찾을 수 없음", "pt": "Nenhum modelo encontrado", "ar": "لم يتم العثور على نماذج"],
 
         "locGenerationStopped": ["en": "Generation stopped", "ru": "Генерация остановлена", "es": "Generación detenida", "fr": "Génération arrêtée", "de": "Generierung gestoppt", "zh": "生成已停止", "ja": "生成が停止しました", "ko": "생성 중지됨", "pt": "Geração parada", "ar": "تم إيقاف التوليد"],
         "locTaskCompletedMessage": ["en": "Task completed", "ru": "Задача выполнена", "es": "Tarea completada", "fr": "Tâche terminée", "de": "Aufgabe abgeschlossen", "zh": "任务完成", "ja": "タスクが完了しました", "ko": "작업 완료", "pt": "Tarefa concluída", "ar": "اكتملت المهمة"],

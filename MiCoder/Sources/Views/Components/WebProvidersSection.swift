@@ -671,6 +671,7 @@ struct ElementPickerOverlay: View {
             if (window.__mimoPickerActive) return;
             window.__mimoPickerActive = true;
             window.__mimoPickedElement = null;
+            window.__mimoPickingLocked = false;  // true once user clicks
 
             let overlay = null;
             let highlighted = null;
@@ -680,7 +681,7 @@ struct ElementPickerOverlay: View {
                 let rect = el.getBoundingClientRect();
                 overlay = document.createElement('div');
                 overlay.__mimoPicker = true;
-                overlay.style.cssText = 'position:fixed;z-index:999999;border:2px solid #007AFF;background:rgba(0,122,255,0.15);pointer-events:none;top:' + rect.top + 'px;left:' + rect.left + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;border-radius:4px;transition:all 0.1s;';
+                overlay.style.cssText = 'position:fixed;z-index:999999;border:3px solid #007AFF;background:rgba(0,122,255,0.2);pointer-events:none;top:' + rect.top + 'px;left:' + rect.left + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;border-radius:6px;box-shadow:0 0 8px rgba(0,122,255,0.5);';
                 document.body.appendChild(overlay);
             }
 
@@ -688,14 +689,13 @@ struct ElementPickerOverlay: View {
                 if (overlay) { overlay.remove(); overlay = null; }
             }
 
-            // Mouseover to highlight
+            // Mouseover to highlight (only when not locked)
             document.addEventListener('mouseover', function(e) {
-                if (!window.__mimoPickerActive) return;
-                // Walk up to find a meaningful element
+                if (!window.__mimoPickerActive || window.__mimoPickingLocked) return;
                 let target = e.target;
                 while (target && target !== document.body) {
                     if (target.__mimoPicker) return;
-                    if (target.tagName && !['HTML','HEAD','BODY','SCRIPT','STYLE','META','LINK'].includes(target.tagName)) {
+                    if (target.tagName && !['HTML','HEAD','BODY','SCRIPT','STYLE','META','LINK','#DOCUMENT'].includes(target.tagName)) {
                         highlighted = target;
                         makeOverlay(target);
                         return;
@@ -704,7 +704,23 @@ struct ElementPickerOverlay: View {
                 }
             }, true);
 
-            // Click to select — stop everything
+            // mousedown to LOCK the selection (before click handlers fire)
+            document.addEventListener('mousedown', function(e) {
+                if (!window.__mimoPickerActive || window.__mimoPickingLocked) return;
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                window.__mimoPickingLocked = true;
+                // Lock overlay in place — turn green
+                if (overlay) {
+                    overlay.style.borderColor = '#34C759';
+                    overlay.style.background = 'rgba(52,199,89,0.2)';
+                    overlay.style.boxShadow = '0 0 8px rgba(52,199,89,0.5)';
+                }
+                return false;
+            }, true);
+
+            // click to confirm the LOCKED element
             function handlePick(e) {
                 if (!window.__mimoPickerActive) return;
                 e.preventDefault();
@@ -716,31 +732,23 @@ struct ElementPickerOverlay: View {
                     let cls = (highlighted.className && typeof highlighted.className === 'string') ? highlighted.className : '';
                     let tag = highlighted.tagName ? highlighted.tagName.toLowerCase() : 'div';
 
-                    // Build a stable selector
                     let sel = '';
                     if (highlighted.id) {
                         sel = '#' + highlighted.id;
                     } else if (cls && cls.length < 120) {
                         let parts = cls.trim().split(/\\s+/).filter(s => s.length > 0 && s.length < 40).slice(0, 3);
-                        let cleanParts = parts.map(s => {
-                            return '.' + s.replace(/[^a-zA-Z0-9_-]/g, function(m) { return '\\\\' + m; });
-                        });
+                        let cleanParts = parts.map(s => '.' + s.replace(/[^a-zA-Z0-9_-]/g, m => '\\\\' + m));
                         sel = tag + cleanParts.join('');
                         if (cleanParts.length === 0) sel = tag;
                     } else {
                         sel = tag;
                     }
 
-                    window.__mimoPickedElement = {
-                        selector: sel,
-                        text: text.substring(0, 200),
-                        tag: tag,
-                        className: cls.substring(0, 100)
-                    };
+                    window.__mimoPickedElement = { selector: sel, text: text.substring(0, 200), tag: tag, className: cls.substring(0, 100) };
                     window.__mimoPickerActive = false;
                     clearOverlay();
-                    // Remove this listener after pick
                     document.removeEventListener('click', handlePick, true);
+                    document.removeEventListener('mousedown', arguments.callee, true);
                 }
                 return false;
             }
