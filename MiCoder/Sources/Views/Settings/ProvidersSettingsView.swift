@@ -11,8 +11,6 @@ struct UnifiedProvidersView: View {
             LocalProvidersSection()
             Divider().background(Color.mimo.border)
             WebProvidersSection()
-            Divider().background(Color.mimo.border)
-            ProvidersSettingsView()
         }
     }
 }
