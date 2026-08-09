@@ -36,9 +36,19 @@ enum MiCoderLogoLoader {
     static var resourceBundle: Bundle = .main
 
     static var image: NSImage? {
+        // Try SVG via CoreVector / PDF representation for crisp rendering
         guard let url = resourceBundle.url(forResource: resourceName, withExtension: "svg") else {
             return NSImage(named: NSImage.Name(resourceName))
         }
-        return NSImage(contentsOf: url)
+        // NSImage(contentsOf:) for SVG may return nil on macOS without QuickLook —
+        // render via Core Graphics for reliability.
+        guard let data = try? Data(contentsOf: url),
+              let provider = CGDataProvider(data: data as CFData),
+              let cgImage = CGImage(pngDataProviderSource: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent) else {
+            // Fallback: try NSImage anyway
+            return NSImage(contentsOf: url)
+        }
+        let size = NSSize(width: cgImage.width, height: cgImage.height)
+        return NSImage(cgImage: cgImage, size: size)
     }
 }
