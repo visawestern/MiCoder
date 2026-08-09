@@ -416,20 +416,132 @@ struct WebProviderLoginView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var webView = WKWebView()
 
+    @State private var detectResult: DetectResult?
+    @State private var capturedCookies: [BrowserCookie] = []
+
+    enum DetectResult: Identifiable {
+        case detecting, found([String]), failed(String)
+        var id: String {
+            switch self {
+            case .detecting: return "detecting"
+            case .found(let m): return "found-\(m.count)"
+            case .failed(let e): return "failed-\(e)"
+            }
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Log in to \(config.displayName)")
+            // Compact header bar (Apple Design style) — shows real config status
+            HStack(spacing: 8) {
+                Text("\(L.t(AppLocalizationKey.locWebLoginTitle)) \(config.displayName)")
                     .interfaceFont(size: 13, weight: .semibold)
+                    .foregroundColor(Color.mimo.textPrimary)
+
                 Spacer()
-                Button("Capture session & close") { capture() }
-                    .interfaceFont(size: 12)
+
+                // Live status: cookies + detected models count
+                if !capturedCookies.isEmpty {
+                    Label("\(capturedCookies.count) cookies", systemImage: "lock.fill")
+                        .interfaceFont(size: 10).foregroundColor(Color.mimo.success)
+                } else {
+                    Label("Not configured", systemImage: "exclamationmark.circle")
+                        .interfaceFont(size: 10).foregroundColor(Color.mimo.warning)
+                }
+
+                // Detect models button (ublock-style)
+                Button(action: detectModelsFromPage) {
+                    HStack(spacing: 4) {
+                        if case .detecting = detectResult {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "square.grid.2x2")
+                        }
+                        Text(L.t(AppLocalizationKey.locWebDetectModels))
+                    }
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.brand)
+                }
+                .buttonStyle(.plain)
+                .help(L.t(AppLocalizationKey.locWebDetectModelsHelp))
+
+                Button(L.t(AppLocalizationKey.locWebCaptureSession)) { capture() }
+                    .interfaceFont(size: 11)
+                    .foregroundColor(capturedCookies.isEmpty ? Color.mimo.brand : Color.mimo.success)
             }
-            .padding(10)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+
+            // Inline detection result (compact, doesn't block the view)
+            if let result = detectResult {
+                detectionStatusBar(result)
+            }
+
             Divider()
             WebViewRepresentable(webView: webView, url: config.chatURL)
         }
         .frame(width: 900, height: 640)
+        .task(id: config.id) {
+            // Pre-load existing cookies to show real status
+            if let store = WebSessionManager.restore(providerId: config.id, homeDirectory: FileManager.default.homeDirectoryForCurrentUser) {
+                capturedCookies = store.cookies
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func detectionStatusBar(_ result: DetectResult) -> some View {
+        HStack(spacing: 6) {
+            switch result {
+            case .detecting:
+                ProgressView().controlSize(.mini)
+                Text(L.t(AppLocalizationKey.locWebDetecting)).interfaceFont(size: 10)
+            case .found(let models):
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(Color.mimo.success)
+                Text("\(models.count) \(L.t(AppLocalizationKey.locWebModelsFound))")
+                    .interfaceFont(size: 10).foregroundColor(Color.mimo.textSecondary)
+                ForEach(models.prefix(3), id: \.self) { m in
+                    Text(m).interfaceFont(size: 9)
+                        .padding(.horizontal, 4).padding(.vertical, 1)
+                        .background(Color.mimo.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                if models.count > 3 {
+                    Text("+\(models.count - 3)").interfaceFont(size: 9)
+                        .foregroundColor(Color.mimo.textMuted)
+                }
+            case .failed(let err):
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(Color.mimo.warning)
+                Text(err).interfaceFont(size: 10).foregroundColor(Color.mimo.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(Color.mimo.surface)
+    }
+
+    private func detectModelsFromPage() {
+        Task {
+            await MainActor.run { detectResult = .detecting }
+            let bridge = WKWebViewBrowserBridge(webView: webView, selectors: WebVendorSelectors(input: "", sendButton: "", responseContainer: "", stopButton: ""))
+            let dropdownSelector = (try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id))?.modelDropdown ?? ""
+            if dropdownSelector.isEmpty {
+                await MainActor.run { detectResult = .failed(L.t(AppLocalizationKey.locWebNoSelector)) }
+                return
+            }
+            // Wait for full page hydration (up to 10s)
+            for _ in 0..<40 {
+                if (try? await bridge.exists(selector: dropdownSelector)) == true { break }
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+            let models = await WebModelDiscovery.discover(using: bridge, dropdownSelector: dropdownSelector, vendor: config.vendor) ?? []
+            await MainActor.run {
+                detectResult = models.isEmpty ? .failed(L.t(AppLocalizationKey.locWebNoModels)) : .found(models)
+            }
+        }
     }
 
     private func capture() {
@@ -439,6 +551,7 @@ struct WebProviderLoginView: View {
                               expiresEpoch: $0.expiresDate?.timeIntervalSince1970,
                               httpOnly: $0.isHTTPOnly, secure: $0.isSecure)
             }
+            capturedCookies = mapped  // Update UI immediately
             onCookies(mapped)
             dismiss()
         }

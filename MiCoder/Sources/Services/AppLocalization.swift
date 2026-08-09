@@ -495,6 +495,14 @@ enum AppLocalizationKey: String, CaseIterable {
     case locToolResultFixOn
     case locToolResultFixOff
     case locConnectionSuccess
+    case locWebLoginTitle
+    case locWebDetectModels
+    case locWebDetectModelsHelp
+    case locWebCaptureSession
+    case locWebDetecting
+    case locWebModelsFound
+    case locWebNoSelector
+    case locWebNoModels
     case locConnectionFailed
     case locRequiresAPIKey
     case locEnableToolCalling
@@ -1045,6 +1053,14 @@ enum AppLocalization {
         "locToolResultFixOn": ["en": "Tool result fix: ON", "ru": "Исправление результата инструмента: ВКЛ", "es": "Corrección de resultado de herramienta: ON", "fr": "Correction du résultat d'outil : ON", "de": "Tool-Ergebnis-Fix: EIN", "zh": "工具结果修复：开", "ja": "ツール結果修正：ON", "ko": "도구 결과 수정: 켜기", "pt": "Correção do resultado da ferramenta: ON", "ar": "إصلاح نتيجة الأداة: تشغيل"],
         "locToolResultFixOff": ["en": "Tool result fix: OFF", "ru": "Исправление результата инструмента: ВЫКЛ", "es": "Corrección de resultado de herramienta: OFF", "fr": "Correction du résultat d'outil : OFF", "de": "Tool-Ergebnis-Fix: AUS", "zh": "工具结果修复：关", "ja": "ツール結果修正：OFF", "ko": "도구 결과 수정: 끄기", "pt": "Correção do resultado da ferramenta: OFF", "ar": "إصلاح نتيجة الأداة: إيقاف"],
         "locConnectionSuccess": ["en": "Success! Provider is reachable.", "ru": "Успех! Провайдер доступен.", "es": "¡Éxito! El proveedor es accesible.", "fr": "Succès ! Le fournisseur est accessible.", "de": "Erfolg! Anbieter ist erreichbar.", "zh": "成功！提供商可达。", "ja": "成功！プロバイダーにアクセスできます。", "ko": "성공! 공급자에 연결할 수 있습니다.", "pt": "Sucesso! O provedor está acessível.", "ar": "نجح! المزود قابل للوصول."],
+        "locWebLoginTitle": ["en": "Log in to", "ru": "Войти в", "es": "Iniciar sesión en", "fr": "Se connecter à", "de": "Anmelden bei", "zh": "登录", "ja": "ログイン", "ko": "로그인", "pt": "Entrar em", "ar": "تسجيل الدخول إلى"],
+        "locWebDetectModels": ["en": "Detect models", "ru": "Определить модели", "es": "Detectar modelos", "fr": "Détecter les modèles", "de": "Modelle erkennen", "zh": "检测模型", "ja": "モデルを検出", "ko": "모델 감지", "pt": "Detectar modelos", "ar": "اكتشاف النماذج"],
+        "locWebDetectModelsHelp": ["en": "Auto-detect available models from the page", "ru": "Автоопределение моделей со страницы", "es": "Auto-detectar modelos de la página", "fr": "Auto-détecter les modèles de la página", "de": "Modelle automatisch von der Seite erkennen", "zh": "从页面自动检测模型", "ja": "ページからモデルを自動検出", "ko": "페이지에서 모델 자동 감지", "pt": "Auto-detectar modelos da página", "ar": "اكتشاف النماذج تلقائيًا من الصفحة"],
+        "locWebCaptureSession": ["en": "Capture session & close", "ru": "Захватить сессию и закрыть", "es": "Capturar sesión y cerrar", "fr": "Capturer la session et fermer", "de": "Sitzung erfassen & schließen", "zh": "捕获会话并关闭", "ja": "セッションをキャプチャして閉じる", "ko": "세션 캡처 및 닫기", "pt": "Capturar sessão e fechar", "ar": "التقاط الجلسة وإغلاقها"],
+        "locWebDetecting": ["en": "Detecting models...", "ru": "Определение моделей...", "es": "Detectando modelos...", "fr": "Détection des modèles...", "de": "Modelle werden erkannt...", "zh": "正在检测模型...", "ja": "モデルを検出中...", "ko": "모델 감지 중...", "pt": "Detectando modelos...", "ar": "جارٍ اكتشاف النماذج..."],
+        "locWebModelsFound": ["en": "models found", "ru": "моделей найдено", "es": "modelos encontrados", "fr": "modèles trouvés", "de": "Modelle gefunden", "zh": "个模型已找到", "ja": "モデルが見つかりました", "ko": "모델 발견", "pt": "modelos encontrados", "ar": "نماذج تم العثور عليها"],
+        "locWebNoSelector": ["en": "No model selector configured for this vendor", "ru": "Селектор моделей не настроен", "es": "Selector de modelos no configurado", "fr": "Sélecteur de modèles non configuré", "de": "Modellauswahl nicht konfiguriert", "zh": "未配置模型选择器", "ja": "モデルセレクター未設定", "ko": "모델 선택기가 구성되지 않음", "pt": "Seletor de modelos não configurado", "ar": "لم يتم تكوين محدد النماذج"],
+        "locWebNoModels": ["en": "No models found on page", "ru": "Модели не найдены на странице", "es": "No se encontraron modelos", "fr": "Aucun modèle trouvé", "de": "Keine Modelle gefunden", "zh": "页面中未找到模型", "ja": "ページにモデルが見つかりません", "ko": "페이지에서 모델을 찾을 수 없음", "pt": "Nenhum modelo encontrado", "ar": "لم يتم العثور على نماذج"],
         "locConnectionFailed": ["en": "Failed to connect. Check URL and credentials.", "ru": "Не удалось подключиться. Проверьте URL и учетные данные.", "es": "Error al conectar. Compruebe URL y credenciales.", "fr": "Échec de la connexion. Vérifiez l'URL et les identifiants.", "de": "Verbindung fehlgeschlagen. URL und Anmeldedaten prüfen.", "zh": "连接失败。请检查 URL 和凭据。", "ja": "接続に失敗しました。URLと認証情報を確認してください。", "ko": "연결 실패. URL과 자격 증명을 확인하세요.", "pt": "Falha na ligação. Verifique o URL e as credenciais.", "ar": "فشل الاتصال. تحقق من عنوان URL وبيانات الاعتماد."],
         "locRequiresAPIKey": ["en": "Requires API Key", "ru": "Требуется API-ключ", "es": "Requiere clave API", "fr": "Nécessite une clé API", "de": "Erfordert API-Schlüssel", "zh": "需要 API 密钥", "ja": "APIキーが必要", "ko": "API 키 필요", "pt": "Requer chave API", "ar": "يتطلب مفتاح API"],
         "locEnableToolCalling": ["en": "Enable Tool Calling", "ru": "Включить вызов инструментов", "es": "Habilitar llamada a herramientas", "fr": "Activer l'appel d'outils", "de": "Tool-Aufruf aktivieren", "zh": "启用工具调用", "ja": "ツール呼び出しを有効化", "ko": "도구 호출 활성화", "pt": "Ativar chamada de ferramentas", "ar": "تفعيل استدعاء الأدوات"],
