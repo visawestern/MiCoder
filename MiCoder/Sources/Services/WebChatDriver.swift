@@ -197,14 +197,19 @@ struct WebChatDriver {
            let modelSelector = catalogEntry.modelDropdown.split(separator: ",").first.map(String.init) {
             do {
                 try await bridge.click(selector: modelSelector.trimmingCharacters(in: .whitespaces))
-                await bridge.wait(ms: 300)
+                // Wait for custom dropdown to open
+                try? await bridge.waitForSelector(selector: "div.model-item, [class*='model-item'], [role='option']", timeout: 5000)
+                await bridge.wait(ms: 500)
+
+                // Try to find and click the matching model
                 let modelText = config.selectedModel
-                let clicked = (try? await bridge.clickByText(selector: "[role='option'], [class*='option']", text: modelText)) ?? false
+                let itemSelector = catalogEntry.modelItem ?? "[role='option'], [class*='option']"
+                let clicked = (try? await bridge.clickByText(selector: itemSelector, text: modelText)) ?? false
                 if !clicked {
-                    // Fallback: try any element containing the model name.
+                    // Fallback: try any element containing the model name
                     _ = (try? await bridge.clickByText(selector: "li, div, span, button", text: modelText))
                 }
-                await bridge.wait(ms: 200)
+                await bridge.wait(ms: 300)
             } catch {
                 emit(.modelInjectionFailed("Could not set model: \(error.localizedDescription)"))
             }
@@ -215,16 +220,51 @@ struct WebChatDriver {
            let effortLabel = effortLabel(for: config.effort) {
             do {
                 try await bridge.click(selector: effortSelector.trimmingCharacters(in: .whitespaces))
-                await bridge.wait(ms: 300)
+                try? await bridge.waitForSelector(selector: "[class*='effort'], [class*='thinking'], [role='option']", timeout: 5000)
+                await bridge.wait(ms: 500)
                 let clicked = (try? await bridge.clickByText(selector: "[role='option'], [class*='option']", text: effortLabel)) ?? false
                 if !clicked {
                     _ = (try? await bridge.clickByText(selector: "li, div, span, button", text: effortLabel))
                 }
-                await bridge.wait(ms: 200)
+                await bridge.wait(ms: 300)
             } catch {
                 emit(.effortInjectionFailed("Could not set effort: \(error.localizedDescription)"))
             }
         }
+    }
+
+    /// Start a new chat session by clicking the "New Chat" button.
+    /// Returns the new chat URL or nil if could not determine.
+    func startNewSession() async throws -> String? {
+        guard let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id) else {
+            return nil
+        }
+
+        // Try each "New Chat" text variant until one works
+        let newChatTexts = catalogEntry.newChatTexts ?? ["New Chat", "Новый чат", "Начать", "新对话"]
+        for text in newChatTexts {
+            let clicked = (try? await bridge.clickByText(selector: "button, a, div", text: text)) ?? false
+            if clicked {
+                await bridge.wait(ms: 2000)
+                return try await bridge.currentURL()
+            }
+        }
+        return nil
+    }
+
+    /// Extract the chat ID/slug from the current URL.
+    func getCurrentChatID() async throws -> String? {
+        let url = try await bridge.currentURL()
+        // Kimi: /chat/{id}, Qwen: /chat/{id}, ChatGPT: /c/{id}
+        let patterns = ["/chat/", "/c/"]
+        for pattern in patterns {
+            if let range = url.range(of: pattern) {
+                let after = url[range.upperBound...]
+                let chatId = after.split(separator: "/").first.map(String.init) ?? String(after)
+                if !chatId.isEmpty { return chatId }
+            }
+        }
+        return nil
     }
 
     /// Map a WebEffort to a vendor-specific label for matching in the dropdown.

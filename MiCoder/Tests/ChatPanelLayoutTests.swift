@@ -38,11 +38,11 @@ struct ChatPanelLayoutTests {
         #expect(MiCoderLogoSpec.accentHex == "6EE7F2")
     }
 
-    @Test("Bundled MiCoder logo asset is available")
+    @Test("Bundled Mi logo asset is available")
     func bundledLogoAsset() {
-        MiCoderLogoLoader.resourceBundle = Bundle.module
-        #expect(MiCoderLogoLoader.image != nil)
-        #expect(MiCoderLogoLoader.resourceName == "MiCoderLogo")
+        // Logo should load from the SPM resource bundle at runtime
+        #expect(MiMoLogoLoader.resourceName == "MiLogo")
+        #expect(MiMoLogoLoader.image != nil)
     }
 
     @Test("ClipboardProvider reads NSImage pasteboard constructor")

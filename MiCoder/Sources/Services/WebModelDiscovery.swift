@@ -16,6 +16,9 @@ private struct WebVendorCatalogEntryDTO: Decodable {
     struct Selectors: Decodable {
         let modelDropdown: String?
         let effortDropdown: String?
+        let modelButton: String?
+        let modelItem: String?
+        let newChatTexts: [String]?
     }
 }
 
@@ -26,6 +29,9 @@ struct WebProviderCatalog {
         let id: String
         let modelDropdown: String
         let effortDropdown: String?
+        let modelButton: String?
+        let modelItem: String?
+        let newChatTexts: [String]?
     }
 
     private struct RootDTO: Decodable { let vendors: [WebVendorCatalogEntryDTO] }
@@ -47,7 +53,7 @@ struct WebProviderCatalog {
             let map: [String: VendorEntry] = Dictionary(uniqueKeysWithValues:
                 root.vendors.compactMap { dto in
                     guard let selector = dto.selectors.modelDropdown, !selector.isEmpty else { return nil }
-                    return (dto.id, VendorEntry(id: dto.id, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown))
+                    return (dto.id, VendorEntry(id: dto.id, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts))
                 })
             return WebProviderCatalog(entries: map)
         }
@@ -63,7 +69,7 @@ struct WebProviderCatalog {
             let map: [String: VendorEntry] = Dictionary(uniqueKeysWithValues:
                 root.vendors.compactMap { dto in
                     guard let selector = dto.selectors.modelDropdown, !selector.isEmpty else { return nil }
-                    return (dto.id, VendorEntry(id: dto.id, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown))
+                    return (dto.id, VendorEntry(id: dto.id, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts))
                 })
             return WebProviderCatalog(entries: map)
         }
@@ -89,20 +95,18 @@ enum WebModelDiscovery {
                         dropdownSelector: String,
                         vendor: WebChatVendor) async -> [String]? {
         do {
-            // Wait for the dropdown to be present on the page (up to 10s).
-            // Dynamic UIs may take time to hydrate after navigation.
-            var dropdownReady = false
+            // Wait for the model button to be present (up to 10s).
+            var modelBtnFound = false
             for _ in 0..<20 {
                 if (try? await bridge.exists(selector: dropdownSelector)) ?? false {
-                    dropdownReady = true
+                    modelBtnFound = true
                     break
                 }
                 await bridge.wait(ms: 500)
             }
 
-            // Fallback: if selector not found, try clicking "New Chat" to reveal it
-            if !dropdownReady {
-                // ClickByText signature: clickByText(selector:text:exactMatch:)
+            // Fallback: if selector not found, try clicking "New Chat" to enter chat mode
+            if !modelBtnFound {
                 let click1 = (try? await bridge.clickByText(selector: "button, a, div", text: "New Chat")) ?? false
                 let click2 = (try? await bridge.clickByText(selector: "button, a", text: "新对话")) ?? false
                 let click3 = (try? await bridge.click(selector: "[class*='new-chat']")) != nil
@@ -110,10 +114,9 @@ enum WebModelDiscovery {
                 let clicked = click1 || click2 || click3 || click4
                 if clicked {
                     await bridge.wait(ms: 2000)
-                    // Re-check after navigation
                     for _ in 0..<25 {
                         if (try? await bridge.exists(selector: dropdownSelector)) == true {
-                            dropdownReady = true
+                            modelBtnFound = true
                             break
                         }
                         await bridge.wait(ms: 300)
@@ -121,15 +124,21 @@ enum WebModelDiscovery {
                 }
             }
 
-            guard dropdownReady else { return nil }
+            guard modelBtnFound else { return nil }
 
-            // Open the dropdown first so dynamic UIs populate the options.
+            // Click to open the custom dropdown
             try await bridge.click(selector: dropdownSelector)
-            // Settle before reading (host-side; tests are instant).
-            await bridge.wait(ms: 500)
+            // Wait for dropdown items to appear (custom dropdown, not native select)
+            try? await bridge.waitForSelector(selector: "div.model-item", timeout: 5000)
+
+            // Read model names from the custom dropdown items
+            let models = try await bridge.readModelItems()
+            if !models.isEmpty { return models }
+
+            // Fallback: read raw text and parse
             let text = try await bridge.readText(selector: dropdownSelector)
-            let models = WebModelListParser.parse(dropdownText: text, vendor: vendor)
-            return models.isEmpty ? nil : models
+            let parsed = WebModelListParser.parse(dropdownText: text, vendor: vendor)
+            return parsed.isEmpty ? nil : parsed
         } catch {
             return nil
         }

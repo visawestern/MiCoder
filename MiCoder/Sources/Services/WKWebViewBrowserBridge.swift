@@ -163,6 +163,36 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         return (try? await eval(js)) as? String ?? ""
     }
 
+    /// Wait for a selector to appear in the DOM (up to timeoutMs).
+    func waitForSelector(selector: String, timeout: Int = 5000) async throws {
+        let deadline = Date().addingTimeInterval(Double(timeout) / 1000.0)
+        while Date() < deadline {
+            if (try? await exists(selector: selector)) == true { return }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+    }
+
+    /// Read model names from a custom dropdown (e.g. Kimi's div.model-item).
+    func readModelItems() async throws -> [String] {
+        let js = """
+        (function(){
+          var items = document.querySelectorAll('div.model-item');
+          var result = [];
+          for (var i = 0; i < items.length; i++) {
+            var nameEl = items[i].querySelector('span.name');
+            if (nameEl && nameEl.textContent.trim()) {
+              result.push(nameEl.textContent.trim());
+            }
+          }
+          return JSON.stringify(result);
+        })();
+        """
+        guard let json = (try? await eval(js)) as? String,
+              let data = json.data(using: .utf8),
+              let arr = try? JSONSerialization.jsonObject(with: data) as? [String] else { return [] }
+        return arr
+    }
+
 
 
     func pageText() async throws -> String {

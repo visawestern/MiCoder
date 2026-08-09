@@ -30,6 +30,10 @@ protocol BrowserAutomationBridge {
     func screenshot(selector: String?) async throws -> Data
     /// Sleep for the given milliseconds (host-controlled so tests are instant).
     func wait(ms: Int) async
+    /// Wait for a selector to appear in the DOM (up to timeoutMs).
+    func waitForSelector(selector: String, timeout: Int) async throws
+    /// Read model names from a custom dropdown (e.g. Kimi's div.model-item).
+    func readModelItems() async throws -> [String]
 }
 
 extension BrowserAutomationBridge {
@@ -38,6 +42,18 @@ extension BrowserAutomationBridge {
         try await click(selector: selector)
         return true
     }
+
+    /// Default: poll exists() until timeout.
+    func waitForSelector(selector: String, timeout: Int = 5000) async throws {
+        let deadline = Date().addingTimeInterval(Double(timeout) / 1000.0)
+        while Date() < deadline {
+            if try await exists(selector: selector) { return }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+        }
+    }
+
+    /// Default: empty list (test fakes override).
+    func readModelItems() async throws -> [String] { [] }
 }
 
 struct BrowserCookie: Codable, Equatable {
