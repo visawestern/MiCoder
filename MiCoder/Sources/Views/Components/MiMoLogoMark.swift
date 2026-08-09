@@ -23,7 +23,7 @@ struct MiMoLogoMark: View {
 }
 
 enum MiMoLogoLoader {
-    static let resourceName = "MiLogo"
+    static let resourceName = "Logo"
 
     /// The bundle used to locate resource files.
     ///
@@ -48,11 +48,15 @@ enum MiMoLogoLoader {
 
     static var image: NSImage? {
         let bundle = resourceBundle
-        guard let url = bundle.url(forResource: resourceName, withExtension: "png") else {
-            // Last resort: try NSImage(named:)
-            return NSImage(named: NSImage.Name(resourceName))
+        // Prefer PNG (orange MI logo), fall back to SVG
+        if let url = bundle.url(forResource: resourceName, withExtension: "png") {
+            return NSImage(contentsOf: url)
         }
-        return NSImage(contentsOf: url)
+        if let url = bundle.url(forResource: resourceName, withExtension: "svg") {
+            return NSImage(contentsOf: url)
+        }
+        // Last resort: try NSImage(named:)
+        return NSImage(named: NSImage.Name(resourceName))
     }
 }
 
