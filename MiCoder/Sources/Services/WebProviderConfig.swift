@@ -86,6 +86,9 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
     /// CSS/XPath selector for the effort/thinking/reasoning dropdown (plan Раздел 13 п.4).
     /// If present, the driver will use this to discover/change effort levels.
     var effortDropdown: String?
+    /// User-picked CSS selector for the model dropdown (element picker).
+    /// Overrides catalog selector when set.
+    var customModelSelector: String?
 
     init(id: String = UUID().uuidString,
          vendor: WebChatVendor,
@@ -104,7 +107,8 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
          acknowledgedToS: Bool = false,
          discoveredModels: [String] = [],
          discoveredEffortLevels: [WebEffort] = [],
-         effortDropdown: String? = nil) {
+         effortDropdown: String? = nil,
+         customModelSelector: String? = nil) {
         self.id = id
         self.vendor = vendor
         self.displayName = displayName ?? vendor.displayName
@@ -123,6 +127,7 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
         self.discoveredModels = discoveredModels
         self.discoveredEffortLevels = discoveredEffortLevels
         self.effortDropdown = effortDropdown
+        self.customModelSelector = customModelSelector
     }
 
     /// A web provider is usable only when the user has acknowledged the ToS

@@ -418,6 +418,8 @@ struct WebProviderLoginView: View {
 
     @State private var detectResult: DetectResult?
     @State private var capturedCookies: [BrowserCookie] = []
+    @State private var showElementPicker = false
+    @State private var pickedElement: PickedElement?
 
     enum DetectResult: Identifiable {
         case detecting, found([String]), failed(String)
@@ -428,6 +430,14 @@ struct WebProviderLoginView: View {
             case .failed(let e): return "failed-\(e)"
             }
         }
+    }
+
+    struct PickedElement: Identifiable {
+        let id = UUID()
+        let selector: String
+        let text: String
+        let tag: String
+        let className: String
     }
 
     var body: some View {
@@ -449,7 +459,16 @@ struct WebProviderLoginView: View {
                         .interfaceFont(size: 10).foregroundColor(Color.mimo.warning)
                 }
 
-                // Detect models button (ublock-style)
+                // Element picker (ublock-style) — pick any DOM element
+                Button(action: { showElementPicker.toggle() }) {
+                    Image(systemName: showElementPicker ? "viewfinder.circle.fill" : "viewfinder")
+                        .interfaceFont(size: 14)
+                        .foregroundColor(showElementPicker ? Color.mimo.success : Color.mimo.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .help("Pick an element on the page to use as model selector")
+
+                // Detect models button
                 Button(action: detectModelsFromPage) {
                     HStack(spacing: 4) {
                         if case .detecting = detectResult {
@@ -478,7 +497,12 @@ struct WebProviderLoginView: View {
             }
 
             Divider()
-            WebViewRepresentable(webView: webView, url: config.chatURL)
+            ZStack {
+                WebViewRepresentable(webView: webView, url: config.chatURL)
+                if showElementPicker {
+                    ElementPickerOverlay(webView: webView, pickedElement: $pickedElement, isShowing: $showElementPicker)
+                }
+            }
         }
         .frame(width: 900, height: 640)
         .task(id: config.id) {
@@ -486,6 +510,15 @@ struct WebProviderLoginView: View {
             if let store = WebSessionManager.restore(providerId: config.id, homeDirectory: FileManager.default.homeDirectoryForCurrentUser) {
                 capturedCookies = store.cookies
             }
+        }
+        .sheet(item: $pickedElement) { element in
+            ElementDetailSheet(element: element, config: config, onApply: { selector in
+                // Apply picked selector as model dropdown
+                var updated = config
+                updated.customModelSelector = selector
+                let _ = WebProviderStore.upsert(updated, in: WebProviderStore.load())
+                WebProviderStore.save(WebProviderStore.load())
+            })
         }
     }
 
@@ -527,7 +560,10 @@ struct WebProviderLoginView: View {
         Task {
             await MainActor.run { detectResult = .detecting }
             let bridge = WKWebViewBrowserBridge(webView: webView, selectors: WebVendorSelectors(input: "", sendButton: "", responseContainer: "", stopButton: ""))
-            let dropdownSelector = (try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id))?.modelDropdown ?? ""
+            // Prefer user-picked selector, then catalog, then empty
+            let dropdownSelector = config.customModelSelector
+                ?? (try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id))?.modelDropdown
+                ?? ""
             if dropdownSelector.isEmpty {
                 await MainActor.run { detectResult = .failed(L.t(AppLocalizationKey.locWebNoSelector)) }
                 return
@@ -567,4 +603,140 @@ struct WebViewRepresentable: NSViewRepresentable {
         return webView
     }
     func updateNSView(_ nsView: WKWebView, context: Context) {}
+}
+
+// MARK: - Element Picker (uBlock-style DOM inspector)
+
+struct ElementPickerOverlay: View {
+    let webView: WKWebView
+    @Binding var pickedElement: WebProviderLoginView.PickedElement?
+    @Binding var isShowing: Bool
+
+    var body: some View {
+        // Invisible overlay — handles click-through to activate JS
+        Color.clear
+            .contentShape(Rectangle())
+            .onAppear { injectPickerScript() }
+            .onDisappear { removePickerScript() }
+    }
+
+    private func injectPickerScript() {
+        let script = """
+        (function() {
+            if (window.__mimoPickerActive) return;
+            window.__mimoPickerActive = true;
+            window.__mimoPickedElement = null;
+
+            let overlay = null;
+            let highlighted = null;
+
+            function makeOverlay(el) {
+                if (overlay) overlay.remove();
+                let rect = el.getBoundingClientRect();
+                overlay = document.createElement('div');
+                overlay.__mimoPicker = true;
+                overlay.style.cssText = 'position:fixed;z-index:999999;border:2px solid #007AFF;background:rgba(0,122,255,0.15);pointer-events:none;top:' + rect.top + 'px;left:' + rect.left + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;border-radius:4px;';
+                document.body.appendChild(overlay);
+            }
+
+            function clearOverlay() {
+                if (overlay) { overlay.remove(); overlay = null; }
+            }
+
+            document.addEventListener('mouseover', function(e) {
+                if (!window.__mimoPickerActive) return;
+                let target = e.target.closest('[class],button,a,select,[role="button"],[role="listbox"],[role="combobox"],div,span');
+                if (!target) return;
+                if (target.__mimoPicker) return;
+                highlighted = target;
+                makeOverlay(target);
+            }, true);
+
+            document.addEventListener('click', function(e) {
+                if (!window.__mimoPickerActive) return;
+                e.preventDefault();
+                e.stopPropagation();
+                if (highlighted) {
+                    let text = highlighted.innerText || highlighted.textContent || '';
+                    let cls = highlighted.className || '';
+                    let tag = highlighted.tagName.toLowerCase();
+                    // Build a stable selector
+                    let sel = '';
+                    if (highlighted.id) sel = '#' + highlighted.id;
+                    else if (cls && typeof cls === 'string' && cls.length < 80) {
+                        let c = cls.trim().split(/\\s+/).slice(0,3).map(s => '.' + s.replace(/[^a-zA-Z0-9_-]/g, '\\\\$&')).join('');
+                        sel = tag + c;
+                    } else {
+                        sel = tag;
+                    }
+                    window.__mimoPickedElement = { selector: sel, text: text.substring(0, 200), tag: tag, className: cls.substring(0, 100) };
+                    window.__mimoPickerActive = false;
+                    clearOverlay();
+                }
+                return false;
+            }, true);
+        })();
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    private func removePickerScript() {
+        webView.evaluateJavaScript("window.__mimoPickerActive = false;", completionHandler: nil)
+        // Read picked element
+        webView.evaluateJavaScript("JSON.stringify(window.__mimoPickedElement || {})") { result, _ in
+            if let json = result as? String,
+               let data = json.data(using: .utf8),
+               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let selector = dict["selector"] as? String, !selector.isEmpty {
+                let element = WebProviderLoginView.PickedElement(
+                    selector: selector,
+                    text: dict["text"] as? String ?? "",
+                    tag: dict["tag"] as? String ?? "",
+                    className: dict["className"] as? String ?? ""
+                )
+                DispatchQueue.main.async {
+                    self.pickedElement = element
+                    self.isShowing = false
+                }
+            } else {
+                DispatchQueue.main.async { self.isShowing = false }
+            }
+        }
+    }
+}
+
+struct ElementDetailSheet: View {
+    let element: WebProviderLoginView.PickedElement
+    let config: WebProviderConfig
+    let onApply: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Picked Element").font(.headline)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack { Text("Selector:").bold(); Text(element.selector).font(.system(.body, design: .monospaced)) }
+                HStack { Text("Tag:").bold(); Text(element.tag) }
+                if !element.className.isEmpty {
+                    HStack { Text("Class:").bold(); Text(element.className).font(.system(.caption, design: .monospaced)) }
+                }
+                HStack { Text("Text:").bold(); Text(element.text.prefix(100)).font(.caption) }
+            }
+            .padding()
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(8)
+
+            HStack {
+                Button("Cancel", role: .cancel) { dismiss() }
+                Spacer()
+                Button("Use as Model Selector") {
+                    onApply(element.selector)
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding()
+        .frame(width: 500)
+    }
 }

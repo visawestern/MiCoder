@@ -863,7 +863,11 @@ class AppState: ObservableObject {
     /// It returns an actionable message instead of silently leaving 0 models.
     @MainActor
     func refreshWebModels(for config: WebProviderConfig) async -> String {
-        guard let selector = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)?.modelDropdown else {
+        // Prefer user-picked selector (element picker), then catalog
+        let selector = config.customModelSelector
+            ?? (try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id))?.modelDropdown
+            ?? ""
+        if selector.isEmpty {
             return "This provider does not expose a model-list selector yet."
         }
         guard let store = WebSessionManager.restore(providerId: config.id,
