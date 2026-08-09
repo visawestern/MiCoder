@@ -14,17 +14,20 @@ enum InputDropdownDataSource {
         var fileNames: [String]           // project files for @
         var sessionTitles: [String]       // sessions/tasks for #
         var recentCommandNames: [String]  // usage history for ranking
+        var mcpServers: [String]          // configured MCP server names for $
 
         init(commands: [SlashCommand] = SlashCommandRegistry.builtInCommands,
              installedSkills: [String] = [],
              fileNames: [String] = [],
              sessionTitles: [String] = [],
-             recentCommandNames: [String] = SlashCommandRegistry.usageHistory()) {
+             recentCommandNames: [String] = SlashCommandRegistry.usageHistory(),
+             mcpServers: [String] = []) {
             self.commands = commands
             self.installedSkills = installedSkills
             self.fileNames = fileNames
             self.sessionTitles = sessionTitles
             self.recentCommandNames = recentCommandNames
+            self.mcpServers = mcpServers
         }
     }
 
@@ -39,7 +42,7 @@ enum InputDropdownDataSource {
         case .sessions:
             base = sessionItems(context.sessionTitles)
         case .mcp:
-            base = []   // MCP mentions handled elsewhere if enabled
+            base = mcpItems(context.mcpServers)
         }
         let filtered = CommandDropdownFilter.filter(base, query: trigger.filter)
         return rankRecentFirst(filtered, recent: context.recentCommandNames)
@@ -72,6 +75,14 @@ enum InputDropdownDataSource {
         sessions.map { s in
             CommandDropdownItem(id: "session:\(s)", title: s, subtitle: "Session",
                                 category: "Sessions", icon: "number", kind: .session, actionKey: s)
+        }
+    }
+
+    private static func mcpItems(_ servers: [String]) -> [CommandDropdownItem] {
+        servers.map { s in
+            CommandDropdownItem(id: "mcp:\(s)", title: s, subtitle: "MCP server",
+                                category: "MCP Servers", icon: "server.rack",
+                                kind: .mcp, actionKey: s)
         }
     }
 

@@ -6,11 +6,7 @@ import Foundation
 struct SettingsProviderLayoutTests {
 
     private static func settingsViewSource() throws -> String {
-        let url = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .appendingPathComponent("Sources/Views/SettingsView.swift")
-        return try String(contentsOf: url, encoding: .utf8)
+        try RepoRoot.sourceText("MiCoder/Sources/Views/Settings/ModelSettingsView.swift")
     }
 
     @Test("Provider type picker is not segmented (10 cases overflow a 480pt sheet)")

@@ -13,6 +13,7 @@ struct AgentResourceLibraryView: View {
     @State private var catalog: AgentResourceCatalogDocument?
     @State private var installingIDs: Set<String> = []
     @State private var installErrors: [String: String] = [:]
+    @State private var installNotes: [String: String] = [:]
     @State private var loadError: String?
     @State private var installedRevision = 0
 
@@ -53,9 +54,17 @@ struct AgentResourceLibraryView: View {
                     description: skill.description,
                     category: skill.category,
                     isInstalled: AgentResourceLibraryLogic.isSkillInstalled(id: skill.id, homeDirectory: home),
-                    relatedHint: skill.relatedMCPIDs.isEmpty
-                        ? nil
-                        : "Works best with MCP: \(skill.relatedMCPIDs.joined(separator: ", "))"
+                    updateAvailable: SkillRegistryManager.updateAvailable(
+                        for: skill.id,
+                        catalogVersion: skill.version ?? "",
+                        homeDirectory: home
+                    ),
+                    relatedHint: dependencyHint(
+                        for: AgentDependencyResolver.resolve(skill: skill, homeDirectory: home),
+                        mcpHint: skill.relatedMCPIDs.isEmpty
+                            ? nil
+                            : "MCP: \(skill.relatedMCPIDs.joined(separator: ", "))"
+                    )
                 )
             }
         case .mcpServers:
@@ -66,10 +75,34 @@ struct AgentResourceLibraryView: View {
                     description: server.description,
                     category: server.category,
                     isInstalled: AgentResourceLibraryLogic.isMCPInstalled(id: server.id, homeDirectory: home),
-                    relatedHint: server.command != nil ? "Requires Node.js 18+" : nil
+                    updateAvailable: MCPRegistryManager.updateAvailable(
+                        for: server.id,
+                        catalogVersion: server.version ?? "",
+                        homeDirectory: home
+                    ),
+                    relatedHint: dependencyHint(
+                        for: AgentDependencyResolver.resolve(server: server, homeDirectory: home),
+                        mcpHint: nil
+                    )
                 )
             }
         }
+    }
+
+    /// Human-readable dependency line (plan Section 4 п.17): "Requires node ≥18;
+    /// playwright-mcp not installed" or nil when no declared dependencies exist.
+    private func dependencyHint(for results: [AgentDependencyResolver.CheckResult], mcpHint: String?) -> String? {
+        guard !results.isEmpty else { return mcpHint }
+        let missing = results.filter { !$0.isSatisfied }
+        let parts = results.map(\.detail)
+        var line = "\(L.t(AppLocalizationKey.locRequires)): \(parts.joined(separator: "; "))"
+        if let mcpHint = mcpHint {
+            line += " · \(mcpHint)"
+        }
+        line += missing.isEmpty
+            ? " · \(L.t(AppLocalizationKey.locDependenciesSatisfied))"
+            : " · \(L.t(AppLocalizationKey.locDependenciesMissing))"
+        return line
     }
 
     @ViewBuilder
@@ -87,6 +120,15 @@ struct AgentResourceLibraryView: View {
                         .padding(.vertical, 2)
                         .background(Color.mimo.subtleFill)
                         .clipShape(Capsule())
+                    if item.updateAvailable {
+                        Text(L.t(AppLocalizationKey.locUpdateAvailable))
+                            .interfaceFont(size: 10, weight: .semibold)
+                            .foregroundColor(Color.mimo.warning)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.mimo.warning.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
                 }
                 Text(item.description)
                     .interfaceFont(size: 12)
@@ -94,6 +136,11 @@ struct AgentResourceLibraryView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if let relatedHint = item.relatedHint {
                     Text(relatedHint)
+                        .interfaceFont(size: 11)
+                        .foregroundColor(Color.mimo.textMuted)
+                }
+                if let note = installNotes[item.id] {
+                    Text("\(L.t(AppLocalizationKey.locNote)): \(note)")
                         .interfaceFont(size: 11)
                         .foregroundColor(Color.mimo.textMuted)
                 }
@@ -119,8 +166,15 @@ struct AgentResourceLibraryView: View {
                 ProgressView()
                     .controlSize(.small)
                     .frame(width: 72)
+            } else if item.updateAvailable {
+                Button(L.t(AppLocalizationKey.locUpdate)) {
+                    Task { await update(item) }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .tint(Color.mimo.warning)
             } else {
-                Button("Uninstall") {
+                Button(L.t(AppLocalizationKey.locUninstall)) {
                     Task { await uninstall(item) }
                 }
                 .buttonStyle(.bordered)
@@ -132,7 +186,7 @@ struct AgentResourceLibraryView: View {
                 .controlSize(.small)
                 .frame(width: 72)
         } else {
-            Button("Install") {
+            Button(L.t(AppLocalizationKey.locInstall)) {
                 Task { await install(item) }
             }
             .buttonStyle(.borderedProminent)
@@ -166,16 +220,47 @@ struct AgentResourceLibraryView: View {
         guard let catalog else { return }
         installingIDs.insert(item.id)
         installErrors[item.id] = nil
+        installNotes[item.id] = nil
         defer { installingIDs.remove(item.id) }
 
         do {
             switch mode {
             case .skills:
                 guard let skill = catalog.skills.first(where: { $0.id == item.id }) else { return }
-                try installer.installSkill(skill, homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+                let unresolved = try await installer.installSkillWithDependencies(
+                    skill,
+                    catalog: catalog,
+                    homeDirectory: FileManager.default.homeDirectoryForCurrentUser
+                )
+                if !unresolved.isEmpty {
+                    installNotes[item.id] = unresolved.joined(separator: ", ")
+                }
             case .mcpServers:
                 guard let server = catalog.mcpServers.first(where: { $0.id == item.id }) else { return }
                 try await installer.installMCPServer(server, homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+            }
+            onInstalled()
+            installedRevision += 1
+        } catch {
+            installErrors[item.id] = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func update(_ item: LibraryItem) async {
+        guard let catalog else { return }
+        installingIDs.insert(item.id)
+        installErrors[item.id] = nil
+        defer { installingIDs.remove(item.id) }
+
+        do {
+            switch mode {
+            case .skills:
+                guard let skill = catalog.skills.first(where: { $0.id == item.id }) else { return }
+                try installer.updateSkill(skill, homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+            case .mcpServers:
+                guard let server = catalog.mcpServers.first(where: { $0.id == item.id }) else { return }
+                try await installer.updateMCPServer(server, homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
             }
             onInstalled()
             installedRevision += 1
@@ -214,6 +299,7 @@ private struct LibraryItem: Identifiable {
     let description: String
     let category: String
     let isInstalled: Bool
+    let updateAvailable: Bool
     let relatedHint: String?
 }
 

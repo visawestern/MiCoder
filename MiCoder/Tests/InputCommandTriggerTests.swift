@@ -28,6 +28,13 @@ struct InputCommandTriggerTests {
         #expect(c?.filter == "task")
     }
 
+    @Test func detectsDollarForMCP() {
+        let c = ctx("$context7", 9)
+        #expect(c?.source == .mcp)
+        #expect(c?.symbol == "$")
+        #expect(c?.filter == "context7")
+    }
+
     @Test func emptyFilterWhenJustTriggerTyped() {
         #expect(ctx("/", 1)?.filter == "")
         #expect(ctx("@", 1)?.filter == "")

@@ -119,6 +119,8 @@ struct WebProviderCard: View {
 
     @State private var isRefreshing = false
     @State private var lastRefreshError: String?
+    @State private var lastRefreshCount: Int = 0
+    @State private var showDiscoveredModels = false
     @State private var systemPromptHeight: CGFloat = 24
 
     private var isConnected: Bool {
@@ -183,6 +185,20 @@ Use clear headings, code examples, and cross-references.
                         .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
                 } else {
                     HStack(spacing: 8) {
+                        // Compact model detection status
+                        if !isRefreshing && lastRefreshCount > 0 {
+                            Button(action: { showDiscoveredModels.toggle() }) {
+                                Text("\(lastRefreshCount) models")
+                                    .interfaceFont(size: 10)
+                                    .foregroundColor(Color.mimo.success)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Tap to see discovered models")
+                        } else if !isRefreshing && lastRefreshError != nil {
+                            Label("Detection failed", systemImage: "exclamationmark.triangle")
+                                .interfaceFont(size: 10).foregroundColor(Color.mimo.warning)
+                        }
+
                         Button(action: {
                             isRefreshing = true
                             lastRefreshError = nil
@@ -190,6 +206,9 @@ Use clear headings, code examples, and cross-references.
                                 onRefreshModels()
                                 await MainActor.run {
                                     isRefreshing = false
+                                    if let updated = WebProviderStore.load().first(where: { $0.id == config.id }) {
+                                        lastRefreshCount = updated.discoveredModels.count
+                                    }
                                 }
                             }
                         }) {
@@ -202,8 +221,8 @@ Use clear headings, code examples, and cross-references.
                         }
                         .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
                         .disabled(isRefreshing)
-                        .help(isRefreshing ? "Refreshing models…" : "Refresh models from web UI")
-                        
+                        .help(isRefreshing ? "Detecting models…" : "Detect models from web UI")
+
                         Button(action: {
                             Task { onRefreshEffort() }
                         }) {
@@ -212,11 +231,29 @@ Use clear headings, code examples, and cross-references.
                         }
                         .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
                         .help("Refresh effort/thinking levels from web UI")
-                        
+
                         if let err = lastRefreshError {
                             Text(err).interfaceFont(size: 10).foregroundColor(Color.mimo.error)
                         }
                     }
+                }
+
+                // Expandable discovered models list (compact)
+                if showDiscoveredModels && !config.discoveredModels.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(config.discoveredModels.prefix(8), id: \.self) { model in
+                            Text(model).interfaceFont(size: 10).foregroundColor(Color.mimo.textMuted)
+                        }
+                        if config.discoveredModels.count > 8 {
+                            Text("+ \(config.discoveredModels.count - 8) more")
+                                .interfaceFont(size: 10).foregroundColor(Color.mimo.textMuted)
+                        }
+                    }
+                    .frame(maxWidth: 200)
+                    .padding(6)
+                    .background(Color.mimo.surface)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 Button(action: onRemove) {
                     Image(systemName: "trash").interfaceFont(size: 12).foregroundColor(Color.mimo.error)

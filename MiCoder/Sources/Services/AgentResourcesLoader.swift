@@ -31,14 +31,26 @@ struct SkillEntry: Identifiable, Equatable {
 struct PluginEntry: Identifiable, Equatable {
     let id: String
     let name: String
-    let isEnabled: Bool
+    var isEnabled: Bool
     let path: String
-}
 
-struct CommandEntry: Identifiable, Equatable {
-    let id: String
-    let name: String
-    let path: String
+    private static let defaults = UserDefaults.standard
+    private static let disabledKey = "disabledPlugins"
+
+    static func togglePlugin(id: String) {
+        var disabled = defaults.stringArray(forKey: disabledKey) ?? []
+        if disabled.contains(id) {
+            disabled.removeAll { $0 == id }
+        } else {
+            disabled.append(id)
+        }
+        defaults.set(disabled, forKey: disabledKey)
+    }
+
+    static func isPluginDisabled(id: String) -> Bool {
+        let disabled = defaults.stringArray(forKey: disabledKey) ?? []
+        return disabled.contains(id)
+    }
 }
 
 enum AgentResourcesLoader {
@@ -98,9 +110,12 @@ enum AgentResourcesLoader {
             } else {
                 name = folder.lastPathComponent
             }
-            let enabled = (try? manifest.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true
+            let manifestExists = (try? manifest.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true
+            let id = folder.lastPathComponent
+            let disabledByUser = PluginEntry.isPluginDisabled(id: id)
+            let enabled = manifestExists && !disabledByUser
             return PluginEntry(
-                id: folder.lastPathComponent,
+                id: id,
                 name: name,
                 isEnabled: enabled,
                 path: folder.path
@@ -110,22 +125,7 @@ enum AgentResourcesLoader {
     }
 
     static func loadCommands(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) -> [CommandEntry] {
-        let roots = [
-            homeDirectory.appendingPathComponent(".micoder/commands")
-        ]
-        var results: [CommandEntry] = []
-        for root in roots {
-            guard let files = try? FileManager.default.contentsOfDirectory(
-                at: root,
-                includingPropertiesForKeys: nil,
-                options: [.skipsHiddenFiles]
-            ) else { continue }
-            for file in files where file.pathExtension == "md" {
-                let name = file.deletingPathExtension().lastPathComponent
-                results.append(CommandEntry(id: file.path, name: name, path: file.path))
-            }
-        }
-        return results.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        CommandFileManager.load(homeDirectory: homeDirectory)
     }
 
     static func filterSkills(_ skills: [SkillEntry], query: String) -> [SkillEntry] {

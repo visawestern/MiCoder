@@ -1,0 +1,517 @@
+import SwiftUI
+
+struct StorageSettingsView: View {
+    @EnvironmentObject var appState: AppState
+    @State private var stats = StorageStats(databaseSize: 0, snapshotSize: 0, messageCount: 0, sessionCountsByProject: [])
+    // Round 12: two distinct confirmations — one for "delete older than N days"
+    // and one for "delete all archived chats". They used to share the same
+    // alert, which crashed / ran the wrong action (P2).
+    @State private var showDeleteOlderConfirmation = false
+    @State private var showDeleteArchivedConfirmation = false
+    @State private var showResetConfirmation = false
+    @State private var pendingResetScope: StorageResetScope = .appCacheOnly
+    @State private var archiveDays: Double = 7
+    @State private var deleteDays: Double = 30
+    @State private var projectEntries: [ProjectRegistryEntry] = []
+    // Delete-project guard (plan Раздел 8 п.24/п.54): destructive action requires
+    // typing the project name — GitHub "type repo name to delete" pattern.
+    @State private var pendingDeleteEntry: ProjectRegistryEntry?
+    @State private var deleteConfirmName = ""
+    // Quota status (plan Раздел 8 п.50): informative warning when the sum of all
+    // per-project DBs crosses the threshold — never blocks, always suggests.
+    @State private var quota = ProjectStorageAdmin.StorageQuotaStatus(
+        totalBytes: 0, thresholdBytes: 0, archivableBytes: 0, archivedBytes: 0
+    )
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            Text(L.t(AppLocalizationKey.locStorageDatabase))
+                .interfaceFont(size: 24, weight: .bold)
+                .foregroundColor(Color.mimo.textPrimary)
+
+            // Per-project administration (plan Раздел 8 Блок 3 п.21-24)
+            projectsAdminSection
+
+            // Statistics card
+            SettingsCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(L.t(AppLocalizationKey.locUsage))
+                        .interfaceFont(size: 13, weight: .semibold)
+                        .foregroundColor(Color.mimo.textPrimary)
+                    
+                    HStack(spacing: 16) {
+                        StorageStatView(title: L.t(AppLocalizationKey.locDatabase), value: stats.databaseSizeFormatted, icon: "externaldrive")
+                        StorageStatView(title: L.t(AppLocalizationKey.locSnapshots), value: stats.snapshotSizeFormatted, icon: "clock.arrow.circlepath")
+                        StorageStatView(title: L.t(AppLocalizationKey.locTotal), value: stats.totalSizeFormatted, icon: "externaldrive.fill")
+                    }
+                    
+                    Divider()
+                    
+                    HStack(spacing: 16) {
+                        StorageStatView(title: L.t(AppLocalizationKey.locMessages), value: "\(stats.messageCount)", icon: "message")
+                        StorageStatView(title: L.t(AppLocalizationKey.locActiveChats), value: "\(stats.totalActiveSessions)", icon: "bubble.left")
+                        StorageStatView(title: L.t(AppLocalizationKey.locArchived), value: "\(stats.totalArchivedSessions)", icon: "archivebox")
+                    }
+                    
+                    if !stats.sessionCountsByProject.isEmpty {
+                        Divider()
+                        Text(L.t(AppLocalizationKey.locPerProject))
+                            .interfaceFont(size: 11, weight: .medium)
+                            .foregroundColor(Color.mimo.textMuted)
+                        
+                        ForEach(stats.sessionCountsByProject, id: \.projectId) { item in
+                            HStack(spacing: 8) {
+                                Image(systemName: "folder.fill")
+                                    .interfaceFont(size: 10)
+                                    .foregroundColor(Color.mimo.textMuted)
+                                Text(item.projectId)
+                                    .interfaceFont(size: 11, design: .monospaced)
+                                    .lineLimit(1)
+                                    .foregroundColor(Color.mimo.textSecondary)
+                                Spacer()
+                                Text("\(item.active) active")
+                                    .interfaceFont(size: 10)
+                                    .foregroundColor(Color.mimo.success)
+                                Text("\(item.archived) archived")
+                                    .interfaceFont(size: 10)
+                                    .foregroundColor(Color.mimo.textMuted)
+                            }
+                        }
+                    }
+                }
+                .padding(4)
+            }
+            
+            // Auto-archive card
+            SettingsCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(L.t(AppLocalizationKey.locAutoarchive))
+                        .interfaceFont(size: 13, weight: .semibold)
+                        .foregroundColor(Color.mimo.textPrimary)
+                    
+                    Text(L.t(AppLocalizationKey.locInactiveChatsAreAutomaticallyArchivedAfterTheSe))
+                        .interfaceFont(size: 11)
+                        .foregroundColor(Color.mimo.textSecondary)
+                    
+                    HStack(spacing: 8) {
+                        Text(L.t(AppLocalizationKey.locArchiveAfter))
+                            .interfaceFont(size: 12)
+                            .foregroundColor(Color.mimo.textSecondary)
+                        Picker("", selection: $archiveDays) {
+                            Text(L.t(AppLocalizationKey.locDays1)).tag(3.0)
+                            Text(L.t(AppLocalizationKey.locDays3)).tag(7.0)
+                            Text(L.t(AppLocalizationKey.locDays)).tag(14.0)
+                            Text(L.t(AppLocalizationKey.locDays2)).tag(30.0)
+                            Text(L.t(AppLocalizationKey.locDays4)).tag(90.0)
+                        }
+                        .pickerStyle(.menu)
+                        .frame(width: 120)
+                        
+                        Button(L.t(AppLocalizationKey.locArchiveNow)) {
+                            appState.archiveOldSessions(days: Int(archiveDays))
+                            refreshStats()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+                .padding(4)
+            }
+            
+            // Cleanup card
+            SettingsCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(L.t(AppLocalizationKey.locCleanup))
+                        .interfaceFont(size: 13, weight: .semibold)
+                        .foregroundColor(Color.mimo.textPrimary)
+                    
+                    HStack(spacing: 8) {
+                        Text(L.t(AppLocalizationKey.locDeleteChatsOlderThan))
+                            .interfaceFont(size: 12)
+                            .foregroundColor(Color.mimo.textSecondary)
+                        Picker("", selection: $deleteDays) {
+                            Text(L.t(AppLocalizationKey.locDays3)).tag(7.0)
+                            Text(L.t(AppLocalizationKey.locDays2)).tag(30.0)
+                            Text(L.t(AppLocalizationKey.locDays4)).tag(90.0)
+                            Text(L.t(AppLocalizationKey.loc180Days)).tag(180.0)
+                            Text(L.t(AppLocalizationKey.locYear)).tag(365.0)
+                        }
+                        .pickerStyle(.menu)
+                        .frame(width: 120)
+                        
+                        Button(L.t(AppLocalizationKey.locDelete), role: .destructive) {
+                            showDeleteOlderConfirmation = true
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+
+                    Divider()
+
+                    Button(L.t(AppLocalizationKey.deleteAllArchivedChats)) {
+                        showDeleteArchivedConfirmation = true
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(Color.mimo.error)
+                    .interfaceFont(size: 12)
+
+                    Divider()
+
+                    Button(L.t(AppLocalizationKey.compressDatabase)) {
+                        appState.vacuumDatabase()
+                        refreshStats()
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(Color.mimo.brand)
+                    .interfaceFont(size: 12)
+                    
+                    Divider()
+                    
+                    // Explicit reset scenario (plan Раздел 8 Блок 1 п.10):
+                    // clear the app database. No CLI-history options — the
+                    // app is HTTP-only (clean slate).
+            VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(AppLocalization.string(.resetStorageTitle, language: appState.appLanguage))
+                        .interfaceFont(size: 12, weight: .semibold)
+                        .foregroundColor(Color.mimo.textPrimary)
+                    Button(AppLocalization.string(.resetAppCache, language: appState.appLanguage)) {
+                        pendingResetScope = .appCacheOnly; showResetConfirmation = true
+                    }
+                    .buttonStyle(.plain).foregroundColor(Color.mimo.error).interfaceFont(size: 12)
+                }
+            }
+                }
+                .padding(4)
+            }
+            .alert(L.t(AppLocalizationKey.locAlertDeleteOldChats), isPresented: $showDeleteOlderConfirmation) {
+                Button(L.t(AppLocalizationKey.locCancel), role: .cancel) {}
+                Button(L.t(AppLocalizationKey.locDelete), role: .destructive) {
+                    _ = appState.deleteSessionsOlderThan(days: Int(deleteDays))
+                    refreshStats()
+                }
+            } message: {
+                Text(L.t(AppLocalizationKey.locDeleteChatsConfirmMessage).replacingOccurrences(of: "%d", with: "\(Int(deleteDays))"))
+            }
+            .alert(L.t(AppLocalizationKey.locAlertDeleteArchivedChats), isPresented: $showDeleteArchivedConfirmation) {
+                Button(L.t(AppLocalizationKey.locCancel), role: .cancel) {}
+                Button(L.t(AppLocalizationKey.locDelete), role: .destructive) {
+                    _ = appState.deleteArchivedSessions()
+                    refreshStats()
+                }
+            } message: {
+                Text(L.t(AppLocalizationKey.locThisWillPermanentlyDeleteAllArchivedChatsAndThe))
+            }
+            .alert(resetAlertTitle, isPresented: $showResetConfirmation) {
+                Button(L.t(AppLocalizationKey.locCancel), role: .cancel) {}
+                Button(L.t(AppLocalizationKey.locResetButton), role: .destructive) {
+                    appState.resetStorage(scope: pendingResetScope)
+                    refreshStats()
+                }
+            } message: {
+                Text(resetAlertMessage)
+            }
+            .alert(
+                L.t(AppLocalizationKey.locAlertDeleteProject),
+                isPresented: Binding(
+                    get: { pendingDeleteEntry != nil },
+                    set: { if !$0 { pendingDeleteEntry = nil } }
+                )
+            ) {
+                TextField(L.t(AppLocalizationKey.locTypeToConfirm).replacingOccurrences(of: "{0}", with: pendingDeleteEntry?.name ?? ""), text: $deleteConfirmName)
+                Button(L.t(AppLocalizationKey.locCancel), role: .cancel) { pendingDeleteEntry = nil }
+                Button(L.t(AppLocalizationKey.locDelete), role: .destructive) {
+                    if let entry = pendingDeleteEntry { deleteProject(entry) }
+                    pendingDeleteEntry = nil
+                }
+                .disabled(!ProjectDeleteConfirmation.isConfirmed(
+                    projectName: pendingDeleteEntry?.name ?? "",
+                    typed: deleteConfirmName
+                ))
+            } message: {
+                Text(ProjectDeleteConfirmation.deletionDescription(
+                    projectPath: pendingDeleteEntry?.path ?? ""
+                ))
+            }
+        }
+        .onAppear(perform: refreshStats)
+    }
+
+    private var resetAlertTitle: String {
+        L.t(AppLocalizationKey.locClearAppCache)
+    }
+
+    private var resetAlertMessage: String {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let plan = StorageResetLogic.plan(for: pendingResetScope, homeDirectory: home)
+        return StorageResetLogic.summary(for: plan)
+    }
+    
+    private var home: URL { FileManager.default.homeDirectoryForCurrentUser }
+
+    private var projectsAdminSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(L.t(AppLocalizationKey.locProjects))
+                    .interfaceFont(size: 16, weight: .semibold)
+                    .foregroundColor(Color.mimo.textPrimary)
+                Spacer()
+                Button(L.t(AppLocalizationKey.locArchiveInactiveDays).replacingOccurrences(of: "{0}", with: "\(Int(archiveDays))")) {
+                    mutateProjects { ProjectStorageAdmin.archiveAllInactive(days: Int(archiveDays), in: $0) }
+                }
+                .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+                .help(L.t(AppLocalizationKey.locBulkArchiveHelp))
+            }
+            // Quota warning (plan Раздел 8 п.50): inform, never block.
+            if quota.isOverQuota {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .interfaceFont(size: 12)
+                        .foregroundColor(Color.mimo.warning)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(L.t(AppLocalizationKey.locStorageQuotaExceeded))
+                            .interfaceFont(size: 12, weight: .semibold)
+                            .foregroundColor(Color.mimo.textPrimary)
+                        Text(L.t(AppLocalizationKey.locQuotaWarning)
+                            .replacingOccurrences(of: "{0}", with: quota.totalBytes.formatted(.byteCount(style: .file)))
+                            .replacingOccurrences(of: "{1}", with: quota.thresholdBytes.formatted(.byteCount(style: .file)))
+                            .replacingOccurrences(of: "{2}", with: quota.archivableBytes.formatted(.byteCount(style: .file))))
+                            .interfaceFont(size: 11)
+                            .foregroundColor(Color.mimo.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Button(L.t(AppLocalizationKey.locArchiveInactive)) {
+                        mutateProjects { ProjectStorageAdmin.archiveAllInactive(days: Int(archiveDays), in: $0) }
+                    }
+                    .interfaceFont(size: 11)
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.mimo.warning)
+                }
+                .padding(10)
+                .background(Color.mimo.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+            }
+            let active = ProjectRegistryLogic.active(projectEntries)
+            let archived = ProjectRegistryLogic.archived(projectEntries)
+            let orphans = ProjectRegistryLogic.orphaned(projectEntries)
+            if active.isEmpty && archived.isEmpty && orphans.isEmpty {
+                Text(L.t(AppLocalizationKey.locProjectsRegisteredYet))
+                    .interfaceFont(size: 12).foregroundColor(Color.mimo.textMuted)
+            }
+            ForEach(active) { entry in
+                projectRow(entry, archived: false)
+            }
+            if !archived.isEmpty {
+                Text(L.t(AppLocalizationKey.locArchived))
+                    .interfaceFont(size: 11, weight: .semibold).foregroundColor(Color.mimo.textMuted)
+                ForEach(archived) { entry in
+                    projectRow(entry, archived: true)
+                }
+            }
+            if !orphans.isEmpty {
+                // Plan Раздел 8 п.31: registry entries whose path no longer exists
+                // are shown explicitly, with "Find new path" (relink) or "Delete record".
+                Text(L.t(AppLocalizationKey.locOrphanedPathMissing))
+                    .interfaceFont(size: 11, weight: .semibold).foregroundColor(Color.mimo.warning)
+                ForEach(orphans) { entry in
+                    orphanRow(entry)
+                }
+            }
+        }
+    }
+
+    private func orphanRow(_ entry: ProjectRegistryEntry) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "questionmark.folder")
+                .interfaceFont(size: 11).foregroundColor(Color.mimo.warning)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(entry.name).interfaceFont(size: 12, weight: .medium).foregroundColor(Color.mimo.textPrimary)
+                Text(entry.path).interfaceFont(size: 10).foregroundColor(Color.mimo.warning).lineLimit(1)
+            }
+            Spacer()
+            Button(L.t(AppLocalizationKey.locFindNewPath2)) { relinkProject(entry) }
+                .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+            Button(action: {
+                deleteConfirmName = ""
+                pendingDeleteEntry = entry
+            }) {
+                Image(systemName: "trash").interfaceFont(size: 11).foregroundColor(Color.mimo.error)
+            }
+            .buttonStyle(.plain)
+            .help(L.t(AppLocalizationKey.locDeleteRecord))
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(Color.mimo.surface)
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.warning.opacity(0.5), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func relinkProject(_ entry: ProjectRegistryEntry) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.message = L.t(AppLocalizationKey.locFindProjectFolder)
+        panel.prompt = L.t(AppLocalizationKey.locRelink)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        mutateProjects { ProjectRegistryLogic.relink(id: entry.id, toNewPath: url.path, in: $0) }
+    }
+
+    private func projectRow(_ entry: ProjectRegistryEntry, archived: Bool) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: archived ? "archivebox" : "folder")
+                .interfaceFont(size: 11).foregroundColor(Color.mimo.textMuted)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(entry.name).interfaceFont(size: 12, weight: .medium).foregroundColor(Color.mimo.textPrimary)
+                Text(entry.path).interfaceFont(size: 10).foregroundColor(Color.mimo.textMuted).lineLimit(1)
+            }
+            Spacer()
+            if archived {
+                Button(L.t(AppLocalizationKey.locRestore)) { mutateProjects { ProjectRegistryLogic.restore(id: entry.id, in: $0) } }
+                    .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+            } else {
+                Button(L.t(AppLocalizationKey.locArchive)) { mutateProjects { ProjectRegistryLogic.archive(id: entry.id, at: Date(), in: $0) } }
+                    .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.textSecondary)
+            }
+            Button(action: {
+                deleteConfirmName = ""
+                pendingDeleteEntry = entry
+            }) {
+                Image(systemName: "trash").interfaceFont(size: 11).foregroundColor(Color.mimo.error)
+            }
+            .buttonStyle(.plain)
+            .help(L.t(AppLocalizationKey.locDeleteProjectHelp2))
+
+            Button(action: {
+                if appState.vacuumProject(path: entry.path) { refreshStats() }
+            }) {
+                Image(systemName: "arrow.down.right.and.arrow.up.left")
+                    .interfaceFont(size: 11).foregroundColor(Color.mimo.brand)
+            }
+            .buttonStyle(.plain)
+            .help(L.t(AppLocalizationKey.locCompressProjectHelp))
+
+            Button(action: { exportProjectBackup(entry) }) {
+                Image(systemName: "square.and.arrow.up")
+                    .interfaceFont(size: 11).foregroundColor(Color.mimo.brand)
+            }
+            .buttonStyle(.plain)
+            .help(L.t(AppLocalizationKey.locExportBackupHelp))
+
+            Button(action: { importProjectBackup(entry) }) {
+                Image(systemName: "square.and.arrow.down")
+                    .interfaceFont(size: 11).foregroundColor(Color.mimo.brand)
+            }
+            .buttonStyle(.plain)
+            .help(L.t(AppLocalizationKey.locRestoreBackupHelp))
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(Color.mimo.surface)
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func exportProjectBackup(_ entry: ProjectRegistryEntry) {
+        let plan = ProjectBackupLogic.plan(projectPath: entry.path)
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = plan.archiveName
+        panel.canCreateDirectories = true
+        panel.prompt = L.t(AppLocalizationKey.locExportBackupPrompt)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if ProjectBackupLogic.export(projectPath: entry.path, to: url) {
+            refreshStats()
+        }
+    }
+
+    private func importProjectBackup(_ entry: ProjectRegistryEntry) {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.zip]
+        panel.prompt = L.t(AppLocalizationKey.locRestoreBackupPrompt)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if ProjectBackupLogic.importBackup(from: url, projectPath: entry.path) {
+            refreshStats()
+        }
+    }
+
+    private func loadProjectEntries() {
+        projectEntries = ProjectRegistryLogic.load(homeDirectory: home)
+    }
+
+    private func mutateProjects(_ transform: ([ProjectRegistryEntry]) -> [ProjectRegistryEntry]) {
+        let before = ProjectRegistryLogic.load(homeDirectory: home)
+        let updated = transform(before)
+        // Audit every registry mutation (plan Раздел 8 п.46) so destructive
+        // operations are reconstructable later.
+        if updated != before {
+            let added = updated.filter { e in !before.contains { $0.id == e.id } }
+            let removed = before.filter { e in !updated.contains { $0.id == e.id } }
+            if !added.isEmpty {
+                try? StorageAuditLog.append(action: "registry.add", detail: added.map(\.path).joined(separator: ", "), homeDirectory: home)
+            }
+            if !removed.isEmpty {
+                try? StorageAuditLog.append(action: "registry.remove", detail: removed.map(\.path).joined(separator: ", "), homeDirectory: home)
+            }
+        }
+        try? ProjectRegistryLogic.save(updated, homeDirectory: home)
+        projectEntries = updated
+    }
+
+    private func deleteProject(_ entry: ProjectRegistryEntry) {
+        // Auto-backup the project DB before deletion (plan Раздел 8 п.49).
+        // The backup must SURVIVE the deletion, so it's moved to a global
+        // deleted-backups area (inside .micoder it would be removed with it).
+        _ = try? ProjectAutoBackupLogic.createBackup(projectPath: entry.path)
+        _ = try? ProjectAutoBackupLogic.preserveForDeletion(projectPath: entry.path)
+        try? StorageAuditLog.append(action: "project.delete",
+                                    detail: "path=\(entry.path)",
+                                    homeDirectory: home)
+        // Remove only the project's .micoder data, never the user's files.
+        try? FileManager.default.removeItem(at: ProjectDatabaseLocator.projectMimoDir(projectPath: entry.path))
+        mutateProjects { ProjectRegistryLogic.remove(id: entry.id, in: $0) }
+        // If the deleted project was the active selection, drop it so the UI
+        // never points at a registry entry that no longer exists.
+        if appState.selectedWorkspace?.path == entry.path {
+            appState.clearNavigationHistory()
+            appState.selectedWorkspace = nil
+        }
+    }
+
+    private func refreshStats() {
+        stats = appState.loadStorageStats()
+        loadProjectEntries()
+        // Recompute the quota against the 2GB informational threshold (п.50).
+        quota = ProjectStorageAdmin.quotaStatus(
+            projects: projectEntries,
+            thresholdBytes: 2_000_000_000,
+            inactiveDays: Int(archiveDays)
+        )
+    }
+}
+
+struct StorageStatView: View {
+    let title: String
+    let value: String
+    let icon: String
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .interfaceFont(size: 12)
+                .foregroundColor(Color.mimo.textMuted)
+                .frame(width: 16)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .interfaceFont(size: 13, weight: .semibold)
+                    .foregroundColor(Color.mimo.textPrimary)
+                Text(title)
+                    .interfaceFont(size: 10)
+                    .foregroundColor(Color.mimo.textMuted)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}

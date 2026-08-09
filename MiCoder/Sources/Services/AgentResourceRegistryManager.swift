@@ -185,4 +185,12 @@ enum MCPRegistryManager {
         try save(records, homeDirectory: homeDirectory, fileManager: fileManager)
         return true
     }
+
+    /// Whether a catalog version differs from the installed one (plan Раздел 4
+    /// Блок 1 п.7) — surfaces the "Update" action in the library UI.
+    static func updateAvailable(for id: String, catalogVersion: String, homeDirectory: URL, fileManager: FileManager = .default) -> Bool {
+        let records = load(homeDirectory: homeDirectory, fileManager: fileManager)
+        guard let record = records.first(where: { $0.id == id }) else { return false }
+        return record.version != catalogVersion && !catalogVersion.isEmpty
+    }
 }

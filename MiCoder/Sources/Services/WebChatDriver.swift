@@ -198,11 +198,13 @@ struct WebChatDriver {
             do {
                 try await bridge.click(selector: modelSelector.trimmingCharacters(in: .whitespaces))
                 await bridge.wait(ms: 300)
-                let optionSelector = "[role='option']:has-text('\(config.selectedModel)'), [class*='option']:has-text('\(config.selectedModel)')"
-                if (try? await bridge.exists(selector: optionSelector)) ?? false {
-                    try await bridge.click(selector: optionSelector)
-                    await bridge.wait(ms: 200)
+                let modelText = config.selectedModel
+                let clicked = (try? await bridge.clickByText(selector: "[role='option'], [class*='option']", text: modelText)) ?? false
+                if !clicked {
+                    // Fallback: try any element containing the model name.
+                    _ = (try? await bridge.clickByText(selector: "li, div, span, button", text: modelText))
                 }
+                await bridge.wait(ms: 200)
             } catch {
                 emit(.modelInjectionFailed("Could not set model: \(error.localizedDescription)"))
             }
@@ -214,11 +216,11 @@ struct WebChatDriver {
             do {
                 try await bridge.click(selector: effortSelector.trimmingCharacters(in: .whitespaces))
                 await bridge.wait(ms: 300)
-                let optionSelector = "[role='option']:has-text('\(effortLabel)'), [class*='option']:has-text('\(effortLabel)')"
-                if (try? await bridge.exists(selector: optionSelector)) ?? false {
-                    try await bridge.click(selector: optionSelector)
-                    await bridge.wait(ms: 200)
+                let clicked = (try? await bridge.clickByText(selector: "[role='option'], [class*='option']", text: effortLabel)) ?? false
+                if !clicked {
+                    _ = (try? await bridge.clickByText(selector: "li, div, span, button", text: effortLabel))
                 }
+                await bridge.wait(ms: 200)
             } catch {
                 emit(.effortInjectionFailed("Could not set effort: \(error.localizedDescription)"))
             }

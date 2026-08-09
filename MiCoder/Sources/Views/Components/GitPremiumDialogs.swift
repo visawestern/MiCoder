@@ -468,7 +468,7 @@ struct PullRequestDialogView: View {
             }
         }
         .task {
-            title = "\(workspacePath as NSString).lastPathComponent changes"
+            title = "\((workspacePath as NSString).lastPathComponent) changes"
             let result = await GitHubCLIService.detect()
             ghPath = result.ghPath
             checkedStatus = true

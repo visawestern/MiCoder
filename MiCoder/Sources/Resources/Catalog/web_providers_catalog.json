@@ -22,7 +22,7 @@
         "sendButton": "button[type='submit'], button[aria-label*='end']",
         "responseContainer": "div[class*='markdown'], div[class*='message']",
         "stopButton": "button[aria-label*='top']",
-        "modelDropdown": "button[class*='model'], div[class*='model-select'], [data-testid*='model'], button:has-text('Model')",
+        "modelDropdown": "[data-testid*='model'], button[aria-label*='odel'], div[class*='model-select'], div[class*='model-selector'], button[class*='model']",
         "effortDropdown": "input[aria-label*='thinking' i], input[aria-label*='reasoning' i], button[aria-label*='thinking' i], button[aria-label*='reasoning' i], div[class*='thinking'], div[class*='reasoning']",
         "loginIndicator": "input[type='password'], button:has-text('Log in')"
       }
@@ -65,7 +65,7 @@
         "sendButton": "button[class*='send'], button[type='submit']",
         "responseContainer": "div[class*='markdown-body'], div[class*='response']",
         "stopButton": "button[class*='stop']",
-        "modelDropdown": "button.index-module__model-selector___rdCim, div[class*='model-selector'], button[class*='model'], [data-testid*='model'], button:has-text('Model')",
+        "modelDropdown": "button.index-module__model-selector___rdCim, div[class*='model-selector'], [data-testid*='model'], button[aria-label*='odel'], button[class*='model']",
         "effortDropdown": "input[aria-label='Thinking'], input[class*='ant-select-selection-search-input'], div[aria-label='Thinking'], div[aria-label='Select Mode'], button[aria-label*='thinking' i]",
         "loginIndicator": "input[type='password'], button:has-text('Sign in')"
       }
@@ -99,7 +99,7 @@
         "sendButton": "button[data-testid='send-button']",
         "responseContainer": "div[data-message-author-role='assistant']",
         "stopButton": "button[data-testid='stop-button']",
-        "modelDropdown": "button[data-testid*='model-switcher'], button[data-testid*='model'], button[aria-label*='Model']",
+        "modelDropdown": "button[data-testid*='model-switcher'], button[data-testid*='model'], button[aria-label*='odel']",
         "effortDropdown": "button[aria-label*='reasoning' i], button[aria-label*='effort' i], div[aria-label*='reasoning' i], [data-testid*='reasoning' i], [data-testid*='model-switcher' i]",
         "loginIndicator": "input[name='username'], button:has-text('Log in')"
       }

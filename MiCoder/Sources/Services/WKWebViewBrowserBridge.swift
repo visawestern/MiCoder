@@ -61,6 +61,27 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         _ = try? await eval(js)
     }
 
+    /// Click the first element matching `selector` whose visible text exactly
+    /// equals `text`. Falls back to partial (includes) match. Returns true if matched.
+    @discardableResult
+    func clickByText(selector: String, text: String) async throws -> Bool {
+        let js = """
+        (function(){
+          var els = document.querySelectorAll(\(Self.jsString(selector)));
+          for(var i=0;i<els.length;i++){
+            var t=(els[i].innerText||els[i].textContent||'').trim();
+            if(t===\(Self.jsString(text))){els[i].click();return true;}
+          }
+          for(var i=0;i<els.length;i++){
+            var t=(els[i].innerText||els[i].textContent||'').trim();
+            if(t.indexOf(\(Self.jsString(text)))!==-1){els[i].click();return true;}
+          }
+          return false;
+        })();
+        """
+        return (try? await eval(js)) as? Bool ?? false
+    }
+
     func readText(selector: String) async throws -> String {
         let js = """
         (function(){

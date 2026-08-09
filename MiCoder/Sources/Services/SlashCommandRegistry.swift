@@ -89,14 +89,16 @@ enum SlashCommandRegistry {
 
     /// Merge built-in commands with custom `.md` commands from the loader.
     /// Built-ins win on name conflict (custom with the same name is dropped).
+    /// Disabled custom commands are excluded (SET-07).
     static func allCommands(custom: [CommandEntry] = AgentResourcesLoader.loadCommands()) -> [SlashCommand] {
         let builtIns = builtInCommands
         let builtInNames = Set(builtIns.map { $0.name })
         let customs: [SlashCommand] = custom.compactMap { entry in
             guard !builtInNames.contains(entry.name) else { return nil }
+            guard entry.isEnabled else { return nil }
             return SlashCommand(id: "custom.\(entry.id)",
                                 name: entry.name,
-                                description: "Custom command",
+                                description: entry.description.isEmpty ? "Custom command" : entry.description,
                                 kind: .custom(path: entry.path),
                                 icon: "terminal")
         }

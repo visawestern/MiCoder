@@ -16,8 +16,10 @@ struct TriggerContext: Equatable {
 }
 
 enum InputCommandTriggerLogic {
-    /// Map trigger symbols to their data source. `$` is optional/opt-in.
-    static var enabledSymbols: Set<Character> = ["/", "@", "#"]
+    /// Map trigger symbols to their data source. `$` lists configured MCP servers
+    /// (INP-16); it is enabled by default and safe when no servers are configured
+    /// (an empty server list yields no dropdown, matching the other sources).
+    static var enabledSymbols: Set<Character> = ["/", "@", "#", "$"]
 
     /// Returns a trigger context if `text` contains a valid trigger at/around
     /// `cursorPosition`, else nil. A trigger is valid when the symbol sits at

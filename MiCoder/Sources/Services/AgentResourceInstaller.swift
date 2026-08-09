@@ -117,6 +117,35 @@ struct AgentResourceInstaller {
         try SkillRegistryManager.upsert(record, homeDirectory: homeDirectory, fileManager: fileManager)
     }
 
+    /// One-click dependency install (plan AGR-07): installs the skill plus any
+    /// declared MCP-server dependencies that are missing. Runtime binaries that
+    /// are absent are reported back (they cannot be provisioned by the app),
+    /// while installable MCP dependencies are installed first, in dependency
+    /// order, before the skill itself is written.
+    func installSkillWithDependencies(
+        _ item: CatalogSkillItem,
+        catalog: AgentResourceCatalogDocument,
+        bundle: Bundle = AgentResourceCatalog.catalogBundle,
+        homeDirectory: URL
+    ) async throws -> [String] {
+        let results = AgentDependencyResolver.resolve(skill: item, homeDirectory: homeDirectory)
+        var unresolved: [String] = []
+        for result in results where !result.isSatisfied {
+            switch result.kind {
+            case .mcp(let serverID):
+                if let server = catalog.mcpServers.first(where: { $0.id == serverID }) {
+                    try await installMCPServer(server, homeDirectory: homeDirectory)
+                } else {
+                    unresolved.append(serverID)
+                }
+            case .runtime(let binary, _):
+                unresolved.append(binary)
+            }
+        }
+        try installSkill(item, bundle: bundle, homeDirectory: homeDirectory)
+        return unresolved
+    }
+
     func installMCPServer(_ item: CatalogMCPServerItem, homeDirectory: URL) async throws {
         var serverConfig: [String: Any] = [:]
 
@@ -193,6 +222,39 @@ struct AgentResourceInstaller {
         }
         try fileManager.removeItem(at: skillDir)
         _ = try SkillRegistryManager.remove(id: item.id, homeDirectory: homeDirectory, fileManager: fileManager)
+    }
+
+    /// Re-install an installed skill from the current catalog version, bumping
+    /// the registry record's version (plan Раздел 3 Блок 1 п.5/п.7).
+    func updateSkill(
+        _ item: CatalogSkillItem,
+        bundle: Bundle = AgentResourceCatalog.catalogBundle,
+        homeDirectory: URL
+    ) throws {
+        guard SkillRegistryManager.updateAvailable(
+            for: item.id,
+            catalogVersion: item.version ?? "",
+            homeDirectory: homeDirectory,
+            fileManager: fileManager
+        ) else {
+            // Nothing to update — silently keep the current install (idempotent).
+            return
+        }
+        try installSkill(item, bundle: bundle, homeDirectory: homeDirectory)
+    }
+
+    /// Re-write an installed MCP server config from the current catalog version,
+    /// bumping the registry record (plan Раздел 4 Блок 1 п.7).
+    func updateMCPServer(_ item: CatalogMCPServerItem, homeDirectory: URL) async throws {
+        guard MCPRegistryManager.updateAvailable(
+            for: item.id,
+            catalogVersion: item.version ?? "",
+            homeDirectory: homeDirectory,
+            fileManager: fileManager
+        ) else {
+            return
+        }
+        try await installMCPServer(item, homeDirectory: homeDirectory)
     }
 
     func uninstallMCPServer(_ item: CatalogMCPServerItem, homeDirectory: URL) throws {

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// In-input command palette overlay (plan Раздел 6 Блок 2). Renders the items
-/// from InputDropdownDataSource for the active trigger (/ @ #), supports
+/// from InputDropdownDataSource for the active trigger (/ @ # $), supports
 /// keyboard navigation, and inserts the chosen item into the message text.
 /// Attach via `.overlay(alignment: .bottomLeading)` above the input field.
 struct InputCommandDropdownView: View {

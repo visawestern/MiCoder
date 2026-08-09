@@ -7,13 +7,13 @@ struct ModelSettingsPremiumTests {
 
     @Test("All three cards fill available height so the layout has no dead gaps")
     func cardsFillHeight() throws {
-        let source = try sourceText("MiCoder/Sources/Views/SettingsView.swift")
+        let source = try sourceText("MiCoder/Sources/Views/Settings/ModelSettingsView.swift")
         #expect(source.contains("settingsCardFrame"))
     }
 
     @Test("Each card has a premium empty state with icon, title and hint")
     func premiumEmptyStates() throws {
-        let source = try sourceText("MiCoder/Sources/Views/SettingsView.swift")
+        let source = try sourceText("MiCoder/Sources/Views/Settings/ModelSettingsView.swift")
         #expect(source.contains("SettingsCardEmptyState"))
         // Empty states must exist for providers, details, and models cards.
         #expect(source.ranges(of: "SettingsCardEmptyState(").count >= 3)
@@ -21,7 +21,7 @@ struct ModelSettingsPremiumTests {
 
     @Test("Details card shows a model count summary for any provider")
     func detailsShowsModelCount() throws {
-        let source = try sourceText("MiCoder/Sources/Views/SettingsView.swift")
+        let source = try sourceText("MiCoder/Sources/Views/Settings/ModelSettingsView.swift")
         #expect(source.contains("detailModelCount"))
     }
 

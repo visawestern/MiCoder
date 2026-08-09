@@ -32,10 +32,14 @@ enum SlashCommandAction: Equatable {
 struct SlashCommandExecutor {
     let hasGitRepo: Bool
     let commands: [SlashCommand]
+    let homeDirectory: URL
 
-    init(hasGitRepo: Bool, commands: [SlashCommand] = SlashCommandRegistry.builtInCommands) {
+    init(hasGitRepo: Bool,
+         commands: [SlashCommand] = SlashCommandRegistry.builtInCommands,
+         homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) {
         self.hasGitRepo = hasGitRepo
         self.commands = commands
+        self.homeDirectory = homeDirectory
     }
 
     /// Interpret a raw input line. Returns `.passthrough` when it isn't a command.
@@ -50,9 +54,16 @@ struct SlashCommandExecutor {
         SlashCommandRegistry.recordUsage(name: command.name)
 
         guard case .builtIn(let builtIn) = command.kind else {
-            // Custom .md command → inject its template (handled by caller by path);
-            // here we inject the command name as an instruction marker.
-            return .injectInstruction("/\(command.name) \(parsed.argument)".trimmingCharacters(in: .whitespaces))
+            // Custom .md command → inject its real template body with the
+            // user's argument substituted (plan Раздел 5 Блок 3; SET-07).
+            let template = CommandFileManager.templateBody(
+                named: command.name,
+                argument: parsed.argument,
+                homeDirectory: homeDirectory
+            )
+            let instruction = template ?? "/\(command.name) \(parsed.argument)"
+                .trimmingCharacters(in: .whitespaces)
+            return .injectInstruction(instruction)
         }
 
         // Git-required commands fail cleanly without a repo (plan Блок 3 п.35).

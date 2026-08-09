@@ -10,6 +10,10 @@ protocol BrowserAutomationBridge {
     func typeText(_ text: String, into selector: String, humanized: Bool) async throws
     /// Click the element matching `selector`.
     func click(selector: String) async throws
+    /// Click the first element matching `selector` whose visible text equals
+    /// `text` (exact match, then partial fallback). Returns true if matched.
+    /// Default implementation falls back to `click(selector:)` for test fakes.
+    @discardableResult func clickByText(selector: String, text: String) async throws -> Bool
     /// Read the text content of the element matching `selector` (latest response).
     func readText(selector: String) async throws -> String
     /// Whether an element matching `selector` currently exists/visible.
@@ -26,6 +30,14 @@ protocol BrowserAutomationBridge {
     func screenshot(selector: String?) async throws -> Data
     /// Sleep for the given milliseconds (host-controlled so tests are instant).
     func wait(ms: Int) async
+}
+
+extension BrowserAutomationBridge {
+    /// Default: fall back to `click(selector:)` so test fakes don't break.
+    @discardableResult func clickByText(selector: String, text: String) async throws -> Bool {
+        try await click(selector: selector)
+        return true
+    }
 }
 
 struct BrowserCookie: Codable, Equatable {

@@ -480,25 +480,7 @@ struct GitPanelView: View {
     }
 
     private func commitChanges() {
-        guard let repoPath = appState.gitRepositoryPath else { return }
-        appState.isGitBusy = true
-        Task {
-            do {
-                let message = "Auto-commit from MiCoder"
-                let result = try GitRepository.commitAll(in: repoPath, message: message)
-                await MainActor.run {
-                    appState.isGitBusy = false
-                    appState.gitStatusMessage = result.success ? "Committed successfully" : nil
-                    // Refresh changes after commit
-                    refreshGitChanges()
-                }
-            } catch {
-                await MainActor.run {
-                    appState.isGitBusy = false
-                    appState.gitStatusMessage = "Commit failed: \(error.localizedDescription)"
-                }
-            }
-        }
+        appState.pendingGitAction = .openCommitComposer
     }
 
     private func pushChanges() {

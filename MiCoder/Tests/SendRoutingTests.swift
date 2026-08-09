@@ -134,11 +134,12 @@ struct SendRoutingTests {
 
     @Test func sendReturnsAssistantText() async throws {
         let t = ScriptedTransport(status: 200, body: Data(#"{"choices":[{"message":{"content":"answer"}}]}"#.utf8))
-        let text = try await DirectChatClient.send(
+        let result = try await DirectChatClient.send(
             baseURL: "http://localhost:11434/v1", apiKey: nil, model: "m",
             messages: [DirectChatMessage(role: "user", content: "q")], transport: t
         )
-        #expect(text == "answer")
+        #expect(result.content == "answer")
+        #expect(result.usage == nil)
     }
 
     @Test func sendThrowsOnHTTPError() async {

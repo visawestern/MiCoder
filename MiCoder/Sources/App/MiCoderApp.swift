@@ -252,6 +252,8 @@ class AppState: ObservableObject {
     @Published var showNotifications = false
     @Published var showWorkspacesOverview = false
     @Published var showBranchPicker = false
+    @Published var showRemoveProviderConfirmation = false
+    @Published var pendingProviderToDelete: CustomProvider?
     @Published var notificationService = NotificationService()
     
     var displayedWorkspaces: [Workspace] {
@@ -895,7 +897,7 @@ class AppState: ObservableObject {
             guard let models = await WebModelDiscovery.discover(using: bridge,
                                                                  dropdownSelector: selector,
                                                                  vendor: config.vendor) else {
-                return "Could not read the model list from (config.displayName). Try Refresh after the chat page finishes loading."
+                return "Could not read the model list from \(config.displayName). Try Refresh after the chat page finishes loading."
             }
             var updated = config
             updated.discoveredModels = models
@@ -1014,6 +1016,7 @@ class AppState: ObservableObject {
 
     func inputDropdownContext() -> InputDropdownDataSource.Context {
         let skills = AgentResourcesLoader.loadSkills().map { $0.name }
+        let mcpServers = AgentResourcesLoader.loadMCPServers().map { $0.name }
         let sessionTitles = sessions.map { $0.title }
         let path = selectedWorkspace?.path ?? ""
         // Real project files for `@` — scan (cached, TTL) instead of empty list.
@@ -1026,7 +1029,8 @@ class AppState: ObservableObject {
             commands: SlashCommandRegistry.allCommands(),
             installedSkills: skills,
             fileNames: fileNames,
-            sessionTitles: sessionTitles
+            sessionTitles: sessionTitles,
+            mcpServers: mcpServers
         )
     }
 

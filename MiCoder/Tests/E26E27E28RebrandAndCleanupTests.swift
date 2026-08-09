@@ -12,18 +12,38 @@ struct E26E27E28RebrandAndCleanupTests {
 
     // MARK: - E26 (Раздел 13 п.11): user-facing MiMo brand strings
 
+    /// Concatenates SettingsView.swift + every file under Sources/Views/Settings/
+    /// so a rebrand check survives the Round 27 split (code moved out of the
+    /// monolithic file into the Settings/ folder).
+    private static func settingsSources() throws -> String {
+        let root = try RepoRoot.sourceText("MiCoder/Sources/Views/SettingsView.swift")
+        let folder = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Sources/Views/Settings")
+        let fm = FileManager.default
+        guard let urls = fm.enumerator(at: folder, includingPropertiesForKeys: nil)?.allObjects as? [URL] else {
+            return root
+        }
+        var all = root
+        for url in urls where url.pathExtension == "swift" {
+            all += "\n" + ((try? String(contentsOf: url, encoding: .utf8)) ?? "")
+        }
+        return all
+    }
+
     @Test("no 'MiMo Agent' command-file copy remains in Settings")
     func noMiMoAgentCopy() throws {
-        let s = try RepoRoot.sourceText("MiCoder/Sources/Views/SettingsView.swift")
+        let s = try Self.settingsSources()
         #expect(!s.contains("Manage MiMo Agent"),
-                "SettingsView still shows the pre-rebrand 'Manage MiMo Agent …' copy")
+                "Settings still shows the pre-rebrand 'Manage MiMo Agent …' copy")
     }
 
     @Test("local provider description no longer names MiMo CLI/Serve")
     func noMiMoCLIServeCopy() throws {
-        let s = try RepoRoot.sourceText("MiCoder/Sources/Views/SettingsView.swift")
+        let s = try Self.settingsSources()
         #expect(!s.contains("MiMo CLI/Serve"),
-                "SettingsView still advertises the old 'MiMo CLI/Serve' brand")
+                "Settings still advertises the old 'MiMo CLI/Serve' brand")
     }
 
     @Test("auto-commit message no longer says 'from MiMo'")

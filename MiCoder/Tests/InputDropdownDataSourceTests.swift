@@ -80,4 +80,32 @@ struct InputDropdownDataSourceTests {
         #expect(groups.map { $0.category } == ["Commands", "Skills"])
         #expect(groups.first?.items.count == 2)
     }
+
+    @Test func dollarListsMCPServers() {
+        let ctx = InputDropdownDataSource.Context(mcpServers: ["context7", "github"])
+        let items = InputDropdownDataSource.items(for: trigger("$", filter: ""), context: ctx)
+        #expect(items.contains { $0.kind == .mcp && $0.actionKey == "context7" })
+        #expect(items.contains { $0.kind == .mcp && $0.actionKey == "github" })
+    }
+
+    @Test func dollarFiltersMCPServers() {
+        let ctx = InputDropdownDataSource.Context(mcpServers: ["context7", "github"])
+        let items = InputDropdownDataSource.items(for: trigger("$", filter: "git"), context: ctx)
+        #expect(items.map { $0.actionKey } == ["github"])
+        #expect(!items.contains { $0.actionKey == "context7" })
+    }
+
+    @Test func dollarWithoutServersYieldsNoItems() {
+        let items = InputDropdownDataSource.items(for: trigger("$", filter: ""), context: .init())
+        #expect(items.isEmpty)
+    }
+
+    @Test func applySelectionForMCP() {
+        let t = trigger("$", filter: "cont", at: 0)
+        let item = CommandDropdownItem(id: "mcp:context7", title: "context7", subtitle: "", category: "MCP Servers",
+                                       icon: "server.rack", kind: .mcp, actionKey: "context7")
+        let (text, caret) = InputDropdownDataSource.applySelection(item, trigger: t, text: "$cont")
+        #expect(text == "$context7 ")
+        #expect(caret == 10)
+    }
 }

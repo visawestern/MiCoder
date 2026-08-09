@@ -27,6 +27,26 @@ struct AppLocalizationTests {
         #expect(AppLanguage.from(stored: "unknown") == .english)
     }
 
+    @Test("Every key has a translation entry for all 10 languages")
+    func everyKeyHasAllLanguages() {
+        let languageKeys = ["en", "ru", "es", "fr", "de", "zh", "ja", "ko", "pt", "ar"]
+        let gaps: [String] = AppLocalizationKey.allCases.compactMap { key in
+            guard let entry = AppLocalization.translations[key.rawValue] else {
+                return "\(key.rawValue) has no dict entry"
+            }
+            let missing = languageKeys.filter { entry[$0] == nil || entry[$0]!.isEmpty }
+            return missing.isEmpty ? nil : "\(key.rawValue) missing: \(missing)"
+        }
+        #expect(gaps.isEmpty, "Translation gaps: \(gaps)")
+    }
+
+    @Test("Every translation uses only valid language keys")
+    func onlyValidLanguageKeys() {
+        let valid = Set(["en", "ru", "es", "fr", "de", "zh", "ja", "ko", "pt", "ar"])
+        let invalid = AppLocalization.translations.values.flatMap { Array($0.keys) }.filter { !valid.contains($0) }
+        #expect(invalid.isEmpty, "Invalid language keys: \(invalid)")
+    }
+
     @Test("GitHub publish wizard strings localized in both languages")
     func gitPublishWizardStrings() {
         let keys: [AppLocalizationKey] = [
