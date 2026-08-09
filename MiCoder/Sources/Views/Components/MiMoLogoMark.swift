@@ -23,7 +23,7 @@ struct MiMoLogoMark: View {
 }
 
 enum MiMoLogoLoader {
-    static let resourceName = "Logo"
+    static let resourceName = "MiLogo"
 
     /// The bundle used to locate resource files.
     ///
@@ -41,6 +41,9 @@ enum MiMoLogoLoader {
             if b?.url(forResource: resourceName, withExtension: "png") != nil {
                 return b ?? .main
             }
+            if b?.url(forResource: resourceName, withExtension: "svg") != nil {
+                return b ?? .main
+            }
         }
         // Fallback to main bundle
         return .main
@@ -48,14 +51,25 @@ enum MiMoLogoLoader {
 
     static var image: NSImage? {
         let bundle = resourceBundle
-        // Prefer PNG (orange MI logo), fall back to SVG
+        // Prefer PNG, fall back to SVG, then NSImage(named:)
         if let url = bundle.url(forResource: resourceName, withExtension: "png") {
-            return NSImage(contentsOf: url)
+            if let img = NSImage(contentsOf: url) { return img }
         }
         if let url = bundle.url(forResource: resourceName, withExtension: "svg") {
-            return NSImage(contentsOf: url)
+            if let img = NSImage(contentsOf: url) { return img }
         }
-        // Last resort: try NSImage(named:)
+        // Try all candidate bundles directly
+        let candidates = [
+            Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/MiCoder_MiCoder.bundle"),
+            Bundle.main.bundleURL.appendingPathComponent("Resources/MiCoder_MiCoder.bundle"),
+        ]
+        for url in candidates {
+            let b = Bundle(url: url) ?? .main
+            if let fileURL = b.url(forResource: resourceName, withExtension: "png"),
+               let img = NSImage(contentsOf: fileURL) { return img }
+            if let fileURL = b.url(forResource: resourceName, withExtension: "svg"),
+               let img = NSImage(contentsOf: fileURL) { return img }
+        }
         return NSImage(named: NSImage.Name(resourceName))
     }
 }
