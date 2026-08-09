@@ -45,7 +45,7 @@ struct AccessLevelMenu: View {
                     // `.help()` doesn't render on disabled controls — put the
                     // explanation on a transparent hit-testable overlay instead.
                     Color.clear.contentShape(Rectangle())
-                        .help("Plan mode is unavailable for the selected provider/model.")
+                        .help(L.t(AppLocalizationKey.locPlanModeUnavailable))
                 }
             }
         } label: {
@@ -118,7 +118,7 @@ struct ProviderSelectorMenu: View {
     }
 
     private var selectedName: String {
-        options.first(where: { $0.id == appState.selectedProviderID })?.name ?? "Provider"
+        options.first(where: { $0.id == appState.selectedProviderID })?.name ?? L.t(AppLocalizationKey.locProvider)
     }
 
     var body: some View {
@@ -228,10 +228,10 @@ struct ModelParametersButton: View {
                 .foregroundColor(params.isCustomized ? Color.mimo.brand : Color.mimo.textMuted)
         }
         .buttonStyle(.plain)
-        .help("Model parameters")
+        .help(L.t(AppLocalizationKey.locModelParameters))
         .popover(isPresented: $isOpen) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Parameters — \(appState.selectedModel)")
+                Text("\(L.t(AppLocalizationKey.locParametersFor)) — \(appState.selectedModel)")
                     .interfaceFont(size: 12, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 field("Temperature (0–2)", text: $temperatureText, placeholder: L.t(AppLocalizationKey.locDefault))
@@ -451,7 +451,7 @@ struct SendStopButton: View {
                     .foregroundColor(Color.mimo.error)
             }
             .buttonStyle(.plain)
-            .help("Stop generation")
+            .help(L.t(AppLocalizationKey.locStopGeneration))
         } else {
             Button(action: onSend) {
                 Image(systemName: "arrow.up.circle.fill")
@@ -463,7 +463,7 @@ struct SendStopButton: View {
             }
             .buttonStyle(.plain)
             .disabled(!canSend)
-            .help(disabledReason ?? "Send message")
+            .help(disabledReason ?? L.t(AppLocalizationKey.locSendMessage))
         }
     }
 }
