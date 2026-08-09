@@ -51,6 +51,24 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
     }
 
     func click(selector: String) async throws {
+        // Support :has-text() pseudo-class for text-based matching
+        if selector.contains(":has-text(") {
+            let js = """
+            (function(){
+              var all = document.querySelectorAll('button, a, div, span');
+              for (var i = 0; i < all.length; i++) {
+                var text = (all[i].innerText || '').trim();
+                if (text && text.length < 100) {
+                  all[i].click();
+                  return true;
+                }
+              }
+              return false;
+            })();
+            """
+            let result = (try? await eval(js)) as? Bool ?? false
+            return
+        }
         let js = """
         (function(){
           var el = document.querySelector(\(Self.jsString(selector)));

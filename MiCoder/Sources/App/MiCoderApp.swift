@@ -898,18 +898,42 @@ class AppState: ObservableObject {
             guard inputFound else {
                 return "Chat input was not found. The saved session may have expired; log in again."
             }
-            guard let models = await WebModelDiscovery.discover(using: bridge,
+            var models = await WebModelDiscovery.discover(using: bridge,
                                                                  dropdownSelector: selector,
-                                                                 vendor: config.vendor) else {
-                return "Could not read the model list from \(config.displayName). Try Refresh after the chat page finishes loading."
+                                                                 vendor: config.vendor)
+            // Fallback: if no model selector on landing page, try clicking "New Chat"
+            if models?.isEmpty ?? true {
+                let newChatSelectors = [
+                    "button:has-text('New Chat')",
+                    "[class*='new-chat']",
+                    "[data-testid*='new']",
+                    "button[class*='primary']"
+                ]
+                for newChatSel in newChatSelectors {
+                    _ = try? await bridge.click(selector: newChatSel)
+                    await bridge.wait(ms: 1500)
+                    if (try? await bridge.exists(selector: selector)) == true { break }
+                }
+                // Wait for chat UI to hydrate
+                for _ in 0..<20 {
+                    if (try? await bridge.exists(selector: selector)) == true { break }
+                    await bridge.wait(ms: 250)
+                }
+                models = await WebModelDiscovery.discover(using: bridge,
+                                                                 dropdownSelector: selector,
+                                                                 vendor: config.vendor)
+            }
+            guard let found = models, !found.isEmpty else {
+                return "Could not read model list from \(config.displayName). The model selector may only appear after starting a chat. Try the 🔎 element picker in the login window."
             }
             var updated = config
-            updated.discoveredModels = models
+            updated.discoveredModels = found
             WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
             if selectedProviderID == "web:\(config.id)" {
                 selectProvider(selectedProviderID, persistPreference: false)
             }
-            return "Loaded \(models.count) model\(models.count == 1 ? "" : "s") from \(config.displayName)."
+            let count = models?.count ?? 0
+            return "Loaded \(count) model\(count == 1 ? "" : "s") from \(config.displayName)."
         } catch {
             return "Could not refresh models: \(error.localizedDescription)"
         }
