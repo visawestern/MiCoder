@@ -133,7 +133,7 @@ enum DirectChatClient {
         // Skip a usage block that carried no token accounting at all.
         guard prompt > 0 || completion > 0 else { return nil }
         return UsageCapture(promptTokens: prompt, completionTokens: completion,
-                            costUSD: cost, modelID: model, providerID: provider ?? "direct")
+                            costUSD: cost, modelID: model, providerID: provider.isEmpty ? "direct" : provider)
     }
 
     private static func intValue(_ raw: Any?) -> Int {
