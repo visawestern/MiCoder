@@ -99,6 +99,28 @@ enum WebModelDiscovery {
                 }
                 await bridge.wait(ms: 500)
             }
+
+            // Fallback: if selector not found, try clicking "New Chat" to reveal it
+            if !dropdownReady {
+                // ClickByText signature: clickByText(selector:text:exactMatch:)
+                let click1 = (try? await bridge.clickByText(selector: "button, a, div", text: "New Chat")) ?? false
+                let click2 = (try? await bridge.clickByText(selector: "button, a", text: "新对话")) ?? false
+                let click3 = (try? await bridge.click(selector: "[class*='new-chat']")) != nil
+                let click4 = (try? await bridge.click(selector: "[data-testid*='new']")) != nil
+                let clicked = click1 || click2 || click3 || click4
+                if clicked {
+                    await bridge.wait(ms: 2000)
+                    // Re-check after navigation
+                    for _ in 0..<25 {
+                        if (try? await bridge.exists(selector: dropdownSelector)) == true {
+                            dropdownReady = true
+                            break
+                        }
+                        await bridge.wait(ms: 300)
+                    }
+                }
+            }
+
             guard dropdownReady else { return nil }
 
             // Open the dropdown first so dynamic UIs populate the options.

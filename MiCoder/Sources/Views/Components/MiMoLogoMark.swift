@@ -13,7 +13,14 @@ struct MiMoLogoMark: View {
                     .interpolation(.high)
                     .antialiased(true)
             } else {
-                Color.clear
+                // Fallback: render a visible placeholder so we know the loader failed
+                ZStack {
+                    RoundedRectangle(cornerRadius: 28)
+                        .fill(Color.orange)
+                    Text("MI")
+                        .font(.system(size: size * 0.4, weight: .bold))
+                        .foregroundColor(.white)
+                }
             }
         }
         .scaledToFit()

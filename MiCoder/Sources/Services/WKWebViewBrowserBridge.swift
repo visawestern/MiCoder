@@ -116,7 +116,7 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
     /// Click the first element matching `selector` whose visible text contains
     /// (or exactly matches) `text`. Returns true if matched.
     @discardableResult
-    func clickByText(selector: String, text: String, exactMatch: Bool = false) async throws -> Bool {
+    func clickByText(selector: String, text: String) async throws -> Bool {
         let js = """
         (function(){
           var wanted = \(Self.jsString(text));
@@ -126,12 +126,25 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
             var t=(els[i].innerText||els[i].textContent||'').trim();
             if(t===wanted){els[i].click();return true;}
           }
-          // Partial match (skip if exactMatch)
-          if (!\(exactMatch)) {
-            for(var i=0;i<els.length;i++){
-              var t=(els[i].innerText||els[i].textContent||'').trim();
-              if(t.indexOf(wanted)!==-1){els[i].click();return true;}
-            }
+          // Partial match
+          for(var i=0;i<els.length;i++){
+            var t=(els[i].innerText||els[i].textContent||'').trim();
+            if(t.indexOf(wanted)!==-1){els[i].click();return true;}
+          }
+          return false;
+        })();
+        """
+        return (try? await eval(js)) as? Bool ?? false
+    }
+
+    func clickByTextExact(selector: String, text: String) async throws -> Bool {
+        let js = """
+        (function(){
+          var wanted = \(Self.jsString(text));
+          var els = document.querySelectorAll(\(Self.jsString(selector)));
+          for(var i=0;i<els.length;i++){
+            var t=(els[i].innerText||els[i].textContent||'').trim();
+            if(t===wanted){els[i].click();return true;}
           }
           return false;
         })();

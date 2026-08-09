@@ -596,30 +596,7 @@ struct WebProviderLoginView: View {
                 }
                 try? await Task.sleep(nanoseconds: 250_000_000)
             }
-            if !selectorFound {
-                // Fallback: try clicking "New Chat" to reveal model selector
-                let click1 = (try? await bridge.clickByText(selector: "button, a, div", text: "New Chat", exactMatch: false)) ?? false
-                let click2 = (try? await bridge.clickByText(selector: "button, a", text: "新对话", exactMatch: false)) ?? false
-                let click3 = (try? await bridge.click(selector: "[class*='new-chat']")) != nil
-                let click4 = (try? await bridge.click(selector: "[data-testid*='new']")) != nil
-                let clickedNewChat = click1 || click2 || click3 || click4
-                if clickedNewChat {
-                    await bridge.wait(ms: 2000)
-                }
-                // Re-check after navigation
-                for _ in 0..<25 {
-                    if (try? await bridge.exists(selector: dropdownSelector)) == true {
-                        selectorFound = true
-                        break
-                    }
-                    try? await Task.sleep(nanoseconds: 300_000_000)
-                }
-                if !selectorFound {
-                    await MainActor.run { detectResult = .failed("Selector not found: \(dropdownSelector). Start a chat first, or use 🔎 to pick manually.") }
-                    return
-                }
-            }
-            // Try to discover
+            // Try to discover (discover() handles "New Chat" fallback internally)
             let models = await WebModelDiscovery.discover(using: bridge, dropdownSelector: dropdownSelector, vendor: config.vendor) ?? []
             await MainActor.run {
                 if models.isEmpty {
