@@ -438,7 +438,7 @@ struct ChatPanelView: View {
             return
         }
         
-        Task {
+        currentTask = Task {
             await sendDirectly(text: text, files: files, images: images)
         }
     }
@@ -467,7 +467,8 @@ struct ChatPanelView: View {
         text: String,
         files: [FileInfo],
         images: [ClipboardImage] = [],
-        agentModeOverride: AgentMode? = nil
+        agentModeOverride: AgentMode? = nil,
+        retryCount: Int = 0
     ) async {
         if let error = SendReadinessLogic.connectionValidationError(
             serverConnected: appState.serverConnected,
@@ -601,16 +602,18 @@ struct ChatPanelView: View {
                         msg.content = SendStatusText.waitingForResponse(modelID: model, providerName: providerName)
                     }
                 }
-                let answer = try await DirectChatClient.send(
+                let directResult = try await DirectChatClient.send(
                     baseURL: baseURL, apiKey: apiKey, model: model,
                     messages: msgs, parameters: params
                 )
+                let directUsage = directResult.usage
                 await MainActor.run {
                     self.appState.isLoading = false
                     self.appState.isStreaming = false
                     self.streamingText = ""
                     self.messageStore.update(id: assistantID) { msg in
-                        msg.content = answer
+                        msg.content = directResult.content
+                        msg.usage = directUsage
                         msg.isFinished = true
                         msg.isStreaming = false
                     }
@@ -673,6 +676,10 @@ struct ChatPanelView: View {
                 // Convert ACP response to message text
                 let responseText = response.choices.first?.message.content ?? ""
                 let reasoningText = response.choices.first?.message.reasoning
+                let acpUsage = response.usage.map {
+                    UsageCapture(acpUsage: $0, modelID: response.model,
+                                 providerID: appState.selectedProviderID.isEmpty ? "acp" : appState.selectedProviderID)
+                }
 
                 await MainActor.run {
                     self.appState.isLoading = false
@@ -681,6 +688,7 @@ struct ChatPanelView: View {
                     self.messageStore.update(id: assistantID) { msg in
                         msg.content = responseText
                         msg.reasoning = reasoningText ?? ""
+                        msg.usage = acpUsage
                         msg.isFinished = true
                         msg.isStreaming = false
                     }
@@ -789,22 +797,24 @@ struct ChatPanelView: View {
             if case MimoServeError.sessionBusy = error {
                 await MainActor.run {
                     self.messageStore.update(id: assistantID) { msg in
-                        msg.content = "Session busy, aborting and retrying..."
+                        msg.content = retryCount < 3 ? "Session busy, aborting and retrying..." : "Session busy after \(retryCount + 1) attempts, giving up."
                         msg.isStreaming = true
                     }
                     self.appState.notificationService.sessionBusy()
                 }
-                if let sessionID = messageStore.currentSessionID {
-                    try? await appState.mimoClient.abortSession(id: sessionID)
-                    try? await Task.sleep(nanoseconds: 500_000_000)
-                }
-                await MainActor.run {
-                    self.messageStore.update(id: assistantID) { msg in
-                        msg.content = ""
+                if retryCount < 3 {
+                    if let sessionID = messageStore.currentSessionID {
+                        try? await appState.mimoClient.abortSession(id: sessionID)
+                        try? await Task.sleep(nanoseconds: 500_000_000)
                     }
+                    await MainActor.run {
+                        self.messageStore.update(id: assistantID) { msg in
+                            msg.content = ""
+                        }
+                    }
+                    await sendDirectly(text: text, files: files, images: images, agentModeOverride: agentModeOverride, retryCount: retryCount + 1)
+                    return
                 }
-                await sendDirectly(text: text, files: files, images: images, agentModeOverride: agentModeOverride)
-                return
             }
             await MainActor.run {
                 self.appState.isLoading = false

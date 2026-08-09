@@ -277,7 +277,8 @@ class DatabaseBridge: ObservableObject {
                     sessionId: sessionId,
                     role: roleToString(message.role),
                     content: message.content,
-                    reasoning: message.reasoning.isEmpty ? nil : message.reasoning
+                    reasoning: message.reasoning.isEmpty ? nil : message.reasoning,
+                    usage: message.usage
                 )
                 for (index, part) in message.parts.enumerated() {
                     try saveMessagePart(part, messageId: message.id, sequenceOrder: index, insert: projectDB.insertMessagePart)
@@ -296,7 +297,8 @@ class DatabaseBridge: ObservableObject {
                 content: message.content,
                 modelId: nil,
                 providerId: nil,
-                reasoning: message.reasoning.isEmpty ? nil : message.reasoning
+                reasoning: message.reasoning.isEmpty ? nil : message.reasoning,
+                usage: message.usage
             )
             for (index, part) in message.parts.enumerated() {
                 try saveMessagePart(part, messageId: message.id, sequenceOrder: index, insert: db.insertMessagePart)

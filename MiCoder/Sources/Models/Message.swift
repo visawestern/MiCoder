@@ -105,6 +105,7 @@ struct Message: Identifiable {
     var reasoningStartedAt: Date?
     var reasoningEndedAt: Date?
     var attachedImages: [ClipboardImage]?
+    var usage: UsageCapture?
 
     /// Elapsed reasoning time. While reasoning is in progress (no end
     /// timestamp yet) this measures from start to now so a live UI can show
@@ -116,7 +117,7 @@ struct Message: Identifiable {
         return end.timeIntervalSince(startedAt)
     }
     
-    init(id: String = UUID().uuidString, serverID: String? = nil, role: MessageRole, content: String, agentName: String? = nil, toolCalls: [ToolCall]? = nil, isStreaming: Bool = false, action: MessageAction? = nil, files: [FileInfo]? = nil, command: String? = nil, tokensAdded: Int? = nil, tokensRemoved: Int? = nil, parts: [MessagePartContent] = [], reasoning: String = "", isFinished: Bool = false, reasoningStartedAt: Date? = nil, reasoningEndedAt: Date? = nil, attachedImages: [ClipboardImage]? = nil) {
+    init(id: String = UUID().uuidString, serverID: String? = nil, role: MessageRole, content: String, agentName: String? = nil, toolCalls: [ToolCall]? = nil, isStreaming: Bool = false, action: MessageAction? = nil, files: [FileInfo]? = nil, command: String? = nil, tokensAdded: Int? = nil, tokensRemoved: Int? = nil, parts: [MessagePartContent] = [], reasoning: String = "", isFinished: Bool = false, reasoningStartedAt: Date? = nil, reasoningEndedAt: Date? = nil, attachedImages: [ClipboardImage]? = nil, usage: UsageCapture? = nil) {
         self.id = id
         self.serverID = serverID
         self.role = role
@@ -136,6 +137,7 @@ struct Message: Identifiable {
         self.reasoningStartedAt = reasoningStartedAt
         self.reasoningEndedAt = reasoningEndedAt
         self.attachedImages = attachedImages
+        self.usage = usage
     }
 }
 

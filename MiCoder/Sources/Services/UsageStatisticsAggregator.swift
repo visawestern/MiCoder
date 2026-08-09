@@ -1,5 +1,45 @@
 import Foundation
 
+/// Runtime usage captured from a provider response before persistence.
+/// `costUSD` is nil for local providers (Ollama/mimoCLI) where no price applies.
+struct UsageCapture: Equatable {
+    let promptTokens: Int
+    let completionTokens: Int
+    let costUSD: Double?
+    let modelID: String
+    let providerID: String
+
+    var totalTokens: Int { promptTokens + completionTokens }
+
+    init(promptTokens: Int, completionTokens: Int, costUSD: Double?, modelID: String, providerID: String) {
+        self.promptTokens = promptTokens
+        self.completionTokens = completionTokens
+        self.costUSD = costUSD
+        self.modelID = modelID.isEmpty ? "unknown" : modelID
+        self.providerID = providerID.isEmpty ? "unknown" : providerID
+    }
+
+    /// True when a cost figure is available (including zero cost). Distinct from
+    /// `nil`, which means cost is N/A (local provider).
+    var hasCost: Bool { costUSD != nil }
+
+    /// True when no tokens were recorded — such captures should not become
+    /// data points (avoids zero rows polluting aggregates).
+    var isZero: Bool { promptTokens == 0 && completionTokens == 0 }
+
+    /// Build a capture from an ACP response's `usage`. ACP carries no cost, so
+    /// `costUSD` is always nil here (N/A).
+    init(acpUsage: ACPUsage, modelID: String, providerID: String) {
+        self.init(
+            promptTokens: acpUsage.promptTokens ?? 0,
+            completionTokens: acpUsage.completionTokens ?? 0,
+            costUSD: nil,
+            modelID: modelID,
+            providerID: providerID
+        )
+    }
+}
+
 /// One usage data point read from the DB (plan Раздел 10 Блок 2 п.13-14).
 /// Sourced from existing `prompt_tokens`/`completion_tokens`/`cost_usd` columns
 /// tagged with model+provider — no fabricated numbers.

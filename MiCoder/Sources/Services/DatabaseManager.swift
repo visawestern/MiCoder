@@ -70,6 +70,7 @@ class DatabaseManager {
     private let messageProviderId = Expression<String?>("provider_id")
     private let messagePromptTokens = Expression<Int64?>("prompt_tokens")
     private let messageCompletionTokens = Expression<Int64?>("completion_tokens")
+    private let messageCostUsd = Expression<Double?>("cost_usd")
     private let messageReasoning = Expression<String?>("reasoning")
     private let messageIsStreaming = Expression<Bool>("is_streaming")
     private let messageIsFinished = Expression<Bool>("is_finished")
@@ -235,6 +236,7 @@ class DatabaseManager {
             t.column(messageProviderId)
             t.column(messagePromptTokens)
             t.column(messageCompletionTokens)
+            t.column(messageCostUsd)
             t.column(messageReasoning)
             t.column(messageIsStreaming, defaultValue: false)
             t.column(messageIsFinished, defaultValue: true)
@@ -656,10 +658,11 @@ class DatabaseManager {
         content: String,
         modelId: String? = nil,
         providerId: String? = nil,
-        reasoning: String? = nil
+        reasoning: String? = nil,
+        usage: UsageCapture? = nil
     ) throws {
         guard let db = db else { throw DatabaseError.notInitialized }
-        
+
         let now = Int64(Date().timeIntervalSince1970)
         try db.run(messages.insert(
             messageId <- id,
@@ -667,16 +670,72 @@ class DatabaseManager {
             messageRole <- role,
             messageContent <- content,
             messageCreatedAt <- now,
-            messageModelId <- modelId,
-            messageProviderId <- providerId,
+            messageModelId <- modelId ?? usage?.modelID,
+            messageProviderId <- providerId ?? usage?.providerID,
+            messagePromptTokens <- usage.map { Int64($0.promptTokens) },
+            messageCompletionTokens <- usage.map { Int64($0.completionTokens) },
+            messageCostUsd <- usage?.costUSD,
             messageReasoning <- reasoning,
             messageIsFinished <- true
         ))
-        
+
+        if usage != nil {
+            try recalculateSessionUsage(id: sessionId)
+        }
         // Update session timestamp
         try updateSessionTimestamp(id: sessionId)
     }
-    
+
+    /// Update the usage columns of an already-stored message (e.g. when usage
+    /// arrives only after the initial insert, at stream finish). Returns true if
+    /// a row was updated, false if no message with that id exists.
+    @discardableResult
+    func updateMessageTokens(id: String, usage: UsageCapture) throws -> Bool {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        let row = messages.filter(messageId == id)
+        let count = try db.run(row.update(
+            messagePromptTokens <- Int64(usage.promptTokens),
+            messageCompletionTokens <- Int64(usage.completionTokens),
+            messageCostUsd <- usage.costUSD,
+            messageModelId <- usage.modelID,
+            messageProviderId <- usage.providerID
+        ))
+        if count > 0, let sessionId = try db.pluck(row.select(messageSessionId))?[messageSessionId] {
+            try updateSessionTimestamp(id: sessionId)
+            try recalculateSessionUsage(id: sessionId)
+        }
+        return count > 0
+    }
+
+    /// Recompute and persist `tokens_used` / `cost_usd` for a session from the
+    /// usage of its assistant messages. Call after any message usage change.
+    private func recalculateSessionUsage(id: String) throws {
+        guard let db = db else { return }
+        var tokens: Int64 = 0
+        var cost: Double = 0
+        var hasCost = false
+        for row in try SQLiteSafeQuery.rows(db.prepareRowIterator(
+            messages.select(messagePromptTokens, messageCompletionTokens, messageCostUsd)
+                .filter(messageSessionId == id && messageRole == "assistant"))) {
+            tokens += (row[messagePromptTokens] ?? 0) + (row[messageCompletionTokens] ?? 0)
+            if let c = row[messageCostUsd] {
+                cost += c
+                hasCost = true
+            }
+        }
+        do {
+            let count = try db.run(sessions.filter(sessionId == id).update(
+                sessionTokensUsed <- tokens,
+                sessionCostUsd <- hasCost ? cost : 0
+            ))
+            if count > 0 {
+                try updateSessionTimestamp(id: id)
+            }
+        } catch {
+            print("❌ recalculateSessionUsage failed for \(id): \(error)")
+        }
+    }
+
     func getMessagesBySession(sessionId: String, limit: Int? = nil, offset: Int = 0) throws -> [MessageRecord] {
         guard let db = db else { throw DatabaseError.notInitialized }
         
@@ -981,7 +1040,8 @@ class DatabaseManager {
 
     /// Read real per-message usage data points for statistics (plan Раздел 10
     /// Блок 2 п.13-14). Uses the existing model_id/provider_id/prompt_tokens/
-    /// completion_tokens columns. Cost is not stored per message → nil (N/A).
+    /// completion_tokens/cost_usd columns. costUSD is nil only when the
+    /// provider reported no cost (local).
     func usageDataPoints() throws -> [UsageDataPoint] {
         guard let db = db else { throw DatabaseError.notInitialized }
         var points: [UsageDataPoint] = []
@@ -995,7 +1055,7 @@ class DatabaseManager {
             let ts = Date(timeIntervalSince1970: TimeInterval(row[messageCreatedAt]))
             points.append(UsageDataPoint(
                 timestamp: ts, model: model, provider: provider,
-                promptTokens: prompt, completionTokens: completion, costUSD: nil
+                promptTokens: prompt, completionTokens: completion, costUSD: row[messageCostUsd]
             ))
         }
         return points

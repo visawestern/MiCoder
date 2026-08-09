@@ -145,6 +145,7 @@ final class ProjectDatabaseManager {
     private let messageProviderId = Expression<String?>("provider_id")
     private let messagePromptTokens = Expression<Int64?>("prompt_tokens")
     private let messageCompletionTokens = Expression<Int64?>("completion_tokens")
+    private let messageCostUsd = Expression<Double?>("cost_usd")
     private let messageReasoning = Expression<String?>("reasoning")
     private let messageIsStreaming = Expression<Bool>("is_streaming")
     private let messageIsFinished = Expression<Bool>("is_finished")
@@ -423,6 +424,7 @@ final class ProjectDatabaseManager {
             t.column(messageProviderId)
             t.column(messagePromptTokens)
             t.column(messageCompletionTokens)
+            t.column(messageCostUsd)
             t.column(messageReasoning)
             t.column(messageIsStreaming, defaultValue: false)
             t.column(messageIsFinished, defaultValue: true)
@@ -645,7 +647,8 @@ final class ProjectDatabaseManager {
         modelId: String? = nil,
         providerId: String? = nil,
         reasoning: String? = nil,
-        isFinished: Bool = true
+        isFinished: Bool = true,
+        usage: UsageCapture? = nil
     ) throws {
         touch()
         let now = Int64(Date().timeIntervalSince1970)
@@ -656,12 +659,78 @@ final class ProjectDatabaseManager {
             messageRole <- role,
             messageContent <- content,
             messageCreatedAt <- now,
-            messageModelId <- modelId,
-            messageProviderId <- providerId,
+            messageModelId <- modelId ?? usage?.modelID,
+            messageProviderId <- providerId ?? usage?.providerID,
+            messagePromptTokens <- usage.map { Int64($0.promptTokens) },
+            messageCompletionTokens <- usage.map { Int64($0.completionTokens) },
+            messageCostUsd <- usage?.costUSD,
             messageReasoning <- reasoning,
             messageIsFinished <- isFinished
         ))
+        if usage != nil {
+            try recalculateSessionUsage(id: sessionIdValue)
+        }
         try updateSessionTimestamp(id: sessionIdValue)
+    }
+
+    /// Update usage columns of an already-stored message. Returns true if a row
+    /// was updated. No-op (returns false) when the message id is unknown.
+    @discardableResult
+    func updateMessageTokens(id: String, usage: UsageCapture) throws -> Bool {
+        touch()
+        let row = messages.filter(messageId == id)
+        let count = try db.run(row.update(
+            messagePromptTokens <- Int64(usage.promptTokens),
+            messageCompletionTokens <- Int64(usage.completionTokens),
+            messageCostUsd <- usage.costUSD,
+            messageModelId <- usage.modelID,
+            messageProviderId <- usage.providerID
+        ))
+        if count > 0, let sid = try db.pluck(row.select(messageSessionId))?[messageSessionId] {
+            try updateSessionTimestamp(id: sid)
+            try recalculateSessionUsage(id: sid)
+        }
+        return count > 0
+    }
+
+    /// Recompute and persist `tokens_used` / `cost_usd` for a session from its
+    /// assistant messages. Call after any message usage change.
+    private func recalculateSessionUsage(id: String) throws {
+        var tokens: Int64 = 0
+        var cost: Double = 0
+        var hasCost = false
+        for row in try SQLiteSafeQuery.rows(db.prepareRowIterator(
+            messages.select(messagePromptTokens, messageCompletionTokens, messageCostUsd)
+                .filter(messageSessionId == id && messageRole == "assistant"))) {
+            tokens += (row[messagePromptTokens] ?? 0) + (row[messageCompletionTokens] ?? 0)
+            if let c = row[messageCostUsd] {
+                cost += c
+                hasCost = true
+            }
+        }
+        let _ = try db.run(sessions.filter(sessionId == id).update(
+            sessionTokensUsed <- tokens,
+            sessionCostUsd <- hasCost ? cost : 0
+        ))
+    }
+
+    /// Read per-message usage data points for statistics from this project DB.
+    func usageDataPoints() throws -> [UsageDataPoint] {
+        var points: [UsageDataPoint] = []
+        let query = messages.filter(messageRole == "assistant")
+        for row in try SQLiteSafeQuery.rows(db.prepareRowIterator(query)) {
+            let prompt = Int(row[messagePromptTokens] ?? 0)
+            let completion = Int(row[messageCompletionTokens] ?? 0)
+            guard prompt > 0 || completion > 0 else { continue }
+            let model = row[messageModelId] ?? "unknown"
+            let provider = row[messageProviderId] ?? "unknown"
+            let ts = Date(timeIntervalSince1970: TimeInterval(row[messageCreatedAt]))
+            points.append(UsageDataPoint(
+                timestamp: ts, model: model, provider: provider,
+                promptTokens: prompt, completionTokens: completion, costUSD: row[messageCostUsd]
+            ))
+        }
+        return points
     }
 
     func getMessages(sessionId sessionIdValue: String, limit: Int? = nil, offset: Int = 0) throws -> [ProjectMessageRecord] {

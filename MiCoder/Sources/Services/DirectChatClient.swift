@@ -3,6 +3,18 @@ import Foundation
 import FoundationNetworking
 #endif
 
+/// Result of a direct (OpenAI-compatible) chat call. `usage` is nil when the
+/// provider did not return token accounting (e.g. local Ollama without usage).
+struct DirectChatResult: Equatable {
+    let content: String
+    let usage: UsageCapture?
+
+    init(content: String, usage: UsageCapture? = nil) {
+        self.content = content
+        self.usage = usage
+    }
+}
+
 /// Real OpenAI-compatible chat client for local (Ollama/OpenCode) and custom
 /// providers so messages actually reach the selected model (fixes the empty-
 /// response bug for non-serve providers). Body building is pure/testable; the
@@ -80,20 +92,68 @@ enum DirectChatClient {
     }
 
     /// Extract assistant text from an OpenAI-compatible response body.
+    /// Kept for any caller that only needs the text; usage-aware callers should
+    /// use `parseResponse`.
     static func parseResponseText(_ data: Data) -> String? {
+        parseResponse(data)?.content
+    }
+
+    /// Parse a full OpenAI/Ollama response into text + optional usage. Usage is
+    /// extracted from the top-level `usage` block (OpenAI) when present.
+    static func parseResponse(_ data: Data) -> DirectChatResult? {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+
+        var content: String?
         // OpenAI: choices[0].message.content
         if let choices = json["choices"] as? [[String: Any]],
            let message = choices.first?["message"] as? [String: Any],
-           let content = message["content"] as? String {
-            return content
+           let c = message["content"] as? String {
+            content = c
         }
         // Ollama /api/chat style: message.content
-        if let message = json["message"] as? [String: Any],
-           let content = message["content"] as? String {
-            return content
+        if content == nil, let message = json["message"] as? [String: Any],
+           let c = message["content"] as? String {
+            content = c
         }
+        guard let content else { return nil }
+
+        let usage = Self.extractUsage(from: json)
+        return DirectChatResult(content: content, usage: usage)
+    }
+
+    /// Read the top-level `usage` block. Tolerant of missing/partial fields and
+    /// string-encoded numbers some gateways emit.
+    private static func extractUsage(from json: [String: Any]) -> UsageCapture? {
+        guard let usage = json["usage"] as? [String: Any] else { return nil }
+        let prompt = intValue(usage["prompt_tokens"])
+        let completion = intValue(usage["completion_tokens"])
+        let cost = doubleValue(usage["cost_usd"]) ?? doubleValue(usage["cost"])
+        let model = stringValue(json["model"])
+        let provider = stringValue(usage["provider_id"])
+        // Skip a usage block that carried no token accounting at all.
+        guard prompt > 0 || completion > 0 else { return nil }
+        return UsageCapture(promptTokens: prompt, completionTokens: completion,
+                            costUSD: cost, modelID: model, providerID: provider ?? "direct")
+    }
+
+    private static func intValue(_ raw: Any?) -> Int {
+        if let n = raw as? Int { return n }
+        if let n = raw as? Int64 { return Int(n) }
+        if let n = raw as? Double { return Int(n) }
+        if let s = raw as? String, let n = Int(s) { return n }
+        return 0
+    }
+
+    private static func doubleValue(_ raw: Any?) -> Double? {
+        if let n = raw as? Double { return n }
+        if let n = raw as? Int { return Double(n) }
+        if let s = raw as? String, let n = Double(s) { return n }
         return nil
+    }
+
+    private static func stringValue(_ raw: Any?) -> String {
+        if let s = raw as? String { return s }
+        return ""
     }
 
     /// Compose the full message list including an optional system prompt.
@@ -106,13 +166,14 @@ enum DirectChatClient {
         return msgs
     }
 
-    /// Send a chat completion and return the assistant text, or throws.
+    /// Send a chat completion and return the assistant text plus any usage the
+    /// provider reported, or throws.
     static func send(baseURL: String,
                     apiKey: String?,
                     model: String,
                     messages: [DirectChatMessage],
                     parameters: ModelCallParameters = ModelCallParameters(),
-                    transport: DirectChatTransport = URLSessionDirectChatTransport()) async throws -> String {
+                    transport: DirectChatTransport = URLSessionDirectChatTransport()) async throws -> DirectChatResult {
         let url = baseURL.hasSuffix("/") ? "\(baseURL)chat/completions" : "\(baseURL)/chat/completions"
         var headers = ["Content-Type": "application/json"]
         if let key = apiKey, !key.isEmpty { headers["Authorization"] = "Bearer \(key)" }
@@ -125,10 +186,10 @@ enum DirectChatClient {
             let text = String(data: respData, encoding: .utf8) ?? ""
             throw DirectChatError.http(status: status, body: text)
         }
-        guard let content = parseResponseText(respData) else {
+        guard let result = parseResponse(respData) else {
             throw DirectChatError.decode
         }
-        return content
+        return result
     }
 }
 
