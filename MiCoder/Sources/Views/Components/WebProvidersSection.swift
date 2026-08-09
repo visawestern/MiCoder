@@ -421,6 +421,11 @@ struct WebProviderLoginView: View {
     @State private var showElementPicker = false
     @State private var pickedElement: PickedElement?
 
+    // Capture allowed when we have detected models or user picked selector
+    private var canCapture: Bool {
+        config.discoveredModels.isEmpty == false || config.customModelSelector != nil
+    }
+
     enum DetectResult: Identifiable {
         case detecting, found([String]), failed(String)
         var id: String {
@@ -484,9 +489,24 @@ struct WebProviderLoginView: View {
                 .buttonStyle(.plain)
                 .help(L.t(AppLocalizationKey.locWebDetectModelsHelp))
 
-                Button(L.t(AppLocalizationKey.locWebCaptureSession)) { capture() }
-                    .interfaceFont(size: 11)
-                    .foregroundColor(capturedCookies.isEmpty ? Color.mimo.brand : Color.mimo.success)
+                // Capture only enabled when we have models OR user explicitly wants session
+                Button(action: capture) {
+                    Text(L.t(AppLocalizationKey.locWebCaptureSession))
+                        .interfaceFont(size: 11)
+                        .foregroundColor(canCapture ? Color.mimo.success : Color.mimo.textMuted)
+                }
+                .buttonStyle(.plain)
+                .disabled(!canCapture)
+                .help(canCapture ? "Save session & models" : "Detect or pick models first")
+
+                // Close button (always available)
+                Button(action: { dismiss() }) {
+                    Image(systemName: "xmark")
+                        .interfaceFont(size: 12)
+                        .foregroundColor(Color.mimo.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .help(L.t(AppLocalizationKey.locClose))
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
@@ -560,24 +580,49 @@ struct WebProviderLoginView: View {
         Task {
             await MainActor.run { detectResult = .detecting }
             let bridge = WKWebViewBrowserBridge(webView: webView, selectors: WebVendorSelectors(input: "", sendButton: "", responseContainer: "", stopButton: ""))
-            // Prefer user-picked selector, then catalog, then empty
             let dropdownSelector = config.customModelSelector
                 ?? (try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id))?.modelDropdown
                 ?? ""
             if dropdownSelector.isEmpty {
-                await MainActor.run { detectResult = .failed(L.t(AppLocalizationKey.locWebNoSelector)) }
+                await MainActor.run { detectResult = .failed("No selector. Use 🔎 to pick an element, or wait for auto-detect.") }
                 return
             }
             // Wait for full page hydration (up to 10s)
+            var selectorFound = false
             for _ in 0..<40 {
-                if (try? await bridge.exists(selector: dropdownSelector)) == true { break }
+                if (try? await bridge.exists(selector: dropdownSelector)) == true {
+                    selectorFound = true
+                    break
+                }
                 try? await Task.sleep(nanoseconds: 250_000_000)
             }
+            if !selectorFound {
+                await MainActor.run { detectResult = .failed("Selector not found: \(dropdownSelector). Try picking manually with 🔎.") }
+                return
+            }
+            // Try to discover
             let models = await WebModelDiscovery.discover(using: bridge, dropdownSelector: dropdownSelector, vendor: config.vendor) ?? []
             await MainActor.run {
-                detectResult = models.isEmpty ? .failed(L.t(AppLocalizationKey.locWebNoModels)) : .found(models)
+                if models.isEmpty {
+                    detectResult = .failed("No models in dropdown. Try a different element with 🔎.")
+                } else {
+                    detectResult = .found(models)
+                    // Save discovered models to config
+                    var updated = config
+                    updated.discoveredModels = models
+                    WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
+                }
             }
         }
+    }
+
+    /// Triggered when user picks an element via the viewfinder
+    private func usePickedElementAsSelector(_ element: PickedElement) {
+        var updated = config
+        updated.customModelSelector = element.selector
+        WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
+        // Immediately try to detect models with new selector
+        detectModelsFromPage()
     }
 
     private func capture() {
