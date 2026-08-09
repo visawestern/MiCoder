@@ -502,7 +502,40 @@ enum AppLocalizationKey: String, CaseIterable {
     case locWebDetecting
     case locWebModelsFound
     case locWebNoSelector
+    case locShowInFinder
+    case locStop
     case locWebNoModels
+    case locGenerationStopped
+    case locTaskCompletedMessage
+    case locResult
+    case locArguments
+    case locCompleted
+    case locRunning
+    case locResend
+    case locCopied
+    case locNewTaskSidebar
+    case locMarkAllRead
+    case locSelectFolder
+    case locConfigured
+    case locLogin
+    case locUseAsModelSelector
+    case locConnecting
+    case locChooseFolder
+    case locMyProject
+    case locShortSummary
+    case locWhatChanged
+    case locBranchName
+    case locCreateNewBranch
+    case locViewImage
+    case locIgnore
+    case locRestoreFromBackup
+    case locConnected
+    case locDisconnected
+    case locUndoLastFileChange
+    case locGoal
+    case locTerminal
+    case locCopyChat
+    case locPickElement
     case locConnectionFailed
     case locRequiresAPIKey
     case locEnableToolCalling
@@ -537,7 +570,6 @@ enum AppLocalizationKey: String, CaseIterable {
     case locCancel
     case locDelete
     case locResetButton
-    case locConfigured
     case locAlertDeleteMCPMessage
     case locAlertDeleteSkillMessage
     case locDeleteChatsConfirmMessage
@@ -1060,7 +1092,41 @@ enum AppLocalization {
         "locWebDetecting": ["en": "Detecting models...", "ru": "Определение моделей...", "es": "Detectando modelos...", "fr": "Détection des modèles...", "de": "Modelle werden erkannt...", "zh": "正在检测模型...", "ja": "モデルを検出中...", "ko": "모델 감지 중...", "pt": "Detectando modelos...", "ar": "جارٍ اكتشاف النماذج..."],
         "locWebModelsFound": ["en": "models found", "ru": "моделей найдено", "es": "modelos encontrados", "fr": "modèles trouvés", "de": "Modelle gefunden", "zh": "个模型已找到", "ja": "モデルが見つかりました", "ko": "모델 발견", "pt": "modelos encontrados", "ar": "نماذج تم العثور عليها"],
         "locWebNoSelector": ["en": "No model selector configured for this vendor", "ru": "Селектор моделей не настроен", "es": "Selector de modelos no configurado", "fr": "Sélecteur de modèles non configuré", "de": "Modellauswahl nicht konfiguriert", "zh": "未配置模型选择器", "ja": "モデルセレクター未設定", "ko": "모델 선택기가 구성되지 않음", "pt": "Seletor de modelos não configurado", "ar": "لم يتم تكوين محدد النماذج"],
+        "locShowInFinder": ["en": "Show in Finder", "ru": "Показать в Finder", "es": "Mostrar en Finder", "fr": "Afficher dans le Finder", "de": "Im Finder anzeigen", "zh": "在 Finder 中显示", "ja": "Finder に表示", "ko": "Finder에 표시", "pt": "Mostrar no Finder", "ar": "إظهار في Finder"],
+        "locStop": ["en": "Stop", "ru": "Остановить", "es": "Detener", "fr": "Arrêter", "de": "Stoppen", "zh": "停止", "ja": "停止", "ko": "중지", "pt": "Parar", "ar": "إيقاف"],
         "locWebNoModels": ["en": "No models found on page", "ru": "Модели не найдены на странице", "es": "No se encontraron modelos", "fr": "Aucun modèle trouvé", "de": "Keine Modelle gefunden", "zh": "页面中未找到模型", "ja": "ページにモデルが見つかりません", "ko": "페이지에서 모델을 찾을 수 없음", "pt": "Nenhum modelo encontrado", "ar": "لم يتم العثور على نماذج"],
+
+        "locGenerationStopped": ["en": "Generation stopped", "ru": "Генерация остановлена", "es": "Generación detenida", "fr": "Génération arrêtée", "de": "Generierung gestoppt", "zh": "生成已停止", "ja": "生成が停止しました", "ko": "생성 중지됨", "pt": "Geração parada", "ar": "تم إيقاف التوليد"],
+        "locTaskCompletedMessage": ["en": "Task completed", "ru": "Задача выполнена", "es": "Tarea completada", "fr": "Tâche terminée", "de": "Aufgabe abgeschlossen", "zh": "任务完成", "ja": "タスクが完了しました", "ko": "작업 완료", "pt": "Tarefa concluída", "ar": "اكتملت المهمة"],
+        "locResult": ["en": "Result", "ru": "Результат", "es": "Resultado", "fr": "Résultat", "de": "Ergebnis", "zh": "结果", "ja": "結果", "ko": "결과", "pt": "Resultado", "ar": "النتيجة"],
+        "locArguments": ["en": "Arguments", "ru": "Аргументы", "es": "Argumentos", "fr": "Arguments", "de": "Argumente", "zh": "参数", "ja": "引数", "ko": "인수", "pt": "Argumentos", "ar": "الوسائط"],
+        "locCompleted": ["en": "Completed", "ru": "Завершено", "es": "Completado", "fr": "Terminé", "de": "Abgeschlossen", "zh": "已完成", "ja": "完了", "ko": "완료", "pt": "Concluído", "ar": "مكتمل"],
+        "locRunning": ["en": "Running", "ru": "Выполняется", "es": "Ejecutando", "fr": "En cours", "de": "Läuft", "zh": "运行中", "ja": "実行中", "ko": "실행 중", "pt": "Executando", "ar": "قيد التشغيل"],
+        "locResend": ["en": "Resend", "ru": "Отправить повторно", "es": "Reenviar", "fr": "Renvoyer", "de": "Erneut senden", "zh": "重新发送", "ja": "再送信", "ko": "다시 보내기", "pt": "Reenviar", "ar": "إعادة الإرسال"],
+        "locCopied": ["en": "Copied", "ru": "Скопировано", "es": "Copiado", "fr": "Copié", "de": "Kopiert", "zh": "已复制", "ja": "コピーしました", "ko": "복사됨", "pt": "Copiado", "ar": "تم النسخ"],
+        "locNewTaskSidebar": ["en": "New task", "ru": "Новая задача", "es": "Нueva tarea", "fr": "Nouvelle tâche", "de": "Новая Aufgabe", "zh": "Новая задача", "ja": "新しいタスク", "ko": "새 작업", "pt": "Новая tarefa", "ar": "مهمة جديدة"],
+        "locMarkAllRead": ["en": "Mark All Read", "ru": "Отметить все как прочитанные", "es": "Marcar todo como leído", "fr": "Tout marquer comme lu", "de": "Alle als gelesen markieren", "zh": "全部标记为已读", "ja": "すべて既読にする", "ko": "모두 읽음으로 표시", "pt": "Marcar tudo como lido", "ar": "تحديد الكل كمقروء"],
+        "locSelectFolder": ["en": "Select a folder to open as a project", "ru": "Выберите папку для открытия как проекта", "es": "Selecciona una carpeta para abrir como proyecto", "fr": "Sélectionnez un dossier à ouvrir comme projet", "de": "Ordner zum Öffnen als Projekt auswählen", "zh": "选择要作为项目打开的文件夹", "ja": "プロジェクトとして開くフォルダを選択", "ko": "프로젝트로 열 폴더 선택", "pt": "Seleccione una pasta para abrir como proyecto", "ar": "حدد مجلداً لفتحه كمشروع"],
+        "locConfigured": ["en": "Configured", "ru": "Настроено", "es": "Configurado", "fr": "Configuré", "de": "Konfiguriert", "zh": "已配置", "ja": "設定済み", "ko": "구성됨", "pt": "Configurado", "ar": "تم التكوين"],
+        "locLogin": ["en": "Log in", "ru": "Войти", "es": "Iniciar sesión", "fr": "Se connecter", "de": "Anmelden", "zh": "登录", "ja": "ログイン", "ko": "로그인", "pt": "Entrar", "ar": "تسجيل الدخول"],
+        "locUseAsModelSelector": ["en": "Use as Model Selector", "ru": "Использовать как селектор моделей", "es": "Usar como selector de modelos", "fr": "Utiliser comme sélecteur de modèles", "de": "Als Modellauswahl verwenden", "zh": "用作模型选择器", "ja": "モデルセレクターとして使用", "ko": "모델 선택기로 사용", "pt": "Usar como seletor de modelos", "ar": "استخدم كمحدد للنماذج"],
+        "locConnecting": ["en": "Connecting…", "ru": "Подключение…", "es": "Conectando…", "fr": "Connexion…", "de": "Verbindung wird hergestellt…", "zh": "连接中…", "ja": "接続中…", "ko": "연결 중…", "pt": "A ligar…", "ar": "جارٍ الاتصال…"],
+        "locChooseFolder": ["en": "Choose folder", "ru": "Выберите папку", "es": "Elegir carpeta", "fr": "Choisir un dossier", "de": "Ordner wählen", "zh": "选择文件夹", "ja": "フォルダを選択", "ko": "폴더 선택", "pt": "Escolher pasta", "ar": "اختر مجلداً"],
+        "locMyProject": ["en": "My Project", "ru": "Мой проект", "es": "Mi proyecto", "fr": "Mon projet", "de": "Mein Projekt", "zh": "我的项目", "ja": "マイプロジェクト", "ko": "내 프로젝트", "pt": "Meu projeto", "ar": "مشروعي"],
+        "locShortSummary": ["en": "Short summary of the change", "ru": "Краткое описание изменения", "es": "Breve resumen del cambio", "fr": "Bref résumé du changement", "de": "Kurze Zusammenfassung der Änderung", "zh": "更改的简短摘要", "ja": "変更の簡単な説明", "ko": "변경 사항 요약", "pt": "Breve resumo da alteração", "ar": "ملخص موجز للتغيير"],
+        "locWhatChanged": ["en": "What changed and why", "ru": "Что изменилось и почему", "es": "Qué cambió y por qué", "fr": "Ce qui a changé et pourquoi", "de": "Was geändert wurde und warum", "zh": "更改内容及原因", "ja": "変更内容と理由", "ko": "변경 사항 및 이유", "pt": "O que mudou e porquê", "ar": "ما الذي تغير ولماذا"],
+        "locBranchName": ["en": "Branch name", "ru": "Имя ветки", "es": "Nombre de rama", "fr": "Nom de la branche", "de": "Branch-Name", "zh": "分支名称", "ja": "ブランチ名", "ko": "브랜치 이름", "pt": "Nome do ramo", "ar": "اسم الفرع"],
+        "locCreateNewBranch": ["en": "Create New Branch", "ru": "Создать новую ветку", "es": "Crear nueva rama", "fr": "Créer une nouvelle branche", "de": "Neuen Branch erstellen", "zh": "创建新分支", "ja": "新しいブランチを作成", "ko": "새 브랜치 만들기", "pt": "Criar novo ramo", "ar": "إنشاء فرع جديد"],
+        "locViewImage": ["en": "View image", "ru": "Просмотреть изображение", "es": "Ver imagen", "fr": "Voir l'image", "de": "Bild anzeigen", "zh": "查看图片", "ja": "画像을 表示", "ko": "이미지 보기", "pt": "Ver imagem", "ar": "عرض الصورة"],
+        "locIgnore": ["en": "Ignore", "ru": "Игнорировать", "es": "Ignorar", "fr": "Ignorer", "de": "Ignorieren", "zh": "忽略", "ja": "无视", "ko": "무시", "pt": "Ignorar", "ar": "تجاهل"],
+        "locRestoreFromBackup": ["en": "Restore from backup", "ru": "Восстановить из резервной копии", "es": "Restaurar desde copia de seguridad", "fr": "Restaurer depuis la sauvegarde", "de": "Aus Sicherung wiederherstellen", "zh": "从备份恢复", "ja": "백업에서 복원", "ko": "백업에서 복원", "pt": "Restaurar da cópia de segurança", "ar": "استعادة من النسخة الاحتياطية"],
+        "locConnected": ["en": "Connected", "ru": "Подключено", "es": "Conectado", "fr": "Connecté", "de": "Verbunden", "zh": "已连接", "ja": "接続済み", "ko": "연결됨", "pt": "Ligado", "ar": "متصل"],
+        "locDisconnected": ["en": "Disconnected", "ru": "Отключено", "es": "Desconectado", "fr": "Déconnecté", "de": "Getrennt", "zh": "已断开", "ja": "切断されました", "ko": "연결 끊김", "pt": "Desligado", "ar": "غير متصل"],
+        "locUndoLastFileChange": ["en": "Undo Last File Change", "ru": "Отменить последнее изменение файла", "es": "Deshacer último cambio de archivo", "fr": "Annuler le dernier changement de fichier", "de": "Letzte Dateiänderung rückgängig machen", "zh": "撤销上次文件更改", "ja": "最後のファイル変更を元に戻す", "ko": "마지막 파일 변경 실행 취소", "pt": "Desfazer última alteração de ficheiro", "ar": "التراجع عن آخر تغيير في الملف"],
+        "locGoal": ["en": "Goal", "ru": "Цель", "es": "Objetivo", "fr": "Objectif", "de": "Ziel", "zh": "目标", "ja": "目標", "ko": "목표", "pt": "Objetivo", "ar": "الهدف"],
+        "locTerminal": ["en": "Terminal", "ru": "Терминал", "es": "Terminal", "fr": "Terminal", "de": "Terminal", "zh": "终端", "ja": "ターミナル", "ko": "터미널", "pt": "Terminal", "ar": "طرفية"],
+        "locCopyChat": ["en": "Copy entire chat", "ru": "Копировать весь чат", "es": "Copiar chat completo", "fr": "Copier le chat entier", "de": "Gespräch kopieren", "zh": "复制整个对话", "ja": "チャット全体을 コピー", "ko": "전체 채팅 복사", "pt": "Copiar chat completo", "ar": "نسخ المحادثة بالكامل"],
+        "locPickElement": ["en": "Pick an element on the page to use as model selector", "ru": "Выберите элемент на странице для использования как селектор моделей", "es": "Elige un elemento en la página para usar como selector de modelos", "fr": "Choisissez un élément sur la page à utiliser comme sélecteur de modèles", "de": "Element auf der Seite als Modellauswahl auswählen", "zh": "在页面上选择一个元素用作模型选择器", "ja": "ページ上の要素を選択してモデルセレクターとして使用", "ko": "모델 선택기로 사용할 페이지 요소 선택", "pt": "Escolha um elemento na página para usar como seletor de modelos", "ar": "اختر عنصراً في الصفحة لاستخدامه كمحدد للنماذج"],
         "locConnectionFailed": ["en": "Failed to connect. Check URL and credentials.", "ru": "Не удалось подключиться. Проверьте URL и учетные данные.", "es": "Error al conectar. Compruebe URL y credenciales.", "fr": "Échec de la connexion. Vérifiez l'URL et les identifiants.", "de": "Verbindung fehlgeschlagen. URL und Anmeldedaten prüfen.", "zh": "连接失败。请检查 URL 和凭据。", "ja": "接続に失敗しました。URLと認証情報を確認してください。", "ko": "연결 실패. URL과 자격 증명을 확인하세요.", "pt": "Falha na ligação. Verifique o URL e as credenciais.", "ar": "فشل الاتصال. تحقق من عنوان URL وبيانات الاعتماد."],
         "locRequiresAPIKey": ["en": "Requires API Key", "ru": "Требуется API-ключ", "es": "Requiere clave API", "fr": "Nécessite une clé API", "de": "Erfordert API-Schlüssel", "zh": "需要 API 密钥", "ja": "APIキーが必要", "ko": "API 키 필요", "pt": "Requer chave API", "ar": "يتطلب مفتاح API"],
         "locEnableToolCalling": ["en": "Enable Tool Calling", "ru": "Включить вызов инструментов", "es": "Habilitar llamada a herramientas", "fr": "Activer l'appel d'outils", "de": "Tool-Aufruf aktivieren", "zh": "启用工具调用", "ja": "ツール呼び出しを有効化", "ko": "도구 호출 활성화", "pt": "Ativar chamada de ferramentas", "ar": "تفعيل استدعاء الأدوات"],
@@ -1095,7 +1161,6 @@ enum AppLocalization {
         "locCancel": ["en": "Cancel", "ru": "Отмена", "es": "Cancelar", "fr": "Annuler", "de": "Abbrechen", "zh": "取消", "ja": "キャンセル", "ko": "취소", "pt": "Cancelar", "ar": "إلغاء"],
         "locDelete": ["en": "Delete", "ru": "Удалить", "es": "Eliminar", "fr": "Supprimer", "de": "Löschen", "zh": "删除", "ja": "削除", "ko": "삭제", "pt": "Eliminar", "ar": "حذف"],
         "locResetButton": ["en": "Reset", "ru": "Сбросить", "es": "Restablecer", "fr": "Réinitialiser", "de": "Zurücksetzen", "zh": "重置", "ja": "リセット", "ko": "재설정", "pt": "Repor", "ar": "إعادة تعيين"],
-        "locConfigured": ["en": "Configured", "ru": "Настроено", "es": "Configurado", "fr": "Configuré", "de": "Konfiguriert", "zh": "已配置", "ja": "設定済み", "ko": "구성됨", "pt": "Configurado", "ar": "مُكوَّن"],
         "locAlertDeleteMCPMessage": ["en": "This removes \"{0}\" from {1} and the registry. This cannot be undone.", "ru": "Это удалит \"{0}\" из {1} и реестр. Это нельзя отменить.", "es": "Esto elimina \"{0}\" de {1} y el registro. Esta acción no se puede deshacer.", "fr": "Cela supprime \"{0}\" de {1} et du registre. Cette action est irréversible.", "de": "Dies entfernt \"{0}\" aus {1} und der Registrierung. Dies kann nicht rückgängig gemacht werden.", "zh": "这将从 {1} 和注册表中移除 \"{0}\"。此操作无法撤销。", "ja": "これは {1} とレジストリから \"{0}\" を削除します。この操作は元に戻せません。", "ko": "{1} 및 레지스트리에서 \"{0}\"을(를) 제거합니다. 이 작업은 되돌릴 수 없습니다.", "pt": "Isto remove \"{0}\" de {1} e do registo. Esta ação não pode ser anulada.", "ar": "يؤدي هذا إلى إزالة \"{0}\" من {1} والسجل. لا يمكن التراجع عن هذا الإجراء."],
         "locAlertDeleteSkillMessage": ["en": "This deletes \"{0}\" from {1}/ and its registry entry. This cannot be undone.", "ru": "Это удалит \"{0}\" из {1}/ и запись в реестре. Это нельзя отменить.", "es": "Esto elimina \"{0}\" de {1}/ y su entrada de registro. Esta acción no se puede deshacer.", "fr": "Cela supprime \"{0}\" de {1}/ et son entrée de registre. Cette action est irréversible.", "de": "Dies löscht \"{0}\" aus {1}/ und den Registrierungseintrag. Dies kann nicht rückgängig gemacht werden.", "zh": "这将从 {1}/ 及其注册表项中删除 \"{0}\"。此操作无法撤销。", "ja": "これは {1}/ とそのレジストリエントリから \"{0}\" を削除します。この操作は元に戻せません。", "ko": "{1}/ 및 해당 레코드에서 \"{0}\"을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.", "pt": "Isto elimina \"{0}\" de {1}/ e a sua entrada de registo. Esta ação não pode ser anulada.", "ar": "يؤدي هذا إلى حذف \"{0}\" من {1}/ وسجله. لا يمكن التراجع عن هذا الإجراء."],
         "locDeleteChatsConfirmMessage": ["en": "This will permanently delete all chats older than %d days, including their messages. This action cannot be undone.", "ru": "Это навсегда удалит все чаты старше %d дней со всеми сообщениями. Действие нельзя отменить.", "es": "Esto eliminará permanentemente todos los chats anteriores a %d días, incluidos sus mensajes. Esta acción no se puede deshacer.", "fr": "Cela supprimera définitivement toutes les conversations de plus de %d jours, y compris leurs messages. Cette action est irréversible.", "de": "Dies löscht dauerhaft alle Chats, die älter als %d Tage sind, einschließlich ihrer Nachrichten. Diese Aktion kann nicht rückgängig gemacht werden.", "zh": "这将永久删除所有早于 %d 天的聊天及其消息。此操作无法撤销。", "ja": "%d日より古いすべてのチャット（メッセージ含む）が完全に削除されます。この操作は元に戻せません。", "ko": "%d일보다 오래된 모든 채팅(메시지 포함)이 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.", "pt": "Isto eliminará permanentemente todas as conversas com mais de %d dias, incluindo as suas mensagens. Esta ação não pode ser anulada.", "ar": "سيؤدي هذا إلى حذف جميع المحادثات الأقدم من %d يومًا بشكل دائم، بما في ذلك رسائلها. لا يمكن التراجع عن هذا الإجراء."],

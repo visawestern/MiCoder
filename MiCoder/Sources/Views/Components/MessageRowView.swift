@@ -196,7 +196,7 @@ struct MessageRow: View {
             if !messageText.isEmpty {
                 MessageActionButton(
                     icon: copied ? "checkmark" : "doc.on.doc",
-                    tooltip: copied ? "Copied" : "Copy",
+                    tooltip: copied ? L.t(AppLocalizationKey.locCopied) : L.t(AppLocalizationKey.locCopyAll),
                     isActive: copied
                 ) {
                     NSPasteboard.general.clearContents()
@@ -220,7 +220,7 @@ struct MessageRow: View {
                 if MessageEditLogic.canResend(message) {
                     MessageActionButton(
                         icon: message.role == .user ? "arrow.up.circle" : "arrow.counterclockwise",
-                        tooltip: message.role == .user ? "Resend" : "Retry"
+                        tooltip: message.role == .user ? L.t(AppLocalizationKey.locResend) : L.t(AppLocalizationKey.locRetry)
                     ) {
                         let name: Notification.Name = message.role == .user ? .resendMessage : .retryMessage
                         NotificationCenter.default.post(
@@ -461,7 +461,7 @@ struct SplitToolInspectorView: View {
 
                 if isExpanded {
                     HStack(spacing: 4) {
-                        Text(isComplete ? "Completed" : "Running")
+                        Text(isComplete ? L.t(AppLocalizationKey.locCompleted) : L.t(AppLocalizationKey.locRunning))
                             .interfaceFont(size: 10, weight: .medium)
                         if isComplete {
                             Image(systemName: "checkmark.circle.fill")
@@ -534,14 +534,14 @@ struct SplitToolInspectorView: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 12) {
                             detailBlock(
-                                label: "Arguments",
+                                label: L.t(AppLocalizationKey.locArguments),
                                 value: argumentsText(for: selectedStep)
                             )
 
                             if let result = selectedStep.result, !result.isEmpty {
                                 Divider()
                                 detailBlock(
-                                    label: "Result",
+                                    label: L.t(AppLocalizationKey.locResult),
                                     value: ToolCallPresentationLogic.formattedResult(result)
                                 )
                             }

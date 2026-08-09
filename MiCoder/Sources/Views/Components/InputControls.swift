@@ -242,10 +242,10 @@ struct ModelParametersButton: View {
                     .frame(height: 60).font(.system(size: 12))
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
                 HStack {
-                    Button("Reset") { resetAll() }
+                    Button(L.t(AppLocalizationKey.locResetButton)) { resetAll() }
                         .buttonStyle(.plain).foregroundColor(Color.mimo.error).interfaceFont(size: 11)
                     Spacer()
-                    Button("Save") { save(); isOpen = false }
+                    Button(L.t(AppLocalizationKey.locSave)) { save(); isOpen = false }
                         .buttonStyle(.plain).foregroundColor(Color.mimo.brand).interfaceFont(size: 12, weight: .medium)
                 }
             }
@@ -515,10 +515,10 @@ struct RemoteConnectionSheet: View {
             
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }
+                Button(L.t(AppLocalizationKey.locCancel)) { dismiss() }
                     .buttonStyle(.plain)
                     .foregroundColor(Color.mimo.textSecondary)
-                Button(isConnecting ? "Connecting…" : "Connect") {
+                Button(isConnecting ? L.t(AppLocalizationKey.locConnecting) : L.t(AppLocalizationKey.locConnect)) {
                     guard let portInt = Int(port), !host.isEmpty else { return }
                     isConnecting = true
                     Task {

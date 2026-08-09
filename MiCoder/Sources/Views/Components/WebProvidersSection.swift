@@ -35,7 +35,7 @@ struct WebProvidersSection: View {
                             Text(vendor.displayName)
                                 .interfaceFont(size: 12, weight: .medium)
                                 .foregroundColor(Color.mimo.textPrimary)
-                            Text(providers.contains { $0.vendor == vendor } ? "Configured" : "Add")
+                            Text(providers.contains { $0.vendor == vendor } ? L.t(AppLocalizationKey.locConfigured) : L.t(AppLocalizationKey.locAdd))
                                 .interfaceFont(size: 10)
                                 .foregroundColor(providers.contains { $0.vendor == vendor } ? Color.mimo.success : Color.mimo.textMuted)
                         }
@@ -181,7 +181,7 @@ Use clear headings, code examples, and cross-references.
                 }
                 Spacer()
                 if !isConnected {
-                    Button("Log in") { onLogin() }
+                    Button(L.t(AppLocalizationKey.locLogin)) { onLogin() }
                         .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
                 } else {
                     HStack(spacing: 8) {

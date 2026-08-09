@@ -49,7 +49,7 @@ struct ChatPanelView: View {
                                         Spacer()
                                     }.padding(.vertical, 8)
                                 } else if messageStore.hasMoreMessages {
-                                    Button("Load earlier messages") {
+                                    Button(L.t(AppLocalizationKey.locLoadingOlderMessages)) {
                                         loadOlderMessages()
                                     }
                                     .buttonStyle(.plain)
@@ -854,7 +854,7 @@ struct ChatPanelView: View {
                 msg.isFinished = true
                 msg.isStreaming = false
                 if msg.content.isEmpty {
-                    msg.content = "Generation stopped"
+                    msg.content = L.t(AppLocalizationKey.locGenerationStopped)
                 }
             }
         }
@@ -1282,7 +1282,7 @@ struct ChatPanelView: View {
         if streamingText.isEmpty {
             messageStore.update(id: currentAssistantMessageID ?? "") { msg in
                 if msg.content.isEmpty {
-                    msg.content = "Task completed"
+                    msg.content = L.t(AppLocalizationKey.locTaskCompletedMessage)
                 }
             }
         }

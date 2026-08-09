@@ -21,7 +21,7 @@ struct SidebarView: View {
                     panel.canChooseDirectories = true
                     panel.allowsMultipleSelection = false
                     panel.prompt = "Open"
-                    panel.message = "Select a folder to open as a project"
+                    panel.message = L.t(AppLocalizationKey.locSelectFolder)
                     if panel.runModal() == .OK, let url = panel.url {
                         appState.addWorkspace(path: url.path)
                     }
@@ -346,7 +346,7 @@ struct NotificationsSheet: View {
                     .foregroundColor(Color.mimo.textPrimary)
                 Spacer()
                 if appState.notificationService.unreadCount > 0 {
-                    Button("Mark All Read") {
+                    Button(L.t(AppLocalizationKey.locMarkAllRead)) {
                         appState.notificationService.markAllAsRead()
                     }
                     .buttonStyle(.plain)
@@ -779,10 +779,10 @@ struct SessionTaskRow: View {
                     .buttonStyle(.plain)
                     
                     Menu {
-                        Button("Open in Finder") {
+                        Button(L.t(AppLocalizationKey.locShowInFinder)) {
                             appState.openFolderInFinder(session.directory.isEmpty ? workspace.path : session.directory)
                         }
-                        Button("New task") {
+                        Button(L.t(AppLocalizationKey.locNewTaskSidebar)) {
                             appState.startNewTask(in: workspace)
                         }
                     } label: {
@@ -936,7 +936,7 @@ struct ArchivedProjectsPopover: View {
                                 .lineLimit(1)
                         }
                         Spacer()
-                        Button("Restore") { restore(entry) }
+                        Button(L.t(AppLocalizationKey.locRestore)) { restore(entry) }
                             .interfaceFont(size: 11)
                             .buttonStyle(.plain)
                             .foregroundColor(Color.mimo.brand)
