@@ -190,12 +190,31 @@ enum EndpointType: String, Codable, CaseIterable {
 }
 
 enum AccessLevel: String, CaseIterable, Identifiable {
-    case askBeforeChanges = "Ask before changes"
-    case editAutomatically = "Edit automatically"
-    case fullAccess = "Full access"
-    
+    case askBeforeChanges = "askBeforeChanges"
+    case editAutomatically = "editAutomatically"
+    case fullAccess = "fullAccess"
+
     var id: String { rawValue }
-    
+
+    /// Localized display name (used in UI menus).
+    var displayName: String {
+        switch self {
+        case .askBeforeChanges: return L.t(AppLocalizationKey.locAccessAskBefore)
+        case .editAutomatically: return L.t(AppLocalizationKey.locAccessEditAuto)
+        case .fullAccess: return L.t(AppLocalizationKey.locAccessFull)
+        }
+    }
+
+    /// Localized short description shown under the name.
+    var displayDescription: String {
+        switch self {
+        case .askBeforeChanges: return L.t(AppLocalizationKey.locAccessAskBeforeDesc)
+        case .editAutomatically: return L.t(AppLocalizationKey.locAccessEditAutoDesc)
+        case .fullAccess: return L.t(AppLocalizationKey.locAccessFullDesc)
+        }
+    }
+
+    // Legacy descriptions (kept for migration / non-localized contexts)
     var description: String {
         switch self {
         case .askBeforeChanges: return "Ask before file changes."
@@ -222,9 +241,17 @@ enum ThinkingLevel: String, CaseIterable, Identifiable {
 }
 
 enum AgentMode: String, CaseIterable, Identifiable {
-    case build = "Build"
-    case plan = "Plan"
-    case compose = "Compose"
+    case build = "build"
+    case plan = "plan"
+    case compose = "compose"
+
+    var displayName: String {
+        switch self {
+        case .build: return L.t(AppLocalizationKey.locModeBuild)
+        case .plan: return L.t(AppLocalizationKey.locModePlan)
+        case .compose: return L.t(AppLocalizationKey.locModeCompose)
+        }
+    }
     
     var id: String { rawValue }
     

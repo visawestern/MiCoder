@@ -311,14 +311,14 @@ Use clear headings, code examples, and cross-references.
             // Delay + keep-alive
             HStack(spacing: 12) {
                 VStack(alignment: .leading) {
-                    Text("Tool-call delay: \(config.toolCallDelayMs) ms")
+                    Text("\(L.t(AppLocalizationKey.locToolCallDelay)): \(config.toolCallDelayMs) ms")
                         .interfaceFont(size: 11).foregroundColor(Color.mimo.textMuted)
                     Slider(value: Binding(get: { Double(config.toolCallDelayMs) },
                                           set: { config.toolCallDelayMs = Int($0) }),
                            in: 0...3000, step: 100)
                 }
                 VStack(alignment: .leading) {
-                    Text("Keep-alive: \(config.sessionKeepAliveSec)s")
+                    Text("\(L.t(AppLocalizationKey.locKeepalive)): \(config.sessionKeepAliveSec)s")
                         .interfaceFont(size: 11).foregroundColor(Color.mimo.textMuted)
                     Slider(value: Binding(get: { Double(config.sessionKeepAliveSec) },
                                           set: { config.sessionKeepAliveSec = Int($0) }),

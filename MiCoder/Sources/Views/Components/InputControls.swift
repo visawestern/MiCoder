@@ -20,8 +20,9 @@ struct AccessLevelMenu: View {
                         Image(systemName: level.icon)
                             .frame(width: 16)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(level.rawValue)
-                            Text(level.description)
+                            Text(level.displayName)
+                                .interfaceFont(size: 12, weight: .medium)
+                            Text(level.displayDescription)
                                 .interfaceFont(size: 11)
                                 .foregroundColor(.secondary)
                         }
@@ -52,7 +53,7 @@ struct AccessLevelMenu: View {
             HStack(spacing: 4) {
                 Image(systemName: appState.accessLevel.icon)
                     .interfaceFont(size: 11)
-                Text(appState.accessLevel.rawValue)
+                Text(appState.accessLevel.displayName)
                     .interfaceFont(size: 11)
                     .lineLimit(1)
             }
@@ -81,7 +82,7 @@ struct AgentModeMenu: View {
                 Button(action: { appState.agentMode = mode }) {
                     HStack {
                         Image(systemName: mode.icon)
-                        Text(mode.rawValue)
+                        Text(mode.displayName)
                         if appState.agentMode == mode {
                             Spacer()
                             Image(systemName: "checkmark")
@@ -94,7 +95,7 @@ struct AgentModeMenu: View {
             HStack(spacing: 4) {
                 Image(systemName: appState.agentMode.icon)
                     .interfaceFont(size: 11)
-                Text(appState.agentMode.rawValue)
+                Text(appState.agentMode.displayName)
                     .interfaceFont(size: 11)
             }
             .foregroundColor(Color.mimo.textSecondary)

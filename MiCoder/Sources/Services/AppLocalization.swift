@@ -519,6 +519,17 @@ enum AppLocalizationKey: String, CaseIterable {
     case locParametersFor
     case locStopGeneration
     case locSendMessage
+    case locAccessAskBefore
+    case locAccessEditAuto
+    case locAccessFull
+    case locAccessAskBeforeDesc
+    case locAccessEditAutoDesc
+    case locAccessFullDesc
+    case locModeBuild
+    case locModePlan
+    case locModeCompose
+    case locToolCallDelay
+    case locKeepalive
     case locWebNoModels
     case locGenerationStopped
     case locTaskCompletedMessage
