@@ -868,13 +868,13 @@ class AppState: ObservableObject {
             ?? (try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id))?.modelDropdown
             ?? ""
         if selector.isEmpty {
-            return "This provider does not expose a model-list selector yet."
+            return L.t(AppLocalizationKey.locWebNoSelectorYet)
         }
         guard let store = WebSessionManager.restore(providerId: config.id,
                                                     homeDirectory: FileManager.default.homeDirectoryForCurrentUser),
               !store.cookies.isEmpty,
               !WebSessionManager.isExpired(store) else {
-            return "Log in first, then capture the web session before refreshing models."
+            return L.t(AppLocalizationKey.locWebLoginFirst)
         }
 
         let selectors = WebVendorSelectors(
@@ -896,7 +896,7 @@ class AppState: ObservableObject {
                 await bridge.wait(ms: 500)
             }
             guard inputFound else {
-                return "Chat input was not found. The saved session may have expired; log in again."
+                return L.t(AppLocalizationKey.locWebInputNotFound)
             }
             var models = await WebModelDiscovery.discover(using: bridge,
                                                                  dropdownSelector: selector,
@@ -924,7 +924,7 @@ class AppState: ObservableObject {
                                                                  vendor: config.vendor)
             }
             guard let found = models, !found.isEmpty else {
-                return "Could not read model list from \(config.displayName). The model selector may only appear after starting a chat. Try the 🔎 element picker in the login window."
+                return String(format: L.t(AppLocalizationKey.locWebModelListFailed), config.displayName)
             }
             var updated = config
             updated.discoveredModels = found
@@ -932,10 +932,11 @@ class AppState: ObservableObject {
             if selectedProviderID == "web:\(config.id)" {
                 selectProvider(selectedProviderID, persistPreference: false)
             }
-            let count = models?.count ?? 0
-            return "Loaded \(count) model\(count == 1 ? "" : "s") from \(config.displayName)."
+            let count = found.count
+            let plural = count == 1 ? "" : "s"
+            return String(format: L.t(AppLocalizationKey.locWebLoadedModels), count, plural, config.displayName)
         } catch {
-            return "Could not refresh models: \(error.localizedDescription)"
+            return String(format: L.t(AppLocalizationKey.locWebRefreshFailed), error.localizedDescription)
         }
     }
     #endif
@@ -946,13 +947,13 @@ class AppState: ObservableObject {
     func refreshWebEffort(for config: WebProviderConfig) async -> String {
         #if canImport(WebKit)
         guard let effortSelector = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)?.effortDropdown else {
-            return "This provider does not expose an effort/thinking dropdown selector yet."
+            return L.t(AppLocalizationKey.locWebEffortNoSelector)
         }
         guard let store = WebSessionManager.restore(providerId: config.id,
                                                     homeDirectory: FileManager.default.homeDirectoryForCurrentUser),
               !store.cookies.isEmpty,
               !WebSessionManager.isExpired(store) else {
-            return "Log in first, then capture the web session before refreshing effort levels."
+            return L.t(AppLocalizationKey.locWebEffortLoginFirst)
         }
 
         let selectors = WebVendorSelectors(
@@ -974,12 +975,12 @@ class AppState: ObservableObject {
                 await bridge.wait(ms: 500)
             }
             guard inputFound else {
-                return "Chat input was not found. The saved session may have expired; log in again."
+                return L.t(AppLocalizationKey.locWebInputNotFound)
             }
             guard let efforts = await WebModelDiscovery.discoverEffort(using: bridge,
                                                                        effortDropdownSelector: effortSelector,
                                                                        vendor: config.vendor) else {
-                return "Could not read the effort levels from \(config.displayName). Try Refresh after the chat page finishes loading."
+                return String(format: L.t(AppLocalizationKey.locWebEffortReadFailed), config.displayName)
             }
             var updated = config
             updated.effort = efforts.first ?? .medium
@@ -988,12 +989,14 @@ class AppState: ObservableObject {
             if selectedProviderID == "web:\(config.id)" {
                 selectProvider(selectedProviderID, persistPreference: false)
             }
-            return "Loaded \(efforts.count) effort level\(efforts.count == 1 ? "" : "s") from \(config.displayName)."
+            let count = efforts.count
+            let plural = count == 1 ? "" : "s"
+            return String(format: L.t(AppLocalizationKey.locWebLoadedEffort), count, plural, config.displayName)
         } catch {
-            return "Could not refresh effort levels: \(error.localizedDescription)"
+            return String(format: L.t(AppLocalizationKey.locWebEffortRefreshFailed), error.localizedDescription)
         }
         #else
-        return "Web providers require WebKit (macOS)."
+        return L.t(AppLocalizationKey.locWebRequiresWebKit)
         #endif
     }
 

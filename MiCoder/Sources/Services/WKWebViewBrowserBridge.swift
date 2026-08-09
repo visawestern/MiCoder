@@ -66,7 +66,7 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
               return false;
             })();
             """
-            let result = (try? await eval(js)) as? Bool ?? false
+            _ = (try? await eval(js)) as? Bool ?? false
             return
         }
         let js = """

@@ -1,6 +1,13 @@
+<docs/screenshots/logo-mi.png width=120 align=left>
+
 # MiCoder
 
-**MiCoder is a free, independent, open-source AI coding workspace for macOS.**
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Swift](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
+[![Platform](https://img.shields.io/badge/Platform-macOS%2013%2B-lightgrey.svg)](https://www.apple.com/macos/)
+[![Localization](https://img.shields.io/badge/Localization%20-10%20languages-green.svg)](#localization)
+
+**MiCoder** is a free, independent, open-source AI coding workspace for macOS.
 
 It combines an AI chat, project-scoped history, file tools, terminal access, Git
 workflows, provider configuration, skills, MCP servers, and local storage administration
@@ -8,7 +15,7 @@ in one native SwiftUI application.
 
 > **No Xiaomi affiliation:** MiCoder is an independent community project. It is not made,
 > sponsored, endorsed, licensed, or otherwise associated with Xiaomi Corporation or any
-> Xiaomi subsidiary. “Xiaomi” is a trademark of its respective owner.
+> Xiaomi subsidiary. "Xiaomi" is a trademark of its respective owner.
 
 ## What MiCoder Does
 
