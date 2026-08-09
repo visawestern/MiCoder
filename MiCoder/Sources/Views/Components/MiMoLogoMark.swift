@@ -27,16 +27,29 @@ enum MiMoLogoLoader {
 
     /// The bundle used to locate resource files.
     ///
-    /// `Bundle.module` crashes on executable targets (assertion failure in the
-    /// lazy initializer of `NSBundle.module`).  We therefore default to
-    /// `Bundle.main`, which is correct for the production .app.
-    ///
-    /// Test suites set this to `Bundle.module` before exercising resource
-    /// loading (see `ChatPanelLayoutTests`).
-    static var resourceBundle: Bundle = .main
+    /// SPM packages resources into `<Target>_<Product>.bundle`, which is NOT
+    /// `Bundle.main` for an executable target. We locate it dynamically.
+    static var resourceBundle: Bundle {
+        // Prefer the SPM-generated resource bundle
+        let candidates = [
+            Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/MiCoder_MiCoder.bundle"),
+            Bundle.main.bundleURL.appendingPathComponent("Resources/MiCoder_MiCoder.bundle"),
+            Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/Resources/MiCoder_MiCoder.bundle"),
+        ]
+        for url in candidates {
+            let b = Bundle(url: url)
+            if b?.url(forResource: resourceName, withExtension: "png") != nil {
+                return b ?? .main
+            }
+        }
+        // Fallback to main bundle
+        return .main
+    }
 
     static var image: NSImage? {
-        guard let url = resourceBundle.url(forResource: resourceName, withExtension: "png") else {
+        let bundle = resourceBundle
+        guard let url = bundle.url(forResource: resourceName, withExtension: "png") else {
+            // Last resort: try NSImage(named:)
             return NSImage(named: NSImage.Name(resourceName))
         }
         return NSImage(contentsOf: url)

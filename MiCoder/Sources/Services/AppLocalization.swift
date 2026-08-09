@@ -530,6 +530,20 @@ enum AppLocalizationKey: String, CaseIterable {
     case locModeCompose
     case locToolCallDelay
     case locKeepalive
+
+    case locWebNoSelectorYet
+    case locWebLoginFirst
+    case locWebInputNotFound
+    case locWebModelListFailed
+    case locWebLoadedModels
+    case locWebRefreshFailed
+    case locWebEffortNoSelector
+    case locWebEffortLoginFirst
+    case locWebEffortInputNotFound
+    case locWebEffortReadFailed
+    case locWebLoadedEffort
+    case locWebEffortRefreshFailed
+    case locWebRequiresWebKit
     case locWebNoModels
     case locGenerationStopped
     case locTaskCompletedMessage
