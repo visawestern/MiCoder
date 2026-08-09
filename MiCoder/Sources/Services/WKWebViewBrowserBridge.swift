@@ -52,13 +52,14 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
 
     func click(selector: String) async throws {
         // Support :has-text() pseudo-class for text-based matching
-        if selector.contains(":has-text(") {
+        if let text = extractHasText(from: selector) {
             let js = """
             (function(){
-              var all = document.querySelectorAll('button, a, div, span');
+              var wanted = \(Self.jsString(text));
+              var all = document.querySelectorAll('button, a, div, span, li');
               for (var i = 0; i < all.length; i++) {
-                var text = (all[i].innerText || '').trim();
-                if (text && text.length < 100) {
+                var t = (all[i].innerText || all[i].textContent || '').trim();
+                if (t === wanted || t.indexOf(wanted) !== -1) {
                   all[i].click();
                   return true;
                 }
@@ -79,20 +80,58 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         _ = try? await eval(js)
     }
 
-    /// Click the first element matching `selector` whose visible text exactly
-    /// equals `text`. Falls back to partial (includes) match. Returns true if matched.
+    func exists(selector: String) async throws -> Bool {
+        // Support :has-text() pseudo-class for text-based matching
+        if let text = extractHasText(from: selector) {
+            let js = """
+            (function(){
+              var wanted = \(Self.jsString(text));
+              var all = document.querySelectorAll('button, a, div, span, li');
+              for (var i = 0; i < all.length; i++) {
+                var t = (all[i].innerText || all[i].textContent || '').trim();
+                if (t === wanted || t.indexOf(wanted) !== -1) {
+                  return true;
+                }
+              }
+              return false;
+            })();
+            """
+            return (try? await eval(js)) as? Bool ?? false
+        }
+        let js = "!!document.querySelector(\(Self.jsString(selector)));"
+        return (try? await eval(js)) as? Bool ?? false
+    }
+
+    /// Extract text content from `:has-text('...')` pseudo-class
+    private func extractHasText(from selector: String) -> String? {
+        guard selector.contains(":has-text(") else { return nil }
+        // Match :has-text('text') or :has-text("text")
+        let pattern = ":has-text\\(['\"]([^'\"]+)['\"]\\)"
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: selector, range: NSRange(selector.startIndex..., in: selector)),
+              let range = Range(match.range(at: 1), in: selector) else { return nil }
+        return String(selector[range])
+    }
+
+    /// Click the first element matching `selector` whose visible text contains
+    /// (or exactly matches) `text`. Returns true if matched.
     @discardableResult
-    func clickByText(selector: String, text: String) async throws -> Bool {
+    func clickByText(selector: String, text: String, exactMatch: Bool = false) async throws -> Bool {
         let js = """
         (function(){
+          var wanted = \(Self.jsString(text));
           var els = document.querySelectorAll(\(Self.jsString(selector)));
+          // Exact match first
           for(var i=0;i<els.length;i++){
             var t=(els[i].innerText||els[i].textContent||'').trim();
-            if(t===\(Self.jsString(text))){els[i].click();return true;}
+            if(t===wanted){els[i].click();return true;}
           }
-          for(var i=0;i<els.length;i++){
-            var t=(els[i].innerText||els[i].textContent||'').trim();
-            if(t.indexOf(\(Self.jsString(text)))!==-1){els[i].click();return true;}
+          // Partial match (skip if exactMatch)
+          if (!\(exactMatch)) {
+            for(var i=0;i<els.length;i++){
+              var t=(els[i].innerText||els[i].textContent||'').trim();
+              if(t.indexOf(wanted)!==-1){els[i].click();return true;}
+            }
           }
           return false;
         })();
@@ -111,10 +150,7 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         return (try? await eval(js)) as? String ?? ""
     }
 
-    func exists(selector: String) async throws -> Bool {
-        let js = "!!document.querySelector(\(Self.jsString(selector)));"
-        return (try? await eval(js)) as? Bool ?? false
-    }
+
 
     func pageText() async throws -> String {
         (try? await eval("document.body ? document.body.innerText : '';")) as? String ?? ""

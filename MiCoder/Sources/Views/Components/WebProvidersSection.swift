@@ -598,23 +598,21 @@ struct WebProviderLoginView: View {
             }
             if !selectorFound {
                 // Fallback: try clicking "New Chat" to reveal model selector
-                let newChatSelectors = [
-                    "button:has-text('New Chat')",
-                    "[class*='new-chat']",
-                    "[data-testid*='new']"
-                ]
-                for newChatSel in newChatSelectors {
-                    _ = try? await bridge.click(selector: newChatSel)
-                    await bridge.wait(ms: 1500)
-                    if (try? await bridge.exists(selector: dropdownSelector)) == true { break }
+                let click1 = (try? await bridge.clickByText(selector: "button, a, div", text: "New Chat", exactMatch: false)) ?? false
+                let click2 = (try? await bridge.clickByText(selector: "button, a", text: "新对话", exactMatch: false)) ?? false
+                let click3 = (try? await bridge.click(selector: "[class*='new-chat']")) != nil
+                let click4 = (try? await bridge.click(selector: "[data-testid*='new']")) != nil
+                let clickedNewChat = click1 || click2 || click3 || click4
+                if clickedNewChat {
+                    await bridge.wait(ms: 2000)
                 }
                 // Re-check after navigation
-                for _ in 0..<20 {
+                for _ in 0..<25 {
                     if (try? await bridge.exists(selector: dropdownSelector)) == true {
                         selectorFound = true
                         break
                     }
-                    try? await Task.sleep(nanoseconds: 250_000_000)
+                    try? await Task.sleep(nanoseconds: 300_000_000)
                 }
                 if !selectorFound {
                     await MainActor.run { detectResult = .failed("Selector not found: \(dropdownSelector). Start a chat first, or use 🔎 to pick manually.") }
@@ -725,8 +723,8 @@ struct ElementPickerOverlay: View {
                 }
             }, true);
 
-            // mousedown to LOCK the selection (before click handlers fire)
-            document.addEventListener('mousedown', function(e) {
+            // Named handlers so we can remove them later (arguments.callee fails in strict mode)
+            function mimoHandleMousedown(e) {
                 if (!window.__mimoPickerActive || window.__mimoPickingLocked) return;
                 e.preventDefault();
                 e.stopPropagation();
@@ -739,10 +737,9 @@ struct ElementPickerOverlay: View {
                     overlay.style.boxShadow = '0 0 8px rgba(52,199,89,0.5)';
                 }
                 return false;
-            }, true);
+            }
 
-            // click to confirm the LOCKED element
-            function handlePick(e) {
+            function mimoHandleClick(e) {
                 if (!window.__mimoPickerActive) return;
                 e.preventDefault();
                 e.stopPropagation();
@@ -757,8 +754,8 @@ struct ElementPickerOverlay: View {
                     if (highlighted.id) {
                         sel = '#' + highlighted.id;
                     } else if (cls && cls.length < 120) {
-                        let parts = cls.trim().split(/\\s+/).filter(s => s.length > 0 && s.length < 40).slice(0, 3);
-                        let cleanParts = parts.map(s => '.' + s.replace(/[^a-zA-Z0-9_-]/g, m => '\\\\' + m));
+                        let parts = cls.trim().split(/\\s+/).filter(function(s) { return s.length > 0 && s.length < 40; }).slice(0, 3);
+                        let cleanParts = parts.map(function(s) { return '.' + s.replace(/[^a-zA-Z0-9_-]/g, function(m) { return '\\\\' + m; }); });
                         sel = tag + cleanParts.join('');
                         if (cleanParts.length === 0) sel = tag;
                     } else {
@@ -768,13 +765,14 @@ struct ElementPickerOverlay: View {
                     window.__mimoPickedElement = { selector: sel, text: text.substring(0, 200), tag: tag, className: cls.substring(0, 100) };
                     window.__mimoPickerActive = false;
                     clearOverlay();
-                    document.removeEventListener('click', handlePick, true);
-                    document.removeEventListener('mousedown', arguments.callee, true);
+                    document.removeEventListener('click', mimoHandleClick, true);
+                    document.removeEventListener('mousedown', mimoHandleMousedown, true);
                 }
                 return false;
             }
 
-            document.addEventListener('click', handlePick, true);
+            document.addEventListener('mousedown', mimoHandleMousedown, true);
+            document.addEventListener('click', mimoHandleClick, true);
         })();
         """
         webView.evaluateJavaScript(script, completionHandler: nil)

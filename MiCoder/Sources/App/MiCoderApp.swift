@@ -903,21 +903,19 @@ class AppState: ObservableObject {
                                                                  vendor: config.vendor)
             // Fallback: if no model selector on landing page, try clicking "New Chat"
             if models?.isEmpty ?? true {
-                let newChatSelectors = [
-                    "button:has-text('New Chat')",
-                    "[class*='new-chat']",
-                    "[data-testid*='new']",
-                    "button[class*='primary']"
-                ]
-                for newChatSel in newChatSelectors {
-                    _ = try? await bridge.click(selector: newChatSel)
-                    await bridge.wait(ms: 1500)
-                    if (try? await bridge.exists(selector: selector)) == true { break }
+                let click1 = (try? await bridge.clickByText(selector: "button, a, div", text: "New Chat", exactMatch: false)) ?? false
+                let click2 = (try? await bridge.clickByText(selector: "button, a", text: "新对话", exactMatch: false)) ?? false
+                let click3 = (try? await bridge.clickByText(selector: "button", text: "New conversation", exactMatch: false)) ?? false
+                let click4 = (try? await bridge.click(selector: "[class*='new-chat']")) != nil
+                let click5 = (try? await bridge.click(selector: "[data-testid*='new']")) != nil
+                let clicked = click1 || click2 || click3 || click4 || click5
+                if clicked {
+                    await bridge.wait(ms: 2000)
                 }
                 // Wait for chat UI to hydrate
-                for _ in 0..<20 {
+                for _ in 0..<25 {
                     if (try? await bridge.exists(selector: selector)) == true { break }
-                    await bridge.wait(ms: 250)
+                    await bridge.wait(ms: 300)
                 }
                 models = await WebModelDiscovery.discover(using: bridge,
                                                                  dropdownSelector: selector,
