@@ -14,6 +14,10 @@ private struct WebVendorCatalogEntryDTO: Decodable {
     let id: String
     let selectors: Selectors
     struct Selectors: Decodable {
+        let input: String?
+        let sendButton: String?
+        let responseContainer: String?
+        let stopButton: String?
         let modelDropdown: String?
         let effortDropdown: String?
         let modelButton: String?
@@ -27,6 +31,10 @@ private struct WebVendorCatalogEntryDTO: Decodable {
 struct WebProviderCatalog {
     struct VendorEntry: Equatable {
         let id: String
+        let input: String?
+        let sendButton: String?
+        let responseContainer: String?
+        let stopButton: String?
         let modelDropdown: String
         let effortDropdown: String?
         let modelButton: String?
@@ -53,7 +61,7 @@ struct WebProviderCatalog {
             let map: [String: VendorEntry] = Dictionary(uniqueKeysWithValues:
                 root.vendors.compactMap { dto in
                     guard let selector = dto.selectors.modelDropdown, !selector.isEmpty else { return nil }
-                    return (dto.id, VendorEntry(id: dto.id, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts))
+                    return (dto.id, VendorEntry(id: dto.id, input: dto.selectors.input, sendButton: dto.selectors.sendButton, responseContainer: dto.selectors.responseContainer, stopButton: dto.selectors.stopButton, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts))
                 })
             return WebProviderCatalog(entries: map)
         }
@@ -69,7 +77,7 @@ struct WebProviderCatalog {
             let map: [String: VendorEntry] = Dictionary(uniqueKeysWithValues:
                 root.vendors.compactMap { dto in
                     guard let selector = dto.selectors.modelDropdown, !selector.isEmpty else { return nil }
-                    return (dto.id, VendorEntry(id: dto.id, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts))
+                    return (dto.id, VendorEntry(id: dto.id, input: dto.selectors.input, sendButton: dto.selectors.sendButton, responseContainer: dto.selectors.responseContainer, stopButton: dto.selectors.stopButton, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts))
                 })
             return WebProviderCatalog(entries: map)
         }

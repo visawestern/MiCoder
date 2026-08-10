@@ -116,8 +116,8 @@ struct WebProviderCatalogTests {
         let catalog = try WebProviderCatalog.loadBundled()
         let kimi = try #require(catalog.selectors(for: "kimi"))
 
-        #expect(kimi.modelDropdown == "div.current-model")
-        #expect(kimi.modelButton == "div.current-model")
+        #expect(kimi.modelDropdown == ".current-model")
+        #expect(kimi.modelButton == ".current-model")
         #expect(kimi.modelItem == "div.model-item span.name")
         #expect(kimi.newChatTexts?.contains("Новый чат") == true)
     }

@@ -190,9 +190,9 @@ enum EndpointType: String, Codable, CaseIterable {
 }
 
 enum AccessLevel: String, CaseIterable, Identifiable {
-    case askBeforeChanges = "askBeforeChanges"
-    case editAutomatically = "editAutomatically"
-    case fullAccess = "fullAccess"
+    case askBeforeChanges = "Ask before changes"
+    case editAutomatically = "Edit automatically"
+    case fullAccess = "Full access"
 
     var id: String { rawValue }
 
@@ -241,9 +241,9 @@ enum ThinkingLevel: String, CaseIterable, Identifiable {
 }
 
 enum AgentMode: String, CaseIterable, Identifiable {
-    case build = "build"
-    case plan = "plan"
-    case compose = "compose"
+    case build = "Build"
+    case plan = "Plan"
+    case compose = "Compose"
 
     var displayName: String {
         switch self {

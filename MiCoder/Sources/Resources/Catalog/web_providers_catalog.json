@@ -19,14 +19,17 @@
       "effortToggle": "thinking",
       "selectors": {
         "input": "textarea, div[contenteditable='true']",
-        "sendButton": "button[type='submit'], button[aria-label*='end']",
+        "sendButton": ".send-button-container",
         "responseContainer": "div[class*='markdown'], div[class*='message']",
         "stopButton": "button[aria-label*='top']",
-        "modelDropdown": "div.current-model",
-        "modelButton": "div.current-model",
+        "modelDropdown": ".current-model",
+        "modelButton": ".current-model",
         "modelItem": "div.model-item span.name",
         "effortDropdown": "div.effort-item",
-        "newChatTexts": ["Новый чат", "New Chat"],
+        "newChatTexts": [
+          "Новый чат",
+          "New Chat"
+        ],
         "loginIndicator": "input[type='password'], button:has-text('Log in')"
       }
     },
@@ -65,15 +68,21 @@
       "effortToggle": "deep-thinking",
       "selectors": {
         "input": "textarea, div[contenteditable='true']",
-        "sendButton": "button[class*='send'], button[type='submit']",
+        "sendButton": ".message-input-right-button-send, button.ant-btn-primary",
         "responseContainer": "div[class*='markdown-body'], div[class*='response']",
         "stopButton": "button[class*='stop']",
-        "modelDropdown": "[class*='model-selector-text']",
-        "modelButton": "[class*='model-selector-text']",
+        "modelDropdown": "[class*=\"model-selector-text\"]",
+        "modelButton": "[class*=\"model-selector-text\"]",
         "modelItem": "[class*='model-item-name']",
         "effortDropdown": "[class*='effort'], [class*='thinking']",
-        "newChatTexts": ["Начать", "Start", "New Chat"],
-        "loginIndicator": "input[type='password'], button:has-text('Sign in')"
+        "newChatTexts": [
+          "Начать",
+          "Start",
+          "New Chat"
+        ],
+        "loginIndicator": "input[type='password'], button:has-text('Sign in')",
+        "modeSelect": "[class*=\"mode-select\"]",
+        "thinkingSelect": "[class*=\"qwen-select-thinking\"]"
       }
     },
     {
@@ -102,12 +111,13 @@
       "effortToggle": "reasoning-effort",
       "selectors": {
         "input": "#prompt-textarea, div[contenteditable='true']",
-        "sendButton": "button[data-testid='send-button']",
+        "sendButton": "button[data-testid=\"send-button\"]",
         "responseContainer": "div[data-message-author-role='assistant']",
         "stopButton": "button[data-testid='stop-button']",
-        "modelDropdown": "button[data-testid*='model-switcher'], button[data-testid*='model'], button[aria-label*='odel']",
+        "modelDropdown": "button[data-testid*=\"model-switcher\"]",
         "effortDropdown": "button[aria-label*='reasoning' i], button[aria-label*='effort' i], div[aria-label*='reasoning' i], [data-testid*='reasoning' i], [data-testid*='model-switcher' i]",
-        "loginIndicator": "input[name='username'], button:has-text('Log in')"
+        "loginIndicator": "input[name='username'], button:has-text('Log in')",
+        "modelButton": "button[data-testid*=\"model-switcher\"]"
       }
     }
   ]

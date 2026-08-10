@@ -923,11 +923,13 @@ struct ChatPanelView: View {
         #if canImport(WebKit)
         // Reuse (or lazily create) a persistent web view for this provider.
         let webView = appState.webView(for: config)
+        // Resolve vendor-specific selectors from the catalog.
+        let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)
         let selectors = WebVendorSelectors(
-            input: "textarea, div[contenteditable='true']",
-            sendButton: "button[type='submit'], button[aria-label*='end'], button[data-testid='send-button']",
-            responseContainer: "div[data-message-author-role='assistant'], div[class*='markdown'], div[class*='message']",
-            stopButton: "button[aria-label*='top'], button[data-testid='stop-button'], button[class*='stop']"
+            input: catalogEntry?.input ?? "textarea, div[contenteditable='true']",
+            sendButton: catalogEntry?.sendButton ?? "button[type='submit'], button[aria-label*='end'], button[data-testid='send-button'], .send-button-container",
+            responseContainer: catalogEntry?.responseContainer ?? "div[data-message-author-role='assistant'], div[class*='markdown'], div[class*='message']",
+            stopButton: catalogEntry?.stopButton ?? "button[aria-label*='top'], button[data-testid='stop-button'], button[class*='stop']"
         )
         let bridge = WKWebViewBrowserBridge(webView: webView, selectors: selectors)
         // Restore cookies captured at login so the session is authenticated.
