@@ -32,7 +32,7 @@ struct WebModelListParserTests {
     @Test func updatedSetsDiscoveredModels() {
         let cfg = WebProviderConfig(vendor: .kimi)
         let updated = WebModelListParser.updated(cfg, withDropdownText: "k2\nk2-thinking")
-        #expect(updated.discoveredModels == ["k2", "k2-thinking"])
+        #expect(updated.discoveredModels.map { $0.name } == ["k2", "k2-thinking"])
         // And connectivity now returns the real models over defaults.
         #expect(WebProviderConnectivity.models(for: updated) == ["k2", "k2-thinking"])
     }

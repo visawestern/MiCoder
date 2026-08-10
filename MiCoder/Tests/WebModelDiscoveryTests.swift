@@ -54,9 +54,9 @@ struct WebModelDiscoveryTests {
         )
 
         #expect(models?.count == 3)
-        #expect(models?.contains("K3") == true)
-        #expect(models?.contains("Быстрый") == true)
-        #expect(models?.contains("K3 Swarm") == true)
+        #expect(models?.contains { $0.name == "K3" } == true)
+        #expect(models?.contains { $0.name == "Быстрый" } == true)
+        #expect(models?.contains { $0.name == "K3 Swarm" } == true)
     }
 
     @Test func discoverClicksModelButtonFirst() async throws {

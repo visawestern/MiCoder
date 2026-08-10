@@ -62,7 +62,7 @@ struct WebProviderConnectivityTests {
     @Test func modelsUseDiscoveredWhenPresent() {
         var cfg = WebProviderConfig(vendor: .kimi)
         #expect(WebProviderConnectivity.models(for: cfg) == WebChatVendor.kimi.defaultModels)  // fallback
-        cfg.discoveredModels = ["kimi-real-1", "kimi-real-2"]
+        cfg.discoveredModels = [WebProviderModel(name: "kimi-real-1"), WebProviderModel(name: "kimi-real-2")]
         #expect(WebProviderConnectivity.models(for: cfg) == ["kimi-real-1", "kimi-real-2"])   // real wins
     }
 

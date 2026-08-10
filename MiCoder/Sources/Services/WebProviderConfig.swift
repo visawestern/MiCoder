@@ -57,9 +57,9 @@ enum WebEffort: String, Codable, CaseIterable, Identifiable {
     /// Map a label string to a WebEffort.
     static func fromLabel(_ label: String) -> WebEffort? {
         let lower = label.lowercased()
-        if lower.contains("low") || lower.contains("низк") || lower.contains("快") { return .low }
+        if lower.contains("low") || lower.contains("низк") || lower.contains("快") || lower == "fast" { return .low }
         if lower.contains("medium") || lower.contains("средн") || lower.contains("自动") || lower.contains("auto") { return .medium }
-        if lower.contains("high") || lower.contains("высок") || lower.contains("深度") || lower.contains("think") || lower.contains("深思") { return .high }
+        if lower.contains("high") || lower.contains("высок") || lower.contains("深度") || lower.contains("thinking") || lower.contains("深思") { return .high }
         return nil
     }
 }

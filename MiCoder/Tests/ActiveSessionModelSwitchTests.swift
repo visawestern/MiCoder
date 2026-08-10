@@ -10,14 +10,14 @@ final class ActiveSessionModelSwitchTests: XCTestCase {
         // Given: an active web session with a selected model
         var config = WebProviderConfig(vendor: .kimi, acknowledgedToS: true)
         config.selectedModel = "k2"
-        config.discoveredModels = ["k2", "k2-thinking", "k1.5"]
+        config.discoveredModels = [WebProviderModel(name: "k2"), WebProviderModel(name: "k2-thinking"), WebProviderModel(name: "k1.5")]
 
         // When: switching to a different model
         config.selectedModel = "k2-thinking"
 
         // Then: the selection is updated
         XCTAssertEqual(config.selectedModel, "k2-thinking", "Model should be switched")
-        XCTAssertTrue(config.discoveredModels.contains("k2-thinking"),
+        XCTAssertTrue(config.discoveredModels.contains { $0.name == "k2-thinking" },
                       "New model should be in the available list")
     }
 

@@ -2,21 +2,21 @@ import XCTest
 @testable import MiCoder
 
 /// TDD: users can add a custom model to a web provider's model list.
-/// The model must appear in discoveredModels after addition, and must
+/// The model must appear in allModels after addition, and must
 /// survive a save/load cycle (persisted to UserDefaults).
 final class CustomModelAdditionTests: XCTestCase {
 
     func testCustomModelCanBeAddedToProvider() throws {
         // Given: a web provider config with no custom models
         var config = WebProviderConfig(vendor: .custom, acknowledgedToS: true)
-        XCTAssertTrue(config.discoveredModels.isEmpty, "Should start with empty models")
+        XCTAssertTrue(config.allModels.isEmpty, "Should start with empty models")
 
         // When: a custom model is added via the public API
         config.addCustomModel("my-custom-model-v1")
 
         // Then: the model appears in the list
-        XCTAssertTrue(config.discoveredModels.contains("my-custom-model-v1"),
-                      "Custom model should be in discoveredModels")
+        XCTAssertTrue(config.allModels.contains("my-custom-model-v1"),
+                      "Custom model should be in allModels")
     }
 
     func testCustomModelSurvivesSaveAndLoad() throws {
@@ -33,9 +33,9 @@ final class CustomModelAdditionTests: XCTestCase {
         // Then: the custom models are preserved
         let loadedConfig = loaded.first(where: { $0.id == config.id })
         XCTAssertNotNil(loadedConfig, "Config should be reloadable")
-        XCTAssertTrue(loadedConfig!.discoveredModels.contains("persisted-model-42"),
+        XCTAssertTrue(loadedConfig!.allModels.contains("persisted-model-42"),
                       "Custom model should survive save/load")
-        XCTAssertTrue(loadedConfig!.discoveredModels.contains("another-model"),
+        XCTAssertTrue(loadedConfig!.allModels.contains("another-model"),
                       "All custom models should survive save/load")
     }
 
@@ -48,20 +48,20 @@ final class CustomModelAdditionTests: XCTestCase {
         config.addCustomModel("unique-model")
 
         // Then: only one copy exists
-        let count = config.discoveredModels.filter { $0 == "unique-model" }.count
+        let count = config.allModels.filter { $0 == "unique-model" }.count
         XCTAssertEqual(count, 1, "Duplicate custom model should not be added")
     }
 
     func testEmptyCustomModelIsNotAdded() throws {
         // Given: a config
         var config = WebProviderConfig(vendor: .custom, acknowledgedToS: true)
-        let initialCount = config.discoveredModels.count
+        let initialCount = config.allModels.count
 
         // When: an empty model name is added
         config.addCustomModel("")
 
         // Then: nothing changes
-        XCTAssertEqual(config.discoveredModels.count, initialCount,
+        XCTAssertEqual(config.allModels.count, initialCount,
                        "Empty model name should not be added")
     }
 }
