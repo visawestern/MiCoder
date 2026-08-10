@@ -411,7 +411,7 @@ struct CustomModelEditor: View {
 /// Embedded login: opens the vendor's chat URL; the user logs in once; on close
 /// we capture cookies for session persistence (plan Раздел 12 Блок 3 п.35).
 struct WebProviderLoginView: View {
-    let config: WebProviderConfig
+    @State var config: WebProviderConfig
     let onCookies: ([BrowserCookie]) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var webView = WKWebView()
@@ -603,10 +603,12 @@ struct WebProviderLoginView: View {
                     detectResult = .failed("No models in dropdown. Try a different element with 🔎.")
                 } else {
                     detectResult = .found(models)
-                    // Save discovered models to config
+                    // Save discovered models to store AND update local config
                     var updated = config
                     updated.discoveredModels = models
                     WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
+                    // Update local config so canCapture becomes true
+                    config = updated
                 }
             }
         }
@@ -617,6 +619,8 @@ struct WebProviderLoginView: View {
         var updated = config
         updated.customModelSelector = element.selector
         WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
+        // Update local config so canCapture becomes true
+        config = updated
         // Immediately try to detect models with new selector
         detectModelsFromPage()
     }
