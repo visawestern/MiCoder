@@ -241,8 +241,8 @@ Use clear headings, code examples, and cross-references.
                 // Expandable discovered models list (compact)
                 if showDiscoveredModels && !config.discoveredModels.isEmpty {
                     VStack(alignment: .leading, spacing: 2) {
-                        ForEach(config.discoveredModels.prefix(8), id: \.self) { model in
-                            Text(model).interfaceFont(size: 10).foregroundColor(Color.mimo.textMuted)
+                        ForEach(config.discoveredModels.prefix(8)) { model in
+                            Text(model.name).interfaceFont(size: 10).foregroundColor(Color.mimo.textMuted)
                         }
                         if config.discoveredModels.count > 8 {
                             Text("+ \(config.discoveredModels.count - 8) more")
@@ -327,13 +327,13 @@ Use clear headings, code examples, and cross-references.
             }
 
             // Transport + ToS
-            Picker("Transport", selection: $config.transport) {
+            Picker(L.t(AppLocalizationKey.locTransport), selection: $config.transport) {
                 Text(L.t(AppLocalizationKey.locManagedBrowser)).tag(WebTransport.playwrightMCP)
                 Text(L.t(AppLocalizationKey.locExistingChromeCookies)).tag(WebTransport.cdpCookies)
             }
             .pickerStyle(.segmented)
 
-            Toggle("I understand this may violate the service's Terms of Service", isOn: $config.acknowledgedToS)
+            Toggle(L.t(AppLocalizationKey.locTosViolation), isOn: $config.acknowledgedToS)
                 .interfaceFont(size: 11)
                 .foregroundColor(Color.mimo.textSecondary)
         }
@@ -360,15 +360,15 @@ struct CustomModelEditor: View {
 
             // Existing custom models with remove buttons
             if !config.discoveredModels.isEmpty {
-                ForEach(config.discoveredModels, id: \.self) { model in
+                ForEach(config.discoveredModels) { model in
                     HStack(spacing: 6) {
-                        Text(model)
+                        Text(model.name)
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.textPrimary)
                             .lineLimit(1)
                         Spacer()
                         Button(action: {
-                            config.removeCustomModel(model)
+                            config.removeCustomModel(model.name)
                             onSave()
                         }) {
                             Image(systemName: "xmark.circle.fill")
@@ -382,7 +382,7 @@ struct CustomModelEditor: View {
 
             // Add new custom model
             HStack(spacing: 6) {
-                TextField("Add model name…", text: $newModelName)
+                TextField(L.t(AppLocalizationKey.locAddModel), text: $newModelName)
                     .interfaceFont(size: 11)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit {
@@ -427,7 +427,7 @@ struct WebProviderLoginView: View {
     }
 
     enum DetectResult: Identifiable {
-        case detecting, found([String]), failed(String)
+        case detecting, found([WebProviderModel]), failed(String)
         var id: String {
             switch self {
             case .detecting: return "detecting"
@@ -554,8 +554,8 @@ struct WebProviderLoginView: View {
                     .foregroundColor(Color.mimo.success)
                 Text("\(models.count) \(L.t(AppLocalizationKey.locWebModelsFound))")
                     .interfaceFont(size: 10).foregroundColor(Color.mimo.textSecondary)
-                ForEach(models.prefix(3), id: \.self) { m in
-                    Text(m).interfaceFont(size: 9)
+                ForEach(models.prefix(3)) { m in
+                    Text(m.name).interfaceFont(size: 9)
                         .padding(.horizontal, 4).padding(.vertical, 1)
                         .background(Color.mimo.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
@@ -794,15 +794,15 @@ struct ElementDetailSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Picked Element").font(.headline)
-            VStack(alignment: .leading, spacing: 8) {
-                HStack { Text("Selector:").bold(); Text(element.selector).font(.system(.body, design: .monospaced)) }
-                HStack { Text("Tag:").bold(); Text(element.tag) }
-                if !element.className.isEmpty {
-                    HStack { Text("Class:").bold(); Text(element.className).font(.system(.caption, design: .monospaced)) }
+            Text(L.t(AppLocalizationKey.locPickerTitle)).font(.headline)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack { Text(L.t(AppLocalizationKey.locPickerSelector)).bold(); Text(element.selector).font(.system(.body, design: .monospaced)) }
+                    HStack { Text(L.t(AppLocalizationKey.locPickerTag)).bold(); Text(element.tag) }
+                    if !element.className.isEmpty {
+                        HStack { Text(L.t(AppLocalizationKey.locPickerClass)).bold(); Text(element.className).font(.system(.caption, design: .monospaced)) }
+                    }
+                    HStack { Text(L.t(AppLocalizationKey.locPickerText)).bold(); Text(element.text.prefix(100)).font(.caption) }
                 }
-                HStack { Text("Text:").bold(); Text(element.text.prefix(100)).font(.caption) }
-            }
             .padding()
             .background(Color.gray.opacity(0.1))
             .cornerRadius(8)
@@ -810,7 +810,7 @@ struct ElementDetailSheet: View {
             HStack {
                 Button(L.t(AppLocalizationKey.locCancel), role: .cancel) { dismiss() }
                 Spacer()
-                Button("Use as Model Selector") {
+                Button(L.t(AppLocalizationKey.locUseAsModelSelector)) {
                     onApply(element.selector)
                     dismiss()
                 }

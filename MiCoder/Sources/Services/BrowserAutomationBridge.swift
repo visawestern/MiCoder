@@ -34,6 +34,8 @@ protocol BrowserAutomationBridge {
     func waitForSelector(selector: String, timeout: Int) async throws
     /// Read model names from a custom dropdown (e.g. Kimi's div.model-item).
     func readModelItems() async throws -> [String]
+    /// Evaluate JavaScript in the web view and return the result.
+    func evaluateJS(_ script: String) async throws -> Any?
 }
 
 extension BrowserAutomationBridge {
@@ -54,6 +56,9 @@ extension BrowserAutomationBridge {
 
     /// Default: empty list (test fakes override).
     func readModelItems() async throws -> [String] { [] }
+
+    /// Default: nil (test fakes override).
+    func evaluateJS(_ script: String) async throws -> Any? { nil }
 }
 
 struct BrowserCookie: Codable, Equatable {

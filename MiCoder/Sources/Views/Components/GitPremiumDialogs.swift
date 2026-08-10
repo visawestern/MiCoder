@@ -437,7 +437,7 @@ struct PullRequestDialogView: View {
                     Text(L.t(AppLocalizationKey.locTitle))
                         .interfaceFont(size: 11, weight: .medium)
                         .foregroundColor(Color.mimo.textSecondary)
-                    TextField("Short summary of the change", text: $title)
+                    TextField(L.t(AppLocalizationKey.locShortSummary), text: $title)
                         .textFieldStyle(.roundedBorder)
                 }
 
@@ -445,7 +445,7 @@ struct PullRequestDialogView: View {
                     Text(L.t(AppLocalizationKey.locDescriptionOptional))
                         .interfaceFont(size: 11, weight: .medium)
                         .foregroundColor(Color.mimo.textSecondary)
-                    TextField("What changed and why", text: $prBody, axis: .vertical)
+                    TextField(L.t(AppLocalizationKey.locWhatChanged), text: $prBody, axis: .vertical)
                         .lineLimit(3...5)
                         .textFieldStyle(.roundedBorder)
                 }
@@ -473,7 +473,7 @@ struct PullRequestDialogView: View {
             ghPath = result.ghPath
             checkedStatus = true
             if ghPath == nil {
-                errorText = "GitHub CLI is not installed or not signed in. Use the publish wizard to set it up."
+                errorText = L.t(AppLocalizationKey.locGitHubCliNotInstalled)
             }
         }
     }

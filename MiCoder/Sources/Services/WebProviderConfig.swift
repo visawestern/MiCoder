@@ -44,6 +44,24 @@ enum WebChatVendor: String, Codable, CaseIterable, Identifiable {
 enum WebEffort: String, Codable, CaseIterable, Identifiable {
     case low, medium, high
     var id: String { rawValue }
+
+    /// Display name for UI.
+    var displayName: String {
+        switch self {
+        case .low: return L.t(AppLocalizationKey.locEffortLow)
+        case .medium: return L.t(AppLocalizationKey.locEffortMedium)
+        case .high: return L.t(AppLocalizationKey.locEffortHigh)
+        }
+    }
+
+    /// Map a label string to a WebEffort.
+    static func fromLabel(_ label: String) -> WebEffort? {
+        let lower = label.lowercased()
+        if lower.contains("low") || lower.contains("низк") || lower.contains("快") { return .low }
+        if lower.contains("medium") || lower.contains("средн") || lower.contains("自动") || lower.contains("auto") { return .medium }
+        if lower.contains("high") || lower.contains("высок") || lower.contains("深度") || lower.contains("think") || lower.contains("深思") { return .high }
+        return nil
+    }
 }
 
 /// How the browser session is driven (plan Блок 1 п.4).
@@ -56,6 +74,42 @@ enum WebTransport: String, Codable, CaseIterable, Identifiable {
 }
 
 /// Full configuration of a web-chat provider (plan Раздел 12 Блок 1 п.4).
+/// A web provider model with its capabilities and available modes.
+struct WebProviderModel: Codable, Equatable, Identifiable, Hashable {
+    var id: String { name }
+    let name: String
+    let description: String?
+    var availableModes: [String]      // ["auto", "think", "fast", "image"]
+    var supportsImageGeneration: Bool
+    var supportsDeepResearch: Bool
+    var supportsWebDev: Bool
+
+    init(name: String, description: String? = nil, availableModes: [String] = [],
+         supportsImageGeneration: Bool = false, supportsDeepResearch: Bool = false,
+         supportsWebDev: Bool = false) {
+        self.name = name
+        self.description = description
+        self.availableModes = availableModes
+        self.supportsImageGeneration = supportsImageGeneration
+        self.supportsDeepResearch = supportsDeepResearch
+        self.supportsWebDev = supportsWebDev
+    }
+}
+
+/// A feature mode available for a web provider (e.g. Deep Research, Create Image).
+struct FeatureMode: Codable, Equatable, Identifiable, Hashable {
+    var id: String { name }
+    let name: String
+    let icon: String?
+    let isEnabled: Bool
+
+    init(name: String, icon: String? = nil, isEnabled: Bool = true) {
+        self.name = name
+        self.icon = icon
+        self.isEnabled = isEnabled
+    }
+}
+
 struct WebProviderConfig: Identifiable, Codable, Equatable {
     let id: String
     var vendor: WebChatVendor
@@ -79,10 +133,14 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
     var acknowledgedToS: Bool
     /// Real models parsed from the vendor's web UI model dropdown (plan Раздел
     /// 13 п.4). Empty until the driver discovers them; never hardcoded guesses.
-    var discoveredModels: [String]
+    var discoveredModels: [WebProviderModel]
+    /// Manually added model names (not auto-detected).
+    var manuallyAddedModels: [String]
     /// Discovered effort/thinking levels from the vendor's web UI (plan Раздел 13 п.4).
     /// Empty until the driver discovers them.
     var discoveredEffortLevels: [WebEffort]
+    /// Discovered feature modes (Deep Research, Create Image, etc).
+    var discoveredFeatureModes: [FeatureMode]
     /// CSS/XPath selector for the effort/thinking/reasoning dropdown (plan Раздел 13 п.4).
     /// If present, the driver will use this to discover/change effort levels.
     var effortDropdown: String?
@@ -105,8 +163,10 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
          headless: Bool = false,
          maxToolIterations: Int = 25,
          acknowledgedToS: Bool = false,
-         discoveredModels: [String] = [],
+         discoveredModels: [WebProviderModel] = [],
+         manuallyAddedModels: [String] = [],
          discoveredEffortLevels: [WebEffort] = [],
+         discoveredFeatureModes: [FeatureMode] = [],
          effortDropdown: String? = nil,
          customModelSelector: String? = nil) {
         self.id = id
@@ -125,7 +185,9 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
         self.maxToolIterations = maxToolIterations
         self.acknowledgedToS = acknowledgedToS
         self.discoveredModels = discoveredModels
+        self.manuallyAddedModels = manuallyAddedModels
         self.discoveredEffortLevels = discoveredEffortLevels
+        self.discoveredFeatureModes = discoveredFeatureModes
         self.effortDropdown = effortDropdown
         self.customModelSelector = customModelSelector
     }
@@ -134,18 +196,25 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
     /// caveat (model is chosen later in the chat input, not in settings).
     var isReady: Bool { acknowledgedToS }
 
+    /// All models: auto-detected + manually added.
+    var allModels: [String] {
+        var names = discoveredModels.map { $0.name }
+        names.append(contentsOf: manuallyAddedModels)
+        return Array(Set(names)).sorted()
+    }
+
     /// Add a custom model name to the provider's model list.
     /// No-op if the name is empty or already present (dedup by exact match).
     mutating func addCustomModel(_ name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        guard !discoveredModels.contains(trimmed) else { return }
-        discoveredModels.append(trimmed)
+        guard !allModels.contains(trimmed) else { return }
+        manuallyAddedModels.append(trimmed)
     }
 
     /// Remove a custom model from the provider's model list.
     mutating func removeCustomModel(_ name: String) {
-        discoveredModels.removeAll { $0 == name }
+        manuallyAddedModels.removeAll { $0 == name }
     }
 }
 

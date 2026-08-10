@@ -530,6 +530,9 @@ enum AppLocalizationKey: String, CaseIterable {
     case locModeCompose
     case locToolCallDelay
     case locKeepalive
+    case locTransport
+    case locGitHubCliNotInstalled
+    case locAddModel
 
     case locWebNoSelectorYet
     case locWebLoginFirst
@@ -544,6 +547,38 @@ enum AppLocalizationKey: String, CaseIterable {
     case locWebLoadedEffort
     case locWebEffortRefreshFailed
     case locWebRequiresWebKit
+    case locEffortLow
+    case locEffortMedium
+    case locEffortHigh
+    case locThinkingMode
+    case locFeatureModes
+    case locAuto
+    case locThink
+    case locFast
+    case locDeepResearch
+    case locCreateImage
+    case locCreateVideo
+    case locWebDev
+    case locTools
+    case locMore
+    case locUpload
+    case locSlides
+    case locSwarm
+    case locInstant
+    case locK3
+    case locK3Swarm
+    case locThinkingEffort
+    case locPickerTitle
+    case locPickerSelector
+    case locPickerTag
+    case locPickerClass
+    case locPickerText
+    case locUseAsModelSelector
+    case locTosViolation
+    case locModelsCount
+    case locActiveCount
+    case locArchivedCount
+    case locMessageCount
     case locWebNoModels
     case locGenerationStopped
     case locTaskCompletedMessage
@@ -558,7 +593,6 @@ enum AppLocalizationKey: String, CaseIterable {
     case locSelectFolder
     case locConfigured
     case locLogin
-    case locUseAsModelSelector
     case locConnecting
     case locChooseFolder
     case locMyProject
@@ -1173,8 +1207,34 @@ enum AppLocalization {
         "locWebLoadedEffort": ["en": "Loaded %d effort level%@ from %@.", "ru": "Загружено %d уровней из %@.", "es": "Cargados %d níveles de %@.", "fr": "%d níveis chargés depuis %@.", "de": "%d Stufen von %@ geladen.", "zh": "已从 %@ 加载 %d 个级别。", "ja": "%@ から %d レベル을 読み込みました。", "ko": "%@에서 %d개 수준을 로드했습니다.", "pt": "%d níveles carregados de %@.", "ar": "تم تحميل %d مستوى من %@."],
         "locWebEffortRefreshFailed": ["en": "Could not refresh effort levels: %@", "ru": "Не удалось обновить уровни: %@", "es": "No se pudo actualizar os níveles: %@", "fr": "Impossible d'actualiser les níveles: %@", "de": "Stufen konnten nicht aktualisiert werden: %@", "zh": "无法刷新级别：%@", "ja": "レベルを更新できませんでした：%@", "ko": "数준을 새로고침할 수 없습니다: %@", "pt": "Não fue possível atualizar os níveles: %@", "ar": "تعذر تحديث المستويات: %@"],
         "locWebRequiresWebKit": ["en": "Web providers require WebKit (macOS).", "ru": "Веб-провайдеры требуют WebKit (macOS).", "es": "Los proveedores web requiren WebKit (macOS).", "fr": "Les fournisseurs web nécessitent WebKit (macOS).", "de": "Web-Anbieter erfordern WebKit (macOS).", "zh": "网络提供商需要 WebKit (macOS)。", "ja": "WebプロバイダーにはWebkit（macOS）が必要です。", "ko": "웹 공급자는 Webkit(macOS)가 필요합니다.", "pt": "Provedores web requerem WebKit (macOS).", "ar": "موفرو الويب يتطلبون Webkit (macOS)."],
+        "locToolCallDelay": ["en": "Tool-call delay", "ru": "Задержка вызова инструментов", "es": "Retraso de llamada a herramientas", "fr": "Délai d'appel d'outils", "de": "Tool-Aufruf-Verzögerung", "zh": "工具调用延迟", "ja": "ツール呼び出し遅延", "ko": "도구 호출 지연", "pt": "Atraso na chamada de ferramentas", "ar": "تأخير استدعاء الأدوات"],
+        "locKeepalive": ["en": "Keep-alive", "ru": "Поддержание соединения", "es": "Mantener activo", "fr": "Maintenir actif", "de": "Keep-alive", "zh": "保活", "ja": "キープアライブ", "ko": "연결 유지", "pt": "Manter ativo", "ar": "البقاء متصلًا"],
+        "locTransport": ["en": "Transport", "ru": "Транспорт", "es": "Transporte", "fr": "Transport", "de": "Transport", "zh": "传输", "ja": "トランスポート", "ko": "전송", "pt": "Transporte", "ar": "نقل"],
+        "locGitHubCliNotInstalled": ["en": "GitHub CLI is not installed or not signed in. Use the publish wizard to set it up.", "ru": "GitHub CLI не установлен или не выполнен вход. Используйте мастер публикации.", "es": "GitHub CLI no está instalado o no has iniciado sesión. Usa el asistente de publicación.", "fr": "GitHub CLI n'est pas installé ou non connecté. Utilisez l'assistant de publication.", "de": "GitHub CLI ist nicht installiert oder nicht angemeldet. Verwenden Sie den Veröffentlichungsassistenten.", "zh": "GitHub CLI 未安装或未登录。使用发布向导进行设置。", "ja": "GitHub CLIがインストールされていないか、サインインしていません。公開ウィザードを使用してください。", "ko": "GitHub CLI가 설치되지 않았거나 로그인되지 않았습니다. 게시 마법사를 사용하세요.", "pt": "GitHub CLI não está instalado ou não está.connectado. Use o assistente de publicação.", "ar": "لم يتم تثبيت GitHub CLI أو لم تسجل الدخول. استخدم معالج النشر."],
+        "locAddModel": ["en": "Add model name…", "ru": "Добавить имя модели…", "es": "Agregar nombre de modelo…", "fr": "Ajouter un nom de modèle…", "de": "Modellname hinzufügen…", "zh": "添加模型名称…", "ja": "モデル名を追加…", "ko": "모델 이름 추가…", "pt": "Adicionar nome do modelo…", "ar": "إضافة اسم النموذج…"],
+        "locEffortLow": ["en": "Low", "ru": "Низкий", "es": "Bajo", "fr": "Bas", "de": "Niedrig", "zh": "低", "ja": "低", "ko": "낮음", "pt": "Baixo", "ar": "منخفض"],
+        "locEffortMedium": ["en": "Medium", "ru": "Средний", "es": "Medio", "fr": "Moyen", "de": "Mittel", "zh": "中", "ja": "中", "ko": "중간", "pt": "Médio", "ar": "متوسط"],
+        "locEffortHigh": ["en": "High", "ru": "Высокий", "es": "Alto", "fr": "Haut", "de": "Hoch", "zh": "高", "ja": "高", "ko": "높음", "pt": "Alto", "ar": "عالٍ"],
+        "locThinkingMode": ["en": "Thinking Mode", "ru": "Режим мышления", "es": "Modo de pensamiento", "fr": "Mode de réflexion", "de": "Denkmodus", "zh": "思考模式", "ja": "思考モード", "ko": "사고 모드", "pt": "Modo de pensamento", "ar": "وضع التفكير"],
+        "locFeatureModes": ["en": "Feature Modes", "ru": "Режимы работы", "es": "Modos de función", "fr": "Modes de fonction", "de": "Funktionsmodi", "zh": "功能模式", "ja": "機能モード", "ko": "기능 모드", "pt": "Modos de recurso", "ar": "أوضاع الميزة"],
         "locWebNoModels": ["en": "No models found on page", "ru": "Модели не найдены на странице", "es": "No se encontraron modelos", "fr": "Aucun modèle trouvé", "de": "Keine Modelle gefunden", "zh": "页面中未找到模型", "ja": "ページにモデルが見つかりません", "ko": "페이지에서 모델을 찾을 수 없음", "pt": "Nenhum modelo encontrado", "ar": "لم يتم العثور على نماذج"],
 
+        "locAuto": ["en": "Auto", "ru": "Авто", "es": "Auto", "fr": "Auto", "de": "Auto", "zh": "自动", "ja": "自動", "ko": "자동", "pt": "Auto", "ar": "تلقائي"],
+        "locThink": ["en": "Think", "ru": "Думание", "es": "Pensar", "fr": "Réfléchir", "de": "Denken", "zh": "思考", "ja": "思考", "ko": "사고", "pt": "Pensar", "ar": "تفكير"],
+        "locFast": ["en": "Fast", "ru": "Быстро", "es": "Rápido", "fr": "Rapide", "de": "Schnell", "zh": "快速", "ja": "高速", "ko": "빠름", "pt": "Rápido", "ar": "سريع"],
+        "locDeepResearch": ["en": "Deep Research", "ru": "Глубокое исследование", "es": "Investigación profunda", "fr": "Recherche approfondie", "de": "TiefRecherche", "zh": "深度研究", "ja": "ディープリサーチ", "ko": "심층 연구", "pt": "Pesquisa profunda", "ar": "بحث عميق"],
+        "locCreateImage": ["en": "Create Image", "ru": "Создать изображение", "es": "Crear imagen", "fr": "Créer une image", "de": "Bild erstellen", "zh": "创建图片", "ja": "画像を作成", "ko": "이미지 생성", "pt": "Criar imagem", "ar": "إنشاء صورة"],
+        "locCreateVideo": ["en": "Create Video", "ru": "Создать видео", "es": "Crear video", "fr": "Créer une vidéo", "de": "Video erstellen", "zh": "创建视频", "ja": "動画を作成", "ko": "동영상 생성", "pt": "Criar vídeo", "ar": "إنشاء فيديو"],
+        "locWebDev": ["en": "Web Dev", "ru": "Веб-разработка", "es": "Desarrollo web", "fr": "Dév web", "de": "Web-Entwicklung", "zh": "网页开发", "ja": "Web開発", "ko": "웹 개발", "pt": "Desenvolvimento web", "ar": "تطوير الويب"],
+        "locTools": ["en": "Tools", "ru": "Инструменты", "es": "Herramientas", "fr": "Outils", "de": "Werkzeuge", "zh": "工具", "ja": "ツール", "ko": "도구", "pt": "Ferramentas", "ar": "أدوات"],
+        "locMore": ["en": "More", "ru": "Ещё", "es": "Más", "fr": "Plus", "de": "Mehr", "zh": "更多", "ja": "もっと", "ko": "더", "pt": "Mais", "ar": "المزيد"],
+        "locUpload": ["en": "Upload", "ru": "Загрузить", "es": "Subir", "fr": "Télécharger", "de": "Hochladen", "zh": "上传", "ja": "アップロード", "ko": "업로드", "pt": "Carregar", "ar": "تحميل"],
+        "locSlides": ["en": "Slides", "ru": "Слайды", "es": "Diapositivas", "fr": "Diapositives", "de": "Folien", "zh": "幻灯片", "ja": "スライド", "ko": "슬라이드", "pt": "Slides", "ar": "شرائح"],
+        "locSwarm": ["en": "Swarm", "ru": "Рой", "es": "Enjambre", "fr": "Essaim", "de": "Schwarm", "zh": "集群", "ja": "スウォーム", "ko": "스웜", "pt": "Enxame", "ar": "سرب"],
+        "locInstant": ["en": "Instant", "ru": "Мгновенный", "es": "Instantáneo", "fr": "Instantané", "de": "Sofort", "zh": "即时", "ja": "インスタント", "ko": "즉시", "pt": "Imediato", "ar": "فوري"],
+        "locK3": ["en": "K3", "ru": "K3", "es": "K3", "fr": "K3", "de": "K3", "zh": "K3", "ja": "K3", "ko": "K3", "pt": "K3", "ar": "K3"],
+        "locK3Swarm": ["en": "K3 Swarm", "ru": "K3 Рой", "es": "K3 Enjambre", "fr": "K3 Essaim", "de": "K3 Schwarm", "zh": "K3 集群", "ja": "K3 スウォーム", "ko": "K3 스웜", "pt": "K3 Enxame", "ar": "K3 سرب"],
+        "locThinkingEffort": ["en": "Thinking effort", "ru": "Интенсивность рассуждений", "es": "Esfuerzo de pensamiento", "fr": "Effort de réflexion", "de": "Denkaufwand", "zh": "思考强度", "ja": "思考労力", "ko": "사고 노력", "pt": "Esforço de pensamento", "ar": "جهد التفكير"],
         "locGenerationStopped": ["en": "Generation stopped", "ru": "Генерация остановлена", "es": "Generación detenida", "fr": "Génération arrêtée", "de": "Generierung gestoppt", "zh": "生成已停止", "ja": "生成が停止しました", "ko": "생성 중지됨", "pt": "Geração parada", "ar": "تم إيقاف التوليد"],
         "locTaskCompletedMessage": ["en": "Task completed", "ru": "Задача выполнена", "es": "Tarea completada", "fr": "Tâche terminée", "de": "Aufgabe abgeschlossen", "zh": "任务完成", "ja": "タスクが完了しました", "ko": "작업 완료", "pt": "Tarefa concluída", "ar": "اكتملت المهمة"],
         "locResult": ["en": "Result", "ru": "Результат", "es": "Resultado", "fr": "Résultat", "de": "Ergebnis", "zh": "结果", "ja": "結果", "ko": "결과", "pt": "Resultado", "ar": "النتيجة"],

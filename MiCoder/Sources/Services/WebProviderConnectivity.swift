@@ -33,7 +33,7 @@ enum WebProviderConnectivity {
     /// never hardcoded guesses (plan Раздел 13 п.4). Falls back to the vendor's
     /// known default list only until real models are loaded.
     static func models(for config: WebProviderConfig) -> [String] {
-        config.discoveredModels.isEmpty ? config.vendor.defaultModels : config.discoveredModels
+        config.discoveredModels.isEmpty ? config.vendor.defaultModels : config.discoveredModels.map { $0.name }
     }
 
     /// Whether the given provider option id refers to a web provider.

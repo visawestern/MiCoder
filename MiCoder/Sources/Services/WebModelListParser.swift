@@ -122,9 +122,9 @@ enum WebModelListParser {
     /// still present (plan Раздел 13 п.4).
     static func updated(_ config: WebProviderConfig, withDropdownText text: String) -> WebProviderConfig {
         var updated = config
-        let models = parse(dropdownText: text, vendor: config.vendor)
-        if !models.isEmpty {
-            updated.discoveredModels = models
+        let modelNames = parse(dropdownText: text, vendor: config.vendor)
+        if !modelNames.isEmpty {
+            updated.discoveredModels = modelNames.map { WebProviderModel(name: $0) }
         }
         return updated
     }

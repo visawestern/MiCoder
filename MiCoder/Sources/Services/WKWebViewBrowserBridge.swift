@@ -193,7 +193,9 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         return arr
     }
 
-
+    func evaluateJS(_ script: String) async throws -> Any? {
+        try await eval(script)
+    }
 
     func pageText() async throws -> String {
         (try? await eval("document.body ? document.body.innerText : '';")) as? String ?? ""

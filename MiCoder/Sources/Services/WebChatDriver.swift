@@ -267,6 +267,86 @@ struct WebChatDriver {
         return nil
     }
 
+    /// Select a model in the web UI.
+    func selectModel(_ modelName: String) async throws {
+        let selector = try modelSelector()
+        // Click model button
+        try await bridge.click(selector: selector)
+        // Wait for dropdown
+        try await bridge.waitForSelector(selector: "div.model-item, [class*='model-item']", timeout: 5000)
+        // Find and click matching model
+        let clicked = try await bridge.clickByText(
+            selector: "div.model-item, [class*='model-item']",
+            text: modelName
+        )
+        if !clicked {
+            throw WebChatError.modelNotFound(modelName)
+        }
+        try await bridge.wait(ms: 500)
+    }
+
+    /// Select a mode (auto/think/fast/image).
+    func selectMode(_ mode: String) async throws {
+        switch config.vendor {
+        case .qwen:
+            try await bridge.click(selector: "[class*='mode-select']")
+            try await bridge.waitForSelector(selector: ".ant-select-item-option", timeout: 5000)
+            let clicked = try await bridge.clickByText(
+                selector: ".ant-select-item-option-content",
+                text: mode
+            )
+            if !clicked { throw WebChatError.modeNotFound(mode) }
+        case .kimi:
+            // Kimi modes are in sidebar
+            let clicked = try await bridge.clickByText(
+                selector: "a, button, [role='button']",
+                text: mode
+            )
+            if !clicked { throw WebChatError.modeNotFound(mode) }
+        default:
+            break
+        }
+        try await bridge.wait(ms: 500)
+    }
+
+    /// Select thinking/effort level.
+    func selectThinking(_ level: WebEffort) async throws {
+        let label = effortLabel(for: level) ?? level.displayName
+        switch config.vendor {
+        case .qwen:
+            try await bridge.click(selector: "[class*='qwen-select-thinking']")
+            try await bridge.waitForSelector(selector: ".ant-select-item-option", timeout: 5000)
+            let clicked = try await bridge.clickByText(
+                selector: ".ant-select-item-option-content",
+                text: label
+            )
+            if !clicked { throw WebChatError.effortNotFound(label) }
+        case .kimi:
+            try await bridge.click(selector: "[class*='effort']")
+            try await bridge.waitForSelector(selector: "[class*='effort-option'], [role='option']", timeout: 5000)
+            let clicked = try await bridge.clickByText(
+                selector: "[class*='effort-option'], [role='option']",
+                text: label
+            )
+            if !clicked { throw WebChatError.effortNotFound(label) }
+        default:
+            break
+        }
+        try await bridge.wait(ms: 500)
+    }
+
+    /// Resolve the model selector for the current vendor.
+    private func modelSelector() throws -> String {
+        if let custom = config.customModelSelector, !custom.isEmpty { return custom }
+        if let catalog = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id) {
+            if let button = catalog.modelButton, !button.isEmpty { return button }
+            if let first = catalog.modelDropdown.components(separatedBy: ",").first {
+                return first.trimmingCharacters(in: .whitespaces)
+            }
+        }
+        throw WebChatError.noModelSelector
+    }
+
     /// Map a WebEffort to a vendor-specific label for matching in the dropdown.
     private func effortLabel(for effort: WebEffort) -> String? {
         switch config.vendor {
@@ -296,5 +376,24 @@ struct WebChatDriver {
     private func antiBanDelay() async {
         let ms = WebAntiBanTiming.delayMs(base: config.toolCallDelayMs, randomUnit: randomUnit())
         if ms > 0 { await bridge.wait(ms: ms) }
+    }
+}
+
+/// Errors that can occur during web chat operations.
+enum WebChatError: LocalizedError {
+    case modelNotFound(String)
+    case modeNotFound(String)
+    case effortNotFound(String)
+    case noModelSelector
+    case noSession
+
+    var errorDescription: String? {
+        switch self {
+        case .modelNotFound(let m): return "Model '\(m)' not found in web UI"
+        case .modeNotFound(let m): return "Mode '\(m)' not found in web UI"
+        case .effortNotFound(let e): return "Effort level '\(e)' not found"
+        case .noModelSelector: return "No model selector configured for this vendor"
+        case .noSession: return "No active web session"
+        }
     }
 }

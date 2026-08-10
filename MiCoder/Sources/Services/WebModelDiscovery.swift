@@ -93,7 +93,7 @@ enum WebModelDiscovery {
     /// or throws — never silently successful with stale data.
     static func discover(using bridge: BrowserAutomationBridge,
                         dropdownSelector: String,
-                        vendor: WebChatVendor) async -> [String]? {
+                        vendor: WebChatVendor) async -> [WebProviderModel]? {
         do {
             // Wait for the model button to be present (up to 10s).
             var modelBtnFound = false
@@ -132,13 +132,15 @@ enum WebModelDiscovery {
             try? await bridge.waitForSelector(selector: "div.model-item", timeout: 5000)
 
             // Read model names from the custom dropdown items
-            let models = try await bridge.readModelItems()
-            if !models.isEmpty { return models }
+            let modelNames = try await bridge.readModelItems()
+            if !modelNames.isEmpty {
+                return modelNames.map { WebProviderModel(name: $0) }
+            }
 
             // Fallback: read raw text and parse
             let text = try await bridge.readText(selector: dropdownSelector)
             let parsed = WebModelListParser.parse(dropdownText: text, vendor: vendor)
-            return parsed.isEmpty ? nil : parsed
+            return parsed.isEmpty ? nil : parsed.map { WebProviderModel(name: $0) }
         } catch {
             return nil
         }
@@ -171,26 +173,90 @@ enum WebModelDiscovery {
         }
     }
 
-}
-
-extension WebProviderConnectivity {
-    enum ModelsResult: Equatable {
-        case models([String])
-        case fallbackDefaults([String])
-        case discoveryFailed(String)
+    /// Discover feature modes (Deep Research, Create Image, etc.) for a vendor.
+    static func discoverFeatureModes(using bridge: BrowserAutomationBridge,
+                                     vendor: WebChatVendor) async -> [FeatureMode] {
+        var modes: [FeatureMode] = []
+        switch vendor {
+        case .qwen:
+            modes = await discoverQwenFeatureModes(bridge: bridge)
+        case .kimi:
+            modes = await discoverKimiFeatureModes(bridge: bridge)
+        default:
+            break
+        }
+        return modes
     }
 
-    /// Returns the real models if they were discovered; explicitly labels
-    /// vendor defaults as fallback only when discovery hasn't been attempted
-    /// yet, and surfaces an actionable failure message otherwise.
-    static func modelsOrError(for config: WebProviderConfig,
-                             discoveryAttempted: Bool) -> ModelsResult {
-        if !config.discoveredModels.isEmpty {
-            return .models(config.discoveredModels)
+    /// Discover Qwen feature modes via mode-select dropdown.
+    private static func discoverQwenFeatureModes(bridge: BrowserAutomationBridge) async -> [FeatureMode] {
+        do {
+            try await bridge.click(selector: "[class*='mode-select']")
+            try await bridge.waitForSelector(selector: ".ant-select-item-option", timeout: 5000)
+
+            let rawModes = try await bridge.evaluateJS("""
+                Array.from(document.querySelectorAll('.ant-select-item-option-content'))
+                    .map(el => ({
+                        name: el.textContent.trim(),
+                        disabled: el.closest('.ant-select-item')?.classList.contains('ant-select-item-disabled') ?? false
+                    }))
+            """) as? [[String: Any]] ?? []
+
+            return rawModes.compactMap { dict in
+                guard let name = dict["name"] as? String, !name.isEmpty else { return nil }
+                return FeatureMode(name: name, icon: iconForMode(name), isEnabled: !(dict["disabled"] as? Bool ?? false))
+            }
+        } catch {
+            return []
         }
-        if !discoveryAttempted {
-            return .fallbackDefaults(config.vendor.defaultModels)
+    }
+
+    /// Discover Kimi feature modes (from sidebar or inline).
+    private static func discoverKimiFeatureModes(bridge: BrowserAutomationBridge) async -> [FeatureMode] {
+        do {
+            let rawModes = try await bridge.evaluateJS("""
+                Array.from(document.querySelectorAll('[class*="sidebar"] a, [class*="nav"] a, [class*="sidebar"] button'))
+                    .map(el => el.textContent.trim())
+                    .filter(t => t.length > 0 && t.length < 40)
+            """) as? [String] ?? []
+
+            let featureNames = ["Slides", "Deep Research", "Swarm", "Kimi Work", "Kimi Code", "Слайды", "Глубокое исследование"]
+            return rawModes.filter { name in
+                featureNames.contains { name.contains($0) }
+            }.map { FeatureMode(name: $0, icon: iconForMode($0), isEnabled: true) }
+        } catch {
+            return []
         }
-        return .discoveryFailed("Could not read the model list from \(config.displayName)'s web page.")
+    }
+
+    /// Discover thinking/effort levels for Qwen.
+    static func discoverThinkingLevels(using bridge: BrowserAutomationBridge) async -> [WebEffort] {
+        do {
+            try await bridge.click(selector: "[class*='qwen-select-thinking']")
+            try await bridge.waitForSelector(selector: ".ant-select-item-option", timeout: 5000)
+
+            let rawLevels = try await bridge.evaluateJS("""
+                Array.from(document.querySelectorAll('.ant-select-item-option-content'))
+                    .map(el => el.textContent.trim())
+            """) as? [String] ?? []
+
+            return rawLevels.compactMap { WebEffort.fromLabel($0) }
+        } catch {
+            return []
+        }
+    }
+
+    /// Map a mode name to an icon.
+    private static func iconForMode(_ name: String) -> String? {
+        let lower = name.lowercased()
+        if lower.contains("image") || lower.contains("img") { return "photo" }
+        if lower.contains("video") { return "video" }
+        if lower.contains("research") || lower.contains("deep") { return "magnifyingglass" }
+        if lower.contains("web") { return "globe" }
+        if lower.contains("tool") { return "wrench" }
+        if lower.contains("slides") || lower.contains("presentation") { return "rectangle.stack" }
+        if lower.contains("code") { return "chevron.left.forwardslash.chevron.right" }
+        if lower.contains("swarm") { return "antenna.radiowaves.left.and.right" }
+        return "sparkles"
     }
 }
