@@ -167,3 +167,20 @@ The user reported that ordinary `mimo-auto` sending and every web provider were 
 | UX-03 | Remove provider had no confirmation and left saved cookies on disk. | Added destructive confirmation and session-store cleanup. | FIXED |
 
 The complete static button inventory is stored in `docs/ui_controls_inventory_2026-08-13.txt`, and the detailed source audit is stored in `docs/WEB_SEND_UI_AUDIT_2026-08-13.md`. Full macOS/WebKit runtime verification remains separate from the Linux sandbox because SwiftUI, AppKit, and WebKit are unavailable here.
+
+
+## Round 33 (2026-08-13) — screenshot-driven provider correction
+
+The user provided macOS screenshots showing that Round 32 was not sufficient in the real app. The screenshots showed a DNS failure for MiMo Auto, empty answers from web providers, ChatGPT failing on `effort selector not found`, and ToS acknowledgement checkboxes still visible in provider cards.
+
+| ID | Confirmed root cause | Correction | Status |
+|---|---|---|---|
+| MIMO-04 | `MiMoAutoClient` used the invalid `https://api.mimo.ai/v1` host. | Paid route now uses the official `https://api.xiaomimimo.com/v1` endpoint and both `api-key` and Bearer auth headers. | FIXED |
+| MIMO-05 | Empty API key was treated as a successful free/connected state and a synthetic `mimo-auto` model was always kept. | Readiness now requires a successful route check; stale/synthetic models are cleared. | FIXED |
+| MIMO-06 | The current official MiMo Code source declares the anonymous free `mimo-auto` API sunset at `2026-07-26T10:00:00Z`. | MiCoder now blocks the ended free route with an explicit message and directs the user to a Xiaomi API key instead of pretending free access works. | FIXED |
+| WEB-12 | Browser bridge could return the last empty wrapper node, producing an empty assistant bubble. | `readText` now selects the last visible non-empty node. | FIXED |
+| WEB-13 | Missing effort control was treated as a send-blocking failure for providers/models that do not expose it. | Effort is optional; the driver only fails when a visible effort control exists but its selected option cannot be confirmed. | FIXED |
+| UX-04 | `acknowledgedToS` Toggle remained visible in `WebProvidersSection`. | Removed the Toggle. The legacy Codable field remains only to decode old settings and is ignored at runtime. | FIXED |
+| UX-05 | Composer exposed synthetic Low/Medium/High effort values before live discovery. | Effort menu is hidden until the provider page reports real effort levels. | FIXED |
+
+Validation completed in the Linux environment: `git diff --check`, registry analysis, shell syntax checks, and source scans for the old endpoint, fake free fallback, and ToS Toggle. A second macOS/Xcode build is still required to verify SwiftUI/WebKit compilation and real browser behavior.

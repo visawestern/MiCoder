@@ -401,9 +401,6 @@ Use clear headings, code examples, and cross-references.
                 }
             }
 
-            Toggle(L.t(AppLocalizationKey.locTosViolation), isOn: $config.acknowledgedToS)
-                .interfaceFont(size: 11)
-                .foregroundColor(Color.mimo.textSecondary)
         }
         .padding(12)
         .background(Color.mimo.surface)

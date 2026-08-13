@@ -116,7 +116,7 @@ final class MiCoderAPIServer {
             "name": "MiMo Auto",
             "isBuiltIn": true,
             "isEnabled": true,
-            "isConnected": mimoStore.provider.isKeyValid || mimoStore.provider.isFreeTier,
+            "isConnected": mimoStore.provider.isKeyValid,
             "models": mimoStore.provider.models.map { ["id": $0.id, "name": $0.name, "isFree": $0.isFree] },
             "selectedModel": mimoStore.provider.selectedModel
         ])

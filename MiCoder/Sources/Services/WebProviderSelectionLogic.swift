@@ -24,15 +24,9 @@ enum WebProviderSelectionLogic {
         if !config.discoveredEffortLevels.isEmpty {
             return config.discoveredEffortLevels
         }
-        // These vendors expose a thinking/effort control, but the exact options
-        // are discovered only after login. Showing the three canonical values is
-        // useful before discovery; the driver still verifies the actual option.
-        switch config.vendor {
-        case .kimi, .qwen, .chatgpt:
-            return WebEffort.allCases
-        case .custom:
-            return []
-        }
+        // The exact effort control is vendor-page state, not a universal
+        // capability. Do not expose synthetic levels before live discovery.
+        return []
     }
 
     static func selectingEffort(_ effort: WebEffort,

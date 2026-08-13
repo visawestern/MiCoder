@@ -15,7 +15,7 @@ struct MiMoAutoProvider: Identifiable, Codable, Equatable {
     var icon: String = "sparkles"
     var isBuiltIn: Bool { true }
     var isKeyValid: Bool = false
-    var models: [MiMoAutoClient.MiMoModel] = [MiMoAutoClient.MiMoModel(id: "mimo-auto", isFree: true)]
+    var models: [MiMoAutoClient.MiMoModel] = []
 
     enum CodingKeys: String, CodingKey {
         case id, isEnabled, apiKey, selectedModel, isKeyValid, models
@@ -23,25 +23,24 @@ struct MiMoAutoProvider: Identifiable, Codable, Equatable {
 
     init() {}
 
-    /// Fetch available models from MiMo API.
-    /// Always includes "mimo-auto" as fallback so the user can always send messages.
+    /// Fetch models from the selected route. The free route is not represented
+    /// as a model unless its channel is actually available.
     func refreshModels() async -> [MiMoAutoClient.MiMoModel] {
-        let fallback = [MiMoAutoClient.MiMoModel(id: "mimo-auto", isFree: true)]
+        if apiKey.isEmpty {
+            let ready = await MiMoAutoClient.shared.validateFreeChannel()
+            return ready ? [MiMoAutoClient.MiMoModel(id: "mimo-auto", isFree: true)] : []
+        }
         do {
-            let fetched = try await MiMoAutoClient.shared.listModels(apiKey: apiKey.isEmpty ? nil : apiKey)
-            // Always keep mimo-auto even if API doesn't list it
-            if fetched.contains(where: { $0.id == "mimo-auto" }) {
-                return fetched
-            }
-            return fallback + fetched
+            return try await MiMoAutoClient.shared.listModels(apiKey: apiKey)
         } catch {
-            return fallback  // Always have mimo-auto available
+            return []
         }
     }
 
-    /// Validate the current API key.
+    /// Validate the current paid API key. An empty key is not a successful
+    /// readiness result; it must pass the free-channel check instead.
     func validateKey() async -> Bool {
-        guard !apiKey.isEmpty else { return true }  // Free tier always valid
+        guard !apiKey.isEmpty else { return false }
         return await MiMoAutoClient.shared.validateApiKey(apiKey)
     }
 }
@@ -56,13 +55,12 @@ final class MiMoAutoProviderStore: ObservableObject {
         Task { await refreshModels() }
     }
 
-    /// Fetch and store updated models.
-    /// Always keeps at least "mimo-auto" so the user can always send messages.
+    /// Fetch models and verify the actual route used by the provider.
     @MainActor
     func refreshModels() async {
         let fetched = await provider.refreshModels()
-        // Never let models be empty — mimo-auto must always be available
-        provider.models = fetched.isEmpty ? [MiMoAutoClient.MiMoModel(id: "mimo-auto", isFree: true)] : fetched
+        provider.isKeyValid = !fetched.isEmpty
+        provider.models = fetched
     }
 
     /// Update the API key and revalidate.

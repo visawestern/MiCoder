@@ -2,10 +2,10 @@ import Foundation
 
 /// Connectivity + selection logic for web providers in the chat input
 /// (plan Раздел 13 п.4). A web provider counts as "connected" ONLY after a
-/// session (cookies) has been captured — not merely added — and ToS accepted.
+/// session (cookies) has been captured — not merely added.
 enum WebProviderConnectivity {
-    /// Whether a web provider is connected: cookies persisted (non-empty,
-    /// non-expired) AND ToS acknowledged.
+    /// Whether a web provider is connected: cookies persisted (non-empty and
+    /// non-expired). Legal acknowledgement is not a runtime connectivity gate.
     static func isConnected(_ config: WebProviderConfig,
                            homeDirectory: URL,
                            now: Date = Date()) -> Bool {

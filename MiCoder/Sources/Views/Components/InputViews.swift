@@ -314,6 +314,7 @@ struct CenteredInputCard: View {
             modelID: appState.selectedModel,
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
             serverConnected: appState.serverConnected,
+            mimoAutoReady: MiMoAutoProviderStore.shared.provider.isKeyValid,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
             webProviderIDs: appState.webProviderIDs
@@ -330,6 +331,7 @@ struct CenteredInputCard: View {
             modelID: appState.selectedModel,
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
             serverConnected: appState.serverConnected,
+            mimoAutoReady: MiMoAutoProviderStore.shared.provider.isKeyValid,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
             webProviderIDs: appState.webProviderIDs
@@ -534,6 +536,7 @@ struct BottomInputBar: View {
             modelID: appState.selectedModel,
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
             serverConnected: appState.serverConnected,
+            mimoAutoReady: MiMoAutoProviderStore.shared.provider.isKeyValid,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
             webProviderIDs: appState.webProviderIDs
@@ -549,6 +552,7 @@ struct BottomInputBar: View {
             modelID: appState.selectedModel,
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
             serverConnected: appState.serverConnected,
+            mimoAutoReady: MiMoAutoProviderStore.shared.provider.isKeyValid,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
             webProviderIDs: appState.webProviderIDs

@@ -662,6 +662,16 @@ struct SendReadinessLogicTests {
         #expect(error != nil)
     }
 
+    @Test("MiMo Auto is not ready before free bootstrap")
+    func mimoAutoRequiresBootstrap() {
+        let error = SendReadinessLogic.connectionValidationError(
+            serverConnected: false,
+            selectedProviderID: MiMoAutoProvider.builtInID,
+            mimoAutoReady: false
+        )
+        #expect(error?.contains("MiMo Auto is unavailable") == true)
+    }
+
     // MARK: - sendValidationError
 
     @Test("sendValidationError nil when model and provider are valid")

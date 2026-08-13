@@ -36,12 +36,12 @@ struct MiMoAutoSection: View {
                     Text("MiMo Auto")
                         .interfaceFont(size: 18, weight: .semibold)
                         .foregroundColor(Color.mimo.textPrimary)
-                    Text("Built-in free AI provider • No setup required")
+                    Text("Xiaomi MiMo Auto • free channel ended; API key supported")
                         .interfaceFont(size: 12)
                         .foregroundColor(Color.mimo.textSecondary)
                 }
                 Spacer()
-                Text("FREE")
+                Text("API")
                     .interfaceFont(size: 10, weight: .bold)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
@@ -91,7 +91,8 @@ struct MiMoAutoSection: View {
                     HStack {
                         Image(systemName: showApiKey ? "chevron.down" : "chevron.right")
                             .font(.system(size: 10))
-                        Text("API Key (optional, for paid tier)")
+                        Text("API Key (optional, official paid API)")
+
                             .interfaceFont(size: 12, weight: .medium)
                     }
                     .foregroundColor(Color.mimo.textSecondary)
@@ -123,7 +124,7 @@ struct MiMoAutoSection: View {
                                 .interfaceFont(size: 11)
                                 .foregroundColor(result.contains("valid") ? Color.mimo.success : Color.mimo.error)
                         }
-                        Text("Add your MiMo API key for higher rate limits and access to paid models.")
+                        Text("The anonymous free MiMo Auto channel ended on 26 Jul 2026. Add a Xiaomi API key to use the official paid API.")
                             .interfaceFont(size: 10)
                             .foregroundColor(Color.mimo.textMuted)
                     }
@@ -133,9 +134,11 @@ struct MiMoAutoSection: View {
             // Status
             HStack(spacing: 6) {
                 Circle()
-                    .fill(store.provider.isKeyValid || store.provider.isFreeTier ? Color.mimo.success : Color.mimo.error)
+                    .fill(store.provider.isKeyValid ? Color.mimo.success : Color.mimo.error)
                     .frame(width: 6, height: 6)
-                Text(store.provider.isFreeTier ? "Free tier" : (store.provider.isKeyValid ? "API key valid" : "Invalid key"))
+                Text(store.provider.isKeyValid
+                     ? (store.provider.isFreeTier ? "Free channel ready" : "API key valid")
+                     : (store.provider.isFreeTier ? "Free channel ended" : "Invalid key"))
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
                 Spacer()

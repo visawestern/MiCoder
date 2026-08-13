@@ -6,17 +6,24 @@ enum SendReadinessLogic {
     static func connectionValidationError(
         serverConnected: Bool,
         selectedProviderID: String = "",
+        mimoAutoReady: Bool = true,
         customProviders: [CustomProvider] = [],
         localProviderIDs: [String] = [],
         webProviderIDs: [String] = []
     ) -> String? {
-        // Если сервер подключён — всё ок
+        // MiMo Auto is a direct route and must be checked independently from
+        // the local MiMo Serve connection.
+        if selectedProviderID == MiMoAutoProvider.builtInID && !mimoAutoReady {
+            return "MiMo Auto is unavailable. The free Xiaomi channel has ended; add a Xiaomi MiMo API key or choose another provider."
+        }
+
+        // For all other routes, a connected local server is sufficient.
         if serverConnected { return nil }
 
         if !selectedProviderID.isEmpty {
-            // MiMo-Auto is a direct provider route and does not require a
-            // local MiMo Serve connection or an API key in free-tier mode.
-            if selectedProviderID == MiMoAutoProvider.builtInID { return nil }
+            if selectedProviderID == MiMoAutoProvider.builtInID {
+                return nil
+            }
             // Web provider (option id "web:<id>") — driven via the browser, no serve.
             if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
                webProviderIDs.contains(webID) { return nil }
@@ -53,6 +60,7 @@ enum SendReadinessLogic {
         modelID: String,
         providerID: String?,
         serverConnected: Bool = false,
+        mimoAutoReady: Bool = true,
         customProviders: [CustomProvider] = [],
         localProviderIDs: [String] = [],
         webProviderIDs: [String] = []
@@ -62,6 +70,7 @@ enum SendReadinessLogic {
             && connectionValidationError(
                 serverConnected: serverConnected,
                 selectedProviderID: providerID ?? "",
+                mimoAutoReady: mimoAutoReady,
                 customProviders: customProviders,
                 localProviderIDs: localProviderIDs,
                 webProviderIDs: webProviderIDs
@@ -81,6 +90,7 @@ enum SendReadinessReason {
         modelID: String,
         providerID: String?,
         serverConnected: Bool,
+        mimoAutoReady: Bool = true,
         customProviders: [CustomProvider],
         localProviderIDs: [String],
         webProviderIDs: [String]
@@ -97,6 +107,7 @@ enum SendReadinessReason {
         return SendReadinessLogic.connectionValidationError(
             serverConnected: serverConnected,
             selectedProviderID: providerID ?? "",
+            mimoAutoReady: mimoAutoReady,
             customProviders: customProviders,
             localProviderIDs: localProviderIDs,
             webProviderIDs: webProviderIDs

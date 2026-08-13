@@ -2,60 +2,44 @@ import Testing
 import Foundation
 @testable import MiCoder
 
-@Suite("MiMoAutoProvider — refreshModels clears stale data on API failure")
+@Suite("MiMoAutoProvider — refreshModels has no synthetic fallback")
 struct MiMoAutoProviderTests {
 
-    @Test("refreshModels always includes mimo-auto fallback on API failure")
-    func refreshModelsReturnsFallbackOnFailure() async {
-        // Arrange: provider has stale models from a previous successful call
+    @Test("refreshModels does not invent mimo-auto when the free channel is unavailable")
+    func refreshModelsDoesNotReturnSyntheticFallback() async {
         var provider = MiMoAutoProvider()
         provider.models = [
-            MiMoAutoClient.MiMoModel(id: "qwen3-max", isFree: false),
-            MiMoAutoClient.MiMoModel(id: "gemini-flash", isFree: false),
+            MiMoAutoClient.MiMoModel(id: "stale-model", isFree: false),
         ]
-        provider.apiKey = ""  // Free tier — API may fail without key
+        provider.apiKey = ""
 
-        // Act: refresh with the real MiMoAutoClient (no API key = may return error)
         let result = await provider.refreshModels()
 
-        // Assert: must always contain mimo-auto (the user needs to send messages)
-        #expect(result.contains { $0.id == "mimo-auto" }, "refreshModels must always include mimo-auto fallback")
+        #expect(!result.contains { $0.id == "mimo-auto" })
     }
 
-    @Test("refreshModels always includes mimo-auto when API returns empty")
-    func refreshModelsReturnsFallbackOnEmpty() async {
+    @Test("refreshModels clears stale models after an unavailable route")
+    func refreshModelsClearsStaleModels() async {
         var provider = MiMoAutoProvider()
-        provider.models = [
-            MiMoAutoClient.MiMoModel(id: "old-model", isFree: false),
-        ]
+        provider.models = [MiMoAutoClient.MiMoModel(id: "old-model", isFree: false)]
 
         let result = await provider.refreshModels()
 
-        // Must always have mimo-auto
-        #expect(result.contains { $0.id == "mimo-auto" }, "refreshModels must always include mimo-auto")
+        #expect(result.isEmpty)
     }
 }
 
-@Suite("MiMoAutoProviderStore — refreshModels always clears on failure")
+@Suite("MiMoAutoProviderStore — unavailable route is not ready")
 struct MiMoAutoProviderStoreRefreshTests {
 
-    @Test("provider.models always contains mimo-auto after refresh")
+    @Test("provider.models stays empty after an unavailable free refresh")
     func storeClearsModelsOnFailure() async {
-        // This test verifies the contract: when refreshModels() returns [],
-        // the provider's models array should still have mimo-auto.
-
         var provider = MiMoAutoProvider()
-        provider.models = [
-            MiMoAutoClient.MiMoModel(id: "stale-qwen-model", isFree: false),
-        ]
+        provider.models = [MiMoAutoClient.MiMoModel(id: "stale-model", isFree: false)]
 
-        // refreshModels() now returns fallback with mimo-auto (fixed)
         let fetched = await provider.refreshModels()
+        provider.models = fetched
 
-        // Simulate what the store does
-        provider.models = fetched.isEmpty ? [MiMoAutoClient.MiMoModel(id: "mimo-auto", isFree: true)] : fetched
-
-        // GREEN: provider.models should always contain mimo-auto
-        #expect(provider.models.contains { $0.id == "mimo-auto" }, "provider.models must always contain mimo-auto")
+        #expect(provider.models.isEmpty)
     }
 }

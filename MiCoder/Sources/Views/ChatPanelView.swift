@@ -418,6 +418,7 @@ struct ChatPanelView: View {
         if let error = SendReadinessLogic.connectionValidationError(
             serverConnected: appState.serverConnected,
             selectedProviderID: appState.selectedProviderID,
+            mimoAutoReady: MiMoAutoProviderStore.shared.provider.isKeyValid,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
             webProviderIDs: appState.webProviderIDs
@@ -489,6 +490,7 @@ struct ChatPanelView: View {
         if let error = SendReadinessLogic.connectionValidationError(
             serverConnected: appState.serverConnected,
             selectedProviderID: appState.selectedProviderID,
+            mimoAutoReady: MiMoAutoProviderStore.shared.provider.isKeyValid,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
             webProviderIDs: appState.webProviderIDs
@@ -660,6 +662,9 @@ struct ChatPanelView: View {
                                 m.isStreaming = true
                             }
                         }
+                    }
+                    guard !streamedContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                        throw MiMoAutoError.apiError("MiMo Auto returned an empty response. Check the selected model and authentication, then retry.")
                     }
                     await MainActor.run {
                         self.messageStore.update(id: assistantID) { m in

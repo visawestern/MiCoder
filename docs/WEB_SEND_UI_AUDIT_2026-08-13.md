@@ -41,3 +41,13 @@
 ## Первичный план исправлений
 
 Сначала нужно сделать единый объект выбора для web-провайдера: provider ID, model ID, effort и transport должны изменяться одной операцией и сразу сохраняться в `WebProviderStore`. Затем web composer должен показывать только реально обнаруженные модели и effort либо явно маркировать fallback как непроверенный. `WebChatDriver` должен считать неудачу инъекции модели/effort блокирующей ошибкой, а не продолжать отправку незаметно. После этого требуется исправить picker persistence, реализовать честную отмену web-генерации и усилить стандартный serve path таймаутом и понятными состояниями `connecting`, `sending`, `waiting for stream`, `failed`.
+
+## Фактический macOS smoke round from user screenshots — 2026-08-13
+
+| ID | Observed result | Root cause confirmed in source | Fix in this round |
+|---|---|---|---|
+| MIMO-04 | `MiMo-Auto error: A server with the specified hostname could not be found.` | `MiMoAutoClient` used the invalid `https://api.mimo.ai/v1` host. | Use official Xiaomi `https://api.xiaomimimo.com/v1` for paid API and the separate free bootstrap/chat route. |
+| MIMO-05 | MiMo Auto was shown as free/ready solely because API key was empty. | `isFreeTier` was treated as `isConnected`, and no bootstrap verification existed. | Free channel now bootstraps a JWT; readiness is green only after success. |
+| WEB-12 | Kimi/Qwen/ChatGPT produced `Model returned empty response`. | Browser response reading could return an empty last DOM wrapper; the driver also exposed synthetic effort levels before discovery. | Read the last visible non-empty DOM node and hide effort menu until live discovery. |
+| WEB-13 | ChatGPT send failed with `effort selector not found`. | `injectModelAndEffort` treated the optional effort control as mandatory. | Missing optional effort control no longer blocks a normal send; model/input/send controls remain verified. |
+| UX-04 | Provider cards displayed a checkbox saying the user understood possible terms-of-service violation. | `WebProvidersSection` rendered `acknowledgedToS` as a Toggle despite readiness already ignoring it. | Removed the checkbox from the UI; legacy persisted field remains only for backwards-compatible decoding and is not used as a gate. |

@@ -125,8 +125,8 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
     var headless: Bool
     /// Max tool-loop iterations per user message (anti-runaway).
     var maxToolIterations: Int
-    /// Explicit acknowledgement that automating a 3rd-party web service may
-    /// violate its ToS (required before enabling; plan Блок 1 п.9).
+    /// Legacy persisted field retained only for decoding older configurations.
+    /// It is no longer shown or used as a runtime gate.
     var acknowledgedToS: Bool
     /// Real models parsed from the vendor's web UI model dropdown (plan Раздел
     /// 13 п.4). Empty until the driver discovers them; never hardcoded guesses.
@@ -189,8 +189,8 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
         self.customModelSelector = customModelSelector
     }
 
-    /// A web provider is usable only when the user has acknowledged the ToS
-    /// caveat (model is chosen later in the chat input, not in settings).
+    /// A web provider's runtime readiness is determined by its captured session,
+    /// live discovery and browser page state. The legacy ToS field is ignored.
     var isReady: Bool { true }
 
     /// All models: auto-detected + explicitly configured. Vendor catalog data is

@@ -428,7 +428,7 @@ class AppState: ObservableObject {
             id: MiMoAutoProvider.builtInID,
             name: mimoStore.provider.displayName,
             isCustom: false,
-            isConnected: mimoStore.provider.isKeyValid || mimoStore.provider.isFreeTier
+            isConnected: mimoStore.provider.isKeyValid
         ))
         // Local providers (Ollama/OpenCode/MiMo CLI) — plan Раздел 1.
         options += LocalProviderLogic.providerOptions(from: LocalProviderLogic.load())

@@ -259,16 +259,19 @@ struct WebChatDriver {
             }
         }
 
-        // Inject effort selection. Try each catalog selector in order, but do
-        // not send if the selected effort was not confirmed in the web menu.
+        // Effort is optional: many vendor pages have no thinking selector or
+        // expose it only for specific models. Never block a normal send because
+        // an optional control is absent; only use it when live DOM confirms it.
         if let effortLabel = effortLabel(for: config.effort) {
             let selectors = (catalogEntry.effortDropdown?.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) } ?? [])
                 .filter { !$0.isEmpty }
             var anySuccess = false
+            var foundControl = false
             var lastError = ""
             for selector in selectors {
                 do {
                     guard (try? await bridge.exists(selector: selector)) == true else { continue }
+                    foundControl = true
                     try await bridge.click(selector: selector)
                     try? await bridge.waitForSelector(selector: "[class*='effort'], [class*='thinking'], [role='option'], [class*='option']", timeout: 5000)
                     await bridge.wait(ms: 500)
@@ -289,10 +292,10 @@ struct WebChatDriver {
                     lastError = error.localizedDescription
                 }
             }
-            if !anySuccess && !selectors.isEmpty {
+            if foundControl && !anySuccess {
                 throw WebChatError.effortInjectionFailed(
                     L.t(AppLocalizationKey.locWebEffortNote)
-                        .replacingOccurrences(of: "{0}", with: lastError.isEmpty ? "effort selector not found" : lastError)
+                        .replacingOccurrences(of: "{0}", with: lastError.isEmpty ? "effort option not found" : lastError)
                 )
             }
         }

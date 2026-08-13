@@ -30,18 +30,21 @@ struct WebProviderSelectionLogicTests {
         #expect(updated.selectedModel == "qwen-plus")
     }
 
-    @Test("Built-in web providers expose an effort menu before discovery")
-    func effortMenuIsNotHiddenBeforeDiscovery() {
-        for vendor in [WebChatVendor.kimi, .qwen, .chatgpt] {
+    @Test("Web providers hide effort menu before live discovery")
+    func effortMenuIsHiddenBeforeDiscovery() {
+        for vendor in [WebChatVendor.kimi, .qwen, .chatgpt, .custom] {
             let config = WebProviderConfig(vendor: vendor)
-            #expect(WebProviderSelectionLogic.availableEfforts(for: config) == WebEffort.allCases)
+            #expect(WebProviderSelectionLogic.availableEfforts(for: config).isEmpty)
         }
-        #expect(WebProviderSelectionLogic.availableEfforts(for: WebProviderConfig(vendor: .custom)).isEmpty)
     }
 
     @Test("Selecting web effort updates only the web provider config")
     func selectingEffortUsesConfig() {
-        let config = WebProviderConfig(vendor: .qwen, effort: .medium)
+        let config = WebProviderConfig(
+            vendor: .qwen,
+            effort: .medium,
+            discoveredEffortLevels: WebEffort.allCases
+        )
         let updated = WebProviderSelectionLogic.selectingEffort(.high, in: config)
         #expect(updated.effort == .high)
     }

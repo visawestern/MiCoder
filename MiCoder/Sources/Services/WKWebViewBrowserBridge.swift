@@ -189,7 +189,15 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         (function(){
           var els = document.querySelectorAll(\(Self.jsString(selector)));
           if(!els || els.length===0){return "";}
-          return els[els.length-1].innerText || "";
+          for (var i = els.length - 1; i >= 0; i--) {
+            var el = els[i];
+            var text = (el.innerText || el.textContent || '').trim();
+            var style = window.getComputedStyle(el);
+            if (text && style.display !== 'none' && style.visibility !== 'hidden') {
+              return text;
+            }
+          }
+          return "";
         })();
         """
         return (try? await eval(js)) as? String ?? ""
