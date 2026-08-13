@@ -662,14 +662,14 @@ struct SendReadinessLogicTests {
         #expect(error != nil)
     }
 
-    @Test("MiCoder Auto Free is not ready without a validated OpenCode Zen key")
-    func autoFreeRequiresValidatedKey() {
+    @Test("MiCoder Auto Free is not ready without an available anonymous free catalog")
+    func autoFreeRequiresAvailableCatalog() {
         let error = SendReadinessLogic.connectionValidationError(
             serverConnected: false,
             selectedProviderID: MiCoderAutoFreeProvider.builtInID,
             autoFreeReady: false
         )
-        #expect(error?.contains("OpenCode Zen API key") == true)
+        #expect(error?.contains("anonymous OpenCode free catalog") == true)
     }
 
     // MARK: - sendValidationError

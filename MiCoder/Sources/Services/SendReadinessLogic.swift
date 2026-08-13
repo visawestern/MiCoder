@@ -14,7 +14,7 @@ enum SendReadinessLogic {
         // MiCoder Auto Free is a direct route and must be checked independently from
         // the local MiMo Serve connection.
         if selectedProviderID == MiCoderAutoFreeProvider.builtInID && !autoFreeReady {
-            return "MiCoder Auto Free is unavailable. Add an OpenCode Zen API key at opencode.ai/zen, then refresh Big Pickle, or choose another provider."
+            return "MiCoder Auto Free is unavailable. Refresh the anonymous OpenCode free catalog or choose another provider."
         }
 
         // For all other routes, a connected local server is sufficient.

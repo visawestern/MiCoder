@@ -21,12 +21,7 @@ struct UnifiedProvidersView: View {
 struct MiCoderAutoFreeSection: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject private var store = MiCoderAutoFreeStore.shared
-    @State private var apiKeyInput: String = ""
     @State private var systemPromptInput: String = ""
-    @State private var showApiKey = false
-    @State private var revealApiKey = false
-    @State private var validating = false
-    @State private var testResult: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -38,7 +33,7 @@ struct MiCoderAutoFreeSection: View {
                     Text("MiCoder Auto Free")
                         .interfaceFont(size: 18, weight: .semibold)
                         .foregroundColor(Color.mimo.textPrimary)
-                    Text("OpenCode Zen · Big Pickle · free while available")
+                    Text("OpenCode Zen · anonymous free models · Big Pickle first")
                         .interfaceFont(size: 12)
                         .foregroundColor(Color.mimo.textSecondary)
                 }
@@ -54,19 +49,17 @@ struct MiCoderAutoFreeSection: View {
 
             if !store.provider.models.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Model")
+                    Text("Available free models")
                         .interfaceFont(size: 12, weight: .medium)
                         .foregroundColor(Color.mimo.textPrimary)
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(store.provider.models) { model in
                                 let selected = isSelected(model.id)
-                                Button { store.selectModel(model.id) } label: {
+                                Button { selectModel(model.id) } label: {
                                     HStack(spacing: 4) {
-                                        Text(model.name)
-                                        if model.isFree {
-                                            Image(systemName: "gift.fill").font(.system(size: 8))
-                                        }
+                                        Text(displayName(for: model.id))
+                                        Image(systemName: "gift.fill").font(.system(size: 8))
                                     }
                                 }
                                 .buttonStyle(.plain)
@@ -82,62 +75,18 @@ struct MiCoderAutoFreeSection: View {
                     }
                 }
             } else {
-                Text(apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                     ? "Add an OpenCode Zen API key to load Big Pickle."
-                     : "Big Pickle is unavailable or the OpenCode Zen key has not been validated.")
+                Text("No OpenCode free models are currently available. Press refresh to check again.")
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Button(action: { showApiKey.toggle() }) {
-                    HStack {
-                        Image(systemName: showApiKey ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 10))
-                        Text("OpenCode Zen API Key")
-                            .interfaceFont(size: 12, weight: .medium)
-                    }
-                    .foregroundColor(Color.mimo.textSecondary)
-                }
-                .buttonStyle(.plain)
-
-                if showApiKey {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Group {
-                                if revealApiKey {
-                                    TextField("OpenCode Zen API key", text: $apiKeyInput)
-                                } else {
-                                    SecureField("OpenCode Zen API key", text: $apiKeyInput)
-                                }
-                            }
-                            .zcodeTextFieldStyle()
-                            .interfaceFont(size: 12)
-                            Button {
-                                revealApiKey.toggle()
-                            } label: {
-                                Image(systemName: revealApiKey ? "eye.slash" : "eye")
-                            }
-                            .buttonStyle(.plain)
-                            .foregroundColor(Color.mimo.textSecondary)
-                            Button(validating ? "Checking…" : "Save") {
-                                saveApiKey()
-                            }
-                            .buttonStyle(.plain)
-                            .interfaceFont(size: 12)
-                            .foregroundColor(Color.mimo.brand)
-                            .disabled(validating)
-                        }
-                        if let result = testResult {
-                            Text(result)
-                                .interfaceFont(size: 11)
-                                .foregroundColor(result.contains("valid") ? Color.mimo.success : Color.mimo.error)
-                        }
-                        Text("Get a free API key at opencode.ai/zen — Big Pickle is free during its limited-time period.")
-                            .interfaceFont(size: 10)
-                            .foregroundColor(Color.mimo.textMuted)
-                    }
-                }
+                Text("Automatic fallback")
+                    .interfaceFont(size: 12, weight: .medium)
+                    .foregroundColor(Color.mimo.textPrimary)
+                Text("Big Pickle is preferred. If a model disappears or returns a rate limit, MiCoder switches to the next live free model. Five consecutive failures also trigger a switch.")
+                    .interfaceFont(size: 10)
+                    .foregroundColor(Color.mimo.textMuted)
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -167,41 +116,52 @@ struct MiCoderAutoFreeSection: View {
 
             HStack(spacing: 6) {
                 Circle()
-                    .fill(store.provider.isKeyValid ? Color.mimo.success : Color.mimo.error)
+                    .fill(store.provider.isReady ? Color.mimo.success : Color.mimo.error)
                     .frame(width: 6, height: 6)
-                Text(store.provider.isKeyValid
-                     ? "Big Pickle ready"
-                     : (apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Add API key" : "API key not validated"))
+                Text(store.provider.isReady
+                     ? "Free catalog ready"
+                     : (store.provider.statusMessage.isEmpty ? "Loading free catalog…" : store.provider.statusMessage))
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
+                    .lineLimit(2)
                 Spacer()
-                Button(action: { Task { await store.refreshModels() } }) {
+                Button(action: { Task { _ = await store.refreshModels() } }) {
                     Image(systemName: "arrow.clockwise").font(.system(size: 11))
                 }
                 .buttonStyle(.plain)
                 .foregroundColor(Color.mimo.brand)
             }
+            Text("No API key is required for this anonymous free-model catalog. Free-model availability and data-use terms may change.")
+                .interfaceFont(size: 10)
+                .foregroundColor(Color.mimo.textMuted)
         }
         .padding(16)
         .background(Color.mimo.surface)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.mimo.border, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .onAppear {
-            apiKeyInput = store.provider.apiKey
             systemPromptInput = store.provider.systemPrompt
         }
     }
 
-    private func saveApiKey() {
-        validating = true
-        testResult = nil
-        store.setApiKey(apiKeyInput)
-        Task {
-            await store.refreshModels()
-            validating = false
-            testResult = store.provider.isKeyValid
-                ? "OpenCode Zen API key valid; Big Pickle is ready."
-                : "OpenCode Zen API key is invalid or Big Pickle is unavailable."
+    private func selectModel(_ modelID: String) {
+        store.selectModel(modelID)
+        if appState.selectedProviderID == MiCoderAutoFreeProvider.builtInID {
+            appState.selectModel(modelID)
+        }
+    }
+
+    private func displayName(for modelID: String) -> String {
+        switch modelID {
+        case "big-pickle": return "Big Pickle"
+        case "deepseek-v4-flash-free": return "DeepSeek V4 Flash Free"
+        case "mimo-v2.5-free": return "MiMo V2.5 Free"
+        case "hy3-free": return "Hy3 Free"
+        case "laguna-s-2.1-free": return "Laguna S 2.1 Free"
+        case "ling-3.0-tiny-free": return "Ling 3.0 Tiny Free"
+        case "nemotron-3-ultra-free": return "Nemotron 3 Ultra Free"
+        case "nemotron-3.5-lightning-free": return "Nemotron 3.5 Lightning Free"
+        default: return modelID
         }
     }
 

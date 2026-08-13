@@ -436,7 +436,7 @@ class AppState: ObservableObject {
             id: MiCoderAutoFreeProvider.builtInID,
             name: autoFreeStore.provider.displayName,
             isCustom: false,
-            isConnected: autoFreeStore.provider.isKeyValid
+            isConnected: autoFreeStore.provider.isReady
         ))
         // Local providers (Ollama/OpenCode/MiMo CLI) — plan Раздел 1.
         options += LocalProviderLogic.providerOptions(from: LocalProviderLogic.load())
@@ -681,9 +681,9 @@ class AppState: ObservableObject {
         }
 
         // MiCoder Auto Free is the built-in free route. It becomes the initial
-        // provider only after OpenCode Zen confirms that Big Pickle is ready.
+        // provider only after the anonymous OpenCode free catalog is ready.
         if selectedProviderID.isEmpty && preferredProviderID.isEmpty,
-           MiCoderAutoFreeStore.shared.provider.isKeyValid,
+           MiCoderAutoFreeStore.shared.provider.isReady,
            options.contains(where: { $0.id == MiCoderAutoFreeProvider.builtInID }) {
             selectProvider(MiCoderAutoFreeProvider.builtInID, persistPreference: false)
             return

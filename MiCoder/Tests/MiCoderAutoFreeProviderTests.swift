@@ -2,7 +2,7 @@ import Testing
 import Foundation
 @testable import MiCoder
 
-@Suite("MiCoderAutoFreeProvider — OpenCode Zen Big Pickle contract")
+@Suite("MiCoderAutoFreeProvider — anonymous OpenCode free catalog")
 struct MiCoderAutoFreeProviderTests {
 
     @Test("provider uses the renamed built-in ID and Big Pickle default")
@@ -12,40 +12,26 @@ struct MiCoderAutoFreeProviderTests {
         #expect(MiCoderAutoFreeProvider.builtInID == "micoder-auto-free")
         #expect(provider.displayName == "MiCoder Auto Free")
         #expect(provider.selectedModel == "big-pickle")
+        #expect(provider.isReady == false)
         #expect(MiCoderAutoFreeClient.defaultModelID == "big-pickle")
     }
 
-    @Test("empty key returns no models and never invents a fallback")
-    func emptyKeyHasNoSyntheticFallback() async {
-        var provider = MiCoderAutoFreeProvider()
-        provider.models = [MiCoderAutoFreeClient.Model(id: "stale-model", isFree: false)]
-        provider.apiKey = ""
-
-        let result = await provider.refreshModels()
-
-        #expect(result.isEmpty)
-        #expect(!result.contains { $0.id == "big-pickle" })
-        #expect(await provider.validateKey() == false)
+    @Test("free allow-list contains Big Pickle and official alternatives only")
+    func freeAllowList() {
+        #expect(MiCoderAutoFreeClient.freeModelIDs.first == "big-pickle")
+        #expect(MiCoderAutoFreeClient.freeModelIDs.contains("deepseek-v4-flash-free"))
+        #expect(MiCoderAutoFreeClient.freeModelIDs.contains("mimo-v2.5-free"))
+        #expect(!MiCoderAutoFreeClient.freeModelIDs.contains("claude-opus-5"))
+        #expect(!MiCoderAutoFreeClient.freeModelIDs.contains("gpt-5.5"))
     }
 
-    @Test("refreshModels returns an empty result when key is absent")
-    func refreshModelsClearsStaleResult() async {
-        var provider = MiCoderAutoFreeProvider()
-        provider.models = [MiCoderAutoFreeClient.Model(id: "old-model", isFree: false)]
+    @Test("anonymous provider starts without a synthetic model")
+    func noSyntheticModelBeforeDiscovery() {
+        let provider = MiCoderAutoFreeProvider()
 
-        let result = await provider.refreshModels()
-
-        #expect(result.isEmpty)
-    }
-
-    @Test("non-empty key is not treated as anonymous access")
-    func nonEmptyKeyUsesAuthenticatedValidationPath() async {
-        var provider = MiCoderAutoFreeProvider()
-        provider.apiKey = "test-opencode-zen-key"
-
-        // A malformed test key must fail validation; the client must not
-        // synthesize Big Pickle or silently downgrade to anonymous access.
-        #expect(await provider.validateKey() == false)
+        #expect(provider.models.isEmpty)
+        #expect(provider.isReady == false)
+        #expect(provider.statusMessage.isEmpty)
     }
 
     @Test("system prompt is Codable provider state")
@@ -61,11 +47,25 @@ struct MiCoderAutoFreeProviderTests {
     }
 }
 
-@Suite("MiCoderAutoFreeClient — OpenCode Zen endpoint contract")
+@Suite("MiCoderAutoFreeClient — anonymous OpenCode contract")
 struct MiCoderAutoFreeClientContractTests {
-    @Test("uses the official Zen base URL")
+    @Test("uses the official Zen base URL and OpenAI-compatible endpoint family")
     func endpointAndModelContract() {
         #expect(MiCoderAutoFreeClient.providerBaseURL.absoluteString == "https://opencode.ai/zen/v1")
-        #expect(MiCoderAutoFreeClient.defaultModelID == "big-pickle")
+        #expect(MiCoderAutoFreeProvider.defaultModelID == "big-pickle")
+        #expect(MiCoderAutoFreeClient.maxConsecutiveFailures == 5)
+    }
+
+    @Test("rate limit and model errors switch immediately")
+    func immediateFailoverErrors() {
+        #expect(MiCoderAutoFreeClient.shouldSwitchImmediately(for: MiCoderAutoFreeError.rateLimited("429")))
+        #expect(MiCoderAutoFreeClient.shouldSwitchImmediately(for: MiCoderAutoFreeError.modelUnavailable("big-pickle", "404")))
+        #expect(!MiCoderAutoFreeClient.shouldSwitchImmediately(for: MiCoderAutoFreeError.apiError("HTTP 500")))
+    }
+
+    @Test("five consecutive generic failures are the switch threshold")
+    func fiveFailureThreshold() {
+        #expect(!MiCoderAutoFreeClient.shouldSwitch(for: MiCoderAutoFreeError.apiError("HTTP 500"), consecutiveFailures: 4))
+        #expect(MiCoderAutoFreeClient.shouldSwitch(for: MiCoderAutoFreeError.apiError("HTTP 500"), consecutiveFailures: 5))
     }
 }

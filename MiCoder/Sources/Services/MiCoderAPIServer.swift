@@ -116,7 +116,7 @@ final class MiCoderAPIServer {
             "name": "MiCoder Auto Free",
             "isBuiltIn": true,
             "isEnabled": true,
-            "isConnected": autoFreeStore.provider.isKeyValid,
+            "isConnected": autoFreeStore.provider.isReady,
             "models": autoFreeStore.provider.models.map { ["id": $0.id, "name": $0.name, "isFree": $0.isFree] },
             "selectedModel": autoFreeStore.provider.selectedModel
         ])

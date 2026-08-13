@@ -418,7 +418,7 @@ struct ChatPanelView: View {
         if let error = SendReadinessLogic.connectionValidationError(
             serverConnected: appState.serverConnected,
             selectedProviderID: appState.selectedProviderID,
-            autoFreeReady: MiCoderAutoFreeStore.shared.provider.isKeyValid,
+            autoFreeReady: MiCoderAutoFreeStore.shared.provider.isReady,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
             webProviderIDs: appState.webProviderIDs
@@ -490,7 +490,7 @@ struct ChatPanelView: View {
         if let error = SendReadinessLogic.connectionValidationError(
             serverConnected: appState.serverConnected,
             selectedProviderID: appState.selectedProviderID,
-            autoFreeReady: MiCoderAutoFreeStore.shared.provider.isKeyValid,
+            autoFreeReady: MiCoderAutoFreeStore.shared.provider.isReady,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
             webProviderIDs: appState.webProviderIDs
@@ -664,7 +664,7 @@ struct ChatPanelView: View {
                         }
                     }
                     guard !streamedContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                        throw MiCoderAutoFreeError.apiError("MiCoder Auto Free returned an empty response. Check the selected model and authentication, then retry.")
+                        throw MiCoderAutoFreeError.apiError("MiCoder Auto Free returned an empty response. Retry once; the provider will switch after repeated failures.")
                     }
                     await MainActor.run {
                         self.messageStore.update(id: assistantID) { m in

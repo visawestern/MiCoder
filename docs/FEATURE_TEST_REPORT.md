@@ -188,15 +188,31 @@ Validation completed in the Linux environment: `git diff --check`, registry anal
 
 ## Round 34 (2026-08-13) — MiCoder Auto Free on OpenCode Zen Big Pickle
 
-The Xiaomi anonymous MiMo Auto channel is no longer a valid default route. This round completes the replacement with the renamed **MiCoder Auto Free** provider backed by OpenCode Zen's limited-time free `big-pickle` model. The provider is not anonymous: an OpenCode Zen account/API key is required.
+The Xiaomi anonymous MiMo Auto channel is no longer a valid default route. This round completes the replacement with the renamed **MiCoder Auto Free** provider backed by OpenCode Zen's temporary free-model catalog. A live probe confirmed that OpenCode's `/models` endpoint and anonymous free route work without an API key; MiCoder still treats availability as revocable and selects only trusted free IDs.
 
 | ID | Confirmed issue or requirement | Correction | Status |
 |---|---|---|---|
-| MIMO-04 | The previous implementation still contained Xiaomi paid/free endpoints and bootstrap logic after the provider rename. | Replaced the client with `https://opencode.ai/zen/v1`, `GET /models`, and `POST /chat/completions`; all requests use `Authorization: Bearer <OpenCode Zen API key>`. Xiaomi bootstrap, sunset timestamp, fingerprint, and synthetic free route were removed. | FIXED |
-| MIMO-05 | The renamed provider still advertised a Xiaomi-style model and attempted anonymous refresh. | `MiCoderAutoFreeProvider` now defaults to `big-pickle`, returns no models without a key, and exposes only the `big-pickle` entry returned by OpenCode Zen's authenticated `/models` response. | FIXED |
-| MIMO-06 | Users could not distinguish a missing key from a failed free-channel route. | Settings now says “OpenCode Zen · Big Pickle · free while available”, labels the key correctly, links to `opencode.ai/zen`, and shows explicit Add API key, API key not validated, and Big Pickle ready states. | FIXED |
+| MIMO-04 | The previous implementation still contained Xiaomi paid/free endpoints and bootstrap logic after the provider rename. | Replaced the client with anonymous `https://opencode.ai/zen/v1`, `GET /models`, and `POST /chat/completions`; no Authorization header is required for the free route. Xiaomi bootstrap, sunset timestamp, fingerprint, and synthetic free route were removed. | FIXED |
+| MIMO-05 | The renamed provider still advertised one model and could not adapt when free models changed. | `MiCoderAutoFreeProvider` now intersects the live catalog with trusted temporary free IDs, prioritizes `big-pickle`, and exposes current alternatives such as DeepSeek V4 Flash Free, MiMo V2.5 Free, Hy3, Laguna, Ling, and Nemotron free models. | FIXED |
+| MIMO-06 | Users could not distinguish a missing/retired free catalog from a working provider. | Settings now shows the anonymous live free-model list, refresh control, Free catalog ready/unavailable status, fallback policy, and a data-use availability warning without an API-key gate. | FIXED |
+| FAILOVER-01 | A retired model, HTTP 429/rate limit, or repeated transient failures could leave the user stuck on one free model. | Model-unavailable and rate-limit errors switch immediately to the next live free model; generic errors switch after five consecutive failures. The chosen alternative is persisted and a visible switch notice is streamed into the assistant response. | FIXED |
 | APP-07 | Stored `mimo-auto` provider preferences would become orphaned after the rename. | `migrateLegacyPreferences()` maps both `selectedProviderID` and `preferredProviderID` from `mimo-auto` to `micoder-auto-free`; the model fallback is `big-pickle`, never the provider ID. | FIXED |
 | PROMPT-04 | Direct AutoFree requests had no provider-level system prompt path. | Added a persisted system prompt field/editor; the store inserts it as an OpenAI-compatible `system` message before the user messages. | FIXED |
-| TEST-34 | Tests still asserted the old Xiaomi/free-channel contract. | Replaced them with contract tests for provider identity, Big Pickle default, empty-key no-fallback behavior, authenticated validation path, OpenCode endpoint, and Codable system-prompt state. | FIXED |
+| TEST-34 | Tests still asserted the old Xiaomi/free-channel contract. | Replaced them with contract tests for provider identity, anonymous catalog allow-list, Big Pickle priority, immediate rate-limit/model switching, five-failure threshold, OpenCode endpoint, and Codable system-prompt state. | FIXED |
 
-The canonical registry was updated with the renamed BUG-01 behavior and new `PROV-13`, `PROV-14`, `UX-06`, and `PROMPT-04` stories. Static source scans must confirm that no runtime Xiaomi endpoint, anonymous bootstrap, `MiMoAutoProvider`, or `MiMo Auto` user-facing label remains. Linux can run source/registry checks but cannot compile SwiftUI/AppKit/WebKit; the final `./build-app.sh` and a real keyed send remain macOS verification steps.
+The canonical registry was updated with the renamed BUG-01 behavior and new `PROV-13`, `PROV-14`, `UX-06`, and `PROMPT-04` stories. Linux can run source/registry checks but cannot compile SwiftUI/AppKit/WebKit; the final `./build-app.sh` and a real anonymous free send remain macOS verification steps.
+
+
+## Round 35 (2026-08-13) — anonymous OpenCode free catalog and failover correction
+
+The user clarified that OpenCode's free route works without an API key. A live probe confirmed that `GET https://opencode.ai/zen/v1/models` returned HTTP 200 and the same 61-model catalog without an `Authorization` header and with `Bearer anonymous`. The implementation and documentation were corrected accordingly.
+
+| ID | Requirement | Correction | Status |
+|---|---|---|---|
+| ANON-01 | MiCoder must not block the free route behind an API-key form. | Removed AutoFree API-key state, input controls, key validation and Authorization header. The app discovers the anonymous catalog and uses only the trusted temporary free IDs. | FIXED |
+| ANON-02 | Big Pickle may disappear while other free models remain. | Added ordered candidates: Big Pickle first, followed by DeepSeek V4 Flash Free, MiMo V2.5 Free, Hy3, Laguna, Ling, and Nemotron free models. The live `/models` response is intersected with this allow-list. | FIXED |
+| FAILOVER-02 | HTTP rate limits and model-unavailable responses should not strand the user. | HTTP 429/rate-limit and model-unavailable errors switch immediately to the next live free model. | FIXED |
+| FAILOVER-03 | Repeated generic errors should eventually trigger a switch. | Five consecutive generic failures switch to the next candidate; the counter resets after a successful stream or explicit model selection. | FIXED |
+| UX-07 | The user needs to understand why and where the provider switched. | Settings lists available free models and fallback policy; the assistant stream receives a visible switch notice; status text records the selected model and failure reason. | FIXED |
+
+The canonical registry now includes `PROV-15`. The previous Round 34 key-gated statements remain as historical work in the report but are superseded by this round. A macOS/Xcode build and a real anonymous send are still required for runtime confirmation because the Linux sandbox lacks SwiftUI, AppKit, WebKit, and Xcode.
