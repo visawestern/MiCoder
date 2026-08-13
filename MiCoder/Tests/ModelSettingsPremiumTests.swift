@@ -50,6 +50,21 @@ struct ModelSettingsPremiumTests {
         #expect(source.contains("appState.removeModel(modelID, from: providerID)"))
     }
 
+    @Test("Model settings avoids Swift 6 ambiguous String initializers")
+    func explicitStringConversions() throws {
+        let source = try sourceText("MiCoder/Sources/Views/Settings/ModelSettingsView.swift")
+        #expect(!source.contains("map(String.init)"))
+        #expect(source.contains("map { String($0) }"))
+    }
+
+    @Test("Custom provider discovery captures an immutable model snapshot")
+    func immutableModelSnapshot() throws {
+        let source = try sourceText("MiCoder/Sources/App/MiCoderApp.swift")
+        #expect(source.contains("let discoveredModels = Array(Set(openAIModels + namedModels)).sorted()"))
+        #expect(source.contains("let models: [String] = provider.type == .openCodeZen"))
+        #expect(!source.contains("var models = Array(Set(openAIModels + namedModels)).sorted()"))
+    }
+
     private func sourceText(_ relativePath: String) throws -> String {
         try RepoRoot.sourceText(relativePath)
     }

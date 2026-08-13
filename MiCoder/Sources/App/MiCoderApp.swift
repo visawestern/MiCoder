@@ -1043,10 +1043,10 @@ class AppState: ObservableObject {
                 let namedModels = (json["models"] as? [[String: Any]])?.compactMap {
                     ($0["id"] as? String) ?? ($0["name"] as? String)
                 }.map { $0.replacingOccurrences(of: "models/", with: "") } ?? []
-                var models = Array(Set(openAIModels + namedModels)).sorted()
-                if provider.type == .openCodeZen {
-                    models = OpenCodeZenCatalog.availableModels(from: models, apiKey: apiKey)
-                }
+                let discoveredModels = Array(Set(openAIModels + namedModels)).sorted()
+                let models: [String] = provider.type == .openCodeZen
+                    ? OpenCodeZenCatalog.availableModels(from: discoveredModels, apiKey: apiKey)
+                    : discoveredModels
                 guard !models.isEmpty else {
                     await MainActor.run {
                         self.providerModelLoadMessages[provider.id] = "No models were found in this provider's response. Check its API base URL."

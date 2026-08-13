@@ -510,7 +510,7 @@ struct ModelSettingsProviderColumns: View {
                         metadataValue("Reasoning", meta.capabilities?.reasoning == true ? "Yes" : "No")
                         metadataValue("Tools", meta.capabilities?.toolcall != false ? "Yes" : "No")
                         metadataValue("Plan", meta.capabilities?.plan == true ? "Yes" : "No")
-                        metadataValue("Variants", meta.variants?.count.map { String($0) } ?? "—")
+                        metadataValue("Variants", meta.variants.map { String($0.count) } ?? "—")
                     }
                 }
             } else {
@@ -593,9 +593,9 @@ struct ModelSettingsProviderColumns: View {
         parameterModelID = modelID
         parameterProviderID = providerID
         let params = ModelCallParametersStore.parameters(for: modelID)
-        parameterTemperature = params.temperature.map(String.init) ?? ""
-        parameterMaxTokens = params.maxTokens.map(String.init) ?? ""
-        parameterTopP = params.topP.map(String.init) ?? ""
+        parameterTemperature = params.temperature.map { String($0) } ?? ""
+        parameterMaxTokens = params.maxTokens.map { String($0) } ?? ""
+        parameterTopP = params.topP.map { String($0) } ?? ""
         parameterSystemPrompt = params.systemPrompt ?? ""
         parameterError = nil
     }
