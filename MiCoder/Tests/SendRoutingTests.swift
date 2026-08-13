@@ -7,17 +7,17 @@ struct SendRoutingTests {
 
     // MARK: - SendRouteResolver
 
-    @Test func mimoAutoRoutesToDirectMiMoAPI() {
+    @Test func autoFreeRoutesToOpenCodeZen() {
         let route = SendRouteResolver.route(
-            selectedProviderID: MiMoAutoProvider.builtInID,
-            selectedModel: MiMoAutoProvider.builtInID,
+            selectedProviderID: MiCoderAutoFreeProvider.builtInID,
+            selectedModel: MiCoderAutoFreeProvider.defaultModelID,
             serverConnected: false,
             isACP: false,
             customProviders: [],
             localProviders: [],
             webProviderIDs: []
         )
-        #expect(route == .mimoAuto)
+        #expect(route == .autoFree)
         #expect(!SendRouteResolver.requiresServer(route))
     }
 

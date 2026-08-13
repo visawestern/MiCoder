@@ -155,8 +155,8 @@ struct MimoServeModelsTests {
     func decodeFullProviderModel() throws {
         let json = """
         {
-            "id": "mimo-auto",
-            "name": "MiMo Auto",
+            "id": "micoder-auto-free",
+            "name": "MiCoder Auto Free",
             "providerID": "mimo",
             "status": "active",
             "capabilities": {"reasoning": true, "toolcall": true},

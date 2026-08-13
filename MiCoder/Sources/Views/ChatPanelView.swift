@@ -418,7 +418,7 @@ struct ChatPanelView: View {
         if let error = SendReadinessLogic.connectionValidationError(
             serverConnected: appState.serverConnected,
             selectedProviderID: appState.selectedProviderID,
-            mimoAutoReady: MiMoAutoProviderStore.shared.provider.isKeyValid,
+            autoFreeReady: MiCoderAutoFreeStore.shared.provider.isKeyValid,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
             webProviderIDs: appState.webProviderIDs
@@ -490,7 +490,7 @@ struct ChatPanelView: View {
         if let error = SendReadinessLogic.connectionValidationError(
             serverConnected: appState.serverConnected,
             selectedProviderID: appState.selectedProviderID,
-            mimoAutoReady: MiMoAutoProviderStore.shared.provider.isKeyValid,
+            autoFreeReady: MiCoderAutoFreeStore.shared.provider.isKeyValid,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
             webProviderIDs: appState.webProviderIDs
@@ -640,15 +640,15 @@ struct ChatPanelView: View {
                 return
             }
 
-            // ── Built-in MiMo-Auto provider branch (direct API) ─
-            if case .mimoAuto = route {
-                let store = MiMoAutoProviderStore.shared
+            // ── Built-in MiCoder Auto Free provider branch (direct API) ─
+            if case .autoFree = route {
+                let store = MiCoderAutoFreeStore.shared
                 let model = appState.effectiveSelectedModel()
                 await MainActor.run { store.selectModel(model) }
                 let messages = MessagePartsBuilder.build(text: text, files: files, images: images)
-                    .compactMap { part -> MiMoAutoClient.MiMoMessage? in
+                    .compactMap { part -> MiCoderAutoFreeClient.Message? in
                         if part["type"] as? String == "text" {
-                            return MiMoAutoClient.MiMoMessage(role: "user", content: part["text"] as? String ?? "")
+                            return MiCoderAutoFreeClient.Message(role: "user", content: part["text"] as? String ?? "")
                         }
                         return nil
                     }
@@ -664,7 +664,7 @@ struct ChatPanelView: View {
                         }
                     }
                     guard !streamedContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                        throw MiMoAutoError.apiError("MiMo Auto returned an empty response. Check the selected model and authentication, then retry.")
+                        throw MiCoderAutoFreeError.apiError("MiCoder Auto Free returned an empty response. Check the selected model and authentication, then retry.")
                     }
                     await MainActor.run {
                         self.messageStore.update(id: assistantID) { m in
@@ -678,7 +678,7 @@ struct ChatPanelView: View {
                 } catch {
                     await MainActor.run {
                         self.messageStore.update(id: assistantID) { m in
-                            m.content = "MiMo-Auto error: \(error.localizedDescription)"
+                            m.content = "MiCoder Auto Free error: \(error.localizedDescription)"
                             m.isFinished = true
                             m.isStreaming = false
                         }

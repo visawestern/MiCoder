@@ -109,16 +109,16 @@ final class MiCoderAPIServer {
         guard __miCoderAppState != nil else { return ["error": "app not ready"] }
         var providers: [[String: Any]] = []
         
-        // MiMo Auto
-        let mimoStore = MiMoAutoProviderStore.shared
+        // MiCoder Auto Free
+        let autoFreeStore = MiCoderAutoFreeStore.shared
         providers.append([
-            "id": MiMoAutoProvider.builtInID,
-            "name": "MiMo Auto",
+            "id": MiCoderAutoFreeProvider.builtInID,
+            "name": "MiCoder Auto Free",
             "isBuiltIn": true,
             "isEnabled": true,
-            "isConnected": mimoStore.provider.isKeyValid,
-            "models": mimoStore.provider.models.map { ["id": $0.id, "name": $0.name, "isFree": $0.isFree] },
-            "selectedModel": mimoStore.provider.selectedModel
+            "isConnected": autoFreeStore.provider.isKeyValid,
+            "models": autoFreeStore.provider.models.map { ["id": $0.id, "name": $0.name, "isFree": $0.isFree] },
+            "selectedModel": autoFreeStore.provider.selectedModel
         ])
         
         // Web providers
@@ -175,9 +175,9 @@ final class MiCoderAPIServer {
             appState.selectProvider(providerId, persistPreference: false)
         }
         if let modelId = modelId, !modelId.isEmpty {
-            // For MiMo-Auto, also update the store's selected model
-            if providerId == MiMoAutoProvider.builtInID {
-                DispatchQueue.main.async { MiMoAutoProviderStore.shared.selectModel(modelId) }
+            // For MiCoder Auto Free, also update the store's selected model
+            if providerId == MiCoderAutoFreeProvider.builtInID {
+                DispatchQueue.main.async { MiCoderAutoFreeStore.shared.selectModel(modelId) }
             }
             appState.selectModel(modelId, persistPreference: false)
         }

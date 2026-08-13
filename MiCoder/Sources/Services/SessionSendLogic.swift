@@ -40,7 +40,7 @@ enum SessionSendLogic {
         // Preserve the explicit `web:<config-id>` so the serve-only resolver
         // does not erase it and trigger "Select a provider" before routing.
         let providerID: String?
-        if selectedProviderID.hasPrefix("web:") || selectedProviderID == MiMoAutoProvider.builtInID {
+        if selectedProviderID.hasPrefix("web:") || selectedProviderID == MiCoderAutoFreeProvider.builtInID {
             providerID = selectedProviderID
             MiCoderAPIServer.appendLog("📍 buildSendOptions: preserved providerID=\(providerID ?? "nil")")
         } else {

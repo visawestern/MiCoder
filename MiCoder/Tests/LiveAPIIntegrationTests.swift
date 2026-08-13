@@ -242,7 +242,7 @@ struct LiveAPIIntegrationTests {
         let body: [String: Any] = [
             "parts": [["type": "text", "text": "Reply with ok only."]],
             "agent": "build",
-            "model": ["providerID": "mimo", "modelID": "mimo-auto"],
+            "model": ["providerID": "mimo", "modelID": "micoder-auto-free"],
             "variant": "low"
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -254,7 +254,7 @@ struct LiveAPIIntegrationTests {
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let info = json?["info"] as? [String: Any]
         #expect(info?["agent"] as? String == "build")
-        #expect(info?["modelID"] as? String == "mimo-auto")
+        #expect(info?["modelID"] as? String == "micoder-auto-free")
     }
 
     @Test("PATCH global config updates permission")

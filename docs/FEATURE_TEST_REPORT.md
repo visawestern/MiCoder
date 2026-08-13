@@ -184,3 +184,19 @@ The user provided macOS screenshots showing that Round 32 was not sufficient in 
 | UX-05 | Composer exposed synthetic Low/Medium/High effort values before live discovery. | Effort menu is hidden until the provider page reports real effort levels. | FIXED |
 
 Validation completed in the Linux environment: `git diff --check`, registry analysis, shell syntax checks, and source scans for the old endpoint, fake free fallback, and ToS Toggle. A second macOS/Xcode build is still required to verify SwiftUI/WebKit compilation and real browser behavior.
+
+
+## Round 34 (2026-08-13) — MiCoder Auto Free on OpenCode Zen Big Pickle
+
+The Xiaomi anonymous MiMo Auto channel is no longer a valid default route. This round completes the replacement with the renamed **MiCoder Auto Free** provider backed by OpenCode Zen's limited-time free `big-pickle` model. The provider is not anonymous: an OpenCode Zen account/API key is required.
+
+| ID | Confirmed issue or requirement | Correction | Status |
+|---|---|---|---|
+| MIMO-04 | The previous implementation still contained Xiaomi paid/free endpoints and bootstrap logic after the provider rename. | Replaced the client with `https://opencode.ai/zen/v1`, `GET /models`, and `POST /chat/completions`; all requests use `Authorization: Bearer <OpenCode Zen API key>`. Xiaomi bootstrap, sunset timestamp, fingerprint, and synthetic free route were removed. | FIXED |
+| MIMO-05 | The renamed provider still advertised a Xiaomi-style model and attempted anonymous refresh. | `MiCoderAutoFreeProvider` now defaults to `big-pickle`, returns no models without a key, and exposes only the `big-pickle` entry returned by OpenCode Zen's authenticated `/models` response. | FIXED |
+| MIMO-06 | Users could not distinguish a missing key from a failed free-channel route. | Settings now says “OpenCode Zen · Big Pickle · free while available”, labels the key correctly, links to `opencode.ai/zen`, and shows explicit Add API key, API key not validated, and Big Pickle ready states. | FIXED |
+| APP-07 | Stored `mimo-auto` provider preferences would become orphaned after the rename. | `migrateLegacyPreferences()` maps both `selectedProviderID` and `preferredProviderID` from `mimo-auto` to `micoder-auto-free`; the model fallback is `big-pickle`, never the provider ID. | FIXED |
+| PROMPT-04 | Direct AutoFree requests had no provider-level system prompt path. | Added a persisted system prompt field/editor; the store inserts it as an OpenAI-compatible `system` message before the user messages. | FIXED |
+| TEST-34 | Tests still asserted the old Xiaomi/free-channel contract. | Replaced them with contract tests for provider identity, Big Pickle default, empty-key no-fallback behavior, authenticated validation path, OpenCode endpoint, and Codable system-prompt state. | FIXED |
+
+The canonical registry was updated with the renamed BUG-01 behavior and new `PROV-13`, `PROV-14`, `UX-06`, and `PROMPT-04` stories. Static source scans must confirm that no runtime Xiaomi endpoint, anonymous bootstrap, `MiMoAutoProvider`, or `MiMo Auto` user-facing label remains. Linux can run source/registry checks but cannot compile SwiftUI/AppKit/WebKit; the final `./build-app.sh` and a real keyed send remain macOS verification steps.

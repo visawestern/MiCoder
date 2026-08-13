@@ -11,9 +11,9 @@ struct ProviderCascadeTests {
                 id: "mimo",
                 name: "MiMo",
                 models: [
-                    "mimo-auto": MimoProviderModel(
-                        id: "mimo-auto",
-                        name: "MiMo Auto",
+                    "big-pickle": MimoProviderModel(
+                        id: "big-pickle",
+                        name: "Big Pickle",
                         status: "active",
                         providerID: "mimo",
                         capabilities: MimoModelCapabilities(reasoning: true, toolcall: true, plan: true),
@@ -64,12 +64,12 @@ struct ProviderCascadeTests {
     func cascadeKeepsModel() {
         let result = ProviderSelectionLogic.cascade(
             to: "mimo",
-            currentModelID: "mimo-auto",
+            currentModelID: "big-pickle",
             currentVariant: "high",
             serverProviders: sampleProviders(),
             customProviders: []
         )
-        #expect(result.modelID == "mimo-auto")
+        #expect(result.modelID == "big-pickle")
         #expect(result.variant == "high")
     }
 
@@ -95,7 +95,7 @@ struct ProviderCascadeTests {
             serverProviders: sampleProviders(),
             customProviders: []
         )
-        #expect(result.modelID == "mimo-auto")
+        #expect(result.modelID == "big-pickle")
     }
 
     @Test("Resolve provider uses explicit selection for collisions")
@@ -146,7 +146,7 @@ struct ProviderCascadeTests {
             providers: providers
         ))
         #expect(ProviderCapabilityGates.canSelectPlanAgent(
-            modelID: "mimo-auto",
+            modelID: "big-pickle",
             providerID: "mimo",
             providers: providers
         ))
@@ -161,7 +161,7 @@ struct ProviderCascadeTests {
             providers: providers
         ))
         #expect(ProviderCapabilityGates.canUseTools(
-            modelID: "mimo-auto",
+            modelID: "big-pickle",
             providerID: "mimo",
             providers: providers
         ))
@@ -176,7 +176,7 @@ struct ProviderCascadeTests {
             providers: providers
         ))
         #expect(ProviderCapabilityGates.canShowVariantMenu(
-            modelID: "mimo-auto",
+            modelID: "big-pickle",
             providerID: "mimo",
             providers: providers
         ))
@@ -188,7 +188,7 @@ struct ProviderCascadeTests {
             serverProviders: sampleProviders(),
             customProviders: [customProvider()]
         )
-        #expect(merged.contains("mimo-auto"))
+        #expect(merged.contains("big-pickle"))
         #expect(merged.contains("gpt-custom"))
     }
 
@@ -196,15 +196,15 @@ struct ProviderCascadeTests {
     func modelsForProvider() {
         let providers = sampleProviders()
         let custom = [customProvider()]
-        #expect(ProviderSettingsLogic.models(for: "mimo", in: providers, customProviders: custom) == ["mimo-auto", "plain-model"])
+        #expect(ProviderSettingsLogic.models(for: "mimo", in: providers, customProviders: custom) == ["big-pickle", "plain-model"])
         #expect(ProviderSettingsLogic.models(for: "custom-openai-1", in: providers, customProviders: custom) == ["gpt-custom", "shared-id"])
     }
 
     @Test("Send blocked when provider unresolved")
     func sendBlockedWithoutProvider() {
-        #expect(SendReadinessLogic.sendValidationError(modelID: "mimo-auto", providerID: nil) != nil)
+        #expect(SendReadinessLogic.sendValidationError(modelID: "big-pickle", providerID: nil) != nil)
         #expect(SendReadinessLogic.sendValidationError(modelID: "", providerID: "mimo") != nil)
-        #expect(SendReadinessLogic.sendValidationError(modelID: "mimo-auto", providerID: "mimo") == nil)
+        #expect(SendReadinessLogic.sendValidationError(modelID: "big-pickle", providerID: "mimo") == nil)
     }
 
     @Test("Disconnected server reports a visible send error")
@@ -216,11 +216,11 @@ struct ProviderCascadeTests {
         )
     }
 
-    @Test("Send readiness accepts MiMo-Auto without MiMo Serve")
-    func sendReadinessAcceptsMiMoAuto() {
+    @Test("Send readiness accepts MiCoder Auto Free without MiMo Serve")
+    func sendReadinessAcceptsMiCoderAutoFree() {
         #expect(SendReadinessLogic.connectionValidationError(
             serverConnected: false,
-            selectedProviderID: MiMoAutoProvider.builtInID
+            selectedProviderID: MiCoderAutoFreeProvider.builtInID
         ) == nil)
     }
 

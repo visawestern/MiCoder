@@ -19,7 +19,7 @@ struct RealSessionAPITests {
     func messageResponseDecodes() throws {
         let json = """
         {
-            "info": {"role": "assistant", "modelID": "mimo-auto"},
+            "info": {"role": "assistant", "modelID": "micoder-auto-free"},
             "parts": [
                 {"type": "text", "text": "4"}
             ]
@@ -48,7 +48,7 @@ struct RealSessionAPITests {
     @Test("Message response decodes real API format")
     func messageRealAPIFormat() throws {
         let json = """
-        {"info":{"parentID":"msg_abc","role":"assistant","mode":"build","agent":"build","path":{"cwd":"/tmp","root":"/"},"cost":0,"tokens":{"total":19065,"input":2669,"output":4,"reasoning":8,"cache":{"write":0,"read":16384}},"modelID":"mimo-auto","providerID":"mimo","time":{"created":123,"completed":456},"finish":"stop","id":"msg_def","sessionID":"ses_ghi","agentID":"main"},"parts":[{"type":"step-start","id":"p1","sessionID":"ses_ghi","messageID":"msg_def"},{"type":"reasoning","text":"thinking","time":{"start":1,"end":2},"id":"p2","sessionID":"ses_ghi","messageID":"msg_def"},{"type":"text","text":"4","time":{"start":3,"end":4},"id":"p3","sessionID":"ses_ghi","messageID":"msg_def"},{"reason":"stop","type":"step-finish","tokens":{"total":100,"input":50,"output":4,"reasoning":8,"cache":{"write":0,"read":50}},"cost":0,"id":"p4","sessionID":"ses_ghi","messageID":"msg_def"}]}
+        {"info":{"parentID":"msg_abc","role":"assistant","mode":"build","agent":"build","path":{"cwd":"/tmp","root":"/"},"cost":0,"tokens":{"total":19065,"input":2669,"output":4,"reasoning":8,"cache":{"write":0,"read":16384}},"modelID":"micoder-auto-free","providerID":"mimo","time":{"created":123,"completed":456},"finish":"stop","id":"msg_def","sessionID":"ses_ghi","agentID":"main"},"parts":[{"type":"step-start","id":"p1","sessionID":"ses_ghi","messageID":"msg_def"},{"type":"reasoning","text":"thinking","time":{"start":1,"end":2},"id":"p2","sessionID":"ses_ghi","messageID":"msg_def"},{"type":"text","text":"4","time":{"start":3,"end":4},"id":"p3","sessionID":"ses_ghi","messageID":"msg_def"},{"reason":"stop","type":"step-finish","tokens":{"total":100,"input":50,"output":4,"reasoning":8,"cache":{"write":0,"read":50}},"cost":0,"id":"p4","sessionID":"ses_ghi","messageID":"msg_def"}]}
         """.data(using: .utf8)!
         let response = try JSONDecoder().decode(MimoMessageResponse.self, from: json)
         #expect(response.textContent == "4")

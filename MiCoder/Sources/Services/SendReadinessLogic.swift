@@ -1,33 +1,33 @@
 import Foundation
 
 enum SendReadinessLogic {
-    /// Проверяет, требуется ли подключение к MiMo Serve для отправки.
+    /// Проверяет, требуется ли подключение к MiMo Serve или готовность прямого provider route.
     /// Если выбран кастомный провайдер с API-ключом — сервер не обязателен.
     static func connectionValidationError(
         serverConnected: Bool,
         selectedProviderID: String = "",
-        mimoAutoReady: Bool = true,
+        autoFreeReady: Bool = true,
         customProviders: [CustomProvider] = [],
         localProviderIDs: [String] = [],
         webProviderIDs: [String] = []
     ) -> String? {
-        // MiMo Auto is a direct route and must be checked independently from
+        // MiCoder Auto Free is a direct route and must be checked independently from
         // the local MiMo Serve connection.
-        if selectedProviderID == MiMoAutoProvider.builtInID && !mimoAutoReady {
-            return "MiMo Auto is unavailable. The free Xiaomi channel has ended; add a Xiaomi MiMo API key or choose another provider."
+        if selectedProviderID == MiCoderAutoFreeProvider.builtInID && !autoFreeReady {
+            return "MiCoder Auto Free is unavailable. Add an OpenCode Zen API key at opencode.ai/zen, then refresh Big Pickle, or choose another provider."
         }
 
         // For all other routes, a connected local server is sufficient.
         if serverConnected { return nil }
 
         if !selectedProviderID.isEmpty {
-            if selectedProviderID == MiMoAutoProvider.builtInID {
+            if selectedProviderID == MiCoderAutoFreeProvider.builtInID {
                 return nil
             }
             // Web provider (option id "web:<id>") — driven via the browser, no serve.
             if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
                webProviderIDs.contains(webID) { return nil }
-            // Local provider (Ollama/OpenCode/MiMo CLI) — own HTTP endpoint, no serve.
+            // Local provider (Ollama/OpenCode/MiCoder CLI) — own HTTP endpoint, no serve.
             if localProviderIDs.contains(selectedProviderID) { return nil }
             // Custom provider — its own endpoint; serve not required, unless it
             // requires an API key that hasn't been provided.
@@ -60,7 +60,7 @@ enum SendReadinessLogic {
         modelID: String,
         providerID: String?,
         serverConnected: Bool = false,
-        mimoAutoReady: Bool = true,
+        autoFreeReady: Bool = true,
         customProviders: [CustomProvider] = [],
         localProviderIDs: [String] = [],
         webProviderIDs: [String] = []
@@ -70,7 +70,7 @@ enum SendReadinessLogic {
             && connectionValidationError(
                 serverConnected: serverConnected,
                 selectedProviderID: providerID ?? "",
-                mimoAutoReady: mimoAutoReady,
+                autoFreeReady: autoFreeReady,
                 customProviders: customProviders,
                 localProviderIDs: localProviderIDs,
                 webProviderIDs: webProviderIDs
@@ -90,7 +90,7 @@ enum SendReadinessReason {
         modelID: String,
         providerID: String?,
         serverConnected: Bool,
-        mimoAutoReady: Bool = true,
+        autoFreeReady: Bool = true,
         customProviders: [CustomProvider],
         localProviderIDs: [String],
         webProviderIDs: [String]
@@ -107,7 +107,7 @@ enum SendReadinessReason {
         return SendReadinessLogic.connectionValidationError(
             serverConnected: serverConnected,
             selectedProviderID: providerID ?? "",
-            mimoAutoReady: mimoAutoReady,
+            autoFreeReady: autoFreeReady,
             customProviders: customProviders,
             localProviderIDs: localProviderIDs,
             webProviderIDs: webProviderIDs

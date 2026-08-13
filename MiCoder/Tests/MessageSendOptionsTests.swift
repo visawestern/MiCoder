@@ -16,7 +16,7 @@ struct MessageSendOptionsTests {
     func bodyEncoding() throws {
         let options = MessageSendOptions(
             agent: "plan",
-            modelID: "mimo-auto",
+            modelID: "micoder-auto-free",
             providerID: "mimo",
             variant: "high",
             messageID: "msg_001"
@@ -25,7 +25,7 @@ struct MessageSendOptionsTests {
         #expect(body["agent"] as? String == "plan")
         #expect(body["mode"] == nil)
         let model = body["model"] as? [String: Any]
-        #expect(model?["modelID"] as? String == "mimo-auto")
+        #expect(model?["modelID"] as? String == "micoder-auto-free")
         #expect(model?["providerID"] as? String == "mimo")
         #expect(body["variant"] as? String == "high")
         #expect(body["messageID"] as? String == "msg_001")
@@ -51,14 +51,14 @@ struct MessageSendOptionsTests {
         let options = SessionSendLogic.buildSendOptions(
             agentMode: .compose,
             selectedVariant: "medium",
-            modelID: "mimo-auto",
+            modelID: "micoder-auto-free",
             selectedProviderID: "mimo",
             providers: providers,
             customProviders: [],
             messageID: "msg_test"
         )
         #expect(options.agent == "compose")
-        #expect(options.modelID == "mimo-auto")
+        #expect(options.modelID == "micoder-auto-free")
         #expect(options.providerID == "mimo")
         #expect(options.variant == "medium")
         #expect(options.messageID == "msg_test")
@@ -70,9 +70,9 @@ struct MessageSendOptionsTests {
                 id: "mimo",
                 name: "MiMo",
                 models: [
-                    "mimo-auto": MimoProviderModel(
-                        id: "mimo-auto",
-                        name: "MiMo Auto",
+                    "micoder-auto-free": MimoProviderModel(
+                        id: "micoder-auto-free",
+                        name: "MiCoder Auto Free",
                         status: "active",
                         providerID: "mimo",
                         capabilities: MimoModelCapabilities(reasoning: true),
@@ -171,22 +171,22 @@ struct ProviderSettingsLogicTests {
     @Test("Resolves provider ID for model")
     func providerForModel() {
         let providers = sampleProviders()
-        #expect(ProviderSettingsLogic.providerID(for: "mimo-auto", in: providers) == "mimo")
+        #expect(ProviderSettingsLogic.providerID(for: "micoder-auto-free", in: providers) == "mimo")
         #expect(ProviderSettingsLogic.providerID(for: "missing", in: providers) == nil)
     }
 
     @Test("Available variants come from provider model")
     func availableVariants() {
         let providers = sampleProviders()
-        #expect(ProviderSettingsLogic.availableVariants(for: "mimo-auto", in: providers) == ["high", "low", "medium"])
+        #expect(ProviderSettingsLogic.availableVariants(for: "micoder-auto-free", in: providers) == ["high", "low", "medium"])
         #expect(ProviderSettingsLogic.availableVariants(for: "plain-model", in: providers).isEmpty)
     }
 
     @Test("Normalizes variant when unsupported")
     func normalizeVariant() {
         let providers = sampleProviders()
-        #expect(ProviderSettingsLogic.normalizedVariant("high", for: "mimo-auto", in: providers) == "high")
-        #expect(ProviderSettingsLogic.normalizedVariant("missing", for: "mimo-auto", in: providers) == "high")
+        #expect(ProviderSettingsLogic.normalizedVariant("high", for: "micoder-auto-free", in: providers) == "high")
+        #expect(ProviderSettingsLogic.normalizedVariant("missing", for: "micoder-auto-free", in: providers) == "high")
         #expect(ProviderSettingsLogic.normalizedVariant("high", for: "plain-model", in: providers) == nil)
     }
 
@@ -202,9 +202,9 @@ struct ProviderSettingsLogicTests {
                 id: "mimo",
                 name: "MiMo",
                 models: [
-                    "mimo-auto": MimoProviderModel(
-                        id: "mimo-auto",
-                        name: "MiMo Auto",
+                    "micoder-auto-free": MimoProviderModel(
+                        id: "micoder-auto-free",
+                        name: "MiCoder Auto Free",
                         status: "active",
                         providerID: "mimo",
                         capabilities: MimoModelCapabilities(reasoning: true),
@@ -240,7 +240,7 @@ struct SessionRestoreTests {
               "id": "msg_user",
               "role": "user",
               "agent": "compose",
-              "modelID": "mimo-auto",
+              "modelID": "micoder-auto-free",
               "providerID": "mimo",
               "variant": "medium"
             },
@@ -253,7 +253,7 @@ struct SessionRestoreTests {
         let selections = SessionSendLogic.restoreSelections(from: messages)
         #expect(selections?.agentMode == .compose)
         #expect(selections?.providerID == "mimo")
-        #expect(selections?.modelID == "mimo-auto")
+        #expect(selections?.modelID == "micoder-auto-free")
         #expect(selections?.variant == "medium")
     }
 }

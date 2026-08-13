@@ -64,21 +64,21 @@ struct OpenModelAdRemovalTests {
         #expect(result == "alpha-model")
     }
 
-    @Test("defaultModel still prefers mimo-auto when present")
-    func defaultModelPrefersMimoAuto() {
+    @Test("defaultModel picks the first sorted custom model")
+    func defaultModelPicksFirstSortedCustomModel() {
         let custom = CustomProvider(
             id: "custom-1",
             name: "Custom",
             type: .openAI,
             baseURL: "https://example.com/v1",
             isEnabled: true,
-            models: ["deepseek-v4-flash", "mimo-auto", "alpha-model"]
+            models: ["deepseek-v4-flash", "big-pickle", "alpha-model"]
         )
         let result = ProviderSettingsLogic.defaultModel(
             for: "custom-1",
             in: [],
             customProviders: [custom]
         )
-        #expect(result == "mimo-auto")
+        #expect(result == "alpha-model")
     }
 }

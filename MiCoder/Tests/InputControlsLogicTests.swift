@@ -371,10 +371,10 @@ struct ProviderSelectionLogicTests {
     @Test("resolveProviderID returns selected provider when it contains the model")
     func resolveProviderIDUsesSelected() {
         let provider = makeProvider(id: "mimo", models: [
-            "mimo-auto": makeModel(id: "mimo-auto")
+            "micoder-auto-free": makeModel(id: "micoder-auto-free")
         ])
         let result = ProviderSettingsLogic.resolveProviderID(
-            for: "mimo-auto",
+            for: "micoder-auto-free",
             selectedProviderID: "mimo",
             in: [provider],
             customProviders: []
@@ -442,18 +442,18 @@ struct ProviderSelectionLogicTests {
     @Test("Cascade keeps current model when new provider contains it")
     func cascadeKeepsCurrentModel() {
         let provider = makeProvider(id: "mimo", models: [
-            "mimo-auto": makeModel(id: "mimo-auto"),
+            "micoder-auto-free": makeModel(id: "micoder-auto-free"),
             "other-model": makeModel(id: "other-model")
         ])
         let result = ProviderSelectionLogic.cascade(
             to: "mimo",
-            currentModelID: "mimo-auto",
+            currentModelID: "micoder-auto-free",
             currentVariant: nil,
             serverProviders: [provider],
             customProviders: []
         )
         #expect(result.providerID == "mimo")
-        #expect(result.modelID == "mimo-auto")
+        #expect(result.modelID == "micoder-auto-free")
     }
 
     @Test("Cascade selects default model when current model is not in new provider")
@@ -462,7 +462,7 @@ struct ProviderSelectionLogicTests {
             "model-a": makeModel(id: "model-a")
         ])
         let providerB = makeProvider(id: "provider-b", models: [
-            "mimo-auto": makeModel(id: "mimo-auto"),
+            "micoder-auto-free": makeModel(id: "micoder-auto-free"),
             "model-b": makeModel(id: "model-b")
         ])
         let result = ProviderSelectionLogic.cascade(
@@ -473,7 +473,7 @@ struct ProviderSelectionLogicTests {
             customProviders: []
         )
         #expect(result.providerID == "provider-b")
-        #expect(result.modelID == "mimo-auto")
+        #expect(result.modelID == "micoder-auto-free")
     }
 
     @Test("Cascade picks first model when no default exists and current is absent")
@@ -662,14 +662,14 @@ struct SendReadinessLogicTests {
         #expect(error != nil)
     }
 
-    @Test("MiMo Auto is not ready before free bootstrap")
-    func mimoAutoRequiresBootstrap() {
+    @Test("MiCoder Auto Free is not ready without a validated OpenCode Zen key")
+    func autoFreeRequiresValidatedKey() {
         let error = SendReadinessLogic.connectionValidationError(
             serverConnected: false,
-            selectedProviderID: MiMoAutoProvider.builtInID,
-            mimoAutoReady: false
+            selectedProviderID: MiCoderAutoFreeProvider.builtInID,
+            autoFreeReady: false
         )
-        #expect(error?.contains("MiMo Auto is unavailable") == true)
+        #expect(error?.contains("OpenCode Zen API key") == true)
     }
 
     // MARK: - sendValidationError

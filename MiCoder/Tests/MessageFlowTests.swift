@@ -196,8 +196,8 @@ struct StatusBarTests {
 
     @Test("Status bar shows model name")
     func modelName() {
-        let model = "mimo-auto"
-        #expect(model == "mimo-auto")
+        let model = "micoder-auto-free"
+        #expect(model == "micoder-auto-free")
     }
 
     @Test("Status bar shows token usage when available")

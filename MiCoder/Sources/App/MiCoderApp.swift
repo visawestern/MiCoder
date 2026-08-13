@@ -373,6 +373,14 @@ class AppState: ObservableObject {
             defaults.set(AgentMode.plan.rawValue, forKey: "com.micoder.agentMode")
             defaults.set(AccessLevel.askBeforeChanges.rawValue, forKey: "com.micoder.accessLevel")
         }
+
+        // The legacy anonymous provider was renamed after its Xiaomi channel sunset.
+        // Preserve an existing explicit selection across the rename.
+        for key in ["com.micoder.selectedProviderID", "com.micoder.preferredProviderID"] {
+            if defaults.string(forKey: key) == "mimo-auto" {
+                defaults.set(MiCoderAutoFreeProvider.builtInID, forKey: key)
+            }
+        }
     }
     
     func connectToServer() async {
@@ -422,13 +430,13 @@ class AppState: ObservableObject {
             serverProviders: serverProviders,
             customProviders: customProviders
         )
-        // Built-in MiMo-Auto provider (always present, non-removable).
-        let mimoStore = MiMoAutoProviderStore.shared
+        // Built-in MiCoder Auto Free provider (always present, non-removable).
+        let autoFreeStore = MiCoderAutoFreeStore.shared
         options.append(ProviderOption(
-            id: MiMoAutoProvider.builtInID,
-            name: mimoStore.provider.displayName,
+            id: MiCoderAutoFreeProvider.builtInID,
+            name: autoFreeStore.provider.displayName,
             isCustom: false,
-            isConnected: mimoStore.provider.isKeyValid
+            isConnected: autoFreeStore.provider.isKeyValid
         ))
         // Local providers (Ollama/OpenCode/MiMo CLI) — plan Раздел 1.
         options += LocalProviderLogic.providerOptions(from: LocalProviderLogic.load())
@@ -448,16 +456,16 @@ class AppState: ObservableObject {
            !cfg.selectedModel.isEmpty {
             return cfg.selectedModel
         }
-        if selectedProviderID == MiMoAutoProvider.builtInID {
-            return MiMoAutoProviderStore.shared.provider.selectedModel
+        if selectedProviderID == MiCoderAutoFreeProvider.builtInID {
+            return MiCoderAutoFreeStore.shared.provider.selectedModel
         }
         return selectedModel
     }
 
     var modelsForSelectedProvider: [String] {
-        // Built-in MiMo-Auto provider.
-        if selectedProviderID == MiMoAutoProvider.builtInID {
-            return MiMoAutoProviderStore.shared.provider.models.map { $0.id }
+        // Built-in MiCoder Auto Free provider.
+        if selectedProviderID == MiCoderAutoFreeProvider.builtInID {
+            return MiCoderAutoFreeStore.shared.provider.models.map { $0.id }
         }
         // Web provider selected → its real (discovered) models (plan Раздел 13 п.4).
         if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
@@ -563,11 +571,11 @@ class AppState: ObservableObject {
             return
         }
 
-        if providerID == MiMoAutoProvider.builtInID {
-            let mimoProvider = MiMoAutoProviderStore.shared.provider
-            let model = mimoProvider.models.contains(where: { $0.id == mimoProvider.selectedModel })
-                ? mimoProvider.selectedModel
-                : (mimoProvider.models.first?.id ?? MiMoAutoProvider.builtInID)
+        if providerID == MiCoderAutoFreeProvider.builtInID {
+            let autoFreeProvider = MiCoderAutoFreeStore.shared.provider
+            let model = autoFreeProvider.models.contains(where: { $0.id == autoFreeProvider.selectedModel })
+                ? autoFreeProvider.selectedModel
+                : (autoFreeProvider.models.first?.id ?? MiCoderAutoFreeProvider.defaultModelID)
             selectedModel = model
             defaults.set(model, forKey: "com.micoder.selectedModel")
             selectedVariant = ""
@@ -672,11 +680,12 @@ class AppState: ObservableObject {
             return
         }
 
-        // MiMo-Auto is the free default route. Do not wait for a serve model
-        // list before making the composer usable on a fresh installation.
+        // MiCoder Auto Free is the built-in free route. It becomes the initial
+        // provider only after OpenCode Zen confirms that Big Pickle is ready.
         if selectedProviderID.isEmpty && preferredProviderID.isEmpty,
-           options.contains(where: { $0.id == MiMoAutoProvider.builtInID }) {
-            selectProvider(MiMoAutoProvider.builtInID, persistPreference: false)
+           MiCoderAutoFreeStore.shared.provider.isKeyValid,
+           options.contains(where: { $0.id == MiCoderAutoFreeProvider.builtInID }) {
+            selectProvider(MiCoderAutoFreeProvider.builtInID, persistPreference: false)
             return
         }
 

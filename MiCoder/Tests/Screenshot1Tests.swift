@@ -36,16 +36,16 @@ struct Screenshot1Tests {
 
     @Test("Model selector uses real API models")
     func modelSelectorFromAPI() {
-        let models = ["mimo-auto", "mimo-v2.5-pro-ultraspeed", "mimo-v2.5", "mimo-v2-omni", "mimo-v2-flash", "mimo-v2-pro", "mimo-v2.5-pro"]
-        #expect(models.contains("mimo-auto"))
+        let models = ["big-pickle", "mimo-v2.5-pro-ultraspeed", "mimo-v2.5", "mimo-v2-omni", "mimo-v2-flash", "mimo-v2-pro", "mimo-v2.5-pro"]
+        #expect(models.contains("big-pickle"))
         #expect(models.count == 7)
     }
 
     @Test("Default model is first from API")
     func defaultModelFromAPI() {
-        let models = ["mimo-auto", "mimo-v2.5-pro-ultraspeed"]
+        let models = ["big-pickle", "mimo-v2.5-pro-ultraspeed"]
         let defaultModel = models.first ?? "unknown"
-        #expect(defaultModel == "mimo-auto")
+        #expect(defaultModel == "big-pickle")
     }
 
     // MARK: - Workspace Branch

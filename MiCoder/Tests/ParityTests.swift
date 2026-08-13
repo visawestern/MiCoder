@@ -29,16 +29,16 @@ struct ModelSelectorParityTests {
 
     @Test("Models sorted after API load")
     func modelsSortedAfterLoad() {
-        let models = ["mimo-v2.5-pro", "mimo-auto", "mimo-v2-flash"]
+        let models = ["mimo-v2.5-pro", "big-pickle", "mimo-v2-flash"]
         let sorted = models.sorted()
-        #expect(sorted == ["mimo-auto", "mimo-v2-flash", "mimo-v2.5-pro"])
+        #expect(sorted == ["big-pickle", "mimo-v2-flash", "mimo-v2.5-pro"])
     }
 
     @Test("First model becomes default after load")
     func firstModelBecomesDefault() {
-        let models = ["mimo-auto", "mimo-v2.5-pro", "mimo-v2-flash"]
+        let models = ["big-pickle", "mimo-v2.5-pro", "mimo-v2-flash"]
         let defaultModel = models.first ?? ""
-        #expect(defaultModel == "mimo-auto")
+        #expect(defaultModel == "big-pickle")
     }
 }
 
@@ -131,8 +131,8 @@ struct WorkspaceChipsParityTests {
     @Test("Selected model displays in agent chip")
     func selectedModelInChip() {
         let state = AppState(host: "127.0.0.1", port: 0)
-        state.selectedModel = "mimo-auto"
-        #expect(state.selectedModel == "mimo-auto")
+        state.selectedModel = "micoder-auto-free"
+        #expect(state.selectedModel == "micoder-auto-free")
     }
 
     @Test("Agent chip shows model name or fallback")

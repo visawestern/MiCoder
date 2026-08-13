@@ -264,15 +264,15 @@ struct ModelSettingsTests {
         #expect(ProviderSettingsLogic.models(for: "c1", in: [], customProviders: custom).isEmpty)
     }
 
-    @Test("ProviderSettingsLogic defaultModel picks mimo-auto when available")
+    @Test("ProviderSettingsLogic defaultModel picks the first live model")
     func settingsLogicDefaultModel() {
         let providers = [
             MimoProviderResponse(id: "mimo", name: "MiMo", models: [
-                "model-a": MimoProviderModel(id: "model-a"),
-                "mimo-auto": MimoProviderModel(id: "mimo-auto")
+                "z-model": MimoProviderModel(id: "z-model"),
+                "a-model": MimoProviderModel(id: "a-model")
             ])
         ]
-        #expect(ProviderSettingsLogic.defaultModel(for: "mimo", in: providers, customProviders: []) == "mimo-auto")
+        #expect(ProviderSettingsLogic.defaultModel(for: "mimo", in: providers, customProviders: []) == "a-model")
     }
 
     @Test("ProviderSettingsLogic defaultModel falls back to first model")
@@ -413,7 +413,7 @@ struct ModelSettingsTests {
     func cascadeDefaultModel() {
         let providers = [
             MimoProviderResponse(id: "mimo", name: "MiMo", models: [
-                "mimo-auto": MimoProviderModel(id: "mimo-auto"),
+                "micoder-auto-free": MimoProviderModel(id: "micoder-auto-free"),
                 "other": MimoProviderModel(id: "other")
             ])
         ]
@@ -424,7 +424,7 @@ struct ModelSettingsTests {
             serverProviders: providers,
             customProviders: []
         )
-        #expect(result.modelID == "mimo-auto")
+        #expect(result.modelID == "micoder-auto-free")
     }
 
     @Test("ProviderSelectionLogic.cascade returns empty string when no models available")
@@ -837,20 +837,20 @@ struct AppStateSettingsIntegrationTests {
         #expect(AppTheme.allCases.contains(state.appTheme))
     }
 
-    @Test("AppState providerOptions includes MiMo-Auto when no providers configured")
+    @Test("AppState providerOptions includes MiCoder Auto Free when no providers configured")
     func appStateProviderOptionsEmpty() {
         let state = AppState()
-        // Always includes built-in MiMo-Auto provider
+        // Always includes the built-in MiCoder Auto Free provider
         #expect(state.providerOptions.count == 1)
-        #expect(state.providerOptions[0].id == MiMoAutoProvider.builtInID)
+        #expect(state.providerOptions[0].id == MiCoderAutoFreeProvider.builtInID)
     }
 
-    @Test("Selecting MiMo-Auto selects its free default model")
-    func appStateSelectsMiMoAutoModel() {
-        let state = AppState(defaults: UserDefaults(suiteName: "mimo-auto-default-\(UUID().uuidString)")!)
-        state.selectProvider(MiMoAutoProvider.builtInID)
-        #expect(state.selectedProviderID == MiMoAutoProvider.builtInID)
-        #expect(state.selectedModel == MiMoAutoProvider.builtInID)
+    @Test("Selecting MiCoder Auto Free selects the Big Pickle default model")
+    func appStateSelectsMiCoderAutoFreeModel() {
+        let state = AppState(defaults: UserDefaults(suiteName: "micoder-auto-free-default-\(UUID().uuidString)")!)
+        state.selectProvider(MiCoderAutoFreeProvider.builtInID)
+        #expect(state.selectedProviderID == MiCoderAutoFreeProvider.builtInID)
+        #expect(state.selectedModel == MiCoderAutoFreeProvider.defaultModelID)
     }
 
     @Test("AppState providerOptions includes custom providers")
@@ -859,7 +859,7 @@ struct AppStateSettingsIntegrationTests {
         state.customProviders = [
             CustomProvider(id: "c1", name: "Test", type: .openAI, baseURL: "https://test.com", isEnabled: true)
         ]
-        // MiMo-Auto + custom
+        // MiCoder Auto Free + custom
         #expect(state.providerOptions.count == 2)
         #expect(state.providerOptions.contains { $0.id == "c1" })
     }

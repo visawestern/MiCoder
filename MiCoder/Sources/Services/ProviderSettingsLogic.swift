@@ -50,7 +50,6 @@ enum ProviderSettingsLogic {
         customProviders: [CustomProvider]
     ) -> String? {
         let models = models(for: providerID, in: providers, customProviders: customProviders)
-        if models.contains("mimo-auto") { return "mimo-auto" }
         return models.first
     }
 

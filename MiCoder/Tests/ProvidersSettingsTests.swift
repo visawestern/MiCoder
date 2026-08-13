@@ -91,7 +91,7 @@ struct ProvidersSettingsTests {
             MimoProviderResponse(id: "srv", name: "Server", models: ["m4": MimoProviderModel(id: "m4")])
         ]
 
-        // enabled custom + server + built-in MiMo-Auto provider
+        // enabled custom + server + built-in MiCoder Auto Free provider
         #expect(state.providerOptions.count == 3)
         #expect(state.availableModels.count == 3)
     }

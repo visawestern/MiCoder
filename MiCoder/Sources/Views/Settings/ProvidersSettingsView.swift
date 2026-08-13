@@ -6,7 +6,7 @@ struct UnifiedProvidersView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 32) {
-            MiMoAutoSection()
+            MiCoderAutoFreeSection()
             Divider().background(Color.mimo.border)
             ModelSettingsView(availableWidth: availableWidth)
             Divider().background(Color.mimo.border)
@@ -17,12 +17,14 @@ struct UnifiedProvidersView: View {
     }
 }
 
-/// Built-in MiMo-Auto provider settings (non-removable, free tier + paid API key).
-struct MiMoAutoSection: View {
+/// Built-in OpenCode Zen provider settings (non-removable, free while Big Pickle is available).
+struct MiCoderAutoFreeSection: View {
     @EnvironmentObject var appState: AppState
-    @ObservedObject private var store = MiMoAutoProviderStore.shared
+    @ObservedObject private var store = MiCoderAutoFreeStore.shared
     @State private var apiKeyInput: String = ""
+    @State private var systemPromptInput: String = ""
     @State private var showApiKey = false
+    @State private var revealApiKey = false
     @State private var validating = false
     @State private var testResult: String?
 
@@ -33,15 +35,15 @@ struct MiMoAutoSection: View {
                     .font(.title2)
                     .foregroundColor(Color.mimo.brand)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("MiMo Auto")
+                    Text("MiCoder Auto Free")
                         .interfaceFont(size: 18, weight: .semibold)
                         .foregroundColor(Color.mimo.textPrimary)
-                    Text("Xiaomi MiMo Auto • free channel ended; API key supported")
+                    Text("OpenCode Zen · Big Pickle · free while available")
                         .interfaceFont(size: 12)
                         .foregroundColor(Color.mimo.textSecondary)
                 }
                 Spacer()
-                Text("API")
+                Text("FREE")
                     .interfaceFont(size: 10, weight: .bold)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
@@ -50,7 +52,6 @@ struct MiMoAutoSection: View {
                     .clipShape(Capsule())
             }
 
-            // Model selector
             if !store.provider.models.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Model")
@@ -60,14 +61,11 @@ struct MiMoAutoSection: View {
                         HStack(spacing: 8) {
                             ForEach(store.provider.models) { model in
                                 let selected = isSelected(model.id)
-                                Button {
-                                    store.selectModel(model.id)
-                                } label: {
+                                Button { store.selectModel(model.id) } label: {
                                     HStack(spacing: 4) {
                                         Text(model.name)
                                         if model.isFree {
-                                            Image(systemName: "gift.fill")
-                                                .font(.system(size: 8))
+                                            Image(systemName: "gift.fill").font(.system(size: 8))
                                         }
                                     }
                                 }
@@ -83,16 +81,20 @@ struct MiMoAutoSection: View {
                         }
                     }
                 }
+            } else {
+                Text(apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                     ? "Add an OpenCode Zen API key to load Big Pickle."
+                     : "Big Pickle is unavailable or the OpenCode Zen key has not been validated.")
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.textMuted)
             }
 
-            // API key section for paid tier
             VStack(alignment: .leading, spacing: 6) {
                 Button(action: { showApiKey.toggle() }) {
                     HStack {
                         Image(systemName: showApiKey ? "chevron.down" : "chevron.right")
                             .font(.system(size: 10))
-                        Text("API Key (optional, official paid API)")
-
+                        Text("OpenCode Zen API Key")
                             .interfaceFont(size: 12, weight: .medium)
                     }
                     .foregroundColor(Color.mimo.textSecondary)
@@ -102,17 +104,24 @@ struct MiMoAutoSection: View {
                 if showApiKey {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            if showApiKey {
-                                TextField("sk-...", text: $apiKeyInput)
-                                    .zcodeTextFieldStyle()
-                                    .interfaceFont(size: 12)
-                            } else {
-                                SecureField("sk-...", text: $apiKeyInput)
-                                    .zcodeTextFieldStyle()
-                                    .interfaceFont(size: 12)
+                            Group {
+                                if revealApiKey {
+                                    TextField("OpenCode Zen API key", text: $apiKeyInput)
+                                } else {
+                                    SecureField("OpenCode Zen API key", text: $apiKeyInput)
+                                }
                             }
-                            Button("Save") {
-                                store.setApiKey(apiKeyInput)
+                            .zcodeTextFieldStyle()
+                            .interfaceFont(size: 12)
+                            Button {
+                                revealApiKey.toggle()
+                            } label: {
+                                Image(systemName: revealApiKey ? "eye.slash" : "eye")
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundColor(Color.mimo.textSecondary)
+                            Button(validating ? "Checking…" : "Save") {
+                                saveApiKey()
                             }
                             .buttonStyle(.plain)
                             .interfaceFont(size: 12)
@@ -124,27 +133,50 @@ struct MiMoAutoSection: View {
                                 .interfaceFont(size: 11)
                                 .foregroundColor(result.contains("valid") ? Color.mimo.success : Color.mimo.error)
                         }
-                        Text("The anonymous free MiMo Auto channel ended on 26 Jul 2026. Add a Xiaomi API key to use the official paid API.")
+                        Text("Get a free API key at opencode.ai/zen — Big Pickle is free during its limited-time period.")
                             .interfaceFont(size: 10)
                             .foregroundColor(Color.mimo.textMuted)
                     }
                 }
             }
 
-            // Status
+            VStack(alignment: .leading, spacing: 6) {
+                Text("System prompt")
+                    .interfaceFont(size: 12, weight: .medium)
+                    .foregroundColor(Color.mimo.textPrimary)
+                TextEditor(text: $systemPromptInput)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.mimo.textPrimary)
+                    .frame(minHeight: 72, maxHeight: 120)
+                    .padding(6)
+                    .background(Color.mimo.background)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
+                HStack {
+                    Text("Sent as a system message before each request.")
+                        .interfaceFont(size: 10)
+                        .foregroundColor(Color.mimo.textMuted)
+                    Spacer()
+                    Button("Save prompt") {
+                        store.setSystemPrompt(systemPromptInput)
+                    }
+                    .buttonStyle(.plain)
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.brand)
+                }
+            }
+
             HStack(spacing: 6) {
                 Circle()
                     .fill(store.provider.isKeyValid ? Color.mimo.success : Color.mimo.error)
                     .frame(width: 6, height: 6)
                 Text(store.provider.isKeyValid
-                     ? (store.provider.isFreeTier ? "Free channel ready" : "API key valid")
-                     : (store.provider.isFreeTier ? "Free channel ended" : "Invalid key"))
+                     ? "Big Pickle ready"
+                     : (apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Add API key" : "API key not validated"))
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
                 Spacer()
                 Button(action: { Task { await store.refreshModels() } }) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 11))
+                    Image(systemName: "arrow.clockwise").font(.system(size: 11))
                 }
                 .buttonStyle(.plain)
                 .foregroundColor(Color.mimo.brand)
@@ -156,6 +188,20 @@ struct MiMoAutoSection: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .onAppear {
             apiKeyInput = store.provider.apiKey
+            systemPromptInput = store.provider.systemPrompt
+        }
+    }
+
+    private func saveApiKey() {
+        validating = true
+        testResult = nil
+        store.setApiKey(apiKeyInput)
+        Task {
+            await store.refreshModels()
+            validating = false
+            testResult = store.provider.isKeyValid
+                ? "OpenCode Zen API key valid; Big Pickle is ready."
+                : "OpenCode Zen API key is invalid or Big Pickle is unavailable."
         }
     }
 

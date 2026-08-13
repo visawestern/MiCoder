@@ -567,7 +567,7 @@ enum AppLocalizationKey: String, CaseIterable {
     case locWebRestoreSessionFailed
     case locWebCannotReadImage
     case locEmptyInput
-    case locMiMoAuto
+    case locMiCoderAutoFree
     case locModeSwitched
     case locPlanNotSupported
     case locEffortLow
@@ -1395,7 +1395,7 @@ enum AppLocalization {
         "locWebRestoreSessionFailed": ["en": "Failed to restore the saved session: {0}", "ru": "Не удалось восстановить сохранённую сессию: {0}", "es": "No se pudo restaurar la sesión guardada: {0}", "fr": "Impossible de restaurer la session enregistrée : {0}", "de": "Gespeicherte Sitzung konnte nicht wiederhergestellt werden: {0}", "zh": "无法恢复已保存的会话：{0}", "ja": "保存されたセッションを復元できませんでした: {0}", "ko": "저장된 세션을 복원할 수 없습니다: {0}", "pt": "Não foi possível restaurar a sessão guardada: {0}", "ar": "فشل استعادة الجلسة المحفوظة: {0}"],
         "locWebCannotReadImage": ["en": "Cannot read \"{0}\" (this model does not support image input)", "ru": "Не удаётся прочитать «{0}» (эта модель не поддерживает ввод изображений)", "es": "No se puede leer «{0}» (este modelo no admite entrada de imágenes)", "fr": "Impossible de lire « {0} » (ce modèle ne prend pas en charge l'entrée d'images)", "de": "Kann „{0}“ nicht lesen (dieses Modell unterstützt keine Bildeingabe)", "zh": "无法读取「{0}」（此模型不支持图像输入）", "ja": "「{0}」を読み取れません（このモデルは画像入力をサポートしていません）", "ko": "\"{0}\"(을)를 읽을 수 없습니다(이 모델은 이미지 입력을 지원하지 않음)", "pt": "Não é possível ler «{0}» (este modelo não suporta entrada de imagens)", "ar": "لا يمكن قراءة \"{0}\" (لا يدعم هذا النموذج إدخال الصور)"],
          "locEmptyInput": ["en": "Type a message or attach a file to send.", "ru": "Введите сообщение или прикрепите файл, чтобы отправить.", "es": "Escribe un mensaje o adjunta un archivo para enviar.", "fr": "Tapez un message ou joignез un fichier pour envoyer.", "de": "Geben Sie eine Nachricht ein oder hängen Sie eine Datei an, um zu senden.", "zh": "输入消息或附加文件以发送。", "ja": "メッセージを入力するか、ファイルを添付して送信してください。", "ko": "メシζを入力するか、ファイルを添付して送信してください。", "pt": "Escreva uma mensagem ou anexe um ficheiro para enviar.", "ar": "اكتب رسالةً أو أرفق ملفًا للإرسال."],
-        "locMiMoAuto": ["en": "MiMo Auto", "ru": "MiMo Auto", "es": "MiMo Auto", "fr": "MiMo Auto", "de": "MiMo Auto", "zh": "MiMo Auto", "ja": "MiMo Auto", "ko": "MiMo Auto", "pt": "MiMo Auto", "ar": "MiMo Auto"],
+        "locMiCoderAutoFree": ["en": "MiCoder Auto Free", "ru": "MiCoder Auto Free", "es": "MiCoder Auto Free", "fr": "MiCoder Auto Free", "de": "MiCoder Auto Free", "zh": "MiCoder Auto Free", "ja": "MiCoder Auto Free", "ko": "MiCoder Auto Free", "pt": "MiCoder Auto Free", "ar": "MiCoder Auto Free"],
         "locModeSwitched": ["en": "Mode switched", "ru": "Режим изменён", "es": "Modo cambiado", "fr": "Mode changé", "de": "Modus geändert", "zh": "模式已切换", "ja": "モードが変更されました", "ko": "모드 변경됨", "pt": "Modo alterado", "ar": "تم تغيير الوضع"],
         "locPlanNotSupported": ["en": "Plan mode not supported by this model, switched to Build", "ru": "Режим плана не поддерживается, переключено на Кодинг", "es": "Modo plan no compatible, cambiado a Construir", "fr": "Mode plan non pris en charge, passé en Build", "de": "Plan-Modus nicht unterstützt, auf Build umgeschaltet", "zh": "此模型不支持计划模式，已切换到构建", "ja": "このモデルはプラン モードをサポートしていません、ビルドに切り替えました", "ko": "이 모델은 플랜 모드를 지원하지 않아 빌드로 전환했습니다", "pt": "Modo plano não suportado, alterado para Construir", "ar": "وضع الخطة غير مدعوم بواسطة هذا النموذج، تم التبديل إلى البناء"]
     ]

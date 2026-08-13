@@ -344,8 +344,8 @@ Use clear headings, code examples, and cross-references.
                 HStack(spacing: 6) {
                     MiMoLogoMark(size: 16)
                     Text(config.discoveredModels.isEmpty
-                         ? "MiMo Auto will detect models after login"
-                         : "MiMo Auto detected \(config.allModels.count) models")
+                         ? "MiCoder Auto Free will detect models after login"
+                         : "MiCoder Auto Free detected \(config.allModels.count) models")
                         .interfaceFont(size: 10)
                         .foregroundColor(config.discoveredModels.isEmpty ? Color.mimo.textMuted : Color.mimo.success)
                 }
@@ -485,7 +485,7 @@ struct WebProviderLoginView: View {
     @State private var detectResult: DetectResult?
     @State private var capturedCookies: [BrowserCookie] = []
 
-    // A session may only be captured after MiMo Auto has found at least one
+    // A session may only be captured after MiCoder Auto Free has found at least one
     // real model. The explicit discovery action is the way out of this gate.
     private var canCapture: Bool {
         // Capturing a valid logged-in session must not depend on model discovery.
@@ -527,20 +527,20 @@ struct WebProviderLoginView: View {
 
                 HStack(spacing: 4) {
                     MiMoLogoMark(size: 16)
-                    Text("MiMo Auto model selection")
+                    Text("MiCoder Auto Free model selection")
                         .interfaceFont(size: 11)
                         .foregroundColor(Color.mimo.brand)
                 }
                 .help("Models are detected after login and selected in the chat composer")
 
-                Button(action: findModelsViaMiMoAuto) {
+                Button(action: findModelsViaMiCoderAutoFree) {
                     HStack(spacing: 4) {
                         if case .detecting = detectResult {
                             ProgressView().controlSize(.small)
                         } else {
                             MiMoLogoMark(size: 14)
                         }
-                        Text("Detect with MiMo Auto")
+                        Text("Detect with MiCoder Auto Free")
                             .interfaceFont(size: 11)
                     }
                     .foregroundColor(Color.mimo.brand)
@@ -593,7 +593,7 @@ struct WebProviderLoginView: View {
             // Automatically discover models in the authenticated page. The
             // result feeds the shared chat model selector; there is no second
             // manual model picker in this browser sheet.
-            findModelsViaMiMoAuto()
+            findModelsViaMiCoderAutoFree()
         }
     }
 
@@ -631,7 +631,7 @@ struct WebProviderLoginView: View {
         .background(Color.mimo.surface)
     }
 
-    private func findModelsViaMiMoAuto() {
+    private func findModelsViaMiCoderAutoFree() {
         Task {
             await MainActor.run { detectResult = .detecting }
             let bridge = WKWebViewBrowserBridge(webView: webView, selectors: WebVendorSelectors(input: "", sendButton: "", responseContainer: "", stopButton: ""))
