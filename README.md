@@ -33,10 +33,10 @@ in one native SwiftUI application.
 ## Status
 
 The current codebase has been audited screen-by-screen and tracked in the canonical feature
-spreadsheet (`docs/FEATURE_SPREADSHEET.csv`, 200 user stories):
+spreadsheet (`docs/FEATURE_SPREADSHEET.csv`, 206 user stories):
 
-- `184 PASS`
-- `6 PARTIAL`
+- `188 PASS`
+- `8 PARTIAL`
 - `5 MISSING`
 - `5 FUTURE`
 

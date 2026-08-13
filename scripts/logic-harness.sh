@@ -29,18 +29,24 @@ if ! command -v swift >/dev/null 2>&1; then
   log "Swift not found — installing Swift $SWIFT_VER for $UBUNTU"
   TARBALL="swift-${SWIFT_VER}-RELEASE-${UBUNTU}"
   URL="https://download.swift.org/swift-${SWIFT_VER}-release/${UBUNTU//./}/swift-${SWIFT_VER}-RELEASE/${TARBALL}.tar.gz"
-  apt-get update -y >/dev/null 2>&1 || true
-  apt-get install -y --no-install-recommends \
-    binutils git libc6-dev libcurl4-openssl-dev libedit2 libgcc-s1 \
-    libpython3-dev libsqlite3-0 libstdc++6 libxml2-dev libz3-dev \
-    pkg-config tzdata unzip zlib1g-dev curl ca-certificates >/dev/null 2>&1 || true
-  mkdir -p /opt/swift
-  if curl -fsSL "$URL" -o /tmp/swift.tar.gz; then
-    tar -xzf /tmp/swift.tar.gz -C /opt/swift --strip-components=1
-    export PATH="/opt/swift/usr/bin:$PATH"
+  SWIFT_ROOT="${HOME}/.local/swift/${SWIFT_VER}"
+  if [ -x "$SWIFT_ROOT/usr/bin/swift" ]; then
+    export PATH="$SWIFT_ROOT/usr/bin:$PATH"
   else
-    log "❌ Could not download Swift toolchain from $URL"
-    exit 3
+    mkdir -p "$SWIFT_ROOT" || {
+      log "❌ Cannot create user-local Swift directory: $SWIFT_ROOT"
+      exit 3
+    }
+    TMP_TARBALL="${TMPDIR:-/tmp}/swift-${SWIFT_VER}.tar.gz"
+    if ! curl -fL --retry 2 --connect-timeout 15 --max-time 900 "$URL" -o "$TMP_TARBALL"; then
+      log "❌ Could not download Swift toolchain from $URL"
+      exit 3
+    fi
+    if ! tar -xzf "$TMP_TARBALL" -C "$SWIFT_ROOT" --strip-components=1; then
+      log "❌ Swift archive is incomplete or invalid: $TMP_TARBALL"
+      exit 3
+    fi
+    export PATH="$SWIFT_ROOT/usr/bin:$PATH"
   fi
 fi
 log "Using $(swift --version 2>&1 | head -1)"
