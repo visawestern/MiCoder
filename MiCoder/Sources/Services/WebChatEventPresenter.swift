@@ -21,25 +21,25 @@ enum WebChatEventPresenter {
         switch event {
         case .captchaDetected(let png):
             return .captcha(pngBase64: png.base64EncodedString(),
-                            note: "Solve the captcha below to continue, then the agent resumes automatically.")
+                            note: L.t(AppLocalizationKey.locCaptchaSolveNote))
         case .loggedOut:
-            return .status("Session expired — log in again to continue.")
+            return .status(L.t(AppLocalizationKey.locWebSessionExpired))
         case .sessionLimitReached:
-            return .status("Conversation too long — starting a fresh session and carrying over context…")
+            return .status(L.t(AppLocalizationKey.locWebSessionTooLong))
         case .sessionRestarted:
-            return .status("New session started; continuing.")
+            return .status(L.t(AppLocalizationKey.locWebNewSessionStarted))
         case .modelInjectionFailed(let msg):
-            return .status("Model note: \(msg)")
+            return .status(L.t(AppLocalizationKey.locWebModelNote).replacingOccurrences(of: "{0}", with: msg))
         case .effortInjectionFailed(let msg):
-            return .status("Effort note: \(msg)")
+            return .status(L.t(AppLocalizationKey.locWebEffortNote).replacingOccurrences(of: "{0}", with: msg))
         case .promptSplit(let parts):
-            return .status("Large prompt sent in \(parts) parts.")
+            return .status(L.t(AppLocalizationKey.locWebPromptSplit).replacingOccurrences(of: "{0}", with: "\(parts)"))
         case .toolCall(let call):
-            return .status("↪ \(call.name)(\(call.arguments.keys.sorted().joined(separator: ", ")))")
+            return .status(L.t(AppLocalizationKey.locWebToolCall).replacingOccurrences(of: "{0}", with: call.name).replacingOccurrences(of: "{1}", with: call.arguments.keys.sorted().joined(separator: ", ")))
         case .toolResult(let name, _):
-            return .status("✓ \(name)")
+            return .status(L.t(AppLocalizationKey.locWebToolResult).replacingOccurrences(of: "{0}", with: name))
         case .iterationLimitReached:
-            return .status("Reached the tool-iteration limit for this turn.")
+            return .status(L.t(AppLocalizationKey.locWebIterationLimit))
         case .final(let text):
             return .answer(text)
         case .error(let msg):
@@ -79,10 +79,10 @@ enum WebChatTurnMutation: Equatable {
             // Round 8 R2: a blank model answer must be reported, not rendered
             // as an empty finished bubble.
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            let content = trimmed.isEmpty ? "The model returned an empty response." : text
+            let content = trimmed.isEmpty ? L.t(AppLocalizationKey.locWebEmptyResponse) : text
             return .replaceText(content, isFinished: true, isStreaming: false)
         case .error(let msg):
-            return .replaceText("Web provider error: \(msg)", isFinished: true, isStreaming: false)
+            return .replaceText(L.t(AppLocalizationKey.locWebProviderError).replacingOccurrences(of: "{0}", with: msg), isFinished: true, isStreaming: false)
         case .captcha(let b64, let note):
             return .appendStatus("\(note)\n\n![captcha](data:image/png;base64,\(b64))")
         case .status(let line):

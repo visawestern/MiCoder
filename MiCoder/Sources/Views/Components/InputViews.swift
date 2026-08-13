@@ -300,6 +300,7 @@ struct CenteredInputCard: View {
     @State private var showPlusMenu = false
     @State private var showPhotoPicker = false
     @State private var expansionProgress: CGFloat = 0
+    @State private var hasAttemptedSend = false
 
     private var horizontalPadding: CGFloat {
         InputCardLayoutLogic.contentHorizontalPadding
@@ -335,6 +336,16 @@ struct CenteredInputCard: View {
         )
     }
 
+    // Only show the "empty input" error after the user has actually tried to send.
+    // Provider/model errors are always shown so the user knows how to unblock send.
+    private var displayedReason: String? {
+        guard let reason = sendReason else { return nil }
+        let trimmed = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isEmptyInputError = trimmed.isEmpty && attachmentStore.attachedImages.isEmpty && attachmentStore.attachedFiles.isEmpty
+        if isEmptyInputError && !hasAttemptedSend { return nil }
+        return reason
+    }
+
     var body: some View {
         VStack(spacing: InputCardLayoutLogic.sectionSpacing) {
             if !messageQueue.pendingMessages.isEmpty {
@@ -362,7 +373,7 @@ struct CenteredInputCard: View {
             capsuleDivider
                 .opacity(InputCardLayoutLogic.sectionOpacity(progress: expansionProgress))
 
-            if let reason = sendReason, !isLoading {
+            if let reason = displayedReason, !isLoading {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.circle.fill")
                         .interfaceFont(size: 10)
@@ -450,7 +461,7 @@ struct CenteredInputCard: View {
         CompactChatPromptField(
             text: $messageText,
             placeholder: MiMoCopy.promptPlaceholder(language: appState.appLanguage),
-            onSubmit: onSend,
+            onSubmit: { hasAttemptedSend = true; onSend() },
             focusRequest: appState.inputFocusRequest,
             maxHeightOverride: maxTextHeight
         )

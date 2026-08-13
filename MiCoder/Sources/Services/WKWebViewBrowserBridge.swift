@@ -10,6 +10,18 @@ import WebKit
 /// Playwright process — the same in-app web view used for login is reused so
 /// the captured session/cookies apply.
 #if canImport(WebKit)
+enum WKWebViewBridgeError: LocalizedError {
+    case invalidURL(String)
+    case elementNotFound(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL(let url): return "Invalid web provider URL: \(url)"
+        case .elementNotFound(let selector): return "Web provider element not found: \(selector)"
+        }
+    }
+}
+
 @MainActor
 final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
     let webView: WKWebView
@@ -21,7 +33,7 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
     }
 
     func navigate(to url: String) async throws {
-        guard let u = URL(string: url) else { return }
+        guard let u = URL(string: url) else { throw WKWebViewBridgeError.invalidURL(url) }
         webView.load(URLRequest(url: u))
         // Wait for page to start loading
         await wait(ms: 500)
@@ -47,7 +59,9 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
           return true;
         })();
         """
-        _ = try? await eval(js)
+        guard (try await eval(js) as? Bool) == true else {
+            throw WKWebViewBridgeError.elementNotFound(selector)
+        }
     }
 
     func click(selector: String) async throws {
@@ -67,7 +81,9 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
               return false;
             })();
             """
-            _ = (try? await eval(js)) as? Bool ?? false
+            guard (try await eval(js) as? Bool) == true else {
+                throw WKWebViewBridgeError.elementNotFound(selector)
+            }
             return
         }
         let js = """
@@ -77,7 +93,9 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
           el.click(); return true;
         })();
         """
-        _ = try? await eval(js)
+        guard (try await eval(js) as? Bool) == true else {
+            throw WKWebViewBridgeError.elementNotFound(selector)
+        }
     }
 
     func exists(selector: String) async throws -> Bool {
@@ -114,22 +132,36 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
     }
 
     /// Click the first element matching `selector` whose visible text contains
-    /// (or exactly matches) `text`. Returns true if matched.
+    /// (or exactly matches) `text`. Uses fuzzy matching: case-insensitive,
+    /// normalized (spaces/hyphens/dots removed) comparison for robust model matching.
     @discardableResult
     func clickByText(selector: String, text: String) async throws -> Bool {
+        let escaped = Self.jsString(text)
         let js = """
         (function(){
-          var wanted = \(Self.jsString(text));
+          var wanted = \(escaped);
+          var wantedNorm = wanted.toLowerCase().replace(/[\\s\\-\\.\\.]/g,'');
           var els = document.querySelectorAll(\(Self.jsString(selector)));
-          // Exact match first
+          // 1) Exact match (case-insensitive)
           for(var i=0;i<els.length;i++){
             var t=(els[i].innerText||els[i].textContent||'').trim();
-            if(t===wanted){els[i].click();return true;}
+            if(t.toLowerCase()===wanted.toLowerCase()){els[i].click();return true;}
           }
-          // Partial match
+          // 2) Contains match (case-insensitive)
           for(var i=0;i<els.length;i++){
             var t=(els[i].innerText||els[i].textContent||'').trim();
-            if(t.indexOf(wanted)!==-1){els[i].click();return true;}
+            var tLow = t.toLowerCase();
+            if(tLow.indexOf(wanted.toLowerCase())!==-1 || wanted.toLowerCase().indexOf(tLow)!==-1){
+              els[i].click();return true;
+            }
+          }
+          // 3) Normalized fuzzy match (spaces/hyphens/dots ignored)
+          for(var i=0;i<els.length;i++){
+            var t=(els[i].innerText||els[i].textContent||'').trim();
+            var tNorm = t.toLowerCase().replace(/[\\s\\-\\.\\.]/g,'');
+            if(tNorm.indexOf(wantedNorm)!==-1 || wantedNorm.indexOf(tNorm)!==-1){
+              els[i].click();return true;
+            }
           }
           return false;
         })();
@@ -172,17 +204,31 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         }
     }
 
-    /// Read model names from a custom dropdown (e.g. Kimi's div.model-item).
-    func readModelItems() async throws -> [String] {
+    /// Read model names from a custom dropdown using a vendor-specific selector.
+    /// Falls back to universal selectors if the vendor-specific one finds nothing.
+    func readModelItems(modelItemSelector: String = "div.model-item") async throws -> [String] {
+        let escaped = Self.jsString(modelItemSelector)
         let js = """
         (function(){
-          var items = document.querySelectorAll('div.model-item');
+          var items = document.querySelectorAll(\(escaped));
           var result = [];
           for (var i = 0; i < items.length; i++) {
-            var nameEl = items[i].querySelector('span.name');
-            if (nameEl && nameEl.textContent.trim()) {
-              result.push(nameEl.textContent.trim());
+            // Use innerText (respects CSS display) instead of textContent
+            // to avoid picking up hidden description text.
+            var t = (items[i].innerText || items[i].textContent || '').trim();
+            if (t && t.length > 0 && t.length < 60) { result.push(t); }
+          }
+          if (result.length > 0) { return JSON.stringify(result); }
+          // Fallback: try universal selectors — use innerText and strict length filter
+          var fallbacks = ['[role="option"]', '[class*="option"]', 'li'];
+          for (var f = 0; f < fallbacks.length; f++) {
+            var fb = document.querySelectorAll(fallbacks[f]);
+            for (var j = 0; j < fb.length; j++) {
+              var ft = (fb[j].innerText || fb[j].textContent || '').trim();
+              // Only include short texts (model names are short, descriptions are long)
+              if (ft && ft.length > 2 && ft.length < 50) { result.push(ft); }
             }
+            if (result.length > 0) { break; }
           }
           return JSON.stringify(result);
         })();

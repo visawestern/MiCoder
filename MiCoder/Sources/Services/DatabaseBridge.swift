@@ -11,45 +11,34 @@ class DatabaseBridge: ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
 
-    /// The project currently selected in the UI (normalized absolute path).
-    /// Session/message calls that don't carry an explicit project id
-    /// (`saveMessage`, `loadMessages`, `archiveSession`) route to this
-    /// project's own database instead of the legacy shared one. Kept in
-    /// sync by `AppState` whenever `selectedWorkspace` changes.
-    ///
-    /// Guarded by a lock: `DatabaseBridge` is a singleton that can be
-    /// touched from multiple `AppState` instances / threads (notably in
-    /// tests), so plain unsynchronized mutation of this optional would be a
-    /// data race.
+    /// Session/message routing is keyed by session id. This prevents one
+    /// selected workspace from changing the storage destination of another
+    /// session while requests are in flight.
     private let activeProjectLock = NSLock()
-    private var _activeProjectPath: String?
-    private var activeProjectPath: String? {
+    private var sessionProjectPaths: [String: String] = [:]
+
+    private func projectPath(forSessionID sessionID: String) -> String? {
         activeProjectLock.lock()
         defer { activeProjectLock.unlock() }
-        return _activeProjectPath
+        return sessionProjectPaths[sessionID]
     }
 
-    func setActiveProject(path: String?) {
+    private func rememberProject(_ path: String, forSessionID sessionID: String) {
         activeProjectLock.lock()
-        defer { activeProjectLock.unlock() }
-        guard let path, !path.isEmpty else {
-            _activeProjectPath = nil
-            return
-        }
-        _activeProjectPath = ChatSession.normalizedPath(path)
+        sessionProjectPaths[sessionID] = path
+        activeProjectLock.unlock()
+    }
+
+    private func resolveProjectDatabase(forSessionID sessionID: String) -> ProjectDatabaseManager? {
+        guard let path = projectPath(forSessionID: sessionID) else { return nil }
+        return resolveProjectDatabase(for: path)
     }
 
     /// Resolves `candidatePath` to its per-project database, or `nil` if the
-    /// path doesn't look like a real, existing project directory (e.g. a
-    /// legacy non-path identifier, or a project whose folder is missing).
+    /// path doesn't point to a real, existing project directory.
     private func resolveProjectDatabase(for candidatePath: String) -> ProjectDatabaseManager? {
         guard !candidatePath.isEmpty else { return nil }
         return try? ProjectDatabaseManager.manager(forProjectPath: candidatePath)
-    }
-
-    private func resolveActiveProjectDatabase() -> ProjectDatabaseManager? {
-        guard let activeProjectPath else { return nil }
-        return resolveProjectDatabase(for: activeProjectPath)
     }
 
     // MARK: - Project Management
@@ -117,15 +106,15 @@ class DatabaseBridge: ObservableObject {
     // MARK: - Session Management
     
     /// Загрузить сессии проекта. Резолвит `projectId` в его собственную
-    /// per-project БД (см. `ProjectDatabaseManager`); если `projectId` не
-    /// похож на реальный путь проекта на диске, откатывается на устаревшую
-    /// общую БД для обратной совместимости.
+    /// per-project БД (см. `ProjectDatabaseManager`). Проект обязан быть
+    /// существующей директорией; невалидные идентификаторы не записываются.
     func loadSessions(projectId: String) -> [ChatSession] {
         if let projectDB = resolveProjectDatabase(for: projectId) {
             do {
                 let records = try projectDB.getAllSessions(includeArchived: false)
                 return records.map { record in
-                    ChatSession(
+                    rememberProject(ChatSession.normalizedPath(projectId), forSessionID: record.id)
+                    return ChatSession(
                         id: record.id,
                         title: record.title,
                         createdAt: record.createdAt,
@@ -140,29 +129,12 @@ class DatabaseBridge: ObservableObject {
                 return []
             }
         }
-
-        do {
-            let records = try db.getSessionsByProject(projectId: projectId)
-            return records.map { record in
-                ChatSession(
-                    id: record.id,
-                    title: record.title,
-                    createdAt: record.createdAt,
-                    updatedAt: record.updatedAt,
-                    directory: record.directory,
-                    branch: record.branch,
-                    gitSummary: nil
-                )
-            }
-        } catch {
-            print("❌ Failed to load sessions: \(error)")
-            return []
-        }
+        return []
     }
     
     /// Создать новую сессию (upsert — обновляет если существует). Пишет в
-    /// per-project БД, резолвленную по `projectId`; сессии без каталога
-    /// уходят в общий "unassigned" стор, а не теряются.
+    /// per-project БД, резолвленную по `projectId`. Сессия без существующего
+    /// project path отклоняется, чтобы история не попадала в другой store.
     func createSession(
         id: String,
         projectId: String,
@@ -173,10 +145,13 @@ class DatabaseBridge: ObservableObject {
         modelId: String? = nil,
         providerId: String? = nil
     ) {
-        if let projectDB = resolveProjectDatabase(for: projectId) {
+        // For temporary sessions (temp directory), use global database
+        let tempDir = FileManager.default.temporaryDirectory.path
+        if directory.hasPrefix(tempDir) {
             do {
-                try projectDB.insertSession(
+                try db.insertSession(
                     id: id,
+                    projectId: directory,
                     title: title,
                     directory: directory,
                     branch: branch,
@@ -185,32 +160,19 @@ class DatabaseBridge: ObservableObject {
                     providerId: providerId
                 )
             } catch {
-                print("❌ Failed to create session in project database: \(error)")
+                print("❌ Failed to create temporary session: \(error)")
             }
             return
         }
-
-        if directory.isEmpty, let unassignedDB = try? ProjectDatabaseManager.unassignedManager() {
-            do {
-                try unassignedDB.insertSession(
-                    id: id,
-                    title: title,
-                    directory: directory,
-                    branch: branch,
-                    agentMode: agentMode,
-                    modelId: modelId,
-                    providerId: providerId
-                )
-            } catch {
-                print("❌ Failed to create unassigned session: \(error)")
-            }
+        
+        guard let projectDB = resolveProjectDatabase(for: projectId) else {
+            print("❌ Cannot create session without a valid project directory: \(projectId)")
             return
         }
-
+        rememberProject(ChatSession.normalizedPath(projectId), forSessionID: id)
         do {
-            try db.insertSession(
+            try projectDB.insertSession(
                 id: id,
-                projectId: projectId,
                 title: title,
                 directory: directory,
                 branch: branch,
@@ -218,34 +180,21 @@ class DatabaseBridge: ObservableObject {
                 modelId: modelId,
                 providerId: providerId
             )
-        } catch DatabaseError.duplicateEntry {
-            // Session already exists — update its timestamp
-            do {
-                try db.updateSessionTimestamp(id: id)
-            } catch {
-                print("⚠️ Failed to update session timestamp: \(error)")
-            }
         } catch {
-            print("❌ Failed to create session: \(error)")
+            print("❌ Failed to create session in project database: \(error)")
         }
     }
     
-    /// Архивировать сессию. Использует активный проект (см.
-    /// `setActiveProject`); если он не задан, откатывается на общую БД.
+    /// Архивировать сессию в базе проекта, которому она принадлежит.
     func archiveSession(id: String) {
-        if let projectDB = resolveActiveProjectDatabase() {
-            do {
-                try projectDB.archiveSession(id: id)
-            } catch {
-                print("❌ Failed to archive session in project database: \(error)")
-            }
+        guard let projectDB = resolveProjectDatabase(forSessionID: id) else {
+            print("❌ Cannot archive session without a registered project: \(id)")
             return
         }
-
         do {
-            try db.archiveSession(id: id)
+            try projectDB.archiveSession(id: id)
         } catch {
-            print("❌ Failed to archive session: \(error)")
+            print("❌ Failed to archive session in project database: \(error)")
         }
     }
     
@@ -267,12 +216,14 @@ class DatabaseBridge: ObservableObject {
         _ sequenceOrder: Int
     ) throws -> Void
 
-    /// Сохранить сообщение в БД. Пишет в активный проект (см.
-    /// `setActiveProject`); если он не задан, откатывается на общую БД.
+    /// Сохранить сообщение в базе проекта, которому принадлежит сессия.
     func saveMessage(_ message: Message, sessionId: String) {
-        if let projectDB = resolveActiveProjectDatabase() {
+        MiCoderAPIServer.appendLog("💾 saveMessage: id=\(message.id), session=\(sessionId), temp=\(isTemporarySession(sessionId))")
+        // For temporary sessions, use global database
+        if isTemporarySession(sessionId) {
+            MiCoderAPIServer.appendLog("💾 saveMessage: using global db for temp session")
             do {
-                try projectDB.insertMessage(
+                try db.insertMessage(
                     id: message.id,
                     sessionId: sessionId,
                     role: roleToString(message.role),
@@ -280,35 +231,44 @@ class DatabaseBridge: ObservableObject {
                     reasoning: message.reasoning.isEmpty ? nil : message.reasoning,
                     usage: message.usage
                 )
-                for (index, part) in message.parts.enumerated() {
-                    try saveMessagePart(part, messageId: message.id, sequenceOrder: index, insert: projectDB.insertMessagePart)
-                }
+                MiCoderAPIServer.appendLog("💾 saveMessage: insertMessage succeeded")
             } catch {
-                print("❌ Failed to save message in project database: \(error)")
+                MiCoderAPIServer.appendLog("❌ Failed to save temporary message: \(error)")
             }
             return
         }
-
+        
+        guard let projectDB = resolveProjectDatabase(forSessionID: sessionId) else {
+            print("❌ Cannot save message without a registered project: \(sessionId)")
+            return
+        }
         do {
-            try db.insertMessage(
+            try projectDB.insertMessage(
                 id: message.id,
                 sessionId: sessionId,
                 role: roleToString(message.role),
                 content: message.content,
-                modelId: nil,
-                providerId: nil,
                 reasoning: message.reasoning.isEmpty ? nil : message.reasoning,
                 usage: message.usage
             )
             for (index, part) in message.parts.enumerated() {
-                try saveMessagePart(part, messageId: message.id, sequenceOrder: index, insert: db.insertMessagePart)
+                try saveMessagePart(part, messageId: message.id, sequenceOrder: index, insert: projectDB.insertMessagePart)
             }
         } catch {
-            print("❌ Failed to save message: \(error)")
+            print("❌ Failed to save message in project database: \(error)")
         }
     }
     
-    /// Сохранить часть сообщения через переданный `insert` (глобальная или per-project БД).
+    private func isTemporarySession(_ sessionId: String) -> Bool {
+        guard let path = projectPath(forSessionID: sessionId) else {
+            // If no project path, check if it's in global db
+            return true
+        }
+        let tempDir = FileManager.default.temporaryDirectory.path
+        return path.hasPrefix(tempDir)
+    }
+    
+    /// Сохранить часть сообщения через переданный project database inserter.
     private func saveMessagePart(
         _ part: MessagePartContent,
         messageId: String,
@@ -338,48 +298,48 @@ class DatabaseBridge: ObservableObject {
         }
     }
     
-    /// Загрузить сообщения сессии из БД. Читает из активного проекта (см.
-    /// `setActiveProject`); если он не задан, откатывается на общую БД.
+    /// Загрузить сообщения только из базы проекта, зарегистрированной для сессии.
     func loadMessages(sessionId: String, limit: Int? = nil) -> [Message] {
-        if let projectDB = resolveActiveProjectDatabase() {
+        // For temporary sessions, use global database
+        if isTemporarySession(sessionId) {
             do {
-                let records = try projectDB.getMessages(sessionId: sessionId, limit: limit)
+                let records = try db.getMessagesBySession(sessionId: sessionId, limit: limit)
                 return records.map { record in
-                    let parts = (try? projectDB.getMessageParts(messageId: record.id)) ?? []
-                    return Message(
+                    Message(
                         id: record.id,
                         role: stringToRole(record.role),
                         content: record.content,
                         isStreaming: false,
-                        parts: parts.map { convertProjectPartRecord($0) },
                         reasoning: record.reasoning ?? "",
                         isFinished: record.isFinished
                     )
                 }
             } catch {
-                print("❌ Failed to load messages from project database: \(error)")
+                print("❌ Failed to load temporary messages: \(error)")
                 return []
             }
         }
-
+        
+        guard let projectDB = resolveProjectDatabase(forSessionID: sessionId) else {
+            print("❌ Cannot load messages without a registered project: \(sessionId)")
+            return []
+        }
         do {
-            let records = try db.getMessagesBySession(sessionId: sessionId, limit: limit)
-            
+            let records = try projectDB.getMessages(sessionId: sessionId, limit: limit)
             return records.map { record in
-                let parts = (try? db.getMessageParts(messageId: record.id)) ?? []
-                
+                let parts = (try? projectDB.getMessageParts(messageId: record.id)) ?? []
                 return Message(
                     id: record.id,
                     role: stringToRole(record.role),
                     content: record.content,
                     isStreaming: false,
-                    parts: parts.map { convertPartRecord($0) },
+                    parts: parts.map { convertProjectPartRecord($0) },
                     reasoning: record.reasoning ?? "",
                     isFinished: record.isFinished
                 )
             }
         } catch {
-            print("❌ Failed to load messages: \(error)")
+            print("❌ Failed to load messages from project database: \(error)")
             return []
         }
     }

@@ -16,6 +16,11 @@ struct WebModelListParserTests {
         #expect(models == ["gpt-4o", "gpt-4.1"])
     }
 
+    @Test func filtersChatGPTFeatureActionsFromModels() {
+        let text = "ChatGPT\nGPT-5\nDeep Research\nCreate image\nCanvas\no3"
+        #expect(WebModelListParser.parse(dropdownText: text, vendor: .chatgpt) == ["GPT-5", "o3"])
+    }
+
     @Test func dropsUINoiseEntries() {
         let text = "qwen-max\nUpgrade\nNew\nqwen2.5-coder\nSettings"
         let models = WebModelListParser.parse(dropdownText: text, vendor: .qwen)

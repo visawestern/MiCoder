@@ -6,12 +6,158 @@ struct UnifiedProvidersView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 32) {
+            MiMoAutoSection()
+            Divider().background(Color.mimo.border)
             ModelSettingsView(availableWidth: availableWidth)
             Divider().background(Color.mimo.border)
             LocalProvidersSection()
             Divider().background(Color.mimo.border)
             WebProvidersSection()
         }
+    }
+}
+
+/// Built-in MiMo-Auto provider settings (non-removable, free tier + paid API key).
+struct MiMoAutoSection: View {
+    @EnvironmentObject var appState: AppState
+    @ObservedObject private var store = MiMoAutoProviderStore.shared
+    @State private var apiKeyInput: String = ""
+    @State private var showApiKey = false
+    @State private var validating = false
+    @State private var testResult: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "sparkles")
+                    .font(.title2)
+                    .foregroundColor(Color.mimo.brand)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("MiMo Auto")
+                        .interfaceFont(size: 18, weight: .semibold)
+                        .foregroundColor(Color.mimo.textPrimary)
+                    Text("Built-in free AI provider • No setup required")
+                        .interfaceFont(size: 12)
+                        .foregroundColor(Color.mimo.textSecondary)
+                }
+                Spacer()
+                Text("FREE")
+                    .interfaceFont(size: 10, weight: .bold)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.mimo.success.opacity(0.2))
+                    .foregroundColor(Color.mimo.success)
+                    .clipShape(Capsule())
+            }
+
+            // Model selector
+            if !store.provider.models.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Model")
+                        .interfaceFont(size: 12, weight: .medium)
+                        .foregroundColor(Color.mimo.textPrimary)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(store.provider.models) { model in
+                                let selected = isSelected(model.id)
+                                Button {
+                                    store.selectModel(model.id)
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text(model.name)
+                                        if model.isFree {
+                                            Image(systemName: "gift.fill")
+                                                .font(.system(size: 8))
+                                        }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .interfaceFont(size: 11)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(selected ? Color.mimo.brand.opacity(0.2) : Color.mimo.surface)
+                                .foregroundColor(selected ? Color.mimo.brand : Color.mimo.textSecondary)
+                                .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Color.mimo.brand : Color.mimo.border, lineWidth: 1))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // API key section for paid tier
+            VStack(alignment: .leading, spacing: 6) {
+                Button(action: { showApiKey.toggle() }) {
+                    HStack {
+                        Image(systemName: showApiKey ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 10))
+                        Text("API Key (optional, for paid tier)")
+                            .interfaceFont(size: 12, weight: .medium)
+                    }
+                    .foregroundColor(Color.mimo.textSecondary)
+                }
+                .buttonStyle(.plain)
+
+                if showApiKey {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            if showApiKey {
+                                TextField("sk-...", text: $apiKeyInput)
+                                    .zcodeTextFieldStyle()
+                                    .interfaceFont(size: 12)
+                            } else {
+                                SecureField("sk-...", text: $apiKeyInput)
+                                    .zcodeTextFieldStyle()
+                                    .interfaceFont(size: 12)
+                            }
+                            Button("Save") {
+                                store.setApiKey(apiKeyInput)
+                            }
+                            .buttonStyle(.plain)
+                            .interfaceFont(size: 12)
+                            .foregroundColor(Color.mimo.brand)
+                            .disabled(validating)
+                        }
+                        if let result = testResult {
+                            Text(result)
+                                .interfaceFont(size: 11)
+                                .foregroundColor(result.contains("valid") ? Color.mimo.success : Color.mimo.error)
+                        }
+                        Text("Add your MiMo API key for higher rate limits and access to paid models.")
+                            .interfaceFont(size: 10)
+                            .foregroundColor(Color.mimo.textMuted)
+                    }
+                }
+            }
+
+            // Status
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(store.provider.isKeyValid || store.provider.isFreeTier ? Color.mimo.success : Color.mimo.error)
+                    .frame(width: 6, height: 6)
+                Text(store.provider.isFreeTier ? "Free tier" : (store.provider.isKeyValid ? "API key valid" : "Invalid key"))
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.textMuted)
+                Spacer()
+                Button(action: { Task { await store.refreshModels() } }) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .foregroundColor(Color.mimo.brand)
+            }
+        }
+        .padding(16)
+        .background(Color.mimo.surface)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.mimo.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .onAppear {
+            apiKeyInput = store.provider.apiKey
+        }
+    }
+
+    private func isSelected(_ modelID: String) -> Bool {
+        appState.selectedModel == modelID || (appState.selectedModel.isEmpty && store.provider.selectedModel == modelID)
     }
 }
 
@@ -169,6 +315,7 @@ struct LocalProvidersSection: View {
     }
 }
 
+
 /// A detected provider held for the user's explicit confirm/cancel decision
 /// (E23). `Identifiable` so it can drive `.alert(item:)`.
 struct PendingDetection: Identifiable {
@@ -212,34 +359,97 @@ struct LocalProviderRow: View {
     let onRemove: () -> Void
     let onToggle: () -> Void
 
+    @State private var refreshing = false
+    @State private var models: [String] = []
+    @State private var showModelPicker = false
+
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: config.kind.icon)
-                .interfaceFont(size: 14)
-                .foregroundColor(Color.mimo.textSecondary)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(config.displayName)
-                    .interfaceFont(size: 13, weight: .medium)
-                    .foregroundColor(Color.mimo.textPrimary)
-                Text("\(config.serveBaseURL) · \(config.models.count) models")
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Image(systemName: config.kind.icon)
+                    .interfaceFont(size: 14)
+                    .foregroundColor(Color.mimo.textSecondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(config.displayName)
+                        .interfaceFont(size: 13, weight: .medium)
+                        .foregroundColor(Color.mimo.textPrimary)
+                    Text(config.serveBaseURL)
+                        .interfaceFont(size: 11)
+                        .foregroundColor(Color.mimo.textMuted)
+                }
+                Spacer()
+                Button(action: { Task { await refreshModels() } }) {
+                    HStack(spacing: 3) {
+                        if refreshing { ProgressView().controlSize(.small) }
+                        Image(systemName: "arrow.clockwise")
+                        Text("\(models.count)")
+                    }
                     .interfaceFont(size: 11)
-                    .foregroundColor(Color.mimo.textMuted)
+                    .foregroundColor(Color.mimo.brand)
+                }
+                .buttonStyle(.plain)
+                .disabled(refreshing)
+                Button(action: onToggle) {
+                    Text(config.isEnabled ? L.t(AppLocalizationKey.locEnabled) : L.t(AppLocalizationKey.locDisabled))
+                        .interfaceFont(size: 11, weight: .medium)
+                        .foregroundColor(config.isEnabled ? Color.mimo.success : Color.mimo.textMuted)
+                }
+                .buttonStyle(.plain)
+                Button(action: onRemove) {
+                    Image(systemName: "trash")
+                        .interfaceFont(size: 12)
+                        .foregroundColor(Color.mimo.error)
+                }
+                .buttonStyle(.plain)
             }
-            Spacer()
-            Button(action: onToggle) {
-                Text(config.isEnabled ? L.t(AppLocalizationKey.locEnabled) : L.t(AppLocalizationKey.locDisabled))
-                    .interfaceFont(size: 11, weight: .medium)
-                    .foregroundColor(config.isEnabled ? Color.mimo.success : Color.mimo.textMuted)
+            if !models.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(models, id: \.self) { model in
+                            Button(action: { selectModel(model) }) {
+                                Text(model)
+                                    .interfaceFont(size: 10)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(isSelected(model) ? Color.mimo.brand.opacity(0.2) : Color.mimo.surface)
+                                    .foregroundColor(isSelected(model) ? Color.mimo.brand : Color.mimo.textSecondary)
+                                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(isSelected(model) ? Color.mimo.brand : Color.mimo.border, lineWidth: 1))
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
             }
-            .buttonStyle(.plain)
-            Button(action: onRemove) {
-                Image(systemName: "trash")
-                    .interfaceFont(size: 12)
-                    .foregroundColor(Color.mimo.error)
-            }
-            .buttonStyle(.plain)
         }
         .padding(.vertical, 4)
+        .onAppear { models = config.models }
+    }
+
+    private func isSelected(_ model: String) -> Bool {
+        config.models.contains(model)
+    }
+
+    private func selectModel(_ model: String) {
+        // Model selection handled by parent via selectedModel in AppState
+    }
+
+    private func refreshModels() async {
+        refreshing = true
+        if let fetched = await LocalProviderLogic.fetchModels(for: config) {
+            await MainActor.run {
+                models = fetched
+                // Persist fetched models back to config
+                var updatedLocal = config
+                updatedLocal.models = fetched
+                var locals = LocalProviderLogic.load()
+                if let idx = locals.firstIndex(where: { $0.id == config.id }) {
+                    locals[idx] = updatedLocal
+                    LocalProviderLogic.save(locals)
+                }
+            }
+        }
+        refreshing = false
     }
 }
 

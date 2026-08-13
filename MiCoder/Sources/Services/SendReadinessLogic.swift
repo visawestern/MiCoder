@@ -14,6 +14,9 @@ enum SendReadinessLogic {
         if serverConnected { return nil }
 
         if !selectedProviderID.isEmpty {
+            // MiMo-Auto is a direct provider route and does not require a
+            // local MiMo Serve connection or an API key in free-tier mode.
+            if selectedProviderID == MiMoAutoProvider.builtInID { return nil }
             // Web provider (option id "web:<id>") — driven via the browser, no serve.
             if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
                webProviderIDs.contains(webID) { return nil }
@@ -82,6 +85,9 @@ enum SendReadinessReason {
         localProviderIDs: [String],
         webProviderIDs: [String]
     ) -> String? {
+        // Empty input blocks send with an actionable message (Round 8 P1: the
+        // disabled button must explain WHY). Visibility is gated by the UI
+        // (InputViews.displayedReason), not by hiding the reason here.
         if !MessageSendValidation.canSend(text: text, images: images, files: files) {
             return "Type a message or attach a file to send."
         }

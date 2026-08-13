@@ -296,32 +296,6 @@ final class ProjectDatabaseManager {
         return manager
     }
 
-    /// Reserved pool key for the shared "unassigned" bucket — sessions with
-    /// no known project directory (or whose directory has vanished) land
-    /// here instead of being dropped. Never collides with a real filesystem
-    /// path since it doesn't start with "/".
-    private static let unassignedPoolKey = "unassigned://mimocode"
-
-    /// Opens the shared store for sessions that aren't associated with any
-    /// project directory, at `<baseDirectory>/unassigned.db`. Defaults to
-    /// `~/.micoder/unassigned.db`; tests inject a temporary directory so
-    /// they never touch the real user's home folder.
-    static func unassignedManager(
-        baseDirectory: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".micoder")
-    ) throws -> ProjectDatabaseManager {
-        try poolQueue.sync {
-            if let existing = pool[unassignedPoolKey] {
-                existing.touch()
-                return existing
-            }
-            try FileManager.default.createDirectory(at: baseDirectory, withIntermediateDirectories: true)
-            let dbURL = baseDirectory.appendingPathComponent("unassigned.db")
-            let created = try openConnection(atFileURL: dbURL, projectPath: unassignedPoolKey)
-            pool[unassignedPoolKey] = created
-            return created
-        }
-    }
-
     /// Creates an isolated in-memory database for unit tests that don't need
     /// real disk persistence but still want a valid, schema-complete instance.
     static func createInMemory(projectPath: String) throws -> ProjectDatabaseManager {
@@ -433,6 +407,10 @@ final class ProjectDatabaseManager {
             t.column(messageMetadata)
             t.foreignKey(messageSessionId, references: sessions, sessionId, delete: .cascade)
         })
+        // Existing project databases predate usage columns. `CREATE TABLE IF
+        // NOT EXISTS` does not upgrade those tables, so make the column
+        // contract explicit for databases opened after a schema change.
+        try addColumnIfMissing(table: "messages", column: "cost_usd", definition: "REAL")
 
         try db.run(messageParts.create(ifNotExists: true) { t in
             t.column(partId, primaryKey: true)
@@ -509,6 +487,16 @@ final class ProjectDatabaseManager {
         try db.run(requestHistory.createIndex([requestHistorySessionId, requestHistoryCreatedAt], ifNotExists: true))
 
         try createFTS5Index()
+    }
+
+    private func addColumnIfMissing(table: String, column: String, definition: String) throws {
+        let existingColumns = try SQLiteSafeQuery.rows(
+            db.prepare("PRAGMA table_info(\(table))")
+        ).compactMap { row -> String? in
+            row[1] as? String
+        }
+        guard !existingColumns.contains(column) else { return }
+        try db.execute("ALTER TABLE \(table) ADD COLUMN \(column) \(definition)")
     }
 
     private func createFTS5Index() throws {

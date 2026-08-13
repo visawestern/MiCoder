@@ -2,9 +2,7 @@ import Testing
 import Foundation
 @testable import MiCoder
 
-// Serialized: DatabaseBridge.shared and ProjectDatabaseManager's pool are
-// both shared mutable singletons; concurrent tests here would race on
-// `setActiveProject`.
+// Serialized because the bridge and project database pool are shared resources.
 @Suite("DatabaseBridge — routes session/message storage to per-project databases", .serialized)
 struct DatabaseBridgeProjectRoutingTests {
 
@@ -28,16 +26,14 @@ struct DatabaseBridgeProjectRoutingTests {
         #expect(try projectDB.getAllSessions().map(\.id) == ["s1"], "session must be physically stored in the per-project database, not the legacy global one")
     }
 
-    @Test("saveMessage/loadMessages route to whichever project is marked active via setActiveProject")
+    @Test("saveMessage/loadMessages route to the owning project database")
     func messagesRouteToActiveProject() throws {
         let projectPath = try makeTempProjectDir()
         defer {
             try? FileManager.default.removeItem(atPath: projectPath)
-            DatabaseBridge.shared.setActiveProject(path: nil)
         }
         ProjectDatabaseManager.evictProject(projectPath: projectPath)
 
-        DatabaseBridge.shared.setActiveProject(path: projectPath)
         DatabaseBridge.shared.createSession(id: "s1", projectId: projectPath, title: "Chat", directory: projectPath)
 
         let message = Message(id: "m1", role: .user, content: "hello from active project")
@@ -50,23 +46,36 @@ struct DatabaseBridgeProjectRoutingTests {
         #expect(try projectDB.getMessages(sessionId: "s1").map(\.content) == ["hello from active project"])
     }
 
-    @Test("Switching the active project isolates message storage between two different projects")
+    @Test("A failed first send remains visible in the new project's session")
+    func failedFirstSendIsPersisted() throws {
+        let projectPath = try makeTempProjectDir("failed-send")
+        defer { try? FileManager.default.removeItem(atPath: projectPath) }
+        ProjectDatabaseManager.evictProject(projectPath: projectPath)
+
+        let sessionID = "failed-\(UUID().uuidString)"
+        DatabaseBridge.shared.createSession(id: sessionID, projectId: projectPath,
+                                            title: "First request", directory: projectPath)
+        DatabaseBridge.shared.saveMessage(Message(id: "user-\(UUID().uuidString)", role: .user, content: "hello"), sessionId: sessionID)
+        DatabaseBridge.shared.saveMessage(Message(id: "error-\(UUID().uuidString)", role: .assistant, content: "Error: provider unavailable", isFinished: true), sessionId: sessionID)
+
+        let loaded = DatabaseBridge.shared.loadMessages(sessionId: sessionID)
+        #expect(loaded.map(\.content) == ["hello", "Error: provider unavailable"])
+    }
+
+    @Test("Two project databases isolate message storage")
     func switchingActiveProjectIsolatesMessages() throws {
         let projectA = try makeTempProjectDir("a")
         let projectB = try makeTempProjectDir("b")
         defer {
             try? FileManager.default.removeItem(atPath: projectA)
             try? FileManager.default.removeItem(atPath: projectB)
-            DatabaseBridge.shared.setActiveProject(path: nil)
         }
         ProjectDatabaseManager.evictProject(projectPath: projectA)
         ProjectDatabaseManager.evictProject(projectPath: projectB)
 
-        DatabaseBridge.shared.setActiveProject(path: projectA)
         DatabaseBridge.shared.createSession(id: "sA", projectId: projectA, title: "A", directory: projectA)
         DatabaseBridge.shared.saveMessage(Message(id: "mA", role: .user, content: "in A"), sessionId: "sA")
 
-        DatabaseBridge.shared.setActiveProject(path: projectB)
         DatabaseBridge.shared.createSession(id: "sB", projectId: projectB, title: "B", directory: projectB)
         DatabaseBridge.shared.saveMessage(Message(id: "mB", role: .user, content: "in B"), sessionId: "sB")
 
@@ -77,16 +86,14 @@ struct DatabaseBridgeProjectRoutingTests {
         #expect(try dbA.getMessages(sessionId: "sB").isEmpty)
     }
 
-    @Test("archiveSession on the active project hides it from loadSessions without deleting its data")
+    @Test("archiveSession hides a project session without deleting its data")
     func archiveSessionRoutesToActiveProject() throws {
         let projectPath = try makeTempProjectDir()
         defer {
             try? FileManager.default.removeItem(atPath: projectPath)
-            DatabaseBridge.shared.setActiveProject(path: nil)
         }
         ProjectDatabaseManager.evictProject(projectPath: projectPath)
 
-        DatabaseBridge.shared.setActiveProject(path: projectPath)
         DatabaseBridge.shared.createSession(id: "s1", projectId: projectPath, title: "Chat", directory: projectPath)
         DatabaseBridge.shared.archiveSession(id: "s1")
 
@@ -97,7 +104,7 @@ struct DatabaseBridgeProjectRoutingTests {
         #expect(archived.map(\.id) == ["s1"], "archived session must still exist on disk")
     }
 
-    @Test("loadSessions falls back gracefully for a non-existent project path instead of crashing")
+    @Test("loadSessions returns no sessions for a non-existent project path")
     func loadSessionsFallsBackForInvalidPath() {
         let bogus = "not-a-real-path-\(UUID().uuidString)"
         #expect(DatabaseBridge.shared.loadSessions(projectId: bogus).isEmpty)
@@ -107,17 +114,15 @@ struct DatabaseBridgeProjectRoutingTests {
     // injected inserter and write to the legacy global DB instead of the
     // active project DB).
 
-    @Test("stepStart part is written to the active project database, not the legacy global one")
+    @Test("stepStart part is written to the owning project database")
     func stepStartPartRoutesToProjectDB() throws {
         let unique = UUID().uuidString
         let projectPath = try makeTempProjectDir("step-\(unique)")
         defer {
             try? FileManager.default.removeItem(atPath: projectPath)
-            DatabaseBridge.shared.setActiveProject(path: nil)
         }
         ProjectDatabaseManager.evictProject(projectPath: projectPath)
 
-        DatabaseBridge.shared.setActiveProject(path: projectPath)
         DatabaseBridge.shared.createSession(id: "s-step-\(unique)", projectId: projectPath, title: "Chat", directory: projectPath)
 
         var msg = Message(id: "m-step-\(unique)", role: .assistant, content: "working...")
@@ -137,11 +142,9 @@ struct DatabaseBridgeProjectRoutingTests {
         let projectPath = try makeTempProjectDir("all-\(unique)")
         defer {
             try? FileManager.default.removeItem(atPath: projectPath)
-            DatabaseBridge.shared.setActiveProject(path: nil)
         }
         ProjectDatabaseManager.evictProject(projectPath: projectPath)
 
-        DatabaseBridge.shared.setActiveProject(path: projectPath)
         DatabaseBridge.shared.createSession(id: "s-all-\(unique)", projectId: projectPath, title: "Chat", directory: projectPath)
 
         var msg = Message(id: "m-all-\(unique)", role: .assistant, content: "")

@@ -35,12 +35,23 @@ enum SessionSendLogic {
         accessLevel: AccessLevel? = nil
     ) -> MessageSendOptions {
         let agent = sendMode(for: agentMode)
-        let providerID = ProviderSettingsLogic.resolveProviderID(
-            for: modelID,
-            selectedProviderID: selectedProviderID,
-            in: providers,
-            customProviders: customProviders
-        )
+        MiCoderAPIServer.appendLog("📍 buildSendOptions: selectedProviderID=\(selectedProviderID), modelID=\(modelID)")
+        // Web providers are not part of the MiCoder Serve provider catalog.
+        // Preserve the explicit `web:<config-id>` so the serve-only resolver
+        // does not erase it and trigger "Select a provider" before routing.
+        let providerID: String?
+        if selectedProviderID.hasPrefix("web:") || selectedProviderID == MiMoAutoProvider.builtInID {
+            providerID = selectedProviderID
+            MiCoderAPIServer.appendLog("📍 buildSendOptions: preserved providerID=\(providerID ?? "nil")")
+        } else {
+            providerID = ProviderSettingsLogic.resolveProviderID(
+                for: modelID,
+                selectedProviderID: selectedProviderID,
+                in: providers,
+                customProviders: customProviders
+            )
+            MiCoderAPIServer.appendLog("📍 buildSendOptions: resolved providerID=\(providerID ?? "nil")")
+        }
         let variant = ProviderSettingsLogic.normalizedVariant(
             selectedVariant,
             for: modelID,

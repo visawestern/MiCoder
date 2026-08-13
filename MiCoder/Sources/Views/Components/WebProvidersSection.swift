@@ -8,7 +8,6 @@ private struct TextHeightPreferenceKey: PreferenceKey {
         value = max(value, nextValue())
     }
 }
-
 /// Web-free provider management (Kimi/Qwen/ChatGPT) — plan Раздел 12 Блок 4.
 /// Configure system prompt / model / effort / tool-call delay / keep-alive,
 /// acknowledge ToS, and log in via an embedded web view that captures cookies.
@@ -297,16 +296,36 @@ Use clear headings, code examples, and cross-references.
                 }
             }
 
-            // Model + effort are NOT chosen here (plan Раздел 13 п.5): the model
-            // is picked in the chat input like any other provider, and effort is
-            // determined dynamically from the model's capabilities.
-            Text(L.t(AppLocalizationKey.locModelEffortAreChosenTheChatInputAfterConnecting))
-                .interfaceFont(size: 11)
+            // Models are discovered from the authenticated page and selected
+            // from the shared chat composer. Do not expose a second manual
+            // browser model picker that can drift from the real web UI.
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L.t(AppLocalizationKey.locModelEffortAreChosenTheChatInputAfterConnecting))
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.textMuted)
+                HStack(spacing: 6) {
+                    MiMoLogoMark(size: 16)
+                    Text(config.discoveredModels.isEmpty
+                         ? "MiMo Auto will detect models after login"
+                         : "MiMo Auto detected \(config.allModels.count) models")
+                        .interfaceFont(size: 10)
+                        .foregroundColor(config.discoveredModels.isEmpty ? Color.mimo.textMuted : Color.mimo.success)
+                }
+                HStack(spacing: 6) {
+                    Image(systemName: "brain.head.profile")
+                        .interfaceFont(size: 11)
+                    Text(config.discoveredEffortLevels.isEmpty
+                         ? "Effort: not detected"
+                         : "Effort: \(config.discoveredEffortLevels.map(\.displayName).joined(separator: ", "))")
+                        .interfaceFont(size: 10)
+                    if config.effortDropdown != nil {
+                        Text("· selector available")
+                            .interfaceFont(size: 10)
+                            .foregroundColor(Color.mimo.success)
+                    }
+                }
                 .foregroundColor(Color.mimo.textMuted)
-
-            // Custom models — manually add any model id (duplicates with
-            // auto-discovered are allowed; they just become separate entries).
-            CustomModelEditor(config: $config, onSave: onSave)
+            }
 
             // Delay + keep-alive
             HStack(spacing: 12) {
@@ -418,12 +437,11 @@ struct WebProviderLoginView: View {
 
     @State private var detectResult: DetectResult?
     @State private var capturedCookies: [BrowserCookie] = []
-    @State private var showElementPicker = false
-    @State private var pickedElement: PickedElement?
 
-    // Capture allowed when we have detected models or user picked selector
+    // A session may only be captured after MiMo Auto has found at least one
+    // real model. The explicit discovery action is the way out of this gate.
     private var canCapture: Bool {
-        config.discoveredModels.isEmpty == false || config.customModelSelector != nil
+        !config.discoveredModels.isEmpty
     }
 
     enum DetectResult: Identifiable {
@@ -435,14 +453,6 @@ struct WebProviderLoginView: View {
             case .failed(let e): return "failed-\(e)"
             }
         }
-    }
-
-    struct PickedElement: Identifiable {
-        let id = UUID()
-        let selector: String
-        let text: String
-        let tag: String
-        let className: String
     }
 
     var body: some View {
@@ -464,30 +474,32 @@ struct WebProviderLoginView: View {
                         .interfaceFont(size: 10).foregroundColor(Color.mimo.warning)
                 }
 
-                // Element picker (ublock-style) — pick any DOM element
-                Button(action: { showElementPicker.toggle() }) {
-                    Image(systemName: showElementPicker ? "viewfinder.circle.fill" : "viewfinder")
-                        .interfaceFont(size: 14)
-                        .foregroundColor(showElementPicker ? Color.mimo.success : Color.mimo.textSecondary)
+                HStack(spacing: 4) {
+                    MiMoLogoMark(size: 16)
+                    Text("MiMo Auto model selection")
+                        .interfaceFont(size: 11)
+                        .foregroundColor(Color.mimo.brand)
                 }
-                .buttonStyle(.plain)
-                .help(L.t(AppLocalizationKey.locPickElement))
+                .help("Models are detected after login and selected in the chat composer")
 
-                // Detect models button
-                Button(action: detectModelsFromPage) {
+                Button(action: findModelsViaMiMoAuto) {
                     HStack(spacing: 4) {
                         if case .detecting = detectResult {
                             ProgressView().controlSize(.small)
                         } else {
-                            Image(systemName: "square.grid.2x2")
+                            MiMoLogoMark(size: 14)
                         }
-                        Text(L.t(AppLocalizationKey.locWebDetectModels))
+                        Text("Detect with MiMo Auto")
+                            .interfaceFont(size: 11)
                     }
-                    .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.brand)
                 }
                 .buttonStyle(.plain)
-                .help(L.t(AppLocalizationKey.locWebDetectModelsHelp))
+                .disabled({
+                    if case .detecting = detectResult { return true }
+                    return false
+                }())
+                .help("Detect current models from the authenticated web page")
 
                 // Capture only enabled when we have models OR user explicitly wants session
                 Button(action: capture) {
@@ -497,7 +509,7 @@ struct WebProviderLoginView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(!canCapture)
-                .help(canCapture ? "Save session & models" : "Detect or pick models first")
+                .help(canCapture ? "Save session & models" : "Detect models first")
 
                 // Close button (always available)
                 Button(action: { dismiss() }) {
@@ -519,9 +531,6 @@ struct WebProviderLoginView: View {
             Divider()
             ZStack {
                 WebViewRepresentable(webView: webView, url: config.chatURL)
-                if showElementPicker {
-                    ElementPickerOverlay(webView: webView, pickedElement: $pickedElement, isShowing: $showElementPicker)
-                }
             }
         }
         .frame(width: 900, height: 640)
@@ -530,15 +539,10 @@ struct WebProviderLoginView: View {
             if let store = WebSessionManager.restore(providerId: config.id, homeDirectory: FileManager.default.homeDirectoryForCurrentUser) {
                 capturedCookies = store.cookies
             }
-        }
-        .sheet(item: $pickedElement) { element in
-            ElementDetailSheet(element: element, config: config, onApply: { selector in
-                // Apply picked selector as model dropdown
-                var updated = config
-                updated.customModelSelector = selector
-                let _ = WebProviderStore.upsert(updated, in: WebProviderStore.load())
-                WebProviderStore.save(WebProviderStore.load())
-            })
+            // Automatically discover models in the authenticated page. The
+            // result feeds the shared chat model selector; there is no second
+            // manual model picker in this browser sheet.
+            findModelsViaMiMoAuto()
         }
     }
 
@@ -576,7 +580,7 @@ struct WebProviderLoginView: View {
         .background(Color.mimo.surface)
     }
 
-    private func detectModelsFromPage() {
+    private func findModelsViaMiMoAuto() {
         Task {
             await MainActor.run { detectResult = .detecting }
             let bridge = WKWebViewBrowserBridge(webView: webView, selectors: WebVendorSelectors(input: "", sendButton: "", responseContainer: "", stopButton: ""))
@@ -584,23 +588,21 @@ struct WebProviderLoginView: View {
                 ?? (try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id))?.modelDropdown
                 ?? ""
             if dropdownSelector.isEmpty {
-                await MainActor.run { detectResult = .failed("No selector. Use 🔎 to pick an element, or wait for auto-detect.") }
+                await MainActor.run { detectResult = .failed("No selector found for this vendor.") }
                 return
             }
             // Wait for full page hydration (up to 10s)
-            var selectorFound = false
             for _ in 0..<40 {
                 if (try? await bridge.exists(selector: dropdownSelector)) == true {
-                    selectorFound = true
                     break
                 }
                 try? await Task.sleep(nanoseconds: 250_000_000)
             }
-            // Try to discover (discover() handles "New Chat" fallback internally)
+            // Try to discover models from the dropdown
             let models = await WebModelDiscovery.discover(using: bridge, dropdownSelector: dropdownSelector, vendor: config.vendor) ?? []
             await MainActor.run {
                 if models.isEmpty {
-                    detectResult = .failed("No models in dropdown. Try a different element with 🔎.")
+                    detectResult = .failed("No models found in dropdown.")
                 } else {
                     detectResult = .found(models)
                     // Save discovered models to store AND update local config
@@ -612,17 +614,6 @@ struct WebProviderLoginView: View {
                 }
             }
         }
-    }
-
-    /// Triggered when user picks an element via the viewfinder
-    private func usePickedElementAsSelector(_ element: PickedElement) {
-        var updated = config
-        updated.customModelSelector = element.selector
-        WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
-        // Update local config so canCapture becomes true
-        config = updated
-        // Immediately try to detect models with new selector
-        detectModelsFromPage()
     }
 
     private func capture() {
@@ -650,174 +641,13 @@ struct WebViewRepresentable: NSViewRepresentable {
     func updateNSView(_ nsView: WKWebView, context: Context) {}
 }
 
-// MARK: - Element Picker (uBlock-style DOM inspector)
-
-struct ElementPickerOverlay: View {
+/// Keeps the persistent chat WebView attached to the AppKit hierarchy so
+/// WebKit loads pages and executes JavaScript. A cached but unattached WKWebView
+/// can be created successfully while never becoming a usable browser surface.
+struct WebChatWebViewHost: NSViewRepresentable {
     let webView: WKWebView
-    @Binding var pickedElement: WebProviderLoginView.PickedElement?
-    @Binding var isShowing: Bool
 
-    var body: some View {
-        // Invisible overlay — handles click-through to activate JS
-        Color.clear
-            .contentShape(Rectangle())
-            .onAppear { injectPickerScript() }
-            .onDisappear { removePickerScript() }
-    }
+    func makeNSView(context: Context) -> WKWebView { webView }
 
-    private func injectPickerScript() {
-        let script = """
-        (function() {
-            if (window.__mimoPickerActive) return;
-            window.__mimoPickerActive = true;
-            window.__mimoPickedElement = null;
-            window.__mimoPickingLocked = false;  // true once user clicks
-
-            let overlay = null;
-            let highlighted = null;
-
-            function makeOverlay(el) {
-                clearOverlay();
-                let rect = el.getBoundingClientRect();
-                overlay = document.createElement('div');
-                overlay.__mimoPicker = true;
-                overlay.style.cssText = 'position:fixed;z-index:999999;border:3px solid #007AFF;background:rgba(0,122,255,0.2);pointer-events:none;top:' + rect.top + 'px;left:' + rect.left + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;border-radius:6px;box-shadow:0 0 8px rgba(0,122,255,0.5);';
-                document.body.appendChild(overlay);
-            }
-
-            function clearOverlay() {
-                if (overlay) { overlay.remove(); overlay = null; }
-            }
-
-            // Mouseover to highlight (only when not locked)
-            document.addEventListener('mouseover', function(e) {
-                if (!window.__mimoPickerActive || window.__mimoPickingLocked) return;
-                let target = e.target;
-                while (target && target !== document.body) {
-                    if (target.__mimoPicker) return;
-                    if (target.tagName && !['HTML','HEAD','BODY','SCRIPT','STYLE','META','LINK','#DOCUMENT'].includes(target.tagName)) {
-                        highlighted = target;
-                        makeOverlay(target);
-                        return;
-                    }
-                    target = target.parentElement;
-                }
-            }, true);
-
-            // Named handlers so we can remove them later (arguments.callee fails in strict mode)
-            function mimoHandleMousedown(e) {
-                if (!window.__mimoPickerActive || window.__mimoPickingLocked) return;
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                window.__mimoPickingLocked = true;
-                // Lock overlay in place — turn green
-                if (overlay) {
-                    overlay.style.borderColor = '#34C759';
-                    overlay.style.background = 'rgba(52,199,89,0.2)';
-                    overlay.style.boxShadow = '0 0 8px rgba(52,199,89,0.5)';
-                }
-                return false;
-            }
-
-            function mimoHandleClick(e) {
-                if (!window.__mimoPickerActive) return;
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-
-                if (highlighted) {
-                    let text = (highlighted.innerText || highlighted.textContent || '').trim();
-                    let cls = (highlighted.className && typeof highlighted.className === 'string') ? highlighted.className : '';
-                    let tag = highlighted.tagName ? highlighted.tagName.toLowerCase() : 'div';
-
-                    let sel = '';
-                    if (highlighted.id) {
-                        sel = '#' + highlighted.id;
-                    } else if (cls && cls.length < 120) {
-                        let parts = cls.trim().split(/\\s+/).filter(function(s) { return s.length > 0 && s.length < 40; }).slice(0, 3);
-                        let cleanParts = parts.map(function(s) { return '.' + s.replace(/[^a-zA-Z0-9_-]/g, function(m) { return '\\\\' + m; }); });
-                        sel = tag + cleanParts.join('');
-                        if (cleanParts.length === 0) sel = tag;
-                    } else {
-                        sel = tag;
-                    }
-
-                    window.__mimoPickedElement = { selector: sel, text: text.substring(0, 200), tag: tag, className: cls.substring(0, 100) };
-                    window.__mimoPickerActive = false;
-                    clearOverlay();
-                    document.removeEventListener('click', mimoHandleClick, true);
-                    document.removeEventListener('mousedown', mimoHandleMousedown, true);
-                }
-                return false;
-            }
-
-            document.addEventListener('mousedown', mimoHandleMousedown, true);
-            document.addEventListener('click', mimoHandleClick, true);
-        })();
-        """
-        webView.evaluateJavaScript(script, completionHandler: nil)
-    }
-
-    private func removePickerScript() {
-        webView.evaluateJavaScript("window.__mimoPickerActive = false;", completionHandler: nil)
-        // Read picked element
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            self.webView.evaluateJavaScript("JSON.stringify(window.__mimoPickedElement || {})") { result, _ in
-                if let json = result as? String,
-                   let data = json.data(using: .utf8),
-                   let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let selector = dict["selector"] as? String, !selector.isEmpty {
-                    let element = WebProviderLoginView.PickedElement(
-                        selector: selector,
-                        text: dict["text"] as? String ?? "",
-                        tag: dict["tag"] as? String ?? "",
-                        className: dict["className"] as? String ?? ""
-                    )
-                    DispatchQueue.main.async {
-                        self.pickedElement = element
-                        self.isShowing = false
-                    }
-                } else {
-                    DispatchQueue.main.async { self.isShowing = false }
-                }
-            }
-        }
-    }
-}
-
-struct ElementDetailSheet: View {
-    let element: WebProviderLoginView.PickedElement
-    let config: WebProviderConfig
-    let onApply: (String) -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(L.t(AppLocalizationKey.locPickerTitle)).font(.headline)
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack { Text(L.t(AppLocalizationKey.locPickerSelector)).bold(); Text(element.selector).font(.system(.body, design: .monospaced)) }
-                    HStack { Text(L.t(AppLocalizationKey.locPickerTag)).bold(); Text(element.tag) }
-                    if !element.className.isEmpty {
-                        HStack { Text(L.t(AppLocalizationKey.locPickerClass)).bold(); Text(element.className).font(.system(.caption, design: .monospaced)) }
-                    }
-                    HStack { Text(L.t(AppLocalizationKey.locPickerText)).bold(); Text(element.text.prefix(100)).font(.caption) }
-                }
-            .padding()
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(8)
-
-            HStack {
-                Button(L.t(AppLocalizationKey.locCancel), role: .cancel) { dismiss() }
-                Spacer()
-                Button(L.t(AppLocalizationKey.locUseAsModelSelector)) {
-                    onApply(element.selector)
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding()
-        .frame(width: 500)
-    }
+    func updateNSView(_ nsView: WKWebView, context: Context) {}
 }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var appState: AppState
+    @State private var apiPendingMessage: String?
 
     /// Persisted, user-resizable sidebar width (plan Раздел 11 Блок 1).
     @AppStorage("sidebarWidth") private var sidebarWidth: Double = 260
@@ -23,11 +24,7 @@ struct ContentView: View {
 
             VStack(spacing: 0) {
                 TopBarView()
-                
-                if TaskHeaderVisibility.shouldShow(selectedSession: appState.selectedSession) {
-                    TaskHeaderView()
-                }
-                
+
                 ChatPanelView()
                 
                 if appState.showTerminal {

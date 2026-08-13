@@ -13,6 +13,8 @@ enum SendRoute: Equatable {
     case openAICompatible(baseURL: String, apiKey: String?, model: String)
     /// Web-chat provider driven through the browser (WebChatDriver).
     case web(configID: String)
+    /// Built-in MiMo-Auto provider (direct to MiMo API).
+    case mimoAuto
     /// Nothing usable selected.
     case none
 }
@@ -28,6 +30,10 @@ enum SendRouteResolver {
         localProviders: [LocalProviderConfig],
         webProviderIDs: [String]
     ) -> SendRoute {
+        // 0) Built-in MiMo-Auto provider (always present).
+        if selectedProviderID == MiMoAutoProvider.builtInID {
+            return .mimoAuto
+        }
         // 1) Web provider (option id "web:<id>").
         if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
            webProviderIDs.contains(webID) {

@@ -622,6 +622,53 @@ struct ChatPanelView: View {
                 return
             }
 
+            // ── Built-in MiMo-Auto provider branch (direct API) ─
+            if case .mimoAuto = route {
+                let store = MiMoAutoProviderStore.shared
+                let model = appState.effectiveSelectedModel()
+                await MainActor.run { store.selectModel(model) }
+                let messages = MessagePartsBuilder.build(text: text, files: files, images: images)
+                    .compactMap { part -> MiMoAutoClient.MiMoMessage? in
+                        if part["type"] as? String == "text" {
+                            return MiMoAutoClient.MiMoMessage(role: "user", content: part["text"] as? String ?? "")
+                        }
+                        return nil
+                    }
+                do {
+                    var streamedContent = ""
+                    for try await chunk in store.streamChat(messages: messages) {
+                        streamedContent += chunk
+                        await MainActor.run {
+                            self.messageStore.update(id: assistantID) { m in
+                                m.content = streamedContent
+                                m.isStreaming = true
+                            }
+                        }
+                    }
+                    await MainActor.run {
+                        self.messageStore.update(id: assistantID) { m in
+                            m.isFinished = true
+                            m.isStreaming = false
+                        }
+                        self.appState.isLoading = false
+                        self.appState.isStreaming = false
+                        self.currentAssistantMessageID = nil
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.messageStore.update(id: assistantID) { m in
+                            m.content = "MiMo-Auto error: \(error.localizedDescription)"
+                            m.isFinished = true
+                            m.isStreaming = false
+                        }
+                        self.appState.isLoading = false
+                        self.appState.isStreaming = false
+                        self.currentAssistantMessageID = nil
+                    }
+                }
+                return
+            }
+
             // ── Web-chat provider branch (browser tool-emulation) ─
             if case .web(let configID) = route {
                 guard let cfg = WebProviderStore.load().first(where: { $0.id == configID }) else {

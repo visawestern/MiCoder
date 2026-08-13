@@ -5,15 +5,21 @@ import AppKit
 import WebKit
 #endif
 
+/// Global reference for local API server access. Set during app startup.
+var __miCoderAppState: AppState?
+
 @main
 struct MiCoderApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var appState = AppState()
     
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(appState)
+                .onAppear {
+                    __miCoderAppState = appState
+                    MiCoderAPIServer.shared.start()
+                }
                 .frame(minWidth: 900, idealWidth: 1200, maxWidth: .infinity,
                        minHeight: 600, idealHeight: 750, maxHeight: .infinity)
                 .background(Color.mimo.background)
@@ -60,11 +66,8 @@ struct MiCoderApp: App {
             CommandMenu("Actions") {
                 Button("Undo Last File Change") {
                     if let sessionID = appState.selectedSession?.id {
-                        // Try per-project undo first (Round 7), fall back to legacy global undo
                         if let projectUndo = appState.projectUndoManager {
                             _ = try? projectUndo.undoMostRecent(sessionId: sessionID)
-                        } else {
-                            _ = try? UndoRedoManager.shared.undo(sessionId: sessionID)
                         }
                     }
                 }
@@ -76,6 +79,10 @@ struct MiCoderApp: App {
 }
 
 class AppState: ObservableObject {
+    let instanceID = UUID().uuidString.prefix(8)
+    deinit {
+        MiCoderAPIServer.appendLog("💀 AppState.deinit: id=\(instanceID)")
+    }
     /// The UserDefaults instance used for persistence.  Public so tests can
     /// inject a dedicated instance (e.g. `UserDefaults(suiteName:)`) instead
     /// of racing on the shared `.standard` domain.
@@ -98,6 +105,7 @@ class AppState: ObservableObject {
     @Published var isLoading = false
     @Published var selectedModel = ""
     @Published var selectedProviderID = ""
+    @Published private(set) var providerConnectivity: [String: Bool] = [:]
     @Published var maxTokens = true
     @Published var askBeforeChanges = true
     @Published var sidebarVisible = true
@@ -120,6 +128,9 @@ class AppState: ObservableObject {
     
     @Published var workspaces: [Workspace] = []
     private var isNavigatingHistory = false
+    /// Pending message from local API. ChatPanelView observes this to trigger sends.
+    @Published var apiPendingMessage: String?
+    
     /// Guards navigationHistory/navigationIndex mutations. The `selectedWorkspace`
     /// didSet can fire from any thread (tests, background init tasks), so the
     /// truncate+append must be atomic or removeSubrange races into an
@@ -129,8 +140,6 @@ class AppState: ObservableObject {
     
     @Published var selectedWorkspace: Workspace? {
         didSet {
-            DatabaseBridge.shared.setActiveProject(path: selectedWorkspace?.path)
-
             guard let workspace = selectedWorkspace else { return }
 
             // E04 (Раздел 8 п.48): open-time integrity check — a corrupted
@@ -287,7 +296,20 @@ class AppState: ObservableObject {
         guard let path = selectedWorkspace?.path else { return nil }
         return try? ProjectUndoManager(projectPath: path)
     }
-    
+
+    /// True when running under the test runner. Tests construct hundreds of
+    /// AppState instances on arbitrary threads; the init-time registry dedup
+    /// and the fire-and-forget DB task would (a) VACUUM/auto-archive the real
+    /// `~/.micoder` database and dedup the real registry, and (b) mutate
+    /// `@Published` state on the MainActor while test threads mutate the same
+    /// instance — a data race that intermittently SIGSEGVs the full test suite
+    /// at a random `@Published` accessor. Both are skipped under tests, which
+    /// exercise `initializeDatabase()` explicitly.
+    private static let isRunningTests: Bool = {
+        if ProcessInfo.processInfo.environment["MIMO_TEST_MODE"] == "1" { return true }
+        return NSClassFromString("XCTestCase") != nil
+    }()
+
     // MiMo Serve connection manager (now optional)
     @Published var serverConnectionManager: MimoServeConnectionManager?
 
@@ -297,6 +319,7 @@ class AppState: ObservableObject {
         self.mimoClient = MimoServeClient(host: host, port: port)
         self.serverConnectionManager = MimoServeConnectionManager(client: mimoClient)
         self.defaults = defaults
+        MiCoderAPIServer.appendLog("🆕 AppState.init: id=\(instanceID)")
 
         // Load persisted values from the injected defaults domain
         selectedModel = defaults.string(forKey: "com.micoder.selectedModel") ?? ""
@@ -325,6 +348,8 @@ class AppState: ObservableObject {
         LocalizationRuntime.currentLanguage = appLanguage
 
         migrateLegacyPreferences()
+
+        guard !Self.isRunningTests else { return }
 
         // Dedup the project registry (plan Раздел 8 п.47): the old single DB
         // could leave multiple rows per canonical path (UUID pileup, Блок 1 п.4).
@@ -397,6 +422,14 @@ class AppState: ObservableObject {
             serverProviders: serverProviders,
             customProviders: customProviders
         )
+        // Built-in MiMo-Auto provider (always present, non-removable).
+        let mimoStore = MiMoAutoProviderStore.shared
+        options.append(ProviderOption(
+            id: MiMoAutoProvider.builtInID,
+            name: mimoStore.provider.displayName,
+            isCustom: false,
+            isConnected: mimoStore.provider.isKeyValid || mimoStore.provider.isFreeTier
+        ))
         // Local providers (Ollama/OpenCode/MiMo CLI) — plan Раздел 1.
         options += LocalProviderLogic.providerOptions(from: LocalProviderLogic.load())
         // Connected web providers (only after cookies captured) — plan Раздел 13 п.4.
@@ -407,7 +440,25 @@ class AppState: ObservableObject {
         return options
     }
 
+    /// Effective selected model — for web providers resolve from their config
+    /// since AppState.selectedModel is empty for web providers.
+    func effectiveSelectedModel() -> String {
+        if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
+           let cfg = WebProviderStore.load().first(where: { $0.id == webID }),
+           !cfg.selectedModel.isEmpty {
+            return cfg.selectedModel
+        }
+        if selectedProviderID == MiMoAutoProvider.builtInID {
+            return MiMoAutoProviderStore.shared.provider.selectedModel
+        }
+        return selectedModel
+    }
+
     var modelsForSelectedProvider: [String] {
+        // Built-in MiMo-Auto provider.
+        if selectedProviderID == MiMoAutoProvider.builtInID {
+            return MiMoAutoProviderStore.shared.provider.models.map { $0.id }
+        }
         // Web provider selected → its real (discovered) models (plan Раздел 13 п.4).
         if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
            let cfg = WebProviderStore.load().first(where: { $0.id == webID }) {
@@ -449,6 +500,8 @@ class AppState: ObservableObject {
 
     func selectProvider(_ providerID: String, persistPreference: Bool = true) {
         selectedProviderID = providerID
+        providerConnectivity[providerID] = false
+        Task { await refreshProviderConnectivity(providerID) }
         defaults.set(providerID, forKey: "com.micoder.selectedProviderID")
         if persistPreference {
             defaults.set(providerID, forKey: "com.micoder.preferredProviderID")
@@ -463,6 +516,17 @@ class AppState: ObservableObject {
             let models = WebProviderConnectivity.models(for: config)
             selectedModel = models.contains(selectedModel) ? selectedModel : (models.first ?? "")
             defaults.set(selectedModel, forKey: "com.micoder.selectedModel")
+            selectedVariant = ""
+            return
+        }
+
+        if providerID == MiMoAutoProvider.builtInID {
+            let mimoProvider = MiMoAutoProviderStore.shared.provider
+            let model = mimoProvider.models.contains(where: { $0.id == mimoProvider.selectedModel })
+                ? mimoProvider.selectedModel
+                : (mimoProvider.models.first?.id ?? MiMoAutoProvider.builtInID)
+            selectedModel = model
+            defaults.set(model, forKey: "com.micoder.selectedModel")
             selectedVariant = ""
             return
         }
@@ -486,6 +550,52 @@ class AppState: ObservableObject {
                customProviders: customProviders
            ) {
             agentMode = .build
+            Task { @MainActor in
+                self.notificationService.info(
+                    title: L.t(AppLocalizationKey.locModeSwitched),
+                    message: L.t(AppLocalizationKey.locPlanNotSupported)
+                )
+            }
+        }
+    }
+
+    @MainActor
+    private func refreshProviderConnectivity(_ providerID: String) async {
+        guard !providerID.isEmpty else { return }
+        if serverConnected {
+            providerConnectivity[providerID] = true
+            return
+        }
+        if let webID = WebProviderConnectivity.configID(fromOptionID: providerID),
+           let config = WebProviderStore.load().first(where: { $0.id == webID }) {
+            providerConnectivity[providerID] = WebProviderConnectivity.isConnected(
+                config,
+                homeDirectory: FileManager.default.homeDirectoryForCurrentUser
+            )
+            return
+        }
+        if let local = LocalProviderLogic.load().first(where: { $0.id == providerID && $0.isEnabled }) {
+            providerConnectivity[providerID] = await probeProviderURL(local.healthURL)
+            return
+        }
+        if let custom = customProviders.first(where: { $0.id == providerID && $0.isEnabled }) {
+            let base = custom.baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            providerConnectivity[providerID] = await probeProviderURL("\(base)/models")
+            return
+        }
+        providerConnectivity[providerID] = false
+    }
+
+    private func probeProviderURL(_ string: String) async -> Bool {
+        guard let url = URL(string: string) else { return false }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 5
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            guard let status = (response as? HTTPURLResponse)?.statusCode else { return false }
+            return (200..<500).contains(status)
+        } catch {
+            return false
         }
     }
 
@@ -511,6 +621,14 @@ class AppState: ObservableObject {
             if selectedProviderID.isEmpty, let firstServer = serverProviders.first {
                 selectProvider(firstServer.id, persistPreference: false)
             }
+            return
+        }
+
+        // MiMo-Auto is the free default route. Do not wait for a serve model
+        // list before making the composer usable on a fresh installation.
+        if selectedProviderID.isEmpty && preferredProviderID.isEmpty,
+           options.contains(where: { $0.id == MiMoAutoProvider.builtInID }) {
+            selectProvider(MiMoAutoProvider.builtInID, persistPreference: false)
             return
         }
 
@@ -907,6 +1025,9 @@ class AppState: ObservableObject {
             }
             var updated = config
             updated.discoveredModels = found
+            if !updated.allModels.contains(updated.selectedModel) {
+                updated.selectedModel = updated.allModels.first ?? ""
+            }
             WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
             if selectedProviderID == "web:\(config.id)" {
                 selectProvider(selectedProviderID, persistPreference: false)
@@ -1005,6 +1126,17 @@ class AppState: ObservableObject {
         WebProviderStore.load().map { $0.id }
     }
 
+    var selectedProviderConnected: Bool {
+        if serverConnected { return true }
+        guard !selectedProviderID.isEmpty else { return false }
+        if let checked = providerConnectivity[selectedProviderID] { return checked }
+        if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
+           let config = WebProviderStore.load().first(where: { $0.id == webID }) {
+            return WebProviderConnectivity.isConnected(config, homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+        }
+        return false
+    }
+
     var currentSessionGoal: String? { selectedSession?.sessionGoal }
 
     /// Set the goal on the selected session, persist in-memory and to the DB
@@ -1060,6 +1192,7 @@ class AppState: ObservableObject {
         for provider in customProviders where provider.isEnabled {
             loadModelsFromCustomProvider(provider)
         }
+        validateAndReconcileSelections()
     }
     
     func connectToServe(hostname: String, port: Int) async {
@@ -1495,6 +1628,7 @@ class AppState: ObservableObject {
             sessions.insert(session, at: 0)
         }
         selectedSession = session
+        MiCoderAPIServer.appendLog("📝 upsertSession: id=\(session.id), sessions=\(sessions.count), selected=\(selectedSession?.id ?? "nil")")
     }
     
     func registerSessionFromServer(id: String, title: String, directory: String) {
@@ -1508,9 +1642,11 @@ class AppState: ObservableObject {
     }
     
     @discardableResult
+    @MainActor
     func addWorkspace(path: String, branch: String? = nil) -> Workspace {
         let normalized = ChatSession.normalizedPath(path)
         if let existing = workspaces.first(where: { ChatSession.normalizedPath($0.path) == normalized }) {
+            createOrUpdateProject(id: existing.id, name: existing.name, path: normalized, gitBranch: existing.branch)
             selectedWorkspace = existing
             return existing
         }
@@ -1527,6 +1663,7 @@ class AppState: ObservableObject {
         )
         workspaces.append(workspace)
         selectedWorkspace = workspace
+        createOrUpdateProject(id: workspace.id, name: workspace.name, path: normalized, gitBranch: branch)
 
         // Round 14 (п.11/п.32): registering here fixes the orphaned registry —
         // without it the storage panel stayed empty in real use.

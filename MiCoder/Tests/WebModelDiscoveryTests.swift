@@ -39,7 +39,7 @@ struct WebModelDiscoveryTests {
         func waitForSelector(selector: String, timeout: Int) async throws {
             if selector.contains("model-item") && dropdownOpen { return }
         }
-        func readModelItems() async throws -> [String] {
+        func readModelItems(modelItemSelector: String) async throws -> [String] {
             guard dropdownOpen else { return [] }
             return ["Быстрый", "K3", "K3 Swarm"]
         }

@@ -10,24 +10,23 @@ struct WebProviderConfigTests {
         #expect(WebChatVendor.qwen.defaultChatURL == "https://chat.qwen.ai/")
         #expect(WebChatVendor.chatgpt.defaultChatURL == "https://chatgpt.com/")
         #expect(WebChatVendor.kimi.defaultModels.contains("k2-thinking"))
-        #expect(WebChatVendor.chatgpt.defaultModels.contains("o3"))
+        // ChatGPT models list is empty by design (models change frequently)
+        #expect(WebChatVendor.chatgpt.defaultModels.isEmpty)
     }
 
-    @Test func configUsesVendorDefaults() {
+    @Test func configStartsWithoutGuessedWebModel() {
         let cfg = WebProviderConfig(vendor: .kimi)
         #expect(cfg.displayName == "Kimi")
         #expect(cfg.chatURL == "https://www.kimi.com/")
-        #expect(cfg.selectedModel == "k2")
+        #expect(cfg.selectedModel.isEmpty)
         #expect(cfg.effort == .medium)
         #expect(cfg.toolCallDelayMs == 800)
         #expect(cfg.maxToolIterations == 25)
     }
 
-    @Test func notReadyUntilToSAcknowledged() {
-        var cfg = WebProviderConfig(vendor: .qwen)
-        #expect(!cfg.isReady)               // ToS not acknowledged
-        cfg.acknowledgedToS = true
-        #expect(cfg.isReady)
+    @Test func alwaysReady() {
+        let cfg = WebProviderConfig(vendor: .qwen)
+        #expect(cfg.isReady)               // always ready — ToS no longer blocks
     }
 
     @Test func configRoundTripsThroughCodable() throws {
@@ -37,6 +36,12 @@ struct WebProviderConfigTests {
         #expect(decoded == cfg)
         #expect(decoded.effort == .high)
         #expect(decoded.toolCallDelayMs == 1200)
+    }
+
+    @Test func russianEffortLabelsMapToDistinctLevels() {
+        #expect(WebModelListParser.normalizeEffort("Быстрый", vendor: .kimi) == .low)
+        #expect(WebModelListParser.normalizeEffort("Стандартный", vendor: .kimi) == .medium)
+        #expect(WebModelListParser.normalizeEffort("Высокий", vendor: .kimi) == .high)
     }
 
     @Test func storePersistsAndUpserts() {

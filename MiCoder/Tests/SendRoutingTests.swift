@@ -7,6 +7,42 @@ struct SendRoutingTests {
 
     // MARK: - SendRouteResolver
 
+    @Test func mimoAutoRoutesToDirectMiMoAPI() {
+        let route = SendRouteResolver.route(
+            selectedProviderID: MiMoAutoProvider.builtInID,
+            selectedModel: MiMoAutoProvider.builtInID,
+            serverConnected: false,
+            isACP: false,
+            customProviders: [],
+            localProviders: [],
+            webProviderIDs: []
+        )
+        #expect(route == .mimoAuto)
+        #expect(!SendRouteResolver.requiresServer(route))
+    }
+
+    @Test func everySupportedWebProviderUsesBrowserRoute() {
+        for id in ["kimi", "qwen", "chatgpt"] {
+            let route = SendRouteResolver.route(
+                selectedProviderID: "web:\(id)", selectedModel: "live-model",
+                serverConnected: false, isACP: false,
+                customProviders: [], localProviders: [], webProviderIDs: [id]
+            )
+            #expect(route == .web(configID: id))
+            #expect(!SendRouteResolver.requiresServer(route))
+        }
+    }
+
+    @Test func everySupportedWebProviderPassesReadinessWithoutServe() {
+        for id in ["kimi", "qwen", "chatgpt"] {
+            #expect(SendReadinessLogic.connectionValidationError(
+                serverConnected: false,
+                selectedProviderID: "web:\(id)",
+                webProviderIDs: [id]
+            ) == nil)
+        }
+    }
+
     @Test func webProviderRoutesToWeb() {
         let route = SendRouteResolver.route(
             selectedProviderID: "web:abc", selectedModel: "k2",

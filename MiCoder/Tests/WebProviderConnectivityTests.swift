@@ -26,11 +26,11 @@ struct WebProviderConnectivityTests {
         #expect(!WebProviderConnectivity.isConnected(cfg, homeDirectory: home))
     }
 
-    @Test func notConnectedWithoutToS() throws {
+    @Test func connectedEvenWithoutToSAcknowledged() throws {
         let home = try makeTempHome()
         let cfg = WebProviderConfig(vendor: .kimi, acknowledgedToS: false)
         try persistCookies(home, id: cfg.id, expiry: 9_999_999_999)
-        #expect(!WebProviderConnectivity.isConnected(cfg, homeDirectory: home))
+        #expect(WebProviderConnectivity.isConnected(cfg, homeDirectory: home))
     }
 
     @Test func connectedAfterCookiesAndToS() throws {
@@ -61,7 +61,7 @@ struct WebProviderConnectivityTests {
 
     @Test func modelsUseDiscoveredWhenPresent() {
         var cfg = WebProviderConfig(vendor: .kimi)
-        #expect(WebProviderConnectivity.models(for: cfg) == WebChatVendor.kimi.defaultModels)  // fallback
+        #expect(WebProviderConnectivity.models(for: cfg).isEmpty)
         cfg.discoveredModels = [WebProviderModel(name: "kimi-real-1"), WebProviderModel(name: "kimi-real-2")]
         #expect(WebProviderConnectivity.models(for: cfg) == ["kimi-real-1", "kimi-real-2"])   // real wins
     }

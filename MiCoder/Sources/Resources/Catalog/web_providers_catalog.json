@@ -25,7 +25,8 @@
         "modelDropdown": ".current-model",
         "modelButton": ".current-model",
         "modelItem": "div.model-item span.name",
-        "effortDropdown": "div.effort-item",
+        "effortDropdown": "div.effort-item, [class*='effort']",
+        "effortItem": "div.effort-item",
         "newChatTexts": [
           "Новый чат",
           "New Chat"
@@ -74,7 +75,8 @@
         "modelDropdown": "[class*=\"model-selector-text\"]",
         "modelButton": "[class*=\"model-selector-text\"]",
         "modelItem": "[class*='model-item-name']",
-        "effortDropdown": "[class*='effort'], [class*='thinking']",
+        "effortDropdown": "[class*='effort'], [class*='thinking'], [class*='qwen-select-thinking']",
+        "effortItem": "[class*='effort-option'], [class*='thinking-option'], [role='option']",
         "newChatTexts": [
           "Начать",
           "Start",
@@ -90,24 +92,7 @@
       "name": "ChatGPT (OpenAI)",
       "chatURL": "https://chatgpt.com/",
       "loginURL": "https://chatgpt.com/auth/login",
-      "models": [
-        "gpt-4o",
-        "gpt-4o-mini",
-        "gpt-4.1",
-        "gpt-4.1-mini",
-        "gpt-4.1-nano",
-        "o1",
-        "o1-pro",
-        "o1-mini",
-        "o3",
-        "o3-mini",
-        "o3-pro",
-        "o4-mini",
-        "o4-mini-high",
-        "gpt-4",
-        "gpt-4-turbo",
-        "gpt-3.5-turbo"
-      ],
+      "models": [],
       "effortToggle": "reasoning-effort",
       "selectors": {
         "input": "#prompt-textarea, div[contenteditable='true']",
@@ -115,9 +100,12 @@
         "responseContainer": "div[data-message-author-role='assistant']",
         "stopButton": "button[data-testid='stop-button']",
         "modelDropdown": "button[data-testid*=\"model-switcher\"]",
-        "effortDropdown": "button[aria-label*='reasoning' i], button[aria-label*='effort' i], div[aria-label*='reasoning' i], [data-testid*='reasoning' i], [data-testid*='model-switcher' i]",
+        "modelButton": "button[data-testid*=\"model-switcher\"]",
+        "modelItem": "[role='option'], [class*='option'], [class*='model']",
+        "effortDropdown": "[data-testid*='reasoning'], [data-testid*='effort'], button[aria-label*='Think'], button[aria-label*='Reasoning'], [class*='reasoning'], [class*='thinking']",
+        "effortItem": "[role='option'], [class*='option']",
         "loginIndicator": "input[name='username'], button:has-text('Log in')",
-        "modelButton": "button[data-testid*=\"model-switcher\"]"
+        "newChatTexts": ["New chat", "新对话"]
       }
     }
   ]

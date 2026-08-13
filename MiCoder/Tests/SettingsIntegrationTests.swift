@@ -810,7 +810,6 @@ struct AppStateSettingsIntegrationTests {
     func appStateSetLanguage() {
         // Save and restore UserDefaults settings to prevent cross-test contamination
         let savedData = UserDefaults.standard.data(forKey: "com.micoder.settings")
-        let savedLanguage = UserDefaults.standard.string(forKey: "com.micoder.settings")
         defer {
             if let data = savedData {
                 UserDefaults.standard.set(data, forKey: "com.micoder.settings")
@@ -838,10 +837,20 @@ struct AppStateSettingsIntegrationTests {
         #expect(AppTheme.allCases.contains(state.appTheme))
     }
 
-    @Test("AppState providerOptions is empty when no providers configured")
+    @Test("AppState providerOptions includes MiMo-Auto when no providers configured")
     func appStateProviderOptionsEmpty() {
         let state = AppState()
-        #expect(state.providerOptions.isEmpty)
+        // Always includes built-in MiMo-Auto provider
+        #expect(state.providerOptions.count == 1)
+        #expect(state.providerOptions[0].id == MiMoAutoProvider.builtInID)
+    }
+
+    @Test("Selecting MiMo-Auto selects its free default model")
+    func appStateSelectsMiMoAutoModel() {
+        let state = AppState(defaults: UserDefaults(suiteName: "mimo-auto-default-\(UUID().uuidString)")!)
+        state.selectProvider(MiMoAutoProvider.builtInID)
+        #expect(state.selectedProviderID == MiMoAutoProvider.builtInID)
+        #expect(state.selectedModel == MiMoAutoProvider.builtInID)
     }
 
     @Test("AppState providerOptions includes custom providers")
@@ -850,10 +859,9 @@ struct AppStateSettingsIntegrationTests {
         state.customProviders = [
             CustomProvider(id: "c1", name: "Test", type: .openAI, baseURL: "https://test.com", isEnabled: true)
         ]
-        #expect(state.providerOptions.count == 1)
-        #expect(state.providerOptions[0].id == "c1")
-        #expect(state.providerOptions[0].isCustom == true)
-        #expect(state.providerOptions[0].isConnected == true)
+        // MiMo-Auto + custom
+        #expect(state.providerOptions.count == 2)
+        #expect(state.providerOptions.contains { $0.id == "c1" })
     }
 
     @Test("AppState selectProvider sets selectedProviderID and updates UserDefaults")

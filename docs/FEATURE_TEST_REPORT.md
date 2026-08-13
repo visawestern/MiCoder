@@ -1,6 +1,6 @@
 # MiCoder — Feature Test Report (canonical)
 
-Date: 2026-08-06 · Method: every user story from `FEATURE_SPREADSHEET.csv` (196 features) verified against actual code, per-screen checklists, and the full test suite (1713 tests, 234 suites).
+Date: 2026-08-10 · Method: every user story from `FEATURE_SPREADSHEET.csv` verified against actual code, per-screen checklists, and the full test suite (1849 tests, 262 suites).
 
 Canonical status source: `docs/FEATURE_SPREADSHEET.csv` (single spreadsheet — the /goal deliverable).
 This report documents the **errors found** (Phase 2), which Phase 3 fixes.
@@ -9,7 +9,7 @@ This report documents the **errors found** (Phase 2), which Phase 3 fixes.
 
 ## Baseline
 
-- Full test suite: `swift test` → 1713 tests in 234 suites, **all passing** after Round 24 fixes.
+- Full test suite: `swift test` → 1849 tests in 262 suites, **all passing** after the 2026-08-10 routing/schema fixes.
 - Feature status rollup: 168 PASS · 13 PARTIAL · 10 MISSING · 5 FUTURE.
 - PASS features with NO automated test coverage (25 — need manual/verification attention): APP-01..04, SID-02..10, SID-12..18, SID-21, CON-02/03/05, INP-07, SRCH-03. These are UI wiring claims verified by code reading in this report, not by unit tests.
 
@@ -111,6 +111,17 @@ Each fix: red test → green → update spreadsheet status → update this repor
 Remaining product work is limited to the explicitly tracked PARTIAL/MISSING/FUTURE rows in
 `FEATURE_SPREADSHEET.csv`; no red test suite remains. Continue with E14/E15, E17/E18/E19,
 E07/E22, E20/E21, and E29/E31 according to product priority.
+
+## Round 25 final (2026-08-10) — canonical project routing
+
+The post-fix loop found and fixed three storage defects: existing project
+databases could lack `messages.cost_usd`, session storage depended on mutable
+global active-project state, and invalid project ids could be redirected to
+another store. Existing schemas now add the missing usage column on open;
+session/message/archive operations resolve only through the owning project
+database; invalid paths are rejected without legacy or unassigned storage.
+
+Verification: `swift test` — **1849/1849 tests, 262/262 suites passed**.
 
 ---
 

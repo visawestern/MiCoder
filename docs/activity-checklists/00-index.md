@@ -1,61 +1,47 @@
-# Activity Checklist — MiCoder (macOS SwiftUI)
+# Актуальный чеклист активити MiCoder
 
-Папка с по-экрановыми чеклистами действий/кнопок MiCoder. Составлено **вручную по коду**
-(`MiCoder/Sources/Views/**`), без живого UI-сеанса. Последняя ручная сверка
-проводки: **2026-08-06**; полный `swift test`: **1716/1716 PASS**, 234 suite.
+Дата ручной сверки: 2026-08-11. Post-fix `swift test`: 1858/1858 tests,
+265 suites. Старая папка удалена после резервной копии:
+`/tmp/micoder-activity-checklists-20260811-123808.tar.gz`.
 
-## Методология и ограничения
+Проверка выполнена по текущему коду `MiCoder/Sources/**` и тестам. Канонический
+реестр статусов остается единственным: `docs/FEATURE_SPREADSHEET.csv`.
 
-- Источник истины — исходники Views/Components; поведение сверяется с тестами
-  (`MiCoder/Tests/**`, `swift test` ~1713 тестов).
-- «Проверено» здесь означает: элемент присутствует в коде, проводка на действие/обработчик
-  прослеживается до конечной логики. Интерактивный UI-прогон в этом окружении невозможен
-  (нет живого сеанса) — это явное ограничение метода.
-- Проверка от 2026-08-05: `swift test` собрался; при полном параллельном прогоне один
-  time-sensitive тест автодетекта провайдеров превысил свой лимит (4.78 s вместо <2.5 s),
-  а немедленный изолированный прогон `E23E24AutoDetectConfirmationTests` прошёл 20/20.
-  Это воспроизводимый риск тестовой изоляции/планировщика, не доказательство сбоя UI.
+## Ограничение
 
-## Легенда статусов
+Здесь `MANUAL` означает ручную трассировку control -> handler -> state/service ->
+result и локальный тест. Настоящие клики в WKWebView, Finder, Keychain и внешних
+аккаунтах требуют live macOS-сеанса и отмечены `PARTIAL`, а не выданы за PASS.
 
-| Статус | Значение |
-|--------|----------|
-| ✅ | Элемент есть в коде, действие/состояние прослеживается до логики |
-| ⚠️ | Элемент есть, но есть оговорка (краевой случай, UX-дыра, зависимость от конфигурации) |
-| ❌ | Элемент отсутствует / поведение не реализовано / заведомая ошибка |
+## Активити
 
-## Инвентарь экранов
-
-| Файл-источник | Размер (LOC) | Чеклист |
+| Файл | Активити | Текущее качество |
 |---|---|---|
-| `Views/SidebarView.swift` | 959 | `01-sidebar.md` |
-| `Views/ChatPanelView.swift` + компоненты ввода/сообщений | 1279 + (InputViews 778, MessageRowView 730, InputControls, InputCommandDropdownView, PasteAwareTextField 391, MessageAttachmentImportZone, ZeroInsetTextField, MarkdownTextView 279, LanguagePickerDropdown, PlanQuestionCardView, ChatImageViews, EmptyChatStateView) | `02-chat-panel.md` |
-| `Views/RightPanelView.swift` | 462 | `03-right-panel.md` |
-| `Views/BottomPanelView.swift` | 805 | `04-bottom-panel.md` |
-| `Views/SettingsView.swift` | 2960 | `05-settings.md` |
-| `Views/TopBarView.swift` | верхняя панель | `06-top-bar.md` |
-| `Views/TaskHeaderView.swift` | заголовок выбранной задачи | `07-task-header.md` |
-| `Views/StatusBarView.swift` | строка состояния | `08-status-bar.md` |
-| `Views/NewProjectSheet.swift` | создание проекта | `09-new-project.md` |
-| `Views/ContentView.swift` | корневая компоновка и модальные маршруты | `10-app-shell.md` |
-| `App/MiCoderApp.swift` | окно и системное меню macOS | `11-macos-menu.md` |
+| `01-app-shell.md` | ContentView и запуск | PASS с сетевым live-QA |
+| `02-sidebar.md` | Workspace/sidebar | PASS по коду |
+| `03-chat.md` | Composer и отправка | PASS после provider fix, live provider QA |
+| `04-settings-providers.md` | Providers и model selection | PASS по коду |
+| `05-web-login.md` | Web login/model discovery | PARTIAL без live WebKit |
+| `06-web-chat.md` | Web chat/effort/features | PARTIAL без внешних аккаунтов |
+| `07-mimo-auto.md` | MiMo-Auto provider | PASS по маршруту, network live-QA |
+| `08-project-session.md` | Project/session persistence | PASS по кодовым цепочкам |
+| `09-shell-status.md` | Top bar/status/menu | PASS по коду |
+| `10-regression-loop.md` | Post-fix test loop | In progress until full suite |
+| `13-live-qa-2026-08-11.md` | Live Kimi/ChatGPT/Qwen | Kimi/Qwen PASS; ChatGPT PARTIAL |
+| `14-send-providers.md` | Send routing for every provider | PASS by route tests; external sends pending |
 
-## Сквозные риски (не экранные)
+## Ошибки
 
-- ✅ Полный `swift test` в текущем чистом прогоне прошёл: 1716 тестов в 234 suite.
-- ⚠️ `docs/FEATURE_SPREADSHEET.csv` APP-05 (`Rebrand to MiCoder`) = PARTIAL «3 user-facing 'MiMo'
-  strings remain» — **устарело**: Round 23 их починил, спредшит будет обновлён на следующем шаге.
-- ⚠️ Web-провайдеры требуют WebKit — на неподдерживающих сборках показано
-  «Web providers require WebKit (macOS).» (защита по дизайну).
+| Файл | Ошибка | Статус |
+|---|---|---|
+| `error-01-mimo-auto-default.md` | MiMo-Auto был provider без выбранной модели | FIXED |
+| `error-02-web-model-picker.md` | Ручной browser model picker вместо общего MiMo-Auto flow | FIXED in UI path |
+| `error-03-chatgpt-stale-models.md` | ChatGPT показывал stale/feature entries как модели | FIXED in source policy; live verify pending |
+| `error-04-qwen-discovery.md` | Qwen discovery теряла дополнительные модели | FIXED in source path; live verify pending |
+| `error-05-effort-visibility.md` | Не был виден статус effort discovery | FIXED in card UI |
+| `error-06-project-failed-send.md` | Неуспешная первая отправка теряла чат | FIXED in persistence path; regression test pending |
 
-## Повторная цепочная проверка
-
-Все строки со статусом ✅ повторно вручную прослежены до конечного состояния
-и подтверждены полным запуском тестов 2026-08-06. Детальная матрица
-«контрол → handler → сервис/результат → тест» находится в
-[`12-chain-verification-2026-08-06.md`](12-chain-verification-2026-08-06.md).
-
-## Следующий обязательный цикл
+## Обязательный цикл
 
 ```text
 /goal go over every single feature in this file create a user story with expected behaviour based on the code keep a single canonical spreadsheet tracking the features status

@@ -29,14 +29,11 @@ enum WebChatVendor: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Default model ids offered by each vendor's web UI (data, refreshable).
+    /// Models from catalog data (`web_providers_catalog.json`), never hardcoded
+    /// in code. Empty when a vendor has no stable list (e.g. ChatGPT — models
+    /// change frequently) until live discovery fills them in.
     var defaultModels: [String] {
-        switch self {
-        case .kimi: return ["k2", "k2-thinking", "k1.5"]
-        case .qwen: return ["qwen-max", "qwen-plus", "qwen2.5-coder"]
-        case .chatgpt: return ["gpt-4o", "gpt-4.1", "o3", "o4-mini"]
-        case .custom: return []
-        }
+        (try? WebProviderCatalog.loadBundled().models(for: id)) ?? []
     }
 }
 
@@ -176,7 +173,7 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
         self.chatURL = chatURL ?? vendor.defaultChatURL
         self.cookieStorePath = cookieStorePath
         self.systemPrompt = systemPrompt
-        self.selectedModel = selectedModel ?? vendor.defaultModels.first ?? ""
+         self.selectedModel = selectedModel ?? ""
         self.effort = effort
         self.toolCallDelayMs = toolCallDelayMs
         self.sessionKeepAliveSec = sessionKeepAliveSec
@@ -194,9 +191,10 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
 
     /// A web provider is usable only when the user has acknowledged the ToS
     /// caveat (model is chosen later in the chat input, not in settings).
-    var isReady: Bool { acknowledgedToS }
+    var isReady: Bool { true }
 
-    /// All models: auto-detected + manually added.
+    /// All models: auto-detected + explicitly configured. Vendor catalog data is
+    /// intentionally not included because it goes stale independently of login.
     var allModels: [String] {
         var names = discoveredModels.map { $0.name }
         names.append(contentsOf: manuallyAddedModels)

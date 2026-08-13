@@ -216,6 +216,14 @@ struct ProviderCascadeTests {
         )
     }
 
+    @Test("Send readiness accepts MiMo-Auto without MiMo Serve")
+    func sendReadinessAcceptsMiMoAuto() {
+        #expect(SendReadinessLogic.connectionValidationError(
+            serverConnected: false,
+            selectedProviderID: MiMoAutoProvider.builtInID
+        ) == nil)
+    }
+
     @Test("Restore providerID from session messages")
     func restoreProviderID() throws {
         let json = """

@@ -9,7 +9,6 @@ enum WebProviderConnectivity {
     static func isConnected(_ config: WebProviderConfig,
                            homeDirectory: URL,
                            now: Date = Date()) -> Bool {
-        guard config.acknowledgedToS else { return false }
         guard let store = WebSessionManager.restore(providerId: config.id, homeDirectory: homeDirectory) else {
             return false
         }
@@ -28,12 +27,11 @@ enum WebProviderConnectivity {
                                   isCustom: true, isConnected: true) }
     }
 
-    /// The models offered by a web provider — REAL models parsed from the web
-    /// UI when available (`WebProviderConfig.models` populated by the driver),
-    /// never hardcoded guesses (plan Раздел 13 п.4). Falls back to the vendor's
-    /// known default list only until real models are loaded.
+    /// The models offered by a web provider. Only live-discovered or explicitly
+    /// configured models are valid; catalog lists are not used as guesses for a
+    /// changing third-party UI.
     static func models(for config: WebProviderConfig) -> [String] {
-        config.discoveredModels.isEmpty ? config.vendor.defaultModels : config.discoveredModels.map { $0.name }
+        config.allModels
     }
 
     /// Whether the given provider option id refers to a web provider.

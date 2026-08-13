@@ -9,9 +9,9 @@ struct StatusBarView: View {
         HStack(spacing: 12) {
             HStack(spacing: 6) {
                 Circle()
-                    .fill(appState.serverConnected ? Color.mimo.success : Color.mimo.error)
+                    .fill(appState.selectedProviderConnected ? Color.mimo.success : Color.mimo.error)
                     .frame(width: 6, height: 6)
-                Text(appState.serverConnected ? L.t(AppLocalizationKey.locConnected) : L.t(AppLocalizationKey.locDisconnected))
+                Text(appState.selectedProviderConnected ? L.t(AppLocalizationKey.locConnected) : L.t(AppLocalizationKey.locDisconnected))
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
             }
@@ -56,11 +56,11 @@ struct StatusBarView: View {
             
             Spacer()
             
-            if appState.serverConnected {
+            if appState.selectedProviderConnected {
                 HStack(spacing: 4) {
                     Image(systemName: "network")
                         .interfaceFont(size: 10)
-                    Text("\(appState.serverHost):\(appState.serverPort)")
+                    Text(appState.serverConnected ? "\(appState.serverHost):\(appState.serverPort)" : appState.selectedProviderID)
                         .interfaceFont(size: 11, design: .monospaced)
                 }
                 .foregroundColor(Color.mimo.textMuted)

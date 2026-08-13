@@ -49,13 +49,14 @@ extension AppState {
     /// Загрузить сессии проекта из БД
     @MainActor
     func loadSessionsFromDatabase(projectId: String) async {
-        let sessions = db.loadSessions(projectId: projectId)
+        let projectPath = workspaces.first(where: { $0.id == projectId })?.path ?? projectId
+        let sessions = db.loadSessions(projectId: projectPath)
         
         // Update global sessions list
         self.sessions = sessions
         
         // Convert sessions to workspace tasks
-        if let index = workspaces.firstIndex(where: { $0.id == projectId }) {
+        if let index = workspaces.firstIndex(where: { $0.id == projectId || $0.path == projectPath }) {
             let tasks = sessions.map { session in
                 WorkspaceTask(
                     id: session.id,
@@ -94,9 +95,10 @@ extension AppState {
         directory: String,
         branch: String? = nil
     ) {
+        let projectPath = selectedWorkspace?.path ?? projectId
         db.createSession(
             id: id,
-            projectId: projectId,
+            projectId: projectPath,
             title: title,
             directory: directory,
             branch: branch,

@@ -122,6 +122,55 @@ enum LocalProviderLogic {
             ProviderOption(id: $0.id, name: $0.displayName, isCustom: true, isConnected: $0.isEnabled)
         }
     }
+
+    /// Fetch live models from a local provider's HTTP endpoint. Returns nil on
+    /// any failure so callers can keep the existing list rather than wiping it.
+    static func fetchModels(for config: LocalProviderConfig) async -> [String]? {
+        let endpoint: String
+        switch config.kind {
+        case .ollama:
+            endpoint = config.serveBaseURL + "/api/tags"
+        case .openCode, .localAgent:
+            endpoint = config.serveBaseURL + "/global/models"
+        case .acp:
+            endpoint = config.serveBaseURL + "/acp/v1/models"
+        }
+        guard let url = URL(string: endpoint) else { return nil }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 5
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+            return parseModels(from: data, kind: config.kind)
+        } catch {
+            return nil
+        }
+    }
+
+    /// Parse model list from each vendor's JSON shape.
+    private static func parseModels(from data: Data, kind: LocalProviderKind) -> [String]? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) else { return nil }
+        var names: [String] = []
+        switch kind {
+        case .ollama:
+            if let dict = json as? [String: Any], let models = dict["models"] as? [[String: Any]] {
+                names = models.compactMap { $0["name"] as? String }
+            }
+        case .openCode, .localAgent:
+            if let dict = json as? [String: Any], let models = dict["models"] as? [[String: Any]] {
+                names = models.compactMap { $0["id"] as? String ?? $0["name"] as? String }
+            } else if let models = json as? [[String: Any]] {
+                names = models.compactMap { $0["id"] as? String ?? $0["name"] as? String }
+            }
+        case .acp:
+            if let dict = json as? [String: Any], let models = dict["models"] as? [[String: Any]] {
+                names = models.compactMap { $0["id"] as? String ?? $0["name"] as? String }
+            } else if let models = json as? [[String: Any]] {
+                names = models.compactMap { $0["id"] as? String ?? $0["name"] as? String }
+            }
+        }
+        return names.isEmpty ? nil : names
+    }
 }
 
 /// Confirmation step for auto-detection (E23 — Раздел 9 п.30): the detector

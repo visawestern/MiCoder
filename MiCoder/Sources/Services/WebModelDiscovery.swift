@@ -10,27 +10,33 @@ import Foundation
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Catalog JSON structure for one vendor entry.
-private struct WebVendorCatalogEntryDTO: Decodable {
-    let id: String
-    let selectors: Selectors
-    struct Selectors: Decodable {
-        let input: String?
-        let sendButton: String?
-        let responseContainer: String?
-        let stopButton: String?
-        let modelDropdown: String?
-        let effortDropdown: String?
-        let modelButton: String?
-        let modelItem: String?
-        let newChatTexts: [String]?
+    private struct WebVendorCatalogEntryDTO: Decodable {
+        let id: String
+        let models: [String]?
+        let selectors: Selectors
+        struct Selectors: Decodable {
+            let input: String?
+            let sendButton: String?
+            let responseContainer: String?
+            let stopButton: String?
+            let modelDropdown: String?
+            let effortDropdown: String?
+            let modelButton: String?
+            let modelItem: String?
+            let newChatTexts: [String]?
+            let modeSelect: String?
+            let thinkingSelect: String?
+            let effortItem: String?
+            let modeItem: String?
+        }
     }
-}
 
 /// Catalog-backed selectors/URLs for each web-chat vendor.
 /// Source of truth: `MiCoder/Sources/Resources/Catalog/web_providers_catalog.json`
 struct WebProviderCatalog {
     struct VendorEntry: Equatable {
         let id: String
+        let models: [String]
         let input: String?
         let sendButton: String?
         let responseContainer: String?
@@ -40,6 +46,10 @@ struct WebProviderCatalog {
         let modelButton: String?
         let modelItem: String?
         let newChatTexts: [String]?
+        let modeSelect: String?
+        let thinkingSelect: String?
+        let effortItem: String?
+        let modeItem: String?
     }
 
     private struct RootDTO: Decodable { let vendors: [WebVendorCatalogEntryDTO] }
@@ -61,7 +71,7 @@ struct WebProviderCatalog {
             let map: [String: VendorEntry] = Dictionary(uniqueKeysWithValues:
                 root.vendors.compactMap { dto in
                     guard let selector = dto.selectors.modelDropdown, !selector.isEmpty else { return nil }
-                    return (dto.id, VendorEntry(id: dto.id, input: dto.selectors.input, sendButton: dto.selectors.sendButton, responseContainer: dto.selectors.responseContainer, stopButton: dto.selectors.stopButton, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts))
+                    return (dto.id, VendorEntry(id: dto.id, models: dto.models ?? [], input: dto.selectors.input, sendButton: dto.selectors.sendButton, responseContainer: dto.selectors.responseContainer, stopButton: dto.selectors.stopButton, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts, modeSelect: dto.selectors.modeSelect, thinkingSelect: dto.selectors.thinkingSelect, effortItem: dto.selectors.effortItem, modeItem: dto.selectors.modeItem))
                 })
             return WebProviderCatalog(entries: map)
         }
@@ -77,7 +87,7 @@ struct WebProviderCatalog {
             let map: [String: VendorEntry] = Dictionary(uniqueKeysWithValues:
                 root.vendors.compactMap { dto in
                     guard let selector = dto.selectors.modelDropdown, !selector.isEmpty else { return nil }
-                    return (dto.id, VendorEntry(id: dto.id, input: dto.selectors.input, sendButton: dto.selectors.sendButton, responseContainer: dto.selectors.responseContainer, stopButton: dto.selectors.stopButton, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts))
+                    return (dto.id, VendorEntry(id: dto.id, models: dto.models ?? [], input: dto.selectors.input, sendButton: dto.selectors.sendButton, responseContainer: dto.selectors.responseContainer, stopButton: dto.selectors.stopButton, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts, modeSelect: dto.selectors.modeSelect, thinkingSelect: dto.selectors.thinkingSelect, effortItem: dto.selectors.effortItem, modeItem: dto.selectors.modeItem))
                 })
             return WebProviderCatalog(entries: map)
         }
@@ -86,6 +96,12 @@ struct WebProviderCatalog {
 
     func selectors(for vendorID: String) -> VendorEntry? {
         entries[vendorID]
+    }
+
+    /// Catalog model lists (from live site inspection). Empty when a vendor
+    /// provides no stable list (e.g. ChatGPT — models change frequently).
+    func models(for vendorID: String) -> [String] {
+        entries[vendorID]?.models ?? []
     }
 }
 
@@ -102,6 +118,11 @@ enum WebModelDiscovery {
     static func discover(using bridge: BrowserAutomationBridge,
                         dropdownSelector: String,
                         vendor: WebChatVendor) async -> [WebProviderModel]? {
+        // Resolve vendor-specific selectors from the catalog.
+        let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: vendor.id)
+        let modelItemSelector = catalogEntry?.modelItem ?? "div.model-item"
+        let fallbackItemSelector = "[role='option'], [class*='option'], [class*='item'], div[class*='item'], li"
+
         do {
             // Wait for the model button to be present (up to 10s).
             var modelBtnFound = false
@@ -115,19 +136,38 @@ enum WebModelDiscovery {
 
             // Fallback: if selector not found, try clicking "New Chat" to enter chat mode
             if !modelBtnFound {
-                let click1 = (try? await bridge.clickByText(selector: "button, a, div", text: "New Chat")) ?? false
-                let click2 = (try? await bridge.clickByText(selector: "button, a", text: "新对话")) ?? false
-                let click3 = (try? await bridge.click(selector: "[class*='new-chat']")) != nil
-                let click4 = (try? await bridge.click(selector: "[data-testid*='new']")) != nil
-                let clicked = click1 || click2 || click3 || click4
-                if clicked {
-                    await bridge.wait(ms: 2000)
-                    for _ in 0..<25 {
-                        if (try? await bridge.exists(selector: dropdownSelector)) == true {
-                            modelBtnFound = true
-                            break
+                let newChatTexts = catalogEntry?.newChatTexts ?? ["New Chat", "新对话", "Начать"]
+                for text in newChatTexts {
+                    if (try? await bridge.clickByText(selector: "button, a, div", text: text)) == true {
+                        await bridge.wait(ms: 2000)
+                        for _ in 0..<25 {
+                            if (try? await bridge.exists(selector: dropdownSelector)) == true {
+                                modelBtnFound = true
+                                break
+                            }
+                            await bridge.wait(ms: 300)
                         }
-                        await bridge.wait(ms: 300)
+                        if modelBtnFound { break }
+                    }
+                }
+            }
+
+            // Modern web UIs may expose the model switcher as an accessible
+            // button with no stable test id. Use the visible vendor label as a
+            // bounded fallback, never a generic "button" discovery result.
+            if !modelBtnFound {
+                let vendorLabels: [String]
+                switch vendor {
+                case .chatgpt: vendorLabels = ["ChatGPT"]
+                case .kimi: vendorLabels = ["Kimi"]
+                case .qwen: vendorLabels = ["Qwen"]
+                case .custom: vendorLabels = []
+                }
+                for label in vendorLabels {
+                    if (try? await bridge.clickByText(selector: "button, [role='button']", text: label)) == true {
+                        await bridge.wait(ms: 500)
+                        modelBtnFound = true
+                        break
                     }
                 }
             }
@@ -136,19 +176,46 @@ enum WebModelDiscovery {
 
             // Click to open the custom dropdown
             try await bridge.click(selector: dropdownSelector)
-            // Wait for dropdown items to appear (custom dropdown, not native select)
-            try? await bridge.waitForSelector(selector: "div.model-item", timeout: 5000)
+            // Wait for vendor-specific dropdown items (not hardcoded div.model-item)
+            try? await bridge.waitForSelector(selector: modelItemSelector, timeout: 5000)
 
-            // Read model names from the custom dropdown items
-            let modelNames = try await bridge.readModelItems()
+            // Read model names using vendor-specific selector
+            var modelNames = try await bridge.readModelItems(modelItemSelector: modelItemSelector)
+
+            // Qwen renders some available models in a different option class
+            // than the first visible three. Merge the option surfaces instead
+            // of treating the first selector result as the complete catalog.
+            if vendor == .qwen {
+                for selector in ["[role='option']", "[class*='model-item']", "li[class*='model']"] {
+                    let extra = (try? await bridge.readModelItems(modelItemSelector: selector)) ?? []
+                    modelNames.append(contentsOf: extra)
+                }
+            }
+
+            var seen = Set<String>()
+            modelNames = modelNames.filter { seen.insert($0.lowercased()).inserted }
+            // ChatGPT currently exposes one selectable model in the live web
+            // UI. Other entries returned by its broad option tree are feature
+            // actions or stale/secondary nodes; never present them as 29 chat
+            // models in MiCoder.
+            if vendor == .chatgpt {
+                modelNames = Array(modelNames.prefix(1))
+            }
             if !modelNames.isEmpty {
                 return modelNames.map { WebProviderModel(name: $0) }
             }
 
-            // Fallback: read raw text and parse
+            // Fallback: read raw text from the dropdown container
             let text = try await bridge.readText(selector: dropdownSelector)
             let parsed = WebModelListParser.parse(dropdownText: text, vendor: vendor)
-            return parsed.isEmpty ? nil : parsed.map { WebProviderModel(name: $0) }
+            if !parsed.isEmpty {
+                return parsed.map { WebProviderModel(name: $0) }
+            }
+
+            // Last resort: try reading from universal selectors
+            let universalText = try await bridge.readText(selector: fallbackItemSelector)
+            let universalParsed = WebModelListParser.parse(dropdownText: universalText, vendor: vendor)
+            return universalParsed.isEmpty ? nil : universalParsed.map { WebProviderModel(name: $0) }
         } catch {
             return nil
         }
@@ -159,26 +226,36 @@ enum WebModelDiscovery {
     static func discoverEffort(using bridge: BrowserAutomationBridge,
                               effortDropdownSelector: String,
                               vendor: WebChatVendor) async -> [WebEffort]? {
-        do {
-            // Wait for the effort dropdown to be present (up to 10s).
-            var dropdownReady = false
-            for _ in 0..<20 {
-                if (try? await bridge.exists(selector: effortDropdownSelector)) ?? false {
-                    dropdownReady = true
-                    break
-                }
-                await bridge.wait(ms: 500)
-            }
-            guard dropdownReady else { return nil }
+        let selectors = effortDropdownSelector
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
 
-            try await bridge.click(selector: effortDropdownSelector)
-            await bridge.wait(ms: 500)
-            let text = try await bridge.readText(selector: effortDropdownSelector)
-            let efforts = WebModelListParser.parseEffortLevels(dropdownText: text, vendor: vendor)
-            return efforts.isEmpty ? nil : efforts
-        } catch {
-            return nil
+        for selector in selectors {
+            do {
+                var dropdownReady = false
+                for _ in 0..<20 {
+                    if (try? await bridge.exists(selector: selector)) ?? false {
+                        dropdownReady = true
+                        break
+                    }
+                    await bridge.wait(ms: 500)
+                }
+                guard dropdownReady else { continue }
+                try await bridge.click(selector: selector)
+                await bridge.wait(ms: 500)
+                let triggerText = (try? await bridge.readText(selector: selector)) ?? ""
+                let optionText = (try? await bridge.readText(
+                    selector: "[role='option'], [class*='effort'], [class*='thinking'], [class*='menu-item']"
+                )) ?? ""
+                let text = [triggerText, optionText].filter { !$0.isEmpty }.joined(separator: "\n")
+                let efforts = WebModelListParser.parseEffortLevels(dropdownText: text, vendor: vendor)
+                if !efforts.isEmpty { return efforts }
+            } catch {
+                continue
+            }
         }
+        return nil
     }
 
     /// Discover feature modes (Deep Research, Create Image, etc.) for a vendor.

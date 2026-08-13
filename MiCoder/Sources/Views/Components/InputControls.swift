@@ -166,6 +166,70 @@ struct ProviderSelectorMenu: View {
     }
 }
 
+/// Effort/thinking level selector for models that support it (reasoning models,
+/// web providers with effort toggles). Shows real labels from the provider.
+struct EffortSelectorMenu: View {
+    @EnvironmentObject var appState: AppState
+
+    private var efforts: [String] {
+        // For web providers, use discovered effort levels.
+        if let webID = WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID),
+           let cfg = WebProviderStore.load().first(where: { $0.id == webID }),
+           !cfg.discoveredEffortLevels.isEmpty {
+            return cfg.discoveredEffortLevels.map { $0.displayName }
+        }
+        // Default: standard effort levels.
+        return WebEffort.allCases.map { $0.displayName }
+    }
+
+    private var currentEffort: String {
+        if let webID = WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID),
+           let cfg = WebProviderStore.load().first(where: { $0.id == webID }) {
+            return cfg.effort.displayName
+        }
+        return WebEffort.medium.displayName
+    }
+
+    var body: some View {
+        Menu {
+            ForEach(efforts, id: \.self) { effort in
+                Button(action: { selectEffort(effort) }) {
+                    HStack {
+                        Text(effort)
+                        if currentEffort == effort {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: "brain")
+                    .font(.system(size: 9))
+                Text(currentEffort)
+                    .interfaceFont(size: 11)
+            }
+            .foregroundColor(Color.mimo.textSecondary)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+    }
+
+    private func selectEffort(_ label: String) {
+        if let webID = WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID) {
+            var configs = WebProviderStore.load()
+            if let idx = configs.firstIndex(where: { $0.id == webID }),
+               let effort = WebEffort.fromLabel(label) {
+                configs[idx].effort = effort
+                WebProviderStore.save(configs)
+            }
+        }
+        if let effort = WebEffort.fromLabel(label) {
+            appState.selectedVariant = effort == .high ? "high" : (effort == .low ? "low" : "")
+        }
+    }
+}
+
 struct ModelSelectorMenu: View {
     @EnvironmentObject var appState: AppState
 

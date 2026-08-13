@@ -38,7 +38,10 @@ class MessageStore: ObservableObject {
         
         // Auto-save to database
         if let sessionId = currentSessionID {
+            MiCoderAPIServer.appendLog("📝 MessageStore.append: saving message \(message.id) to session \(sessionId)")
             dbBridge.saveMessage(message, sessionId: sessionId)
+        } else {
+            MiCoderAPIServer.appendLog("❌ MessageStore.append: currentSessionID is nil, message \(message.id) not saved")
         }
     }
     

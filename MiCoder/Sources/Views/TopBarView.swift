@@ -1,21 +1,51 @@
 import SwiftUI
 
+enum TaskHeaderVisibility {
+    static func shouldShow(selectedSession: ChatSession?) -> Bool {
+        selectedSession != nil
+    }
+}
+
 struct TopBarView: View {
     @EnvironmentObject var appState: AppState
-    
+    @State private var chatCopied = false
+
     var body: some View {
         HStack(spacing: 12) {
-            // Project name
-            if let project = appState.selectedProject {
-                Image(systemName: "folder")
+            // Sidebar toggle — always visible
+            Button(action: { withAnimation { appState.sidebarVisible.toggle() } }) {
+                Image(systemName: "sidebar.left")
                     .interfaceFont(size: 14)
-                    .foregroundColor(Color.mimo.textMuted)
-                
-                Text(project.name)
-                    .interfaceFont(size: 13, weight: .semibold)
+                    .foregroundColor(appState.sidebarVisible ? Color.mimo.brand : Color.mimo.textSecondary)
+            }
+            .buttonStyle(.plain)
+            .help("Workspaces")
+
+            // Session title — only when session is selected
+            if let session = appState.selectedSession {
+                Text(session.title)
+                    .interfaceFont(size: 14, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
-                
-                // Branch indicator
+                    .lineLimit(1)
+            }
+
+            // Workspace folder badge — only when workspace is selected
+            if let workspace = appState.selectedWorkspace {
+                HStack(spacing: 4) {
+                    Image(systemName: "folder.fill")
+                        .interfaceFont(size: 10)
+                    Text(workspace.name)
+                        .interfaceFont(size: 11, weight: .medium)
+                }
+                .foregroundColor(Color.mimo.textSecondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.mimo.surfaceHover)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+
+            // Branch badge — when project is selected
+            if appState.selectedProject != nil {
                 HStack(spacing: 4) {
                     Image(systemName: "command")
                         .interfaceFont(size: 10)
@@ -28,13 +58,14 @@ struct TopBarView: View {
                 .background(Color.mimo.surfaceHover)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
             } else {
+                // Fallback "MiCoder" text when no project is open
                 Text(L.t(AppLocalizationKey.locMicoder))
                     .interfaceFont(size: 13, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                     .tracking(0.5)
             }
-            
-            // Session goal badge (plan Раздел 5 Блок 1 п.9), set via /goal.
+
+            // Session goal badge (set via /goal)
             if let goal = appState.currentSessionGoal,
                let badge = SessionGoalLogic.badgeLabel(for: SessionGoal(text: goal)) {
                 Text(badge)
@@ -48,15 +79,26 @@ struct TopBarView: View {
             }
 
             Spacer()
-            
-            // Action buttons
+
+            // Copy entire chat — only when session is selected
+            if appState.selectedSession != nil {
+                Button(action: copyEntireChat) {
+                    Image(systemName: chatCopied ? "checkmark" : "doc.on.doc")
+                        .interfaceFont(size: 14)
+                        .foregroundColor(chatCopied ? Color.mimo.success : Color.mimo.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .help(chatCopied ? L.t(AppLocalizationKey.locCopied) : L.t(AppLocalizationKey.locCopyChat))
+            }
+
+            // Action buttons — always visible
             TopBarButton(
                 icon: "flag",
                 label: L.t(AppLocalizationKey.locGoal),
                 isActive: appState.showGoal,
                 action: { appState.showGoal.toggle() }
             )
-            
+
             TopBarButton(
                 icon: "terminal",
                 label: L.t(AppLocalizationKey.locTerminal),
@@ -68,6 +110,14 @@ struct TopBarView: View {
         .padding(.vertical, 8)
         .background(Color.mimo.surface)
     }
+
+    private func copyEntireChat() {
+        NotificationCenter.default.post(name: .copyEntireChat, object: nil)
+        withAnimation { chatCopied = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation { chatCopied = false }
+        }
+    }
 }
 
 struct TopBarButton: View {
@@ -75,13 +125,13 @@ struct TopBarButton: View {
     let label: String
     let isActive: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
                     .interfaceFont(size: 14)
-                
+
                 Text(label)
                     .interfaceFont(size: 12, weight: isActive ? .semibold : .regular)
             }
@@ -95,5 +145,40 @@ struct TopBarButton: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+struct ChatPanelCompactHeader: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button(action: { withAnimation { appState.sidebarVisible.toggle() } }) {
+                Image(systemName: "sidebar.left")
+                    .interfaceFont(size: 14)
+                    .foregroundColor(appState.sidebarVisible ? Color.mimo.brand : Color.mimo.textSecondary)
+            }
+            .buttonStyle(.plain)
+            .help("Workspaces")
+
+            Spacer()
+
+            Button(action: { appState.showGoal.toggle() }) {
+                Image(systemName: "sidebar.right")
+                    .interfaceFont(size: 14)
+                    .foregroundColor(appState.showGoal ? Color.mimo.brand : Color.mimo.textSecondary)
+            }
+            .buttonStyle(.plain)
+            .help("Git tools & progress")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color.mimo.backgroundAlt)
+        .overlay(
+            Rectangle()
+                .fill(Color.mimo.border)
+                .frame(height: 1),
+            alignment: .bottom
+        )
     }
 }

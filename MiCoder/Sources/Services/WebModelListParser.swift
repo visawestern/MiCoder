@@ -23,6 +23,9 @@ enum WebModelListParser {
             seen.insert(name.lowercased())
             result.append(name)
         }
+        if vendor == .chatgpt {
+            return result.filter { isChatGPTModelLabel($0) }
+        }
         return result
     }
 
@@ -43,6 +46,23 @@ enum WebModelListParser {
         // Must contain at least one letter and be reasonably short.
         guard s.rangeOfCharacter(from: .letters) != nil, s.count <= 60 else { return nil }
         return s
+    }
+
+    /// ChatGPT's model switcher can contain feature actions beside model
+    /// options. Keep those actions out of the composer model list.
+    private static func isChatGPTModelLabel(_ label: String) -> Bool {
+        let lower = label.lowercased()
+        if lower == "chatgpt" { return false }
+        let featureLabels = [
+            "deep research", "research", "image", "images", "canvas", "agent",
+            "search", "study", "shopping", "tasks", "projects", "voice"
+        ]
+        if featureLabels.contains(where: { lower.contains($0) }) { return false }
+        return lower.contains("gpt")
+            || lower.hasPrefix("o1")
+            || lower.hasPrefix("o3")
+            || lower.hasPrefix("o4")
+            || lower == "auto"
     }
 
     
@@ -72,27 +92,27 @@ enum WebModelListParser {
         for prefix in ["✓", "✔", "•", "- ", "* "] {
             if s.hasPrefix(prefix) { s.removeFirst(prefix.count); s = s.trimmingCharacters(in: .whitespaces) }
         }
-        // Drop obvious non-effort UI entries.
+        // Drop obvious non-effort UI entries (but NOT "auto"/"Авто" — it's a valid effort level).
         let lower = s.lowercased()
         let noise = ["new", "upgrade", "plus", "pro plan", "manage", "settings",
                      "see all", "more", "beta", "coming soon", "sign in", "log in",
-                     "default", "auto", "balanced", "creative", "precise"]
+                     "default", "balanced", "creative", "precise"]
         if noise.contains(lower) { return nil }
-        // Map vendor-specific labels to WebEffort
+        // Map vendor-specific labels to WebEffort (English + Chinese + Russian)
         switch vendor {
         case .kimi:
-            if lower.contains("thinking") || lower.contains("深度") || lower.contains("推理") {
+            if lower.contains("thinking") || lower.contains("深度") || lower.contains("推理") || lower.contains("мышлен") || lower.contains("мышлени") || lower.contains("высок") || lower.contains("глубок") {
                 return .high
             }
-            if lower.contains("快速") || lower.contains("快") || lower.contains("fast") {
+            if lower.contains("快速") || lower.contains("快") || lower.contains("fast") || lower.contains("быстр") {
                 return .low
             }
             return .medium
         case .qwen:
-            if lower.contains("deep") || lower.contains("深度") || lower.contains("推理") || lower.contains("thinking") {
+            if lower.contains("deep") || lower.contains("深度") || lower.contains("推理") || lower.contains("thinking") || lower.contains("мышлен") || lower.contains("мышлени") || lower.contains("высок") || lower.contains("глубок") {
                 return .high
             }
-            if lower.contains("快") || lower.contains("fast") || lower.contains("速度") {
+            if lower.contains("快") || lower.contains("fast") || lower.contains("速度") || lower.contains("быстр") {
                 return .low
             }
             return .medium
@@ -108,10 +128,10 @@ enum WebModelListParser {
             }
             return .medium
         case .custom:
-            if lower.contains("high") || lower.contains("高") || lower.contains("pro") || lower.contains("deep") || lower.contains("thinking") {
+            if lower.contains("high") || lower.contains("高") || lower.contains("pro") || lower.contains("deep") || lower.contains("thinking") || lower.contains("мышлен") {
                 return .high
             }
-            if lower.contains("low") || lower.contains("低") || lower.contains("快") || lower.contains("speed") {
+            if lower.contains("low") || lower.contains("低") || lower.contains("快") || lower.contains("speed") || lower.contains("быстр") {
                 return .low
             }
             return .medium
@@ -129,4 +149,3 @@ enum WebModelListParser {
         return updated
     }
 }
-

@@ -151,7 +151,7 @@ struct WebChatDriver {
         var polls = 0
         while polls < maxPolls {
             let generating = (try? await bridge.exists(selector: selectors.stopButton)) ?? false
-            let text = (try? await bridge.readText(selector: selectors.responseContainer)) ?? lastText
+            let text = (try? await readLatestResponse()) ?? lastText
             if text != lastText {
                 emit(.streaming(text))
                 lastText = text
@@ -164,6 +164,28 @@ struct WebChatDriver {
             polls += 1
         }
         return lastText
+    }
+
+    // Read the last assistant message from the DOM. Tries the vendor-specific
+    // response container first, then falls back to common selectors so we do
+    // not falsely report "empty response" while the page is still hydrating.
+    private func readLatestResponse() async throws -> String {
+        if let primary = (try? await bridge.readText(selector: selectors.responseContainer)), !primary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return primary
+        }
+        let fallbacks = [
+            "div[data-message-author-role='assistant']",
+            ".markdown-body",
+            "[class*='markdown']",
+            "[class*='response']",
+            "[class*='message-content']"
+        ]
+        for selector in fallbacks {
+            if let text = (try? await bridge.readText(selector: selector)), !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return text
+            }
+        }
+        return ""
     }
 
     /// Detect captcha / logout before proceeding (plan Блок 3 п.32/п.34).
@@ -211,24 +233,38 @@ struct WebChatDriver {
                 }
                 await bridge.wait(ms: 300)
             } catch {
-                emit(.modelInjectionFailed("Could not set model: \(error.localizedDescription)"))
+                emit(.modelInjectionFailed(L.t(AppLocalizationKey.locWebModelInjectionFailed).replacingOccurrences(of: "{0}", with: error.localizedDescription)))
             }
         }
 
-        // Inject effort selection.
-        if let effortSelector = catalogEntry.effortDropdown?.split(separator: ",").first.map(String.init),
-           let effortLabel = effortLabel(for: config.effort) {
-            do {
-                try await bridge.click(selector: effortSelector.trimmingCharacters(in: .whitespaces))
-                try? await bridge.waitForSelector(selector: "[class*='effort'], [class*='thinking'], [role='option']", timeout: 5000)
-                await bridge.wait(ms: 500)
-                let clicked = (try? await bridge.clickByText(selector: "[role='option'], [class*='option']", text: effortLabel)) ?? false
-                if !clicked {
-                    _ = (try? await bridge.clickByText(selector: "li, div, span, button", text: effortLabel))
+        // Inject effort selection. Try each comma-separated selector in order;
+        // only report failure if NONE of them work.
+        if let effortLabel = effortLabel(for: config.effort) {
+            let selectors = (catalogEntry.effortDropdown?.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) } ?? [])
+                .filter { !$0.isEmpty }
+            var anySuccess = false
+            var lastError: String = ""
+            for selector in selectors {
+                do {
+                    if (try? await bridge.exists(selector: selector)) == true {
+                        try await bridge.click(selector: selector)
+                        try? await bridge.waitForSelector(selector: "[class*='effort'], [class*='thinking'], [role='option'], [class*='option']", timeout: 5000)
+                        await bridge.wait(ms: 500)
+                        let itemSelector = catalogEntry.effortItem ?? "[role='option'], [class*='option']"
+                        let clicked = (try? await bridge.clickByText(selector: itemSelector, text: effortLabel)) ?? false
+                        if !clicked {
+                            _ = (try? await bridge.clickByText(selector: "li, div, span, button", text: effortLabel))
+                        }
+                        await bridge.wait(ms: 300)
+                        anySuccess = true
+                        break
+                    }
+                } catch {
+                    lastError = error.localizedDescription
                 }
-                await bridge.wait(ms: 300)
-            } catch {
-                emit(.effortInjectionFailed("Could not set effort: \(error.localizedDescription)"))
+            }
+            if !anySuccess && !selectors.isEmpty {
+                emit(.effortInjectionFailed(L.t(AppLocalizationKey.locWebEffortNote).replacingOccurrences(of: "{0}", with: lastError.isEmpty ? "effort selector not found" : lastError)))
             }
         }
     }
@@ -280,9 +316,9 @@ struct WebChatDriver {
             text: modelName
         )
         if !clicked {
-            throw WebChatError.modelNotFound(modelName)
+            throw WebChatError.modelNotFound(L.t(AppLocalizationKey.locWebModelNotFound).replacingOccurrences(of: "{0}", with: modelName))
         }
-        try await bridge.wait(ms: 500)
+        await bridge.wait(ms: 500)
     }
 
     /// Select a mode (auto/think/fast/image).
@@ -306,7 +342,7 @@ struct WebChatDriver {
         default:
             break
         }
-        try await bridge.wait(ms: 500)
+        await bridge.wait(ms: 500)
     }
 
     /// Select thinking/effort level.
@@ -332,7 +368,7 @@ struct WebChatDriver {
         default:
             break
         }
-        try await bridge.wait(ms: 500)
+        await bridge.wait(ms: 500)
     }
 
     /// Resolve the model selector for the current vendor.
