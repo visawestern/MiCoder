@@ -35,6 +35,21 @@ for arg in "$@"; do
     esac
 done
 
+# ── Platform/toolchain preflight ─────────────────────────────
+# MiCoder is a macOS SwiftUI/AppKit/WebKit application. Fail before the
+# version bump on Linux or on a machine without Xcode/Swift, rather than
+# leaving a misleading half-bumped checkout.
+if [ "$(uname -s)" != "Darwin" ]; then
+    echo "━━━ ❌ MiCoder build requires macOS (SwiftUI/AppKit/WebKit)."
+    echo "━━━    Current platform: $(uname -s). Run this script on a macOS runner."
+    exit 3
+fi
+if [ ! -x /usr/libexec/PlistBuddy ] || ! command -v swift >/dev/null 2>&1 || ! command -v xcodebuild >/dev/null 2>&1; then
+    echo "━━━ ❌ MiCoder build requires Xcode command-line tools and Swift on macOS."
+    echo "━━━    Install/select Xcode, then re-run ./build-app.sh."
+    exit 3
+fi
+
 # ── Version bump ─────────────────────────────────────────────
 SHORT_VER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST" 2>/dev/null || echo "0.0")
 BUILD_NUM=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$INFO_PLIST" 2>/dev/null || echo "0")
