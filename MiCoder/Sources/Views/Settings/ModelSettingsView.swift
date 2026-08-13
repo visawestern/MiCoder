@@ -104,6 +104,14 @@ struct ModelSettingsProviderColumns: View {
                     .interfaceFont(size: 16, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 Spacer()
+                Button(action: { appState.addOpenCodeZenProvider() }) {
+                    Label("OpenCode Zen", systemImage: "sparkles")
+                        .interfaceFont(size: 13)
+                        .foregroundColor(Color.mimo.violet)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add or select OpenCode Zen")
+
                 Button(action: { showAddProvider = true }) {
                     HStack(spacing: 4) {
                         Image(systemName: "plus")
@@ -177,6 +185,10 @@ struct ModelSettingsProviderColumns: View {
     }
 
     private func providerCategory(for option: ProviderOption) -> String {
+        if let custom = appState.customProviders.first(where: { $0.id == option.id }),
+           custom.type == .openCodeZen {
+            return "OpenCode Zen"
+        }
         if option.isCustom { return "Custom providers" }
         if WebProviderConnectivity.configID(fromOptionID: option.id) != nil { return "Web providers" }
         if LocalProviderLogic.load().contains(where: { $0.id == option.id }) { return "Local providers" }
@@ -185,6 +197,7 @@ struct ModelSettingsProviderColumns: View {
 
     private func providerCategoryIcon(_ category: String) -> String {
         switch category {
+        case "OpenCode Zen": return "sparkles"
         case "Custom providers": return "server.rack"
         case "Web providers": return "globe"
         case "Local providers": return "desktopcomputer"
@@ -363,6 +376,20 @@ struct ModelSettingsProviderColumns: View {
                         Text(L.t(AppLocalizationKey.locEnableFunctiontoolCallingSupport))
                             .interfaceFont(size: 10)
                             .foregroundColor(Color.mimo.textSecondary)
+                    }
+
+                    if custom.type == .openCodeZen {
+                        HStack(spacing: 7) {
+                            Image(systemName: "sparkles")
+                                .foregroundColor(Color.mimo.violet)
+                            Text(OpenCodeZenCatalog.accessSummary(hasAPIKey: !(custom.getSecureAPIKey() ?? "").isEmpty))
+                                .interfaceFont(size: 10, weight: .medium)
+                                .foregroundColor(Color.mimo.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(8)
+                        .background(Color.mimo.violet.opacity(0.10))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
 
                     if custom.type == .acp {
@@ -1163,6 +1190,12 @@ struct AddProviderSheet: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .onChange(of: type) { newType in
                             url = newType.defaultURL
+                            if newType == .openCodeZen {
+                                requiresAPIKey = false
+                                if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                    name = "OpenCode Zen"
+                                }
+                            }
                         }
                     }
                     
@@ -1183,18 +1216,23 @@ struct AddProviderSheet: View {
                             .interfaceFont(size: 12, design: .monospaced)
                     }
                     
-                    if type != .ollama && type != .acp && requiresAPIKey {
+                    if type != .ollama && type != .acp && (requiresAPIKey || type == .openCodeZen) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(L.t(AppLocalizationKey.locApiKey))
+                            Text(type == .openCodeZen ? "OpenCode Zen API key (optional)" : L.t(AppLocalizationKey.locApiKey))
                                 .interfaceFont(size: 13, weight: .medium)
                                 .foregroundColor(Color.mimo.textPrimary)
                             SecureField(type == .openModel ? "om-..." : "sk-...", text: $apiKey)
                                 .zcodeTextFieldStyle()
+                            if type == .openCodeZen {
+                                Text("No key: temporary free chat models only. A Zen key enables the curated paid chat-compatible catalog.")
+                                    .interfaceFont(size: 11)
+                                    .foregroundColor(Color.mimo.textSecondary)
+                            }
                         }
                     }
                     
                     VStack(alignment: .leading, spacing: 8) {
-                        Toggle(L.t(AppLocalizationKey.locRequiresAPIKey), isOn: $requiresAPIKey)
+                        Toggle(type == .openCodeZen ? "Require a Zen API key" : L.t(AppLocalizationKey.locRequiresAPIKey), isOn: $requiresAPIKey)
                             .interfaceFont(size: 13, weight: .medium)
                         Text(L.t(AppLocalizationKey.locDisableForLocalModelsProvidersThatDontNeedAuthe))
                             .interfaceFont(size: 11)

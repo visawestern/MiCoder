@@ -446,7 +446,18 @@ class AppState: ObservableObject {
         var options = ProviderSettingsLogic.allProviderOptions(
             serverProviders: serverProviders,
             customProviders: customProviders
-        )
+        ).map { option in
+            guard let custom = customProviders.first(where: { $0.id == option.id }),
+                  custom.type == .openCodeZen else {
+                return option
+            }
+            return ProviderOption(
+                id: option.id,
+                name: option.name,
+                isCustom: true,
+                isConnected: custom.isEnabled && !custom.models.isEmpty
+            )
+        }
         // Built-in MiCoder Auto Free provider (always present, non-removable).
         let autoFreeStore = MiCoderAutoFreeStore.shared
         options.append(ProviderOption(
@@ -886,6 +897,26 @@ class AppState: ObservableObject {
         return navigationIndex < navigationHistory.count - 1 && navigationIndex >= 0 && navigationHistory.count > 0
     }
     
+    func addOpenCodeZenProvider() {
+        if let existing = customProviders.first(where: { $0.type == .openCodeZen }) {
+            selectProvider(existing.id)
+            return
+        }
+        let provider = CustomProvider(
+            id: "opencode-zen",
+            name: "OpenCode Zen",
+            type: .openCodeZen,
+            baseURL: OpenCodeZenCatalog.baseURL,
+            apiKey: "",
+            isEnabled: true,
+            models: [],
+            supportsTools: true,
+            requiresAPIKey: false
+        )
+        addCustomProvider(provider)
+        selectProvider(provider.id)
+    }
+
     func addCustomProvider(_ provider: CustomProvider) {
         // Save API key to Keychain and clear plain storage before saving to UserDefaults
         if !provider.apiKey.isEmpty {
@@ -1012,7 +1043,10 @@ class AppState: ObservableObject {
                 let namedModels = (json["models"] as? [[String: Any]])?.compactMap {
                     ($0["id"] as? String) ?? ($0["name"] as? String)
                 }.map { $0.replacingOccurrences(of: "models/", with: "") } ?? []
-                let models = Array(Set(openAIModels + namedModels)).sorted()
+                var models = Array(Set(openAIModels + namedModels)).sorted()
+                if provider.type == .openCodeZen {
+                    models = OpenCodeZenCatalog.availableModels(from: models, apiKey: apiKey)
+                }
                 guard !models.isEmpty else {
                     await MainActor.run {
                         self.providerModelLoadMessages[provider.id] = "No models were found in this provider's response. Check its API base URL."
@@ -1024,7 +1058,9 @@ class AppState: ObservableObject {
                         customProviders[index].models = models
                         saveCustomProviders()
                     }
-                    providerModelLoadMessages[provider.id] = "Loaded \(models.count) model\(models.count == 1 ? "" : "s")."
+                    providerModelLoadMessages[provider.id] = provider.type == .openCodeZen
+                        ? "Loaded \(models.count) OpenCode Zen model\(models.count == 1 ? "" : "s") · \(OpenCodeZenCatalog.accessSummary(hasAPIKey: !apiKey.isEmpty))"
+                        : "Loaded \(models.count) model\(models.count == 1 ? "" : "s")."
                     if selectedProviderID == provider.id || selectedProviderID.isEmpty {
                         validateAndReconcileSelections()
                     }

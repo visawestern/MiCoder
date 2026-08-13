@@ -109,6 +109,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
     case openAI = "OpenAI Compatible"
     case openRouter = "OpenRouter"
     case openModel = "OpenModel"
+    case openCodeZen = "OpenCode Zen"
     case ollama = "Ollama"
     case anthropic = "Anthropic"
     case google = "Google AI"
@@ -125,6 +126,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         case .openAI: return "cpu"
         case .openRouter: return "arrow.triangle.branch"
         case .openModel: return "globe.americas.fill"
+        case .openCodeZen: return "sparkles"
         case .ollama: return "desktopcomputer"
         case .anthropic: return "brain.head.profile"
         case .google: return "globe"
@@ -141,6 +143,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         case .openAI: return "https://api.openai.com/v1"
         case .openRouter: return "https://openrouter.ai/api/v1"
         case .openModel: return "https://api.openmodel.ai/v1"
+        case .openCodeZen: return OpenCodeZenCatalog.baseURL
         case .ollama: return "http://localhost:11434/v1"
         case .anthropic: return "https://api.anthropic.com/v1"
         case .google: return "https://generativelanguage.googleapis.com/v1"

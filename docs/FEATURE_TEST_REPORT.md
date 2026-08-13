@@ -233,3 +233,18 @@ The screenshots exposed three concrete settings defects: a localized successful 
 | PROV-16 | The free model list could become stale. | AutoFree now discovers eligible live `*-free` IDs from anonymous OpenCode `/models`, preserves Big Pickle priority, and exposes refresh plus last-updated status. | FIXED |
 
 The Linux sandbox completed source scans, brace checks and `git diff --check`, but it cannot compile SwiftUI/AppKit/WebKit. A macOS/Xcode build remains required for final visual and compiler verification.
+
+
+## Round 37 (2026-08-13) — separate OpenCode Zen provider
+
+OpenCode Zen is now available as a named provider in addition to MiCoder Auto Free. The current official Zen documentation describes Zen as a normal provider with a hosted `/zen/v1` API, a live `/models` catalog, temporary free models, and paid chat-compatible models; it also documents other models on Responses, Anthropic Messages, and Google endpoints that must not be sent through the generic chat route.[1]
+
+| ID | Requirement | Correction | Status |
+|---|---|---|---|
+| PROV-17 | Users should not have to type the OpenCode endpoint manually. | Added an OpenCode Zen provider preset and one-click action. The preset uses `https://opencode.ai/zen/v1`, discovers models, and appears in its own provider category. | FIXED |
+| PROV-18 | Free and paid Zen models require different access handling and endpoint compatibility. | Anonymous mode exposes live temporary free IDs only. A saved Zen key additionally exposes documented chat-compatible paid IDs; Responses/Messages/Gemini model routes are excluded from this generic chat path. | FIXED |
+| UX-10 | Users need to understand OpenCode Zen access state. | The details card shows anonymous free-only or key-enabled curated catalog status, and the provider is marked connected only after model discovery succeeds. | FIXED |
+
+The source-level tests cover endpoint/type defaults and both access modes. A macOS build and live UI verification remain required because the Linux sandbox has no SwiftUI/AppKit/WebKit toolchain.
+
+[1]: https://opencode.ai/docs/zen/ "OpenCode Zen official documentation"
