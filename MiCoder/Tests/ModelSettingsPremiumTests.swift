@@ -62,6 +62,8 @@ struct ModelSettingsPremiumTests {
         let source = try sourceText("MiCoder/Sources/App/MiCoderApp.swift")
         #expect(source.contains("let discoveredModels = Array(Set(openAIModels + namedModels)).sorted()"))
         #expect(source.contains("let models: [String] = provider.type == .openCodeZen"))
+        #expect(source.contains("let loadedModels = models"))
+        #expect(source.contains("MainActor.run { [providerID, loadedModels, modelLoadMessage] in"))
         #expect(!source.contains("var models = Array(Set(openAIModels + namedModels)).sorted()"))
     }
 

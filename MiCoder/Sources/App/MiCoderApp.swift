@@ -1053,15 +1053,19 @@ class AppState: ObservableObject {
                     }
                     return
                 }
-                await MainActor.run {
-                    if let index = customProviders.firstIndex(where: { $0.id == provider.id }) {
-                        customProviders[index].models = models
+                let providerID = provider.id
+                let loadedModels = models
+                let modelCount = loadedModels.count
+                let modelLoadMessage = provider.type == .openCodeZen
+                    ? "Loaded \(modelCount) OpenCode Zen model\(modelCount == 1 ? "" : "s") · \(OpenCodeZenCatalog.accessSummary(hasAPIKey: !apiKey.isEmpty))"
+                    : "Loaded \(modelCount) model\(modelCount == 1 ? "" : "s")."
+                await MainActor.run { [providerID, loadedModels, modelLoadMessage] in
+                    if let index = customProviders.firstIndex(where: { $0.id == providerID }) {
+                        customProviders[index].models = loadedModels
                         saveCustomProviders()
                     }
-                    providerModelLoadMessages[provider.id] = provider.type == .openCodeZen
-                        ? "Loaded \(models.count) OpenCode Zen model\(models.count == 1 ? "" : "s") · \(OpenCodeZenCatalog.accessSummary(hasAPIKey: !apiKey.isEmpty))"
-                        : "Loaded \(models.count) model\(models.count == 1 ? "" : "s")."
-                    if selectedProviderID == provider.id || selectedProviderID.isEmpty {
+                    providerModelLoadMessages[providerID] = modelLoadMessage
+                    if selectedProviderID == providerID || selectedProviderID.isEmpty {
                         validateAndReconcileSelections()
                     }
                 }
