@@ -121,7 +121,7 @@ enum WebModelDiscovery {
         // Resolve vendor-specific selectors from the catalog.
         let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: vendor.id)
         let modelItemSelector = catalogEntry?.modelItem ?? "div.model-item"
-        let fallbackItemSelector = "[role='option'], [class*='option'], [class*='item'], div[class*='item'], li"
+        let fallbackItemSelector = "[role='option'], [class*='model'], [class*='option'], li[class*='model']"
 
         do {
             // Wait for the model button to be present (up to 10s).

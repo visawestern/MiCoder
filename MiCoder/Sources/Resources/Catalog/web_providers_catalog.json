@@ -20,12 +20,12 @@
       "selectors": {
         "input": "textarea, div[contenteditable='true']",
         "sendButton": ".send-button-container",
-        "responseContainer": "div[class*='markdown'], div[class*='message']",
+        "responseContainer": "div[class*='markdown']",
         "stopButton": "button[aria-label*='top']",
         "modelDropdown": ".current-model",
         "modelButton": ".current-model",
         "modelItem": "div.model-item span.name",
-        "effortDropdown": "div.effort-item, [class*='effort']",
+        "effortDropdown": "div.effort-item",
         "effortItem": "div.effort-item",
         "newChatTexts": [
           "Новый чат",

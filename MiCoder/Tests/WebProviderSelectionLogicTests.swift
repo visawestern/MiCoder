@@ -56,6 +56,8 @@ struct WebDriverSelectionGuardTests {
         var typed: [String] = []
         var sendClicks = 0
         var menuClicks = 0
+        var clickedSelectors: [String] = []
+        var submitted = false
         let acceptsOption: Bool
 
         init(acceptsOption: Bool) { self.acceptsOption = acceptsOption }
@@ -64,10 +66,15 @@ struct WebDriverSelectionGuardTests {
         func typeText(_ text: String, into selector: String, humanized: Bool) async throws { typed.append(text) }
         func click(selector: String) async throws {
             menuClicks += 1
-            if selector.contains("send") { sendClicks += 1 }
+            clickedSelectors.append(selector)
+            if selector.contains("send") {
+                sendClicks += 1
+                submitted = true
+            }
         }
         func clickByText(selector: String, text: String) async throws -> Bool { acceptsOption }
-        func readText(selector: String) async throws -> String { "final answer" }
+        func readText(selector: String) async throws -> String { submitted ? "final answer" : "" }
+        func responseFingerprint(selector: String) async throws -> String { submitted ? "submitted-1" : "" }
         func exists(selector: String) async throws -> Bool { true }
         func pageText() async throws -> String { "chat ready" }
         func currentURL() async throws -> String { "https://kimi.com/chat" }
@@ -109,6 +116,25 @@ struct WebDriverSelectionGuardTests {
             if case .error(let message) = event { return message.contains("not found") }
             return false
         })
+    }
+
+    @Test("Catalog keeps model and effort controls separate")
+    func modelAndEffortUseIndependentCatalogSelectors() async {
+        let bridge = InjectionBridge(acceptsOption: true)
+        let driver = WebChatDriver(
+            bridge: bridge,
+            executor: NoopExecutor(),
+            selectors: selectors,
+            config: WebProviderConfig(vendor: .kimi, selectedModel: "k2", effort: .high),
+            projectRoot: "/tmp",
+            accessLevel: .askBeforeChanges,
+            pollIntervalMs: 0,
+            stabilityChecks: 1
+        )
+        await driver.runTurn(userMessage: "hello", isFirstMessage: false) { _ in }
+        #expect(bridge.clickedSelectors.first == ".current-model")
+        #expect(bridge.clickedSelectors.contains("div.effort-item"))
+        #expect(bridge.clickedSelectors.last == "button.send")
     }
 
     @Test("A confirmed model and effort are injected before send")

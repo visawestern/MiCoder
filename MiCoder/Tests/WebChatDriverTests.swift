@@ -28,9 +28,14 @@ struct WebChatDriverTests {
             if responseIndex < responses.count - 1 { responseIndex += 1 }
         }
         func readText(selector: String) async throws -> String {
-            guard !responses.isEmpty else { return "" }
-            let idx = max(0, min(responseIndex, responses.count - 1))
+            // Before the first click the page has no assistant answer yet.
+            // After submit, expose the scripted response selected by click().
+            guard !responses.isEmpty, responseIndex >= 0 else { return "" }
+            let idx = min(responseIndex, responses.count - 1)
             return responses[idx]
+        }
+        func responseFingerprint(selector: String) async throws -> String {
+            responseIndex < 0 ? "" : "response-\(responseIndex)-click-\(clicks)"
         }
         func exists(selector: String) async throws -> Bool {
             if selector.contains("stop") || selector.contains("top") { return stopButtonVisible }

@@ -485,8 +485,8 @@ struct WebProviderLoginView: View {
     @State private var detectResult: DetectResult?
     @State private var capturedCookies: [BrowserCookie] = []
 
-    // A session may only be captured after MiCoder Auto Free has found at least one
-    // real model. The explicit discovery action is the way out of this gate.
+    // Capturing a valid logged-in session is independent from model discovery.
+    // DOM discovery and AI-assisted discovery are optional helpers, not a gate.
     private var canCapture: Bool {
         // Capturing a valid logged-in session must not depend on model discovery.
         // Discovery can fail because a vendor changed its DOM while cookies are
@@ -526,21 +526,23 @@ struct WebProviderLoginView: View {
                 }
 
                 HStack(spacing: 4) {
-                    MiMoLogoMark(size: 16)
-                    Text("MiCoder Auto Free model selection")
+                    Image(systemName: "bolt.horizontal.circle")
+                        .interfaceFont(size: 14)
+                    Text("Browser model detection")
                         .interfaceFont(size: 11)
-                        .foregroundColor(Color.mimo.brand)
+                        .foregroundColor(Color.mimo.textSecondary)
                 }
-                .help("Models are detected after login and selected in the chat composer")
+                .help("Choose how MiCoder reads model names from the authenticated web page")
 
-                Button(action: findModelsViaMiCoderAutoFree) {
+                Button(action: findModelsBuiltIn) {
                     HStack(spacing: 4) {
                         if case .detecting = detectResult {
                             ProgressView().controlSize(.small)
                         } else {
-                            MiMoLogoMark(size: 14)
+                            Image(systemName: "bolt.horizontal.circle")
+                                .interfaceFont(size: 14)
                         }
-                        Text("Detect with MiCoder Auto Free")
+                        Text("Detect models")
                             .interfaceFont(size: 11)
                     }
                     .foregroundColor(Color.mimo.brand)
@@ -550,7 +552,22 @@ struct WebProviderLoginView: View {
                     if case .detecting = detectResult { return true }
                     return false
                 }())
-                .help("Detect current models from the authenticated web page")
+                .help("Fast built-in DOM scraping; no AI request")
+
+                Button(action: findModelsWithAI) {
+                    HStack(spacing: 4) {
+                        MiMoLogoMark(size: 14)
+                        Text("Ask free AI")
+                            .interfaceFont(size: 11)
+                    }
+                    .foregroundColor(Color.mimo.brand)
+                }
+                .buttonStyle(.plain)
+                .disabled({
+                    if case .detecting = detectResult { return true }
+                    return !MiCoderAutoFreeStore.shared.provider.isReady
+                }())
+                .help("Ask MiCoder Auto Free to read the visible page text and list model names")
 
                 // Capture only enabled when we have models OR user explicitly wants session
                 Button(action: capture) {
@@ -590,10 +607,8 @@ struct WebProviderLoginView: View {
             if let store = WebSessionManager.restore(providerId: config.id, homeDirectory: FileManager.default.homeDirectoryForCurrentUser) {
                 capturedCookies = store.cookies
             }
-            // Automatically discover models in the authenticated page. The
-            // result feeds the shared chat model selector; there is no second
-            // manual model picker in this browser sheet.
-            findModelsViaMiCoderAutoFree()
+            // Model discovery is explicit: the user can choose fast DOM scraping
+            // or the separate free-AI-assisted mode above.
         }
     }
 
@@ -631,7 +646,7 @@ struct WebProviderLoginView: View {
         .background(Color.mimo.surface)
     }
 
-    private func findModelsViaMiCoderAutoFree() {
+    private func findModelsBuiltIn() {
         Task {
             await MainActor.run { detectResult = .detecting }
             let bridge = WKWebViewBrowserBridge(webView: webView, selectors: WebVendorSelectors(input: "", sendButton: "", responseContainer: "", stopButton: ""))
@@ -665,6 +680,89 @@ struct WebProviderLoginView: View {
                 }
             }
         }
+    }
+
+    private func findModelsWithAI() {
+        Task {
+            await MainActor.run { detectResult = .detecting }
+            let bridge = WKWebViewBrowserBridge(webView: webView, selectors: WebVendorSelectors(input: "", sendButton: "", responseContainer: "", stopButton: ""))
+            do {
+                let pageText = try await bridge.pageText()
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !pageText.isEmpty else {
+                    await MainActor.run { detectResult = .failed("The authenticated page has no readable text.") }
+                    return
+                }
+
+                let prompt = """
+                Read the visible text from a \(config.displayName) web chat page below. Extract only selectable model names currently visible in its model menu. Return a JSON array of strings, with one exact model label per item and no explanations. If no model names are visible, return [].
+
+                PAGE TEXT:
+                \(String(pageText.prefix(20_000)))
+                """
+                var answer = ""
+                let messages = [
+                    MiCoderAutoFreeClient.Message(
+                        role: "system",
+                        content: "You extract UI model labels exactly. Never invent a model name. Return only valid JSON."
+                    ),
+                    MiCoderAutoFreeClient.Message(role: "user", content: prompt)
+                ]
+                for try await chunk in MiCoderAutoFreeStore.shared.streamChat(messages: messages) {
+                    answer += chunk
+                }
+                let models = parseAIDetectedModels(answer)
+                await saveDetectedModels(models)
+            } catch {
+                await MainActor.run { detectResult = .failed("AI detection failed: \(error.localizedDescription)") }
+            }
+        }
+    }
+
+    private func parseAIDetectedModels(_ answer: String) -> [WebProviderModel] {
+        let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let data = trimmed.data(using: .utf8),
+           let names = try? JSONSerialization.jsonObject(with: data) as? [String] {
+            return uniqueModelNames(names)
+        }
+
+        // Be tolerant of a fenced JSON response from a provider-side wrapper.
+        if let start = trimmed.firstIndex(of: "["),
+           let end = trimmed.lastIndex(of: "]"), start <= end {
+            let candidate = String(trimmed[start...end])
+            if let data = candidate.data(using: .utf8),
+               let names = try? JSONSerialization.jsonObject(with: data) as? [String] {
+                return uniqueModelNames(names)
+            }
+        }
+        return uniqueModelNames(trimmed.components(separatedBy: .newlines))
+    }
+
+    private func uniqueModelNames(_ rawNames: [String]) -> [WebProviderModel] {
+        var seen = Set<String>()
+        return rawNames.compactMap { raw in
+            var name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            name = name.replacingOccurrences(of: "^[\\s`\\\"'•*-]+", with: "", options: .regularExpression)
+            name = name.replacingOccurrences(of: "^[0-9]+[.)]\\s*", with: "", options: .regularExpression)
+            name = name.replacingOccurrences(of: "[`\\\"']", with: "", options: .regularExpression)
+            guard !name.isEmpty, name.count <= 100,
+                  !name.contains(":"), !name.contains("\n"),
+                  seen.insert(name.lowercased()).inserted else { return nil }
+            return WebProviderModel(name: name)
+        }
+    }
+
+    @MainActor
+    private func saveDetectedModels(_ models: [WebProviderModel]) {
+        guard !models.isEmpty else {
+            detectResult = .failed("No model names were returned by the free AI.")
+            return
+        }
+        detectResult = .found(models)
+        var updated = config
+        updated.discoveredModels = models
+        WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
+        config = updated
     }
 
     private func capture() {

@@ -46,10 +46,6 @@ struct ChatPanelView: View {
             }
             #endif
 
-            if !TaskHeaderVisibility.shouldShow(selectedSession: appState.selectedSession) {
-                ChatPanelCompactHeader()
-            }
-
             if ChatPanelLayoutLogic.shouldUseCenteredInput(messageCount: messageStore.messages.count) {
                 EmptyChatStateView(
                     messageText: $messageText,
@@ -1112,22 +1108,10 @@ struct ChatPanelView: View {
             }
         }
 
-        // Discover the vendor's real models from the model dropdown (audit P13 —
-        // WebModelListParser was never called, so discoveredModels stayed empty
-        // and the UI showed vendor defaults). Round 9 B: the selector comes from
-        // the catalog (per-vendor), not a single hardcoded literal, so a site
-        // redesign is fixed by data. Best-effort; keeps defaults if the dropdown
-        // isn't found.
-        let dropdownSelector: String? = (try? WebProviderCatalog.loadBundled().selectors(for: effectiveConfig.vendor.id))?.modelDropdown
-        if let dropdownSelector,
-           let models = await WebModelDiscovery.discover(using: bridge,
-                                                          dropdownSelector: dropdownSelector,
-                                                          vendor: effectiveConfig.vendor) {
-            var updated = effectiveConfig
-            updated.discoveredModels = models
-            let merged = WebProviderStore.upsert(updated, in: WebProviderStore.load())
-            WebProviderStore.save(merged)
-        }
+        // Do not open the model dropdown during send. Model discovery is an
+        // explicit user action in the settings sheet; opening it here can leave
+        // the page menu mounted and make an effort control look like the model.
+        // The driver now applies only the persisted modelButton and effortDropdown.
 
         // E09/E10: real tool operations feed the project's undo stack and
         // request_history — pass the per-project undo manager + session so

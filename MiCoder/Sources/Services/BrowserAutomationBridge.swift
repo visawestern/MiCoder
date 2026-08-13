@@ -16,6 +16,9 @@ protocol BrowserAutomationBridge {
     @discardableResult func clickByText(selector: String, text: String) async throws -> Bool
     /// Read the text content of the element matching `selector` (latest response).
     func readText(selector: String) async throws -> String
+    /// Return a lightweight DOM fingerprint so a newly appended response can be
+    /// distinguished from an unchanged response with identical text.
+    func responseFingerprint(selector: String) async throws -> String
     /// Whether an element matching `selector` currently exists/visible.
     func exists(selector: String) async throws -> Bool
     /// Full visible page text (for captcha/login inference).
@@ -55,6 +58,13 @@ extension BrowserAutomationBridge {
             if try await exists(selector: selector) { return }
             try? await Task.sleep(nanoseconds: 250_000_000)
         }
+    }
+
+    /// Default: derive a conservative fingerprint from visible text. Real
+    /// bridges override this with DOM node count/markup so repeated text still
+    /// counts as a new response after a successful submit.
+    func responseFingerprint(selector: String) async throws -> String {
+        try await readText(selector: selector)
     }
 
     /// Default: no-op for test doubles without a real browser.

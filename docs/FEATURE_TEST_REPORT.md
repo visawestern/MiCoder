@@ -1,6 +1,6 @@
 # MiCoder — Feature Test Report (canonical)
 
-Date: 2026-08-10 · Method: every user story from `FEATURE_SPREADSHEET.csv` verified against actual code, per-screen checklists, and the full test suite (1849 tests, 262 suites).
+Date: 2026-08-13 · Method: every user story from `FEATURE_SPREADSHEET.csv` verified against actual code, per-screen checklists, and the full test suite (1849 tests, 262 suites at the last macOS baseline).
 
 Canonical status source: `docs/FEATURE_SPREADSHEET.csv` (single spreadsheet — the /goal deliverable).
 This report documents the **errors found** (Phase 2), which Phase 3 fixes.
@@ -248,3 +248,17 @@ OpenCode Zen is now available as a named provider in addition to MiCoder Auto Fr
 The source-level tests cover endpoint/type defaults and both access modes. A macOS build and live UI verification remain required because the Linux sandbox has no SwiftUI/AppKit/WebKit toolchain.
 
 [1]: https://opencode.ai/docs/zen/ "OpenCode Zen official documentation"
+
+
+## Round 38 (2026-08-13) — stable layout, honest detection, and background browser submit
+
+The latest screenshot-driven review identified four remaining UX/transport defects. The fixes keep the existing visual language but remove state ambiguity and make the hidden browser path observable and deterministic.
+
+| ID | Confirmed issue | Correction | Status |
+|---|---|---|---|
+| SID-20 | Sidebar width was updated from the already-mutated width on every `DragGesture` sample, so cumulative translation caused drift, overshoot, or collapse. | `SidebarResizeHandle` now captures `dragStartWidth` on gesture start, applies each translation to that stable baseline, and clears the baseline on end. | FIXED |
+| UX-11 | `TopBarView` was always rendered by `ContentView`, while `ChatPanelView` added `ChatPanelCompactHeader` when no session existed, producing a double header. | Removed the compact panel header. The top bar is now the single header in both selected-session and no-session states. | FIXED |
+| WEB-14 | The browser settings action was labelled as MiCoder Auto Free even though it performed local DOM scraping and did not call an AI model. | Renamed the area to Browser model detection, added an honest `Detect models` built-in DOM action, and added a separate `Ask free AI` action that sends visible page text to the anonymous Auto Free stream and parses returned model labels. Detection is now explicit rather than automatic on sheet appearance. | FIXED |
+| WEB-15 | Background send used a plain value assignment and direct click, which modern React editors could ignore; model selection could fall back to an ambiguous dropdown; unchanged/empty DOM content could be reported as a model-empty response. | WKWebView now uses the native value setter, `beforeinput`/`input`/`change`, Enter keyboard events, and pointer/click dispatch. WebChatDriver uses only `modelButton` for model injection and only `effortDropdown` for effort injection, waits for the model menu to settle, fingerprints response DOM identity, and reports a submit timeout when no new response is observed. | FIXED |
+
+Round 38 deterministic coverage includes the stable-baseline sidebar test, model/effort selector separation, successful injection ordering, repeated-text response identity, and iteration-limit behavior. Static validation passed with `git diff --check`, `python3 -m json.tool` for the web catalog, `bash -n build-app.sh`, and source scans for removed labels/fallbacks. The Linux sandbox has no Swift/Xcode/WebKit toolchain, so the final `./build-app.sh`, Swift test suite, and real Kimi/Qwen/ChatGPT background-send checks remain macOS verification steps.

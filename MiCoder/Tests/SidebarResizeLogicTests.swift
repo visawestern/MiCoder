@@ -20,6 +20,14 @@ struct SidebarResizeLogicTests {
         #expect(SidebarResizeLogic.applyDrag(current: 260, translation: -60) == 200)
     }
 
+    @Test func dragSamplesUseTheSameGestureBaseline() {
+        let baseline = 260.0
+        let samples = [10.0, 20.0, 30.0].map {
+            SidebarResizeLogic.applyDrag(current: baseline, translation: $0)
+        }
+        #expect(samples == [270.0, 280.0, 290.0])
+    }
+
     @Test func resetReturnsDefault() {
         #expect(SidebarResizeLogic.reset() == 260)
         #expect(SidebarResizeLogic.defaultWidth == 260)

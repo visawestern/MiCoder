@@ -21,6 +21,11 @@ struct WebChatDriver {
     /// the fake bridge has no real web UI to configure).
     var injectModelAndEffortEnabled: Bool = true
 
+    private struct ResponseBaseline {
+        let text: String
+        let fingerprint: String
+    }
+
     /// Run one user turn: inject the message, then loop tool-calls until the
     /// model produces a final answer or hits the iteration limit. Emits events
     /// (streaming/toolCall/toolResult/captcha/final) via `emit`.
@@ -46,7 +51,7 @@ struct WebChatDriver {
                 message = preamble + "\n\n---\n\n" + userMessage
             }
 
-            try await sendPossiblyChunked(message, emit: emit)
+            var responseBaseline = try await sendPossiblyChunked(message, emit: emit)
 
             var iteration = 0
             while true {
@@ -56,13 +61,13 @@ struct WebChatDriver {
                     return
                 }
 
-                let response = try await awaitResponse(emit: emit)
+                let response = try await awaitResponse(after: responseBaseline, emit: emit)
 
                 // Web-model session length limit: restart with carried-over
                 // context instead of failing (plan Раздел 12 extension).
                 if WebSessionLimitLogic.isSessionLimitReached(responseText: response) {
                     emit(.sessionLimitReached)
-                    try await restartSessionWithCarryOver(lastResponse: response, emit: emit)
+                    responseBaseline = try await restartSessionWithCarryOver(lastResponse: response, emit: emit)
                     iteration += 1
                     continue
                 }
@@ -94,7 +99,7 @@ struct WebChatDriver {
                     emit(.toolResult(name: call.name, result: result))
                 }
 
-                try await sendPossiblyChunked(resultsBlock, emit: emit)
+                responseBaseline = try await sendPossiblyChunked(resultsBlock, emit: emit)
                 iteration += 1
             }
         } catch {
@@ -108,11 +113,12 @@ struct WebChatDriver {
     /// overload the web model / hit its session length limit (plan Раздел 12
     /// extension). Non-final parts use the continuation protocol so the model
     /// waits before responding; only the final part triggers generation.
-    private func sendPossiblyChunked(_ text: String, emit: (WebChatEvent) -> Void) async throws {
+    private func sendPossiblyChunked(_ text: String, emit: (WebChatEvent) -> Void) async throws -> ResponseBaseline {
         let parts = WebPromptChunker.chunkedMessages(text)
         if parts.count > 1 { emit(.promptSplit(parts: parts.count)) }
+        var baseline = ResponseBaseline(text: "", fingerprint: "")
         for (idx, part) in parts.enumerated() {
-            try await sendMessage(part, emit: emit)
+            baseline = try await sendMessage(part, emit: emit)
             // For non-final continuation parts, wait briefly for the message to
             // register but do NOT wait for a full generation (model is instructed
             // to hold its answer until the final part).
@@ -120,12 +126,18 @@ struct WebChatDriver {
                 await bridge.wait(ms: max(config.toolCallDelayMs, 300))
             }
         }
+        return baseline
     }
 
-    private func sendMessage(_ text: String, emit: (WebChatEvent) -> Void) async throws {
+    /// Type and submit one message. The returned text is the response already
+    /// present before this submit; awaitResponse uses it as a baseline so an
+    /// empty/old DOM node can never be reported as the new answer.
+    private func sendMessage(_ text: String, emit: (WebChatEvent) -> Void) async throws -> ResponseBaseline {
         guard (try? await bridge.exists(selector: selectors.input)) == true else {
             throw WebChatError.selectorNotFound(selectors.input)
         }
+        let baselineText = (try? await readLatestResponse()) ?? ""
+        let baselineFingerprint = (try? await bridge.responseFingerprint(selector: selectors.responseContainer)) ?? baselineText
         await antiBanDelay()
         try await bridge.typeText(text, into: selectors.input, humanized: config.toolCallDelayMs > 0)
         guard (try? await bridge.exists(selector: selectors.sendButton)) == true else {
@@ -133,12 +145,13 @@ struct WebChatDriver {
         }
         await antiBanDelay()
         try await bridge.click(selector: selectors.sendButton)
+        return ResponseBaseline(text: baselineText, fingerprint: baselineFingerprint)
     }
 
     /// Restart the web session after a length-limit response, seeding a fresh
     /// chat with the tool preamble + goal + a compact recent summary so work
     /// continues instead of failing (plan Раздел 12 extension).
-    private func restartSessionWithCarryOver(lastResponse: String, emit: (WebChatEvent) -> Void) async throws {
+    private func restartSessionWithCarryOver(lastResponse: String, emit: (WebChatEvent) -> Void) async throws -> ResponseBaseline {
         try await bridge.navigate(to: config.chatURL)
         await bridge.wait(ms: max(config.toolCallDelayMs, 500))
         let preamble = WebToolProtocolEmulator.systemPreamble(userSystemPrompt: config.systemPrompt)
@@ -150,33 +163,48 @@ struct WebChatDriver {
         let seed = WebSessionLimitLogic.carryOverSeed(systemPreamble: preamble,
                                                       goal: config.systemPrompt.isEmpty ? nil : config.systemPrompt,
                                                       recentSummary: String(recent.prefix(2000)))
-        try await sendPossiblyChunked(seed, emit: emit)
+        let baseline = try await sendPossiblyChunked(seed, emit: emit)
         emit(.sessionRestarted)
+        return baseline
     }
 
     /// Wait until generation finishes: the stop button disappears and the
     /// response text is stable across `stabilityChecks` polls (plan Блок 2 п.24).
-    private func awaitResponse(emit: (WebChatEvent) -> Void) async throws -> String {
-        var lastText = ""
+    private func awaitResponse(after baseline: ResponseBaseline, emit: (WebChatEvent) -> Void) async throws -> String {
+        var lastText = baseline.text
+        var lastFingerprint = baseline.fingerprint
         var stableCount = 0
+        var hasNonEmptyResponse = false
+        var observedNewResponse = false
         // Bound the wait to avoid infinite loops on a broken page.
         let maxPolls = 600  // pollIntervalMs * 600 = up to 2 min at 200ms
         var polls = 0
         while polls < maxPolls {
             let generating = (try? await bridge.exists(selector: selectors.stopButton)) ?? false
             let text = (try? await readLatestResponse()) ?? lastText
-            if text != lastText {
-                emit(.streaming(text))
+            let fingerprint = (try? await bridge.responseFingerprint(selector: selectors.responseContainer)) ?? text
+            let changed = text != baseline.text || fingerprint != baseline.fingerprint
+            let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !normalized.isEmpty && changed {
+                hasNonEmptyResponse = true
+                observedNewResponse = true
+            }
+            if text != lastText || fingerprint != lastFingerprint {
+                if observedNewResponse { emit(.streaming(text)) }
                 lastText = text
+                lastFingerprint = fingerprint
                 stableCount = 0
-            } else if !generating {
+            } else if !generating && hasNonEmptyResponse && observedNewResponse {
                 stableCount += 1
-                if stableCount >= stabilityChecks { return text }
+                if stableCount >= stabilityChecks { return lastText }
             }
             await bridge.wait(ms: pollIntervalMs)
             polls += 1
         }
-        return lastText
+        // An unchanged empty DOM is a failed send/response, not a valid answer.
+        // Surface a timeout so the caller can retry the browser path instead of
+        // presenting the misleading "model returned empty response" message.
+        throw WebChatError.responseTimeout
     }
 
     // Read the last assistant message from the DOM. Tries the vendor-specific
@@ -228,9 +256,14 @@ struct WebChatDriver {
         }
 
         // Inject model selection and require an explicit successful click.
-        if !config.selectedModel.isEmpty,
-           let modelSelector = catalogEntry.modelButton ?? catalogEntry.modelDropdown.split(separator: ",").first.map(String.init) {
-            let selector = modelSelector.trimmingCharacters(in: .whitespaces)
+        if !config.selectedModel.isEmpty {
+            guard let modelButton = catalogEntry.modelButton?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !modelButton.isEmpty else {
+                throw WebChatError.modelInjectionFailed(
+                    "No model control is configured for \(config.vendor.displayName). Refresh the provider catalog before sending."
+                )
+            }
+            let selector = modelButton
             do {
                 try await bridge.click(selector: selector)
                 try? await bridge.waitForSelector(selector: "div.model-item, [class*='model-item'], [role='option']", timeout: 5000)
@@ -248,7 +281,9 @@ struct WebChatDriver {
                         "Model '\(modelText)' was not found in the web provider menu. Refresh models and try again."
                     )
                 }
-                await bridge.wait(ms: 300)
+                // Let the model menu close and the provider commit its state
+                // before touching the independent effort control.
+                await bridge.wait(ms: 800)
             } catch let error as WebChatError {
                 throw error
             } catch {
@@ -285,7 +320,8 @@ struct WebChatDriver {
                         lastError = "effort option not found"
                         continue
                     }
-                    await bridge.wait(ms: 300)
+                    // Keep effort injection isolated from the model menu.
+                    await bridge.wait(ms: 800)
                     anySuccess = true
                     break
                 } catch {
@@ -406,11 +442,10 @@ struct WebChatDriver {
     /// Resolve the model selector for the current vendor.
     private func modelSelector() throws -> String {
         if let custom = config.customModelSelector, !custom.isEmpty { return custom }
-        if let catalog = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id) {
-            if let button = catalog.modelButton, !button.isEmpty { return button }
-            if let first = catalog.modelDropdown.components(separatedBy: ",").first {
-                return first.trimmingCharacters(in: .whitespaces)
-            }
+        if let catalog = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id),
+           let button = catalog.modelButton?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !button.isEmpty {
+            return button
         }
         throw WebChatError.noModelSelector
     }
@@ -467,7 +502,7 @@ enum WebChatError: LocalizedError {
         case .modelInjectionFailed(let message): return message
         case .effortInjectionFailed(let message): return message
         case .selectorNotFound(let selector): return "Browser element was not found: \(selector)"
-        case .responseTimeout: return "The web provider did not return a response within 2 minutes. Check the page and try again."
+        case .responseTimeout: return "The browser did not confirm a new response after submit. The message may not have been sent; check the web page/session and retry."
         case .noModelSelector: return "No model selector configured for this vendor"
         case .noSession: return "No active web session"
         }

@@ -46,16 +46,58 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
     }
 
     func typeText(_ text: String, into selector: String, humanized: Bool) async throws {
-        // Set the value and dispatch input/change so the app's React state updates.
+        // React/Vue editors do not observe a plain `value = ...` assignment.
+        // Use the native setter and the same beforeinput/input/change sequence a
+        // real keystroke produces, then dispatch Enter so submit handlers see a
+        // background keyboard interaction without requiring an active window.
         let escaped = Self.jsString(text)
         let js = """
         (function(){
           var el = document.querySelector(\(Self.jsString(selector)));
           if(!el){return false;}
-          if(el.isContentEditable){ el.focus(); el.textContent = \(escaped); }
-          else { el.focus(); el.value = \(escaped); }
-          el.dispatchEvent(new Event('input', {bubbles:true}));
+          el.focus();
+          var before = null;
+          try {
+            before = new InputEvent('beforeinput', {
+              bubbles: true, cancelable: true, inputType: 'insertText', data: \(escaped)
+            });
+          } catch (_) {}
+          if (before) { el.dispatchEvent(before); }
+
+          if (el.isContentEditable) {
+            var inserted = false;
+            try { inserted = document.execCommand('insertText', false, \(escaped)); } catch (_) {}
+            if (!inserted) {
+              el.textContent = \(escaped);
+            }
+          } else {
+            var proto = el instanceof HTMLTextAreaElement
+              ? HTMLTextAreaElement.prototype
+              : HTMLInputElement.prototype;
+            var descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
+            if (descriptor && descriptor.set) {
+              descriptor.set.call(el, \(escaped));
+            } else {
+              el.value = \(escaped);
+            }
+          }
+
+          var inputEvent = null;
+          try {
+            inputEvent = new InputEvent('input', {
+              bubbles: true, cancelable: false, inputType: 'insertText', data: \(escaped)
+            });
+          } catch (_) {
+            inputEvent = new Event('input', {bubbles: true});
+          }
+          el.dispatchEvent(inputEvent);
           el.dispatchEvent(new Event('change', {bubbles:true}));
+
+          var keyOptions = {key:'Enter', code:'Enter', keyCode:13, which:13,
+                            bubbles:true, cancelable:true};
+          try { el.dispatchEvent(new KeyboardEvent('keydown', keyOptions)); } catch (_) {}
+          try { el.dispatchEvent(new KeyboardEvent('keypress', keyOptions)); } catch (_) {}
+          try { el.dispatchEvent(new KeyboardEvent('keyup', keyOptions)); } catch (_) {}
           return true;
         })();
         """
@@ -90,7 +132,15 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         (function(){
           var el = document.querySelector(\(Self.jsString(selector)));
           if(!el){return false;}
-          el.click(); return true;
+          var target = el.matches('button, [role="button"], input[type="submit"]')
+            ? el
+            : (el.querySelector('button, [role="button"], input[type="submit"]') || el);
+          if (target.disabled || target.getAttribute('aria-disabled') === 'true') { return false; }
+          try { target.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true, pointerType:'mouse'})); } catch (_) {}
+          target.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true, view:window}));
+          target.dispatchEvent(new MouseEvent('mouseup', {bubbles:true, cancelable:true, view:window}));
+          target.click();
+          return true;
         })();
         """
         guard (try await eval(js) as? Bool) == true else {
@@ -198,6 +248,28 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
             }
           }
           return "";
+        })();
+        """
+        return (try? await eval(js)) as? String ?? ""
+    }
+
+    func responseFingerprint(selector: String) async throws -> String {
+        let js = """
+        (function(){
+          var els = document.querySelectorAll(\(Self.jsString(selector)));
+          if(!els || els.length===0){return "";}
+          var visible = [];
+          for (var i = 0; i < els.length; i++) {
+            var el = els[i];
+            var style = window.getComputedStyle(el);
+            if (style.display !== 'none' && style.visibility !== 'hidden') {
+              visible.push(el);
+            }
+          }
+          if (!visible.length) { return ""; }
+          var last = visible[visible.length - 1];
+          var markup = last.outerHTML || last.textContent || '';
+          return String(visible.length) + ':' + markup.length + ':' + markup.slice(-1200);
         })();
         """
         return (try? await eval(js)) as? String ?? ""

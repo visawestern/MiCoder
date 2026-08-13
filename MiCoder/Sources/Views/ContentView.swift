@@ -161,6 +161,7 @@ struct SidebarResizeHandle: View {
     let defaultWidth: Double
 
     @State private var isHovering = false
+    @State private var dragStartWidth: Double?
 
     var body: some View {
         Rectangle()
@@ -178,8 +179,18 @@ struct SidebarResizeHandle: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-                        width = SidebarResizeLogic.applyDrag(current: width, translation: value.translation.width,
-                                                             min: minWidth, max: maxWidth)
+                        if dragStartWidth == nil {
+                            dragStartWidth = width
+                        }
+                        width = SidebarResizeLogic.applyDrag(
+                            current: dragStartWidth ?? width,
+                            translation: value.translation.width,
+                            min: minWidth,
+                            max: maxWidth
+                        )
+                    }
+                    .onEnded { _ in
+                        dragStartWidth = nil
                     }
             )
             .onTapGesture(count: 2) {
