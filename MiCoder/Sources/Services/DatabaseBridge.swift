@@ -145,9 +145,14 @@ class DatabaseBridge: ObservableObject {
         modelId: String? = nil,
         providerId: String? = nil
     ) {
-        // For temporary sessions (temp directory), use global database
+        // A project may legitimately live under the OS temporary directory
+        // (tests, scratch workspaces, and disposable clones). Use the global
+        // database only when the directory is temporary AND projectId is not a
+        // valid project root; a real project root always owns its per-project DB.
         let tempDir = FileManager.default.temporaryDirectory.path
-        if directory.hasPrefix(tempDir) {
+        let isEphemeralSession = directory.hasPrefix(tempDir)
+            && resolveProjectDatabase(for: projectId) == nil
+        if isEphemeralSession {
             do {
                 try db.insertSession(
                     id: id,
@@ -261,11 +266,13 @@ class DatabaseBridge: ObservableObject {
     
     private func isTemporarySession(_ sessionId: String) -> Bool {
         guard let path = projectPath(forSessionID: sessionId) else {
-            // If no project path, check if it's in global db
+            // Sessions created without a valid project registration use the
+            // legacy/global database (for example disposable send failures).
             return true
         }
-        let tempDir = FileManager.default.temporaryDirectory.path
-        return path.hasPrefix(tempDir)
+        // A real project can live under /tmp. The registered project database,
+        // not the filesystem prefix, is the source of truth for routing.
+        return resolveProjectDatabase(for: path) == nil
     }
     
     /// Сохранить часть сообщения через переданный project database inserter.
