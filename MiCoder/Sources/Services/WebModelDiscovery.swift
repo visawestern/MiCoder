@@ -134,20 +134,33 @@ enum WebModelDiscovery {
                 await bridge.wait(ms: 500)
             }
 
-            // Fallback: if selector not found, try clicking "New Chat" to enter chat mode
+            // Fallback: if selector not found, try clicking a catalog-defined
+            // New Chat label to enter chat mode.
             if !modelBtnFound {
-                let newChatTexts = catalogEntry?.newChatTexts ?? ["New Chat", "新对话", "Начать"]
+                let newChatTexts = catalogEntry?.newChatTexts ?? ["New Chat", "Новый чат", "新对话"]
+                var clicked = false
                 for text in newChatTexts {
                     if (try? await bridge.clickByText(selector: "button, a, div", text: text)) == true {
-                        await bridge.wait(ms: 2000)
-                        for _ in 0..<25 {
-                            if (try? await bridge.exists(selector: dropdownSelector)) == true {
-                                modelBtnFound = true
-                                break
-                            }
-                            await bridge.wait(ms: 300)
+                        clicked = true
+                        break
+                    }
+                }
+                if !clicked, (try? await bridge.exists(selector: "[class*='new-chat']")) == true {
+                    try? await bridge.click(selector: "[class*='new-chat']")
+                    clicked = true
+                }
+                if !clicked, (try? await bridge.exists(selector: "[data-testid*='new']")) == true {
+                    try? await bridge.click(selector: "[data-testid*='new']")
+                    clicked = true
+                }
+                if clicked {
+                    await bridge.wait(ms: 2000)
+                    for _ in 0..<25 {
+                        if (try? await bridge.exists(selector: dropdownSelector)) == true {
+                            modelBtnFound = true
+                            break
                         }
-                        if modelBtnFound { break }
+                        await bridge.wait(ms: 300)
                     }
                 }
             }
@@ -174,30 +187,26 @@ enum WebModelDiscovery {
 
             guard modelBtnFound else { return nil }
 
-            // Click to open the custom dropdown
+            // Click to open the vendor dropdown and read visible options from
+            // the actual page. The previous implementation only waited for
+            // Kimi's div.model-item, so Qwen/ChatGPT often returned nothing.
             try await bridge.click(selector: dropdownSelector)
-            // Wait for vendor-specific dropdown items (not hardcoded div.model-item)
+            // Wait for vendor-specific dropdown items (not hardcoded div.model-item).
             try? await bridge.waitForSelector(selector: modelItemSelector, timeout: 5000)
 
-            // Read model names using vendor-specific selector
-            var modelNames = try await bridge.readModelItems(modelItemSelector: modelItemSelector)
-
-            // Qwen renders some available models in a different option class
-            // than the first visible three. Merge the option surfaces instead
-            // of treating the first selector result as the complete catalog.
+            var modelNames = (try? await bridge.readModelItems(modelItemSelector: modelItemSelector)) ?? []
             if vendor == .qwen {
                 for selector in ["[role='option']", "[class*='model-item']", "li[class*='model']"] {
                     let extra = (try? await bridge.readModelItems(modelItemSelector: selector)) ?? []
                     modelNames.append(contentsOf: extra)
                 }
             }
+            modelNames.append(contentsOf: (try? await readVisibleTexts(using: bridge, selector: modelItemSelector)) ?? [])
 
             var seen = Set<String>()
-            modelNames = modelNames.filter { seen.insert($0.lowercased()).inserted }
-            // ChatGPT currently exposes one selectable model in the live web
-            // UI. Other entries returned by its broad option tree are feature
-            // actions or stale/secondary nodes; never present them as 29 chat
-            // models in MiCoder.
+            modelNames = modelNames
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
             if vendor == .chatgpt {
                 modelNames = Array(modelNames.prefix(1))
             }
@@ -205,7 +214,7 @@ enum WebModelDiscovery {
                 return modelNames.map { WebProviderModel(name: $0) }
             }
 
-            // Fallback: read raw text from the dropdown container
+            // Fallback: read raw text from the dropdown container.
             let text = try await bridge.readText(selector: dropdownSelector)
             let parsed = WebModelListParser.parse(dropdownText: text, vendor: vendor)
             if !parsed.isEmpty {
@@ -235,7 +244,7 @@ enum WebModelDiscovery {
             do {
                 var dropdownReady = false
                 for _ in 0..<20 {
-                    if (try? await bridge.exists(selector: selector)) ?? false {
+                    if (try? await bridge.exists(selector: selector)) == true {
                         dropdownReady = true
                         break
                     }
@@ -245,10 +254,10 @@ enum WebModelDiscovery {
                 try await bridge.click(selector: selector)
                 await bridge.wait(ms: 500)
                 let triggerText = (try? await bridge.readText(selector: selector)) ?? ""
-                let optionText = (try? await bridge.readText(
-                    selector: "[role='option'], [class*='effort'], [class*='thinking'], [class*='menu-item']"
-                )) ?? ""
-                let text = [triggerText, optionText].filter { !$0.isEmpty }.joined(separator: "\n")
+                let optionSelector = "[role='option'], [class*='effort'], [class*='thinking'], [class*='menu-item'], .ant-select-item-option-content, button"
+                let optionText = (try? await bridge.readText(selector: optionSelector)) ?? ""
+                let visibleText = ((try? await readVisibleTexts(using: bridge, selector: optionSelector)) ?? []).joined(separator: "\n")
+                let text = [triggerText, optionText, visibleText].filter { !$0.isEmpty }.joined(separator: "\n")
                 let efforts = WebModelListParser.parseEffortLevels(dropdownText: text, vendor: vendor)
                 if !efforts.isEmpty { return efforts }
             } catch {
@@ -256,6 +265,27 @@ enum WebModelDiscovery {
             }
         }
         return nil
+    }
+
+    private static func readVisibleTexts(using bridge: BrowserAutomationBridge, selector: String) async throws -> [String] {
+        let selectorJSON = (try? JSONSerialization.data(withJSONObject: [selector]))
+            .flatMap { String(data: $0, encoding: .utf8) }
+            .map { String($0.dropFirst().dropLast()) } ?? "\"\""
+        let result = try await bridge.evaluateJS("""
+        Array.from(document.querySelectorAll(\(selectorJSON)))
+            .filter(el => {
+                const style = window.getComputedStyle(el);
+                const rect = el.getBoundingClientRect();
+                return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+            })
+            .map(el => (el.innerText || el.textContent || '').trim())
+            .filter(Boolean)
+        """)
+        if let values = result as? [String] {
+            var seen = Set<String>()
+            return values.filter { !$0.isEmpty && seen.insert($0).inserted }
+        }
+        return []
     }
 
     /// Discover feature modes (Deep Research, Create Image, etc.) for a vendor.

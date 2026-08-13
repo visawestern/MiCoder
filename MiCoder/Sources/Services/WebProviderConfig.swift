@@ -38,7 +38,7 @@ enum WebChatVendor: String, Codable, CaseIterable, Identifiable {
 }
 
 /// Effort/thinking level mapped to each vendor's toggle (plan Блок 1 п.6).
-enum WebEffort: String, Codable, CaseIterable, Identifiable {
+enum WebEffort: String, Codable, CaseIterable, Identifiable, Equatable {
     case low, medium, high
     var id: String { rawValue }
 

@@ -1,0 +1,250 @@
+MiCoder/Sources/Views/BottomPanelView.swift:45:            Button(action: onClose) {
+MiCoder/Sources/Views/BottomPanelView.swift:75:        Button(action: { selectedTag = tag }) {
+MiCoder/Sources/Views/BottomPanelView.swift:126:                    Button(action: stopExecution) {
+MiCoder/Sources/Views/BottomPanelView.swift:444:                Button(L.t(AppLocalizationKey.locCreate)) { createBranch() }
+MiCoder/Sources/Views/BottomPanelView.swift:445:                Button(L.t(AppLocalizationKey.locCancel), role: .cancel) { newBranchName = "" }
+MiCoder/Sources/Views/BottomPanelView.swift:595:                    Button(action: { onSelect(branch) }) {
+MiCoder/Sources/Views/BottomPanelView.swift:768:        Button(action: action) {
+MiCoder/Sources/Views/ChatPanelView.swift:68:                                    Button(L.t(AppLocalizationKey.locLoadingOlderMessages)) {
+MiCoder/Sources/Views/ChatPanelView.swift:258:        .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
+MiCoder/Sources/Views/ChatPanelView.swift:1422:        Button(action: action) {
+MiCoder/Sources/Views/Components/AgentResourceLibraryView.swift:170:                Button(L.t(AppLocalizationKey.locUpdate)) {
+MiCoder/Sources/Views/Components/AgentResourceLibraryView.swift:177:                Button(L.t(AppLocalizationKey.locUninstall)) {
+MiCoder/Sources/Views/Components/AgentResourceLibraryView.swift:189:            Button(L.t(AppLocalizationKey.locInstall)) {
+MiCoder/Sources/Views/Components/ChatImageViews.swift:39:        .sheet(item: $previewImage) { img in
+MiCoder/Sources/Views/Components/ChatImageViews.swift:59:                    Button(action: { dismiss() }) {
+MiCoder/Sources/Views/Components/ChatImageViews.swift:78:                Button(action: { dismiss() }) {
+MiCoder/Sources/Views/Components/ChatImageViews.swift:96:                Button(L.t(AppLocalizationKey.locClose)) { dismiss() }
+MiCoder/Sources/Views/Components/GitPremiumDialogs.swift:74:        Button(action: action) {
+MiCoder/Sources/Views/Components/GitPremiumDialogs.swift:109:        Button(action: action) {
+MiCoder/Sources/Views/Components/GitPremiumDialogs.swift:123:        .keyboardShortcut(.cancelAction)
+MiCoder/Sources/Views/Components/GitPremiumDialogs.swift:196:                    Link(
+MiCoder/Sources/Views/Components/GitPremiumDialogs.swift:225:                        Picker(AppLocalization.string(.gitVisibility, language: language), selection: $isPublic) {
+MiCoder/Sources/Views/Components/GitPremiumDialogs.swift:508:                Picker("", selection: $useCustomMessage) {
+MiCoder/Sources/Views/Components/InputCommandDropdownView.swift:66:                Button("") { commitHighlighted(trigger: trigger) }
+MiCoder/Sources/Views/Components/InputCommandDropdownView.swift:67:                    .keyboardShortcut(.defaultAction)
+MiCoder/Sources/Views/Components/InputCommandDropdownView.swift:85:        Button(action: { insert(item, trigger: trigger) }) {
+MiCoder/Sources/Views/Components/InputControls.swift:18:                Button(action: { appState.accessLevel = level }) {
+MiCoder/Sources/Views/Components/InputControls.swift:37:            Button(action: { appState.agentMode = .plan }) {
+MiCoder/Sources/Views/Components/InputControls.swift:82:                Button(action: { appState.agentMode = mode }) {
+MiCoder/Sources/Views/Components/InputControls.swift:132:                    Button(action: { appState.selectProvider(option.id) }) {
+MiCoder/Sources/Views/Components/InputControls.swift:152:            Button(L.t(AppLocalizationKey.locManageProviders)) {
+MiCoder/Sources/Views/Components/InputControls.swift:186:                    Button(action: { appState.selectModel(model) }) {
+MiCoder/Sources/Views/Components/InputControls.swift:197:            Button(L.t(AppLocalizationKey.locManageModels)) {
+MiCoder/Sources/Views/Components/InputControls.swift:226:        Button(action: { load(); isOpen.toggle() }) {
+MiCoder/Sources/Views/Components/InputControls.swift:246:                    Button(L.t(AppLocalizationKey.locResetButton)) { resetAll() }
+MiCoder/Sources/Views/Components/InputControls.swift:249:                    Button(L.t(AppLocalizationKey.locSave)) { save(); isOpen = false }
+MiCoder/Sources/Views/Components/InputControls.swift:300:                Button(action: { appState.selectWebEffort(effort) }) {
+MiCoder/Sources/Views/Components/InputControls.swift:349:                    Button(action: { appState.selectedVariant = variant }) {
+MiCoder/Sources/Views/Components/InputControls.swift:422:            Button(action: { showPlusMenu = true }) {
+MiCoder/Sources/Views/Components/InputControls.swift:486:            Button(action: onStop) {
+MiCoder/Sources/Views/Components/InputControls.swift:494:            Button(action: onSend) {
+MiCoder/Sources/Views/Components/InputControls.swift:556:                Button(L.t(AppLocalizationKey.locCancel)) { dismiss() }
+MiCoder/Sources/Views/Components/InputControls.swift:559:                Button(isConnecting ? L.t(AppLocalizationKey.locConnecting) : L.t(AppLocalizationKey.locConnect)) {
+MiCoder/Sources/Views/Components/InputViews.swift:16:                    Button(action: { attachedFiles.removeAll() }) {
+MiCoder/Sources/Views/Components/InputViews.swift:40:                                    Button(action: { revealInFinder(path) }) {
+MiCoder/Sources/Views/Components/InputViews.swift:49:                                Button(action: {
+MiCoder/Sources/Views/Components/InputViews.swift:73:                            .onTapGesture(count: 2) {
+MiCoder/Sources/Views/Components/InputViews.swift:121:                    Button(action: { attachedImages.removeAll() }) {
+MiCoder/Sources/Views/Components/InputViews.swift:151:                                        .onTapGesture {
+MiCoder/Sources/Views/Components/InputViews.swift:155:                                    Button(action: {
+MiCoder/Sources/Views/Components/InputViews.swift:180:        .sheet(item: $previewImage) { img in
+MiCoder/Sources/Views/Components/InputViews.swift:201:                    Button(action: onDismiss) {
+MiCoder/Sources/Views/Components/InputViews.swift:219:                    Button(action: {
+MiCoder/Sources/Views/Components/InputViews.swift:238:                    Button(action: onDismiss) {
+MiCoder/Sources/Views/Components/InputViews.swift:257:                Button(L.t(AppLocalizationKey.locClose)) { onDismiss() }
+MiCoder/Sources/Views/Components/InputViews.swift:413:        .fileImporter(isPresented: $showPhotoPicker, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
+MiCoder/Sources/Views/Components/InputViews.swift:428:            Button(action: { showWorkspaceDropdown.toggle() }) {
+MiCoder/Sources/Views/Components/InputViews.swift:618:        .fileImporter(isPresented: $showPhotoPicker, allowedContentTypes: [.image], allowsMultipleSelection: true) { result in
+MiCoder/Sources/Views/Components/InputViews.swift:651:                        Button(action: { appState.selectedWorkspace = workspace; isPresented = false }) {
+MiCoder/Sources/Views/Components/InputViews.swift:663:                    Button(action: { openFolder() }) {
+MiCoder/Sources/Views/Components/InputViews.swift:669:                    Button(action: { isPresented = false; appState.showRemoteConnection = true }) {
+MiCoder/Sources/Views/Components/InputViews.swift:766:            Button(action: onCancel) {
+MiCoder/Sources/Views/Components/LanguagePickerDropdown.swift:13:        Button(action: { isOpen.toggle() }) {
+MiCoder/Sources/Views/Components/LanguagePickerDropdown.swift:45:                        Button(action: {
+MiCoder/Sources/Views/Components/MessageAttachmentImportZone.swift:78:                    Button(action: { store.clearImportError() }) {
+MiCoder/Sources/Views/Components/MessageRowView.swift:338:            Button(action: {
+MiCoder/Sources/Views/Components/MessageRowView.swift:442:                Button(action: { isExpanded.toggle() }) {
+MiCoder/Sources/Views/Components/MessageRowView.swift:671:        Button(action: action) {
+MiCoder/Sources/Views/Components/MessageRowView.swift:689:        Button(action: action) {
+MiCoder/Sources/Views/Components/PlanQuestionCardView.swift:148:        .onTapGesture {
+MiCoder/Sources/Views/Components/PlanQuestionCardView.swift:156:                Button(action: goBack) {
+MiCoder/Sources/Views/Components/PlanQuestionWizardTheme.swift:57:        Button(action: action) {
+MiCoder/Sources/Views/Components/PlusMenuView.swift:17:                Button(action: {
+MiCoder/Sources/Views/Components/SettingsControls.swift:82:                Button(action: action) {
+MiCoder/Sources/Views/Components/SettingsControls.swift:114:        Button(action: action) {
+MiCoder/Sources/Views/Components/WebModeSelectorView.swift:68:            Picker("", selection: $selectedThinking) {
+MiCoder/Sources/Views/Components/WebModeSelectorView.swift:115:        Button(action: action) {
+MiCoder/Sources/Views/Components/WebModeSelectorView.swift:145:        Button(action: action) {
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:31:                    Button(action: { addVendor(vendor) }) {
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:61:        .sheet(item: $loginConfig) { cfg in
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:196:                    Button(L.t(AppLocalizationKey.locLogin)) { onLogin() }
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:202:                            Button(action: { showDiscoveredModels.toggle() }) {
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:214:                        Button(action: {
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:244:                        Button(action: {
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:289:                Button(action: { showRemoveConfirmation = true }) {
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:295:                    Button("Remove", role: .destructive, action: onRemove)
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:296:                    Button("Cancel", role: .cancel) {}
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:309:                            Button(template.name) {
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:314:                        Button("Clear") { config.systemPrompt = "" }
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:328:                        Button("Clear") { config.systemPrompt = "" }
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:368:            Picker(L.t(AppLocalizationKey.locTransport), selection: $config.transport) {
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:374:            Toggle(L.t(AppLocalizationKey.locTosViolation), isOn: $config.acknowledgedToS)
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:409:                        Button(action: {
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:430:                Button("Add") {
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:511:                Button(action: { showElementPicker.toggle() }) {
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:520:                Button(action: detectModelsFromPage) {
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:536:                Button(action: capture) {
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:546:                Button(action: { dismiss() }) {
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:577:        .sheet(item: $pickedElement) { element in
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:853:                Button(L.t(AppLocalizationKey.locCancel), role: .cancel) { dismiss() }
+MiCoder/Sources/Views/Components/WebProvidersSection.swift:855:                Button(L.t(AppLocalizationKey.locUseAsModelSelector)) {
+MiCoder/Sources/Views/ContentView.swift:71:        .sheet(isPresented: $appState.showSearch) {
+MiCoder/Sources/Views/ContentView.swift:75:        .sheet(isPresented: $appState.showRemoteConnection) {
+MiCoder/Sources/Views/ContentView.swift:79:        .sheet(isPresented: $appState.showProjectCreation) {
+MiCoder/Sources/Views/ContentView.swift:86:        .sheet(item: $appState.pendingGitAction) { action in
+MiCoder/Sources/Views/ContentView.swift:100:            Button(L.t(AppLocalizationKey.locRestoreFromBackup)) {
+MiCoder/Sources/Views/ContentView.swift:113:            Button(L.t(AppLocalizationKey.locIgnore), role: .cancel) {
+MiCoder/Sources/Views/ContentView.swift:130:                    .onTapGesture { appState.showSettings = false }
+MiCoder/Sources/Views/ContentView.swift:145:                Button("") { appState.showSettings = false }
+MiCoder/Sources/Views/ContentView.swift:146:                    .keyboardShortcut(.cancelAction)
+MiCoder/Sources/Views/ContentView.swift:188:            .onTapGesture(count: 2) {
+MiCoder/Sources/Views/NewProjectSheet.swift:20:                Button(action: { dismiss() }) {
+MiCoder/Sources/Views/NewProjectSheet.swift:48:                    Button(action: selectFolder) {
+MiCoder/Sources/Views/NewProjectSheet.swift:62:                Button(L.t(AppLocalizationKey.locCancel)) {
+MiCoder/Sources/Views/NewProjectSheet.swift:70:                Button(action: createProject) {
+MiCoder/Sources/Views/RightPanelView.swift:54:                Button(action: refreshGit) {
+MiCoder/Sources/Views/RightPanelView.swift:143:                        Button(action: { checkout(branch) }) {
+MiCoder/Sources/Views/RightPanelView.swift:249:        .sheet(isPresented: $showCommitDialog) {
+MiCoder/Sources/Views/RightPanelView.swift:258:        .sheet(isPresented: $showInitDialog) {
+MiCoder/Sources/Views/RightPanelView.swift:263:        .sheet(isPresented: $showPublishDialog) {
+MiCoder/Sources/Views/RightPanelView.swift:272:        .sheet(isPresented: $showAutoReviewDialog) {
+MiCoder/Sources/Views/Settings/CommandsSettingsView.swift:56:                Button(action: { editor = CommandEditorModel() }) {
+MiCoder/Sources/Views/Settings/CommandsSettingsView.swift:73:        .sheet(item: $editor) { model in
+MiCoder/Sources/Views/Settings/CommandsSettingsView.swift:143:            Button(command.isEnabled ? L.t(AppLocalizationKey.locDisable) : L.t(AppLocalizationKey.locEnable)) {
+MiCoder/Sources/Views/Settings/CommandsSettingsView.swift:151:            Button(action: {
+MiCoder/Sources/Views/Settings/CommandsSettingsView.swift:158:            Button(action: { commandToDelete = command }) {
+MiCoder/Sources/Views/Settings/CommandsSettingsView.swift:258:                Button(L.t(AppLocalizationKey.locCancel)) { dismiss() }
+MiCoder/Sources/Views/Settings/CommandsSettingsView.swift:260:                Button(L.t(AppLocalizationKey.locSave)) { save() }
+MiCoder/Sources/Views/Settings/GeneralSettingsView.swift:57:                            Button(theme.rawValue) {
+MiCoder/Sources/Views/Settings/GeneralSettingsView.swift:80:                            Button(action: {
+MiCoder/Sources/Views/Settings/GeneralSettingsView.swift:167:                            Button(theme) {
+MiCoder/Sources/Views/Settings/GeneralSettingsView.swift:177:                            Button(theme) {
+MiCoder/Sources/Views/Settings/MCPServersSettingsView.swift:126:            Button(server.isEnabled ? L.t(AppLocalizationKey.locDisable) : L.t(AppLocalizationKey.locEnable)) {
+MiCoder/Sources/Views/Settings/MCPServersSettingsView.swift:133:            Button(action: { showRemoveConfirmation = true }) {
+MiCoder/Sources/Views/Settings/MCPServersSettingsView.swift:143:            Button(L.t(AppLocalizationKey.locCancel), role: .cancel) {}
+MiCoder/Sources/Views/Settings/MCPServersSettingsView.swift:144:            Button(L.t(AppLocalizationKey.locRemove), role: .destructive) { remove() }
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:27:        .sheet(isPresented: $showAddProvider) {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:79:                Button(action: { showAddProvider = true }) {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:157:                            Button(action: {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:250:                        Button(L.t(AppLocalizationKey.locSaveConfiguration)) {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:266:                        Toggle(L.t(AppLocalizationKey.locEnableToolCalling), isOn: Binding(
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:283:                            Toggle(L.t(AppLocalizationKey.locEnableACP), isOn: Binding(
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:299:                    Button(role: .destructive) {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:308:                    Button(L.t(AppLocalizationKey.locRefreshModels)) {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:328:                    Button(L.t(AppLocalizationKey.locRefreshWebModels)) {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:565:                Button(action: {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:576:                Button(action: {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:583:                    Button(action: {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:605:                    Button(action: {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:695:                Button(action: {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:754:                Button(action: { isPresented = false }) {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:772:                        Picker(L.t(AppLocalizationKey.locProviderType), selection: $type) {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:813:                        Toggle(L.t(AppLocalizationKey.locRequiresAPIKey), isOn: $requiresAPIKey)
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:821:                        Toggle(L.t(AppLocalizationKey.locEnableToolCalling), isOn: $supportsTools)
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:830:                            Toggle(L.t(AppLocalizationKey.locEnableACP), isOn: $acpEnabled)
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:854:                Button(action: {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:876:                Button(L.t(AppLocalizationKey.locCancel)) {
+MiCoder/Sources/Views/Settings/ModelSettingsView.swift:882:                Button(action: {
+MiCoder/Sources/Views/Settings/ProvidersSettingsView.swift:44:                Button(action: { runAutoDetect() }) {
+MiCoder/Sources/Views/Settings/ProvidersSettingsView.swift:187:        Button(action: onAdd) {
+MiCoder/Sources/Views/Settings/ProvidersSettingsView.swift:229:            Button(action: onToggle) {
+MiCoder/Sources/Views/Settings/ProvidersSettingsView.swift:235:            Button(action: onRemove) {
+MiCoder/Sources/Views/Settings/ProvidersSettingsView.swift:315:            Button(action: { showAddProvider = true }) {
+MiCoder/Sources/Views/Settings/ProvidersSettingsView.swift:402:                Button(action: {
+MiCoder/Sources/Views/Settings/ProvidersSettingsView.swift:521:            Button(action: { withAnimation { isExpanded.toggle() } }) {
+MiCoder/Sources/Views/Settings/SkillsSettingsView.swift:93:                Button(r.isEnabled ? L.t(AppLocalizationKey.locDisable) : L.t(AppLocalizationKey.locEnable)) {
+MiCoder/Sources/Views/Settings/SkillsSettingsView.swift:101:            Button(action: { showRemoveConfirmation = true }) {
+MiCoder/Sources/Views/Settings/SkillsSettingsView.swift:111:            Button(L.t(AppLocalizationKey.locCancel), role: .cancel) {}
+MiCoder/Sources/Views/Settings/SkillsSettingsView.swift:112:            Button(L.t(AppLocalizationKey.locRemove), role: .destructive) { remove() }
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:100:                        Picker("", selection: $archiveDays) {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:110:                        Button(L.t(AppLocalizationKey.locArchiveNow)) {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:132:                        Picker("", selection: $deleteDays) {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:142:                        Button(L.t(AppLocalizationKey.locDelete), role: .destructive) {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:151:                    Button(L.t(AppLocalizationKey.deleteAllArchivedChats)) {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:160:                    Button(L.t(AppLocalizationKey.compressDatabase)) {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:178:                    Button(AppLocalization.string(.resetAppCache, language: appState.appLanguage)) {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:188:                Button(L.t(AppLocalizationKey.locCancel), role: .cancel) {}
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:189:                Button(L.t(AppLocalizationKey.locDelete), role: .destructive) {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:197:                Button(L.t(AppLocalizationKey.locCancel), role: .cancel) {}
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:198:                Button(L.t(AppLocalizationKey.locDelete), role: .destructive) {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:206:                Button(L.t(AppLocalizationKey.locCancel), role: .cancel) {}
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:207:                Button(L.t(AppLocalizationKey.locResetButton), role: .destructive) {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:222:                Button(L.t(AppLocalizationKey.locCancel), role: .cancel) { pendingDeleteEntry = nil }
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:223:                Button(L.t(AppLocalizationKey.locDelete), role: .destructive) {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:259:                Button(L.t(AppLocalizationKey.locArchiveInactiveDays).replacingOccurrences(of: "{0}", with: "\(Int(archiveDays))")) {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:284:                    Button(L.t(AppLocalizationKey.locArchiveInactive)) {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:332:            Button(L.t(AppLocalizationKey.locFindNewPath2)) { relinkProject(entry) }
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:334:            Button(action: {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:371:                Button(L.t(AppLocalizationKey.locRestore)) { mutateProjects { ProjectRegistryLogic.restore(id: entry.id, in: $0) } }
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:374:                Button(L.t(AppLocalizationKey.locArchive)) { mutateProjects { ProjectRegistryLogic.archive(id: entry.id, at: Date(), in: $0) } }
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:377:            Button(action: {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:386:            Button(action: {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:395:            Button(action: { exportProjectBackup(entry) }) {
+MiCoder/Sources/Views/Settings/StorageSettingsView.swift:402:            Button(action: { importProjectBackup(entry) }) {
+MiCoder/Sources/Views/SettingsView.swift:25:            Button(action: { appState.showSettings = false }) {
+MiCoder/Sources/Views/SettingsView.swift:63:        Button(action: { appState.settingsTab = tab }) {
+MiCoder/Sources/Views/SettingsView.swift:179:            Toggle("", isOn: $isOn)
+MiCoder/Sources/Views/SidebarView.swift:85:        .sheet(isPresented: $appState.showNotifications) {
+MiCoder/Sources/Views/SidebarView.swift:89:        .sheet(isPresented: $appState.showWorkspacesOverview) {
+MiCoder/Sources/Views/SidebarView.swift:97:            Button(action: { appState.navigateBack() }) {
+MiCoder/Sources/Views/SidebarView.swift:105:            Button(action: { appState.navigateForward() }) {
+MiCoder/Sources/Views/SidebarView.swift:115:            Button(action: { withAnimation { appState.sidebarVisible.toggle() } }) {
+MiCoder/Sources/Views/SidebarView.swift:137:            Button(action: { withAnimation { appState.workspacesSectionExpanded.toggle() } }) {
+MiCoder/Sources/Views/SidebarView.swift:144:            Button(action: { appState.showWorkspacesOverview = true }) {
+MiCoder/Sources/Views/SidebarView.swift:155:            Button(action: { appState.showArchivePopover.toggle() }) {
+MiCoder/Sources/Views/SidebarView.swift:168:                    Button(action: { appState.workspaceSortOrder = order }) {
+MiCoder/Sources/Views/SidebarView.swift:188:                    Button(action: { appState.workspaceFilterPreset = preset }) {
+MiCoder/Sources/Views/SidebarView.swift:206:            Button(action: {
+MiCoder/Sources/Views/SidebarView.swift:221:            Button(action: {
+MiCoder/Sources/Views/SidebarView.swift:246:                Button(action: { appState.selectedWorkspace = workspace }) {
+MiCoder/Sources/Views/SidebarView.swift:295:            Button(action: { appState.showNotifications = true }) {
+MiCoder/Sources/Views/SidebarView.swift:316:            Button(action: { appState.openSettings() }) {
+MiCoder/Sources/Views/SidebarView.swift:349:                    Button(L.t(AppLocalizationKey.locMarkAllRead)) {
+MiCoder/Sources/Views/SidebarView.swift:356:                Button(action: { dismiss() }) {
+MiCoder/Sources/Views/SidebarView.swift:433:                    Button(action: { handleAction(action) }) {
+MiCoder/Sources/Views/SidebarView.swift:446:        .onTapGesture {
+MiCoder/Sources/Views/SidebarView.swift:516:                Button(action: { dismiss() }) {
+MiCoder/Sources/Views/SidebarView.swift:533:                        Button(action: {
+MiCoder/Sources/Views/SidebarView.swift:568:        Button(action: action) {
+MiCoder/Sources/Views/SidebarView.swift:646:                Button(action: {
+MiCoder/Sources/Views/SidebarView.swift:671:                Button(action: { appState.startNewTask(in: workspace) }) {
+MiCoder/Sources/Views/SidebarView.swift:745:            Button(action: { appState.selectSession(session) }) {
+MiCoder/Sources/Views/SidebarView.swift:774:                    Button(action: { appState.startNewTask(in: workspace) }) {
+MiCoder/Sources/Views/SidebarView.swift:782:                        Button(L.t(AppLocalizationKey.locShowInFinder)) {
+MiCoder/Sources/Views/SidebarView.swift:785:                        Button(L.t(AppLocalizationKey.locNewTaskSidebar)) {
+MiCoder/Sources/Views/SidebarView.swift:826:                Button(action: { dismiss() }) {
+MiCoder/Sources/Views/SidebarView.swift:840:                        Button(action: {
+MiCoder/Sources/Views/SidebarView.swift:882:                Button(action: { withAnimation(.easeOut(duration: 0.15)) { mode = m } }) {
+MiCoder/Sources/Views/SidebarView.swift:939:                        Button(L.t(AppLocalizationKey.locRestore)) { restore(entry) }
+MiCoder/Sources/Views/SidebarView.swift:948:            Button(action: {
+MiCoder/Sources/Views/TaskHeaderView.swift:56:            Button(action: copyEntireChat) {
+MiCoder/Sources/Views/TaskHeaderView.swift:64:            Button(action: { appState.showTerminal.toggle() }) {
+MiCoder/Sources/Views/TaskHeaderView.swift:72:            Button(action: { appState.showGoal.toggle() }) {
+MiCoder/Sources/Views/TaskHeaderView.swift:104:        Button(action: { withAnimation { appState.sidebarVisible.toggle() } }) {
+MiCoder/Sources/Views/TaskHeaderView.swift:121:            Button(action: { appState.showGoal.toggle() }) {
+MiCoder/Sources/Views/TopBarView.swift:80:        Button(action: action) {
+MiCoder/Sources/App/MiCoderApp.swift:24:                Button("Cut") {
+MiCoder/Sources/App/MiCoderApp.swift:27:                .keyboardShortcut("x", modifiers: .command)
+MiCoder/Sources/App/MiCoderApp.swift:29:                Button("Copy") {
+MiCoder/Sources/App/MiCoderApp.swift:32:                .keyboardShortcut("c", modifiers: .command)
+MiCoder/Sources/App/MiCoderApp.swift:34:                Button("Paste") {
+MiCoder/Sources/App/MiCoderApp.swift:37:                .keyboardShortcut("v", modifiers: .command)
+MiCoder/Sources/App/MiCoderApp.swift:43:                Button("Select All") {
+MiCoder/Sources/App/MiCoderApp.swift:46:                .keyboardShortcut("a", modifiers: .command)
+MiCoder/Sources/App/MiCoderApp.swift:49:                Button("New Task") {
+MiCoder/Sources/App/MiCoderApp.swift:52:                .keyboardShortcut("n", modifiers: .command)
+MiCoder/Sources/App/MiCoderApp.swift:55:                Button("Search Tasks…") {
+MiCoder/Sources/App/MiCoderApp.swift:58:                .keyboardShortcut("k", modifiers: .command)
+MiCoder/Sources/App/MiCoderApp.swift:61:                Button("Undo Last File Change") {
+MiCoder/Sources/App/MiCoderApp.swift:71:                .keyboardShortcut("z", modifiers: [.command, .option])

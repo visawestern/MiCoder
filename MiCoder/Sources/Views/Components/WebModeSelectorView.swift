@@ -11,6 +11,7 @@ struct WebModeSelectorView: View {
     init(config: Binding<WebProviderConfig>) {
         self._config = config
         self._selectedModel = State(initialValue: config.wrappedValue.selectedModel)
+        self._selectedThinking = State(initialValue: config.wrappedValue.effort.rawValue)
     }
 
     var body: some View {
@@ -32,6 +33,11 @@ struct WebModeSelectorView: View {
         }
         .onChange(of: selectedModel) { newValue in
             config.selectedModel = newValue
+        }
+        .onChange(of: selectedThinking) { newValue in
+            if let effort = WebEffort(rawValue: newValue) {
+                config.effort = effort
+            }
         }
     }
 

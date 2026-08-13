@@ -291,6 +291,24 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         }
     }
 
+    func stopGeneration() async throws {
+        let selectors = [
+            self.selectors.stopButton,
+            "button[data-testid='stop-button']",
+            "button[aria-label*='stop' i]",
+            "button[aria-label*='停止']",
+            "button[class*='stop' i]"
+        ].filter { !$0.isEmpty }
+        for selector in selectors {
+            if (try? await exists(selector: selector)) == true {
+                try await click(selector: selector)
+                return
+            }
+        }
+        // Some providers expose no stable stop button but still accept Escape.
+        _ = try? await eval("document.activeElement && document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true})); true;")
+    }
+
     func wait(ms: Int) async {
         try? await Task.sleep(nanoseconds: UInt64(ms) * 1_000_000)
     }

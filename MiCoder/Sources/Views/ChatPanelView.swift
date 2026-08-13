@@ -15,11 +15,27 @@ struct ChatPanelView: View {
     @State private var canLoadOlderMessages = false
     @State private var scrolledSessionID: String?
     @State private var draftSaveTask: Task<Void, Never>?
+    @State private var serveTimeoutTask: Task<Void, Never>?
+    #if canImport(WebKit)
+    @State private var activeWebProviderID: String?
+    #endif
     private let sseClient = SSEClient()
     private let db = DatabaseManager.shared
     
     var body: some View {
         VStack(spacing: 0) {
+            #if canImport(WebKit)
+            // Keep the persistent chat WKWebView attached to the window. A
+            // detached zero-sized WKWebView can load login pages but cannot
+            // reliably execute DOM events during a real send.
+            if let webConfig = appState.selectedWebProviderConfig {
+                WebViewRepresentable(webView: appState.webView(for: webConfig), url: webConfig.chatURL)
+                    .frame(width: 2, height: 2)
+                    .opacity(0.01)
+                    .allowsHitTesting(false)
+            }
+            #endif
+
             if !TaskHeaderVisibility.shouldShow(selectedSession: appState.selectedSession) {
                 ChatPanelCompactHeader()
             }
@@ -524,7 +540,7 @@ struct ChatPanelView: View {
         await MainActor.run { messageStore.append(userMessage) }
 
         let parts = MessagePartsBuilder.build(text: text, files: files, images: images)
-        
+
         await MainActor.run {
             currentAssistantMessageID = assistantID
             messageStore.append(Message(id: assistantID, role: .assistant, content: "", isStreaming: true))
@@ -750,6 +766,12 @@ struct ChatPanelView: View {
             }
 
             // ── Standard MiMo Serve branch ───────────────────────
+            await MainActor.run {
+                self.messageStore.update(id: assistantID) { msg in
+                    msg.content = SendStatusText.thinkingPlaceholder(modelID: self.appState.selectedModel)
+                }
+                self.startServeTimeout(assistantID: assistantID)
+            }
             let sessionID: String
             if SessionSendLogic.shouldCreateNewSession(selectedSessionID: selectedID) {
                 let session = try await appState.mimoClient.createSession(title: String(text.prefix(50)))
@@ -801,6 +823,8 @@ struct ChatPanelView: View {
                 }
 
                 if !waitingForQuestion {
+                    self.serveTimeoutTask?.cancel()
+                    self.serveTimeoutTask = nil
                     self.sseClient.disconnect()
                 }
 
@@ -864,6 +888,8 @@ struct ChatPanelView: View {
                 }
             }
             await MainActor.run {
+                self.serveTimeoutTask?.cancel()
+                self.serveTimeoutTask = nil
                 self.appState.isLoading = false
                 self.appState.isStreaming = false
                 self.sseClient.disconnect()
@@ -877,6 +903,28 @@ struct ChatPanelView: View {
         }
     }
 
+    private func startServeTimeout(assistantID: String) {
+        serveTimeoutTask?.cancel()
+        serveTimeoutTask = Task {
+            try? await Task.sleep(nanoseconds: 90_000_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard self.appState.isLoading,
+                      self.currentAssistantMessageID == assistantID else { return }
+                self.sseClient.disconnect()
+                self.appState.isLoading = false
+                self.appState.isStreaming = false
+                self.messageStore.update(id: assistantID) { msg in
+                    msg.content = "The local agent did not finish this request within 90 seconds. Check MiMo Serve and try again."
+                    msg.isFinished = true
+                    msg.isStreaming = false
+                }
+                self.currentAssistantMessageID = nil
+                self.serveTimeoutTask = nil
+            }
+        }
+    }
+
     private func refreshGitForCurrentSession() {
         appState.scheduleGitRefresh(sessionID: messageStore.currentSessionID)
     }
@@ -884,8 +932,18 @@ struct ChatPanelView: View {
     func stopGeneration() {
         currentTask?.cancel()
         currentTask = nil
+        serveTimeoutTask?.cancel()
+        serveTimeoutTask = nil
         sseClient.disconnect()
         messageQueue.cancelAll()
+
+        #if canImport(WebKit)
+        if let providerID = activeWebProviderID {
+            Task { @MainActor in
+                await appState.stopWebGeneration(providerID: providerID)
+            }
+        }
+        #endif
 
         if let sessionID = messageStore.currentSessionID {
             Task {
@@ -968,10 +1026,26 @@ struct ChatPanelView: View {
     @MainActor
     private func runWebChatTurn(config: WebProviderConfig, text: String, assistantID: String) async {
         #if canImport(WebKit)
+        // Reconcile selections created before the unified web-selection contract
+        // existed. The browser must use the same model and effort the composer
+        // shows, even for an old config saved by a previous build.
+        var effectiveConfig = config
+        let availableModels = WebProviderConnectivity.models(for: config)
+        if availableModels.contains(appState.selectedModel) {
+            effectiveConfig.selectedModel = appState.selectedModel
+        }
+        if let selectedEffort = appState.selectedWebEffort {
+            effectiveConfig.effort = selectedEffort
+        }
+        if effectiveConfig != config {
+            WebProviderStore.save(WebProviderStore.upsert(effectiveConfig, in: WebProviderStore.load()))
+        }
+        activeWebProviderID = effectiveConfig.id
+
         // Reuse (or lazily create) a persistent web view for this provider.
-        let webView = appState.webView(for: config)
+        let webView = appState.webView(for: effectiveConfig)
         // Resolve vendor-specific selectors from the catalog.
-        let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)
+        let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: effectiveConfig.vendor.id)
         let selectors = WebVendorSelectors(
             input: catalogEntry?.input ?? "textarea, div[contenteditable='true']",
             sendButton: catalogEntry?.sendButton ?? "button[type='submit'], button[aria-label*='end'], button[data-testid='send-button'], .send-button-container",
@@ -981,7 +1055,7 @@ struct ChatPanelView: View {
         let bridge = WKWebViewBrowserBridge(webView: webView, selectors: selectors)
         // Restore cookies captured at login so the session is authenticated.
         // Round 8 P2: cookie/navigation failures must be VISIBLE, not swallowed.
-        if let store = WebSessionManager.restore(providerId: config.id,
+        if let store = WebSessionManager.restore(providerId: effectiveConfig.id,
                                                  homeDirectory: FileManager.default.homeDirectoryForCurrentUser) {
             do {
                 try await bridge.setCookies(store.cookies)
@@ -990,7 +1064,7 @@ struct ChatPanelView: View {
             }
         }
         do {
-            try await bridge.navigate(to: config.chatURL)
+            try await bridge.navigate(to: effectiveConfig.chatURL)
             // Wait for chat interface to be ready (input element present).
             // Some sites need extra time to hydrate the chat UI after auth restore.
             var ready = false
@@ -1006,7 +1080,7 @@ struct ChatPanelView: View {
             }
         } catch {
             messageStore.update(id: assistantID) { m in
-                m.content = "Could not open \(config.chatURL): \(error.localizedDescription). Check that the site is reachable and you are logged in."
+                m.content = "Could not open \(effectiveConfig.chatURL): \(error.localizedDescription). Check that the site is reachable and you are logged in."
                 m.isFinished = true
                 m.isStreaming = false
             }
@@ -1018,7 +1092,7 @@ struct ChatPanelView: View {
         // the first turn is sent (the old flow left an empty bubble).
         messageStore.update(id: assistantID) { m in
             if m.content.isEmpty {
-                let model = config.selectedModel.isEmpty ? config.displayName : config.selectedModel
+                let model = effectiveConfig.selectedModel.isEmpty ? effectiveConfig.displayName : effectiveConfig.selectedModel
                 m.content = SendStatusText.thinkingPlaceholder(modelID: model)
             }
         }
@@ -1029,12 +1103,12 @@ struct ChatPanelView: View {
         // the catalog (per-vendor), not a single hardcoded literal, so a site
         // redesign is fixed by data. Best-effort; keeps defaults if the dropdown
         // isn't found.
-        let dropdownSelector: String? = (try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id))?.modelDropdown
+        let dropdownSelector: String? = (try? WebProviderCatalog.loadBundled().selectors(for: effectiveConfig.vendor.id))?.modelDropdown
         if let dropdownSelector,
            let models = await WebModelDiscovery.discover(using: bridge,
                                                           dropdownSelector: dropdownSelector,
-                                                          vendor: config.vendor) {
-            var updated = config
+                                                          vendor: effectiveConfig.vendor) {
+            var updated = effectiveConfig
             updated.discoveredModels = models
             let merged = WebProviderStore.upsert(updated, in: WebProviderStore.load())
             WebProviderStore.save(merged)
@@ -1054,12 +1128,12 @@ struct ChatPanelView: View {
         executor.bridge = bridge
         executor.selectors = selectors
         let driver = WebChatDriver(bridge: bridge, executor: executor, selectors: selectors,
-                                   config: config, projectRoot: workspacePath, accessLevel: appState.accessLevel)
+                                   config: effectiveConfig, projectRoot: workspacePath, accessLevel: appState.accessLevel)
 
         // Send the tool-protocol preamble only on the first turn of a session
         // (audit P2); later turns continue the same web conversation.
-        let isFirst = appState.webSessionIsFirstTurn(config.id)
-        appState.markWebSessionStarted(config.id)
+        let isFirst = appState.webSessionIsFirstTurn(effectiveConfig.id)
+        appState.markWebSessionStarted(effectiveConfig.id)
         await driver.runTurn(userMessage: text, isFirstMessage: isFirst) { event in
             Task { @MainActor in
                 // Round 8 P2: every non-suppressed event now mutates the
@@ -1079,7 +1153,7 @@ struct ChatPanelView: View {
                     }
                     // A logout/session-restart means the next turn must re-seed.
                     if WebChatEventPresenter.blocksUntilUserAction(event) || line.contains("fresh session") {
-                        self.appState.resetWebSession(config.id)
+                        self.appState.resetWebSession(effectiveConfig.id)
                     }
                 case .none:
                     break
@@ -1113,10 +1187,15 @@ struct ChatPanelView: View {
 
     @MainActor
     private func finishWebTurn() {
+        serveTimeoutTask?.cancel()
+        serveTimeoutTask = nil
         appState.isLoading = false
         appState.isStreaming = false
         streamingText = ""
         currentAssistantMessageID = nil
+        #if canImport(WebKit)
+        activeWebProviderID = nil
+        #endif
     }
 
     private func buildACPMessages(text: String, files: [FileInfo], images: [ClipboardImage]) -> [ACPRequestMessage] {
@@ -1322,6 +1401,8 @@ struct ChatPanelView: View {
     @MainActor
     private func finishStreaming() {
         guard appState.pendingQuestionRequest == nil else { return }
+        serveTimeoutTask?.cancel()
+        serveTimeoutTask = nil
         appState.isLoading = false
         appState.isStreaming = false
         sseClient.disconnect()

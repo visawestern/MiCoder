@@ -28,6 +28,9 @@ protocol BrowserAutomationBridge {
     func setCookies(_ cookies: [BrowserCookie]) async throws
     /// Take a screenshot of a region (for showing captcha in-chat); returns PNG bytes.
     func screenshot(selector: String?) async throws -> Data
+    /// Request the vendor UI to stop the current generation.
+    /// Test doubles may keep the default no-op implementation.
+    func stopGeneration() async throws
     /// Sleep for the given milliseconds (host-controlled so tests are instant).
     func wait(ms: Int) async
     /// Wait for a selector to appear in the DOM (up to timeoutMs).
@@ -53,6 +56,9 @@ extension BrowserAutomationBridge {
             try? await Task.sleep(nanoseconds: 250_000_000)
         }
     }
+
+    /// Default: no-op for test doubles without a real browser.
+    func stopGeneration() async throws {}
 
     /// Default: empty list (test fakes override).
     func readModelItems(modelItemSelector: String) async throws -> [String] { [] }

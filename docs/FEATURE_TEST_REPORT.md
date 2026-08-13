@@ -144,3 +144,26 @@ Additional hardening:
   an unsupported wall-clock number vulnerable to cooperative-thread-pool starvation.
 - UI audit fixes: disabled Plan-agent action explains its unavailable capability; Git status now
   says “Commit failed — push was skipped.” instead of implying a push failure.
+
+
+## Round 32 (2026-08-13) — mimo-auto and embedded web send recovery
+
+The user reported that ordinary `mimo-auto` sending and every web provider were unusable. A source-level manual audit of the send chain and all web-provider controls found the following concrete defects:
+
+| ID | Defect | Fix | Status |
+|---|---|---|---|
+| WEB-01 | Composer model selection changed only `AppState.selectedModel`; the browser driver used stale `WebProviderConfig.selectedModel`. | Added `WebProviderSelectionLogic`; `selectProvider` and `selectModel` now persist the same web model consumed by `runWebChatTurn`. | FIXED |
+| WEB-02 | Web effort was not represented in the composer; `VariantMenu` only understood server/custom capabilities. | Added a dedicated `WebEffortMenu` backed by `WebProviderConfig.effort` and explicit effort persistence. | FIXED |
+| WEB-03 | Element picker computed an updated selector but saved the old provider array. | Persist the result of `WebProviderStore.upsert`. | FIXED |
+| WEB-04 | Model discovery waited for Kimi-only `div.model-item`, despite Qwen/ChatGPT catalog selectors. | Discovery now reads visible vendor option elements and uses catalog `modelItem`/`newChatTexts` metadata. | FIXED |
+| WEB-05 | Model/effort injection failures were shown as notes while the message was still sent with an unknown selection. | Failed injection is now a blocking error; text is not typed and send is not clicked. | FIXED |
+| WEB-06 | `typeText`/send click could silently target no element. | Driver verifies input and send selectors before acting and returns an actionable selector error. | FIXED |
+| WEB-07 | Stop cancelled the app task but did not stop the vendor page. | Added browser `stopGeneration()` with stop-button and Escape fallback, wired to the persistent WKWebView. | FIXED |
+| WEB-08 | Persistent chat WKWebView was created but not attached to the window hierarchy during normal chat sends. | ChatPanelView now keeps the active provider web view attached in a tiny non-interactive host view. | FIXED |
+| MIMO-01 | Serve path could leave an empty assistant bubble while waiting for SSE. | Added visible thinking placeholder and 90-second timeout with a clear MiMo Serve diagnostic. | FIXED |
+| MIMO-02 | Compatible serve response envelopes and bare text could decode to an empty array. | Added tolerant decoding for `messages`, `data`, `message`, and `text` envelopes. | FIXED |
+| UX-01 | Transport picker offered Chrome/CDP even though production send always used WKWebView. | Replaced misleading picker with a clear “In-app browser — WKWebView” status. | FIXED |
+| UX-02 | Custom-model remove buttons were rendered for discovered models and acted as no-ops. | Buttons now appear only for `manuallyAddedModels`. | FIXED |
+| UX-03 | Remove provider had no confirmation and left saved cookies on disk. | Added destructive confirmation and session-store cleanup. | FIXED |
+
+The complete static button inventory is stored in `docs/ui_controls_inventory_2026-08-13.txt`, and the detailed source audit is stored in `docs/WEB_SEND_UI_AUDIT_2026-08-13.md`. Full macOS/WebKit runtime verification remains separate from the Linux sandbox because SwiftUI, AppKit, and WebKit are unavailable here.

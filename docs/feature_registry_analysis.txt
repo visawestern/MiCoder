@@ -1,0 +1,51 @@
+rows 200
+statuses
+FUTURE	5
+MISSING	5
+PARTIAL	6
+PASS	184
+areas
+AgentResources	PASS=9
+App	PASS=6
+Clipboard	PASS=3
+Commands	PASS=4
+Content	PASS=8
+Danger	FUTURE=1
+Database	PASS=6
+Error Handling	PASS=3
+Git	PASS=8
+Indexing	MISSING=1, PASS=2
+Input	PASS=17
+Localization	PASS=3
+Message	PASS=14
+Performance	PASS=4
+Provider	PASS=12
+RightPanel	PASS=2
+Search	PASS=3
+Security	FUTURE=2, PASS=4
+Session	PASS=4
+Settings	PARTIAL=2, PASS=8
+Sidebar	PASS=23
+Storage	FUTURE=2, MISSING=3, PARTIAL=1, PASS=23
+Terminal	PASS=5
+Theme	PASS=2
+Usage	MISSING=1, PARTIAL=1, PASS=1
+Web	PARTIAL=2, PASS=9
+WebTools	PASS=1
+non_pass
+Storage	STO-06	File Index Logic	PARTIAL	ProjectFileIndexLogicTests	In-memory only (30s TTL @ cache); no persistent file_index table
+Storage	STO-07	FSEvents Dynamic Reindexing	MISSING	none	plan Section 7 п.24-27 greenfield
+Storage	STO-11	Legacy DB Migration to Per-Project	FUTURE	none	ProjectDatabaseMigrator + LegacyDataMigrator deleted
+Storage	STO-27	Registry+Settings Export/Import	MISSING	none	plan Section 8 п.52
+Storage	STO-28	Chunked Big-Project Delete	MISSING	none	plan Section 8 п.53
+Storage	STO-29	autoImportFromCLI Toggle in UI	FUTURE	none	flag removed from registry/DB/reset/Settings
+Settings	SET-04	Skills Management Tab	PARTIAL	AgentResourceInstallerTests	No Update button, no bulk ops, no export/import, no dependency dialog (Section 3)
+Settings	SET-05	MCP Server Management	PARTIAL	SettingsIntegrationTests + E11MCPHealthCheckTests	No Edit/Update/Install-set
+Security	SEC-05	Privacy Mode (Future)	FUTURE	none	QUALITY_REPORT.md
+Security	SEC-06	DB Encryption (Future)	FUTURE	none	QUALITY_REPORT.md
+Web	WEB-05	Browser Transport (WKWebView)	PARTIAL	none	WKWebView only; no Playwright MCP / CDP transport as planned (п.28-29)
+Web	WEB-07	Captcha Display in Chat	PARTIAL	WebProviderTests	No click/input bridge back to the browser (п.34)
+Usage	USG-02	Usage Screen with Real Data	PARTIAL	UsageStatisticsAggregatorTests	Reads GLOBAL DB only (п.28); costUSD hardcoded nil (п.14) — no per-project aggregation, no per-model cost
+Usage	USG-03	Cost per Model	MISSING	UsageStatisticsAggregatorTests	plan Section 10 п.14
+Indexing	IDX-03	Persistent File Index + FTS	MISSING	none	plan Section 7 п.22/п.33
+Danger	DNG-01	Dangerous Command Detection	FUTURE	none	QUALITY_REPORT.md

@@ -220,13 +220,37 @@ class MimoServeClient {
         }
         
         let text = String(data: responseData, encoding: .utf8) ?? ""
-        if text == "true" { return [] }
-        
+        if text.trimmingCharacters(in: .whitespacesAndNewlines) == "true" { return [] }
+
         if let message = try? decoder.decode(MimoMessageResponse.self, from: responseData) {
             return [message]
         }
         if let messages = try? decoder.decode([MimoMessageResponse].self, from: responseData) {
             return messages
+        }
+
+        // Be tolerant of compatible serve implementations that wrap the
+        // response instead of returning a bare message/array.
+        if let object = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
+            for key in ["messages", "data"] {
+                if let value = object[key],
+                   JSONSerialization.isValidJSONObject(value),
+                   let encoded = try? JSONSerialization.data(withJSONObject: value),
+                   let decoded = try? decoder.decode([MimoMessageResponse].self, from: encoded) {
+                    return decoded
+                }
+            }
+            if let value = object["message"],
+               JSONSerialization.isValidJSONObject(value),
+               let encoded = try? JSONSerialization.data(withJSONObject: value),
+               let decoded = try? decoder.decode(MimoMessageResponse.self, from: encoded) {
+                return [decoded]
+            }
+            if let answer = object["text"] as? String, !answer.isEmpty {
+                let info = MimoMessageInfo(id: nil, role: "assistant", agent: nil,
+                                           modelID: nil, providerID: nil, variant: nil, model: nil)
+                return [MimoMessageResponse(info: info, parts: [.text(answer)])]
+            }
         }
         return []
     }

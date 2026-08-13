@@ -351,6 +351,41 @@ struct ModelParametersButton: View {
     }
 }
 
+struct WebEffortMenu: View {
+    @EnvironmentObject var appState: AppState
+
+    private var efforts: [WebEffort] {
+        appState.availableWebEffortsForSelectedProvider
+    }
+
+    var body: some View {
+        Menu {
+            ForEach(efforts) { effort in
+                Button(action: { appState.selectWebEffort(effort) }) {
+                    HStack {
+                        Text(effort.displayName)
+                        if appState.selectedWebEffort == effort {
+                            Spacer()
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "brain.head.profile")
+                    .interfaceFont(size: 11)
+                Text(appState.selectedWebEffort?.displayName ?? "Effort")
+                    .interfaceFont(size: 11)
+            }
+            .foregroundColor(Color.mimo.textSecondary)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Choose the browser provider's thinking effort")
+    }
+}
+
 struct VariantMenu: View {
     @EnvironmentObject var appState: AppState
 
@@ -476,9 +511,11 @@ struct MessageInputToolbar: View {
             if !appState.selectedModel.isEmpty {
                 ModelParametersButton()
             }
-            // Effort/variant control is shown ONLY when the selected model
-            // actually supports it — never blocks sending (plan Раздел 13 п.12-13).
-            if !appState.availableVariantsForSelectedModel.isEmpty {
+            // Browser providers own their effort state in WebProviderConfig;
+            // server variants remain separate and are never mixed with web effort.
+            if !appState.availableWebEffortsForSelectedProvider.isEmpty {
+                WebEffortMenu()
+            } else if !appState.availableVariantsForSelectedModel.isEmpty {
                 VariantMenu()
             }
             

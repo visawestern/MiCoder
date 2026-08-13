@@ -461,7 +461,7 @@ class AppState: ObservableObject {
         }
         // Web provider selected → its real (discovered) models (plan Раздел 13 п.4).
         if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
-           let cfg = WebProviderStore.load().first(where: { $0.id == webID }) {
+           let cfg = WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID }) {
             return WebProviderConnectivity.models(for: cfg)
         }
         // Local provider selected → its loaded models.
@@ -473,6 +473,45 @@ class AppState: ObservableObject {
             in: serverProviders,
             customProviders: customProviders
         )
+    }
+
+    var selectedWebProviderConfig: WebProviderConfig? {
+        guard let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID) else { return nil }
+        return WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID })
+    }
+
+    var availableWebEffortsForSelectedProvider: [WebEffort] {
+        guard let config = selectedWebProviderConfig else { return [] }
+        return WebProviderSelectionLogic.availableEfforts(for: config)
+    }
+
+    var selectedWebEffort: WebEffort? {
+        selectedWebProviderConfig?.effort
+    }
+
+    private func updateWebProvider(_ configID: String,
+                                   modelID: String? = nil,
+                                   effort: WebEffort? = nil) {
+        var providers = WebProviderStore.load(defaults: defaults)
+        guard let index = providers.firstIndex(where: { $0.id == configID }) else { return }
+        if let modelID {
+            providers[index] = WebProviderSelectionLogic.selectingModel(
+                modelID,
+                in: providers[index],
+                availableModels: WebProviderConnectivity.models(for: providers[index])
+            )
+        }
+        if let effort {
+            providers[index] = WebProviderSelectionLogic.selectingEffort(effort, in: providers[index])
+        }
+        WebProviderStore.save(providers, defaults: defaults)
+    }
+
+    func selectWebEffort(_ effort: WebEffort) {
+        guard let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
+              availableWebEffortsForSelectedProvider.contains(effort) else { return }
+        updateWebProvider(webID, effort: effort)
+        objectWillChange.send()
     }
 
     var supportsToolcallForSelection: Bool {
@@ -512,11 +551,15 @@ class AppState: ObservableObject {
         // Select their discovered model (or the clearly-labelled pre-discovery
         // fallback) directly instead of leaving the chat with an empty model.
         if let webID = WebProviderConnectivity.configID(fromOptionID: providerID),
-           let config = WebProviderStore.load().first(where: { $0.id == webID }) {
+           let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID }) {
             let models = WebProviderConnectivity.models(for: config)
-            selectedModel = models.contains(selectedModel) ? selectedModel : (models.first ?? "")
-            defaults.set(selectedModel, forKey: "com.micoder.selectedModel")
+            let preferred = models.contains(selectedModel)
+                ? selectedModel
+                : WebProviderSelectionLogic.selectedModel(for: config, availableModels: models)
+            selectedModel = preferred
+            defaults.set(preferred, forKey: "com.micoder.selectedModel")
             selectedVariant = ""
+            updateWebProvider(webID, modelID: preferred)
             return
         }
 
@@ -605,6 +648,11 @@ class AppState: ObservableObject {
         defaults.set(modelID, forKey: "com.micoder.selectedModel")
         if persistPreference {
             defaults.set(modelID, forKey: "com.micoder.preferredModelID")
+        }
+        if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID) {
+            updateWebProvider(webID, modelID: modelID)
+            selectedVariant = ""
+            return
         }
         selectedVariant = ProviderSettingsLogic.normalizedVariant(
             selectedVariant.isEmpty ? nil : selectedVariant,
@@ -974,6 +1022,23 @@ class AppState: ObservableObject {
         return wv
     }
 
+    /// Stop the active browser generation for a provider. This is separate from
+    /// cancelling the Swift task: the vendor page must receive its own stop
+    /// action or it can keep consuming tokens in the background.
+    @MainActor
+    func stopWebGeneration(providerID: String) async {
+        guard let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == providerID }) else { return }
+        let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)
+        let selectors = WebVendorSelectors(
+            input: catalogEntry?.input ?? "textarea, div[contenteditable='true']",
+            sendButton: catalogEntry?.sendButton ?? "button[type='submit']",
+            responseContainer: catalogEntry?.responseContainer ?? "div[class*='message']",
+            stopButton: catalogEntry?.stopButton ?? "button[aria-label*='stop' i], button[data-testid='stop-button']"
+        )
+        let bridge = WKWebViewBrowserBridge(webView: webView(for: config), selectors: selectors)
+        try? await bridge.stopGeneration()
+    }
+
     /// Refresh the *real* model list for an authenticated web provider. The
     /// login sheet uses a separate WKWebView, so this method first restores the
     /// captured cookies into the persistent chat web view, opens the vendor
@@ -1123,7 +1188,7 @@ class AppState: ObservableObject {
     }
     /// Ids of configured web providers (for send-routing / readiness checks).
     var webProviderIDs: [String] {
-        WebProviderStore.load().map { $0.id }
+        WebProviderStore.load(defaults: defaults).map { $0.id }
     }
 
     var selectedProviderConnected: Bool {

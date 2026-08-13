@@ -29,7 +29,14 @@ struct WebChatDriver {
             // Inject the selected model and effort before sending, so the web
             // UI reflects the user's current selection (plan Раздел 13 п.5).
             if injectModelAndEffortEnabled {
-                try await injectModelAndEffort(emit: emit)
+                do {
+                    try await injectModelAndEffort(emit: emit)
+                } catch {
+                    // Never send when the browser did not confirm the selected
+                    // model/effort. A silent fallback is worse than a clear retry.
+                    emit(.error(error.localizedDescription))
+                    return
+                }
             }
 
             // On the first message of a session, prepend the tool-protocol preamble.
@@ -116,8 +123,14 @@ struct WebChatDriver {
     }
 
     private func sendMessage(_ text: String, emit: (WebChatEvent) -> Void) async throws {
+        guard (try? await bridge.exists(selector: selectors.input)) == true else {
+            throw WebChatError.selectorNotFound(selectors.input)
+        }
         await antiBanDelay()
         try await bridge.typeText(text, into: selectors.input, humanized: config.toolCallDelayMs > 0)
+        guard (try? await bridge.exists(selector: selectors.sendButton)) == true else {
+            throw WebChatError.selectorNotFound(selectors.sendButton)
+        }
         await antiBanDelay()
         try await bridge.click(selector: selectors.sendButton)
     }
@@ -214,57 +227,73 @@ struct WebChatDriver {
             return
         }
 
-        // Inject model selection.
+        // Inject model selection and require an explicit successful click.
         if !config.selectedModel.isEmpty,
-           let modelSelector = catalogEntry.modelDropdown.split(separator: ",").first.map(String.init) {
+           let modelSelector = catalogEntry.modelButton ?? catalogEntry.modelDropdown.split(separator: ",").first.map(String.init) {
+            let selector = modelSelector.trimmingCharacters(in: .whitespaces)
             do {
-                try await bridge.click(selector: modelSelector.trimmingCharacters(in: .whitespaces))
-                // Wait for custom dropdown to open
+                try await bridge.click(selector: selector)
                 try? await bridge.waitForSelector(selector: "div.model-item, [class*='model-item'], [role='option']", timeout: 5000)
                 await bridge.wait(ms: 500)
 
-                // Try to find and click the matching model
                 let modelText = config.selectedModel
                 let itemSelector = catalogEntry.modelItem ?? "[role='option'], [class*='option']"
                 let clicked = (try? await bridge.clickByText(selector: itemSelector, text: modelText)) ?? false
-                if !clicked {
-                    // Fallback: try any element containing the model name
-                    _ = (try? await bridge.clickByText(selector: "li, div, span, button", text: modelText))
+                let fallbackClicked = clicked ? true : ((try? await bridge.clickByText(
+                    selector: "li, div, span, button, [role='option']",
+                    text: modelText
+                )) ?? false)
+                guard fallbackClicked else {
+                    throw WebChatError.modelInjectionFailed(
+                        "Model '\(modelText)' was not found in the web provider menu. Refresh models and try again."
+                    )
                 }
                 await bridge.wait(ms: 300)
+            } catch let error as WebChatError {
+                throw error
             } catch {
-                emit(.modelInjectionFailed(L.t(AppLocalizationKey.locWebModelInjectionFailed).replacingOccurrences(of: "{0}", with: error.localizedDescription)))
+                throw WebChatError.modelInjectionFailed(
+                    L.t(AppLocalizationKey.locWebModelInjectionFailed)
+                        .replacingOccurrences(of: "{0}", with: error.localizedDescription)
+                )
             }
         }
 
-        // Inject effort selection. Try each comma-separated selector in order;
-        // only report failure if NONE of them work.
+        // Inject effort selection. Try each catalog selector in order, but do
+        // not send if the selected effort was not confirmed in the web menu.
         if let effortLabel = effortLabel(for: config.effort) {
             let selectors = (catalogEntry.effortDropdown?.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) } ?? [])
                 .filter { !$0.isEmpty }
             var anySuccess = false
-            var lastError: String = ""
+            var lastError = ""
             for selector in selectors {
                 do {
-                    if (try? await bridge.exists(selector: selector)) == true {
-                        try await bridge.click(selector: selector)
-                        try? await bridge.waitForSelector(selector: "[class*='effort'], [class*='thinking'], [role='option'], [class*='option']", timeout: 5000)
-                        await bridge.wait(ms: 500)
-                        let itemSelector = catalogEntry.effortItem ?? "[role='option'], [class*='option']"
-                        let clicked = (try? await bridge.clickByText(selector: itemSelector, text: effortLabel)) ?? false
-                        if !clicked {
-                            _ = (try? await bridge.clickByText(selector: "li, div, span, button", text: effortLabel))
-                        }
-                        await bridge.wait(ms: 300)
-                        anySuccess = true
-                        break
+                    guard (try? await bridge.exists(selector: selector)) == true else { continue }
+                    try await bridge.click(selector: selector)
+                    try? await bridge.waitForSelector(selector: "[class*='effort'], [class*='thinking'], [role='option'], [class*='option']", timeout: 5000)
+                    await bridge.wait(ms: 500)
+                    let itemSelector = catalogEntry.effortItem ?? "[role='option'], [class*='option']"
+                    let clicked = (try? await bridge.clickByText(selector: itemSelector, text: effortLabel)) ?? false
+                    let fallbackClicked = clicked ? true : ((try? await bridge.clickByText(
+                        selector: "li, div, span, button, [role='option']",
+                        text: effortLabel
+                    )) ?? false)
+                    guard fallbackClicked else {
+                        lastError = "effort option not found"
+                        continue
                     }
+                    await bridge.wait(ms: 300)
+                    anySuccess = true
+                    break
                 } catch {
                     lastError = error.localizedDescription
                 }
             }
             if !anySuccess && !selectors.isEmpty {
-                emit(.effortInjectionFailed(L.t(AppLocalizationKey.locWebEffortNote).replacingOccurrences(of: "{0}", with: lastError.isEmpty ? "effort selector not found" : lastError)))
+                throw WebChatError.effortInjectionFailed(
+                    L.t(AppLocalizationKey.locWebEffortNote)
+                        .replacingOccurrences(of: "{0}", with: lastError.isEmpty ? "effort selector not found" : lastError)
+                )
             }
         }
     }
@@ -420,6 +449,10 @@ enum WebChatError: LocalizedError {
     case modelNotFound(String)
     case modeNotFound(String)
     case effortNotFound(String)
+    case modelInjectionFailed(String)
+    case effortInjectionFailed(String)
+    case selectorNotFound(String)
+    case responseTimeout
     case noModelSelector
     case noSession
 
@@ -428,6 +461,10 @@ enum WebChatError: LocalizedError {
         case .modelNotFound(let m): return "Model '\(m)' not found in web UI"
         case .modeNotFound(let m): return "Mode '\(m)' not found in web UI"
         case .effortNotFound(let e): return "Effort level '\(e)' not found"
+        case .modelInjectionFailed(let message): return message
+        case .effortInjectionFailed(let message): return message
+        case .selectorNotFound(let selector): return "Browser element was not found: \(selector)"
+        case .responseTimeout: return "The web provider did not return a response within 2 minutes. Check the page and try again."
         case .noModelSelector: return "No model selector configured for this vendor"
         case .noSession: return "No active web session"
         }

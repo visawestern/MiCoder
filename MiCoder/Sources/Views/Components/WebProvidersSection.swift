@@ -52,8 +52,8 @@ struct WebProvidersSection: View {
                                 onSave: { save() },
                                 onLogin: { loginConfig = cfg },
                                 onRemove: { remove(cfg) },
-                                onRefreshModels: { Task { await refreshModels(for: cfg) } },
-                                onRefreshEffort: { Task { await refreshEffort(for: cfg) } },
+                                onRefreshModels: { await refreshModels(for: cfg) },
+                                onRefreshEffort: { await refreshEffort(for: cfg) },
                                 homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
             }
         }
@@ -74,6 +74,11 @@ struct WebProvidersSection: View {
     private func remove(_ cfg: WebProviderConfig) {
         providers.removeAll { $0.id == cfg.id }
         save()
+        try? WebSessionManager.clear(providerId: cfg.id,
+                                      homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+        if appState.selectedProviderID == "web:\(cfg.id)" {
+            appState.selectProvider("")
+        }
     }
 
     private func save() {
@@ -90,18 +95,24 @@ struct WebProvidersSection: View {
     }
 
     /// Discover the vendor's real models from the page after connect (Round 9 A).
-    private func refreshModels(for cfg: WebProviderConfig) async {
+    private func refreshModels(for cfg: WebProviderConfig) async -> String? {
         #if canImport(WebKit)
-        _ = await appState.refreshWebModels(for: cfg)
+        let message = await appState.refreshWebModels(for: cfg)
         providers = WebProviderStore.load()
+        return message
+        #else
+        return L.t(AppLocalizationKey.locWebRequiresWebKit)
         #endif
     }
 
     /// Refresh the available effort/thinking levels for a web provider.
-    private func refreshEffort(for cfg: WebProviderConfig) async {
+    private func refreshEffort(for cfg: WebProviderConfig) async -> String? {
         #if canImport(WebKit)
-        _ = await appState.refreshWebEffort(for: cfg)
+        let message = await appState.refreshWebEffort(for: cfg)
         providers = WebProviderStore.load()
+        return message
+        #else
+        return L.t(AppLocalizationKey.locWebRequiresWebKit)
         #endif
     }
 }
@@ -112,8 +123,8 @@ struct WebProviderCard: View {
     let onSave: () -> Void
     let onLogin: () -> Void
     let onRemove: () -> Void
-    let onRefreshModels: () -> Void
-    let onRefreshEffort: () -> Void
+    let onRefreshModels: () async -> String?
+    let onRefreshEffort: () async -> String?
     let homeDirectory: URL
 
     @State private var isRefreshing = false
@@ -121,6 +132,7 @@ struct WebProviderCard: View {
     @State private var lastRefreshCount: Int = 0
     @State private var showDiscoveredModels = false
     @State private var systemPromptHeight: CGFloat = 24
+    @State private var showRemoveConfirmation = false
 
     private var isConnected: Bool {
         WebProviderConnectivity.isConnected(config, homeDirectory: homeDirectory)
@@ -202,11 +214,17 @@ Use clear headings, code examples, and cross-references.
                             isRefreshing = true
                             lastRefreshError = nil
                             Task {
-                                onRefreshModels()
+                                let result = await onRefreshModels()
                                 await MainActor.run {
                                     isRefreshing = false
                                     if let updated = WebProviderStore.load().first(where: { $0.id == config.id }) {
                                         lastRefreshCount = updated.discoveredModels.count
+                                    }
+                                    if let result {
+                                        let lower = result.lowercased()
+                                        if lower.contains("failed") || lower.contains("could not") || lower.contains("not found") || lower.contains("login") {
+                                            lastRefreshError = result
+                                        }
                                     }
                                 }
                             }
@@ -223,7 +241,20 @@ Use clear headings, code examples, and cross-references.
                         .help(isRefreshing ? "Detecting models…" : "Detect models from web UI")
 
                         Button(action: {
-                            Task { onRefreshEffort() }
+                            isRefreshing = true
+                            lastRefreshError = nil
+                            Task {
+                                let result = await onRefreshEffort()
+                                await MainActor.run {
+                                    isRefreshing = false
+                                    if let result {
+                                        let lower = result.lowercased()
+                                        if lower.contains("failed") || lower.contains("could not") || lower.contains("not found") || lower.contains("login") {
+                                            lastRefreshError = result
+                                        }
+                                    }
+                                }
+                            }
                         }) {
                             Image(systemName: "brain.head.profile")
                                 .interfaceFont(size: 12)
@@ -254,10 +285,17 @@ Use clear headings, code examples, and cross-references.
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 0.5))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
-                Button(action: onRemove) {
+                Button(action: { showRemoveConfirmation = true }) {
                     Image(systemName: "trash").interfaceFont(size: 12).foregroundColor(Color.mimo.error)
                 }
                 .buttonStyle(.plain)
+                .help("Remove this web provider and its saved session")
+                .alert("Remove \(config.displayName)?", isPresented: $showRemoveConfirmation) {
+                    Button("Remove", role: .destructive, action: onRemove)
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("The saved browser session and provider settings will be deleted.")
+                }
             }
 
             // System prompt — compact when empty, grows with content
@@ -345,12 +383,23 @@ Use clear headings, code examples, and cross-references.
                 }
             }
 
-            // Transport + ToS
-            Picker(L.t(AppLocalizationKey.locTransport), selection: $config.transport) {
-                Text(L.t(AppLocalizationKey.locManagedBrowser)).tag(WebTransport.playwrightMCP)
-                Text(L.t(AppLocalizationKey.locExistingChromeCookies)).tag(WebTransport.cdpCookies)
+            // The current production transport is the embedded WKWebView. Do
+            // not expose a Chrome/CDP option that the send path cannot honor.
+            HStack(spacing: 6) {
+                Image(systemName: "globe")
+                    .foregroundColor(Color.mimo.brand)
+                Text("In-app browser")
+                    .interfaceFont(size: 11, weight: .medium)
+                Text("WKWebView")
+                    .interfaceFont(size: 10)
+                    .foregroundColor(Color.mimo.textMuted)
+                Spacer()
             }
-            .pickerStyle(.segmented)
+            .onAppear {
+                if config.transport != .playwrightMCP {
+                    config.transport = .playwrightMCP
+                }
+            }
 
             Toggle(L.t(AppLocalizationKey.locTosViolation), isOn: $config.acknowledgedToS)
                 .interfaceFont(size: 11)
@@ -377,17 +426,18 @@ struct CustomModelEditor: View {
                 .interfaceFont(size: 11, weight: .medium)
                 .foregroundColor(Color.mimo.textMuted)
 
-            // Existing custom models with remove buttons
-            if !config.discoveredModels.isEmpty {
-                ForEach(config.discoveredModels) { model in
+            // Existing manually added models with remove buttons. Discovered
+            // vendor models are read-only and must not expose a no-op delete.
+            if !config.manuallyAddedModels.isEmpty {
+                ForEach(config.manuallyAddedModels, id: \.self) { model in
                     HStack(spacing: 6) {
-                        Text(model.name)
+                        Text(model)
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.textPrimary)
                             .lineLimit(1)
                         Spacer()
                         Button(action: {
-                            config.removeCustomModel(model.name)
+                            config.removeCustomModel(model)
                             onSave()
                         }) {
                             Image(systemName: "xmark.circle.fill")
@@ -441,7 +491,11 @@ struct WebProviderLoginView: View {
     // A session may only be captured after MiMo Auto has found at least one
     // real model. The explicit discovery action is the way out of this gate.
     private var canCapture: Bool {
-        !config.discoveredModels.isEmpty
+        // Capturing a valid logged-in session must not depend on model discovery.
+        // Discovery can fail because a vendor changed its DOM while cookies are
+        // still perfectly usable for chat.
+        !capturedCookies.isEmpty || webView.url != nil ||
+            !config.discoveredModels.isEmpty || config.customModelSelector != nil
     }
 
     enum DetectResult: Identifiable {
