@@ -32,18 +32,33 @@ struct MiCoderAutoFreeProviderTests {
         #expect(provider.models.isEmpty)
         #expect(provider.isReady == false)
         #expect(provider.statusMessage.isEmpty)
+        #expect(provider.isModelLocked == false)
+    }
+
+    @Test("model profiles expose honest free-route characteristics")
+    func modelProfiles() {
+        let profile = MiCoderAutoFreeClient.profile(for: "big-pickle")
+        let model = MiCoderAutoFreeClient.Model(id: "big-pickle")
+
+        #expect(profile.displayName == "Big Pickle")
+        #expect(profile.capabilities.contains("Free"))
+        #expect(profile.capabilities.contains("Anonymous"))
+        #expect(model.effectiveDescription.contains("OpenCode"))
+        #expect(model.contextDescription == "Not reported by live catalog")
     }
 
     @Test("system prompt is Codable provider state")
     func systemPromptRoundTrips() throws {
         var provider = MiCoderAutoFreeProvider()
         provider.systemPrompt = "You are a precise coding assistant."
+        provider.isModelLocked = true
 
         let data = try JSONEncoder().encode(provider)
         let decoded = try JSONDecoder().decode(MiCoderAutoFreeProvider.self, from: data)
 
         #expect(decoded.systemPrompt == provider.systemPrompt)
         #expect(decoded.selectedModel == "big-pickle")
+        #expect(decoded.isModelLocked)
     }
 }
 

@@ -1,5 +1,9 @@
 import Foundation
 
+extension Notification.Name {
+    static let miCoderAutoFreeModelSwitched = Notification.Name("MiCoderAutoFreeModelSwitched")
+}
+
 // MARK: - Notification Model
 
 struct AppNotification: Identifiable, Equatable {
@@ -60,6 +64,20 @@ enum NotificationAction: Equatable {
     case openSettings
     case openGit
     case custom(String)       // URL or action identifier
+}
+
+enum MiCoderAutoFreeNotificationLogic {
+    static func make(userInfo: [AnyHashable: Any]) -> AppNotification {
+        let fromModel = userInfo["fromModel"] as? String ?? "previous model"
+        let toModel = userInfo["toModel"] as? String ?? "another free model"
+        let reason = userInfo["reason"] as? String ?? "provider error"
+        let isRateLimit = reason == "rate limit"
+        let title = isRateLimit ? "Free model rate limited" : "Free model switched"
+        let message = isRateLimit
+            ? "\(fromModel) reached its rate limit. MiCoder switched to \(toModel)."
+            : "\(fromModel) was unavailable (\(reason)). MiCoder switched to \(toModel)."
+        return AppNotification(title: title, message: message, type: .warning)
+    }
 }
 
 // MARK: - Notification Service

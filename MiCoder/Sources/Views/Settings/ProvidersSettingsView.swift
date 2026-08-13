@@ -22,118 +22,19 @@ struct MiCoderAutoFreeSection: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject private var store = MiCoderAutoFreeStore.shared
     @State private var systemPromptInput: String = ""
+    @State private var isRefreshing = false
+
+    private let columns = [GridItem(.adaptive(minimum: 250), spacing: 10)]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "sparkles")
-                    .font(.title2)
-                    .foregroundColor(Color.mimo.brand)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("MiCoder Auto Free")
-                        .interfaceFont(size: 18, weight: .semibold)
-                        .foregroundColor(Color.mimo.textPrimary)
-                    Text("OpenCode Zen · anonymous free models · Big Pickle first")
-                        .interfaceFont(size: 12)
-                        .foregroundColor(Color.mimo.textSecondary)
-                }
-                Spacer()
-                Text("FREE")
-                    .interfaceFont(size: 10, weight: .bold)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.mimo.success.opacity(0.2))
-                    .foregroundColor(Color.mimo.success)
-                    .clipShape(Capsule())
-            }
-
-            if !store.provider.models.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Available free models")
-                        .interfaceFont(size: 12, weight: .medium)
-                        .foregroundColor(Color.mimo.textPrimary)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(store.provider.models) { model in
-                                let selected = isSelected(model.id)
-                                Button { selectModel(model.id) } label: {
-                                    HStack(spacing: 4) {
-                                        Text(displayName(for: model.id))
-                                        Image(systemName: "gift.fill").font(.system(size: 8))
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                                .interfaceFont(size: 11)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(selected ? Color.mimo.brand.opacity(0.2) : Color.mimo.surface)
-                                .foregroundColor(selected ? Color.mimo.brand : Color.mimo.textSecondary)
-                                .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Color.mimo.brand : Color.mimo.border, lineWidth: 1))
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                            }
-                        }
-                    }
-                }
-            } else {
-                Text("No OpenCode free models are currently available. Press refresh to check again.")
-                    .interfaceFont(size: 11)
-                    .foregroundColor(Color.mimo.textMuted)
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Automatic fallback")
-                    .interfaceFont(size: 12, weight: .medium)
-                    .foregroundColor(Color.mimo.textPrimary)
-                Text("Big Pickle is preferred. If a model disappears or returns a rate limit, MiCoder switches to the next live free model. Five consecutive failures also trigger a switch.")
-                    .interfaceFont(size: 10)
-                    .foregroundColor(Color.mimo.textMuted)
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("System prompt")
-                    .interfaceFont(size: 12, weight: .medium)
-                    .foregroundColor(Color.mimo.textPrimary)
-                TextEditor(text: $systemPromptInput)
-                    .font(.system(size: 12))
-                    .foregroundColor(Color.mimo.textPrimary)
-                    .frame(minHeight: 72, maxHeight: 120)
-                    .padding(6)
-                    .background(Color.mimo.background)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
-                HStack {
-                    Text("Sent as a system message before each request.")
-                        .interfaceFont(size: 10)
-                        .foregroundColor(Color.mimo.textMuted)
-                    Spacer()
-                    Button("Save prompt") {
-                        store.setSystemPrompt(systemPromptInput)
-                    }
-                    .buttonStyle(.plain)
-                    .interfaceFont(size: 11)
-                    .foregroundColor(Color.mimo.brand)
-                }
-            }
-
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(store.provider.isReady ? Color.mimo.success : Color.mimo.error)
-                    .frame(width: 6, height: 6)
-                Text(store.provider.isReady
-                     ? "Free catalog ready"
-                     : (store.provider.statusMessage.isEmpty ? "Loading free catalog…" : store.provider.statusMessage))
-                    .interfaceFont(size: 11)
-                    .foregroundColor(Color.mimo.textMuted)
-                    .lineLimit(2)
-                Spacer()
-                Button(action: { Task { _ = await store.refreshModels() } }) {
-                    Image(systemName: "arrow.clockwise").font(.system(size: 11))
-                }
-                .buttonStyle(.plain)
-                .foregroundColor(Color.mimo.brand)
-            }
-            Text("No API key is required for this anonymous free-model catalog. Free-model availability and data-use terms may change.")
-                .interfaceFont(size: 10)
-                .foregroundColor(Color.mimo.textMuted)
+            header
+            providerStatus
+            protocolDetails
+            modelCatalog
+            lockPolicy
+            systemPromptEditor
+            privacyNote
         }
         .padding(16)
         .background(Color.mimo.surface)
@@ -144,6 +45,201 @@ struct MiCoderAutoFreeSection: View {
         }
     }
 
+    private var header: some View {
+        HStack(alignment: .top) {
+            Image(systemName: "sparkles")
+                .font(.title2)
+                .foregroundColor(Color.mimo.brand)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("MiCoder Auto Free")
+                    .interfaceFont(size: 18, weight: .semibold)
+                    .foregroundColor(Color.mimo.textPrimary)
+                Text("OpenCode Zen · live anonymous free-model workspace")
+                    .interfaceFont(size: 12)
+                    .foregroundColor(Color.mimo.textSecondary)
+            }
+            Spacer()
+            Text("FREE")
+                .interfaceFont(size: 10, weight: .bold)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.mimo.success.opacity(0.2))
+                .foregroundColor(Color.mimo.success)
+                .clipShape(Capsule())
+        }
+    }
+
+    private var providerStatus: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(store.provider.isReady ? Color.mimo.success : Color.mimo.error)
+                .frame(width: 8, height: 8)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(store.provider.isReady ? "ONLINE · \(store.provider.models.count) free models" : "OFFLINE · free catalog unavailable")
+                    .interfaceFont(size: 12, weight: .semibold)
+                    .foregroundColor(Color.mimo.textPrimary)
+                Text(store.provider.statusMessage.isEmpty ? "Loading live OpenCode catalog…" : store.provider.statusMessage)
+                    .interfaceFont(size: 10)
+                    .foregroundColor(Color.mimo.textMuted)
+                    .lineLimit(2)
+            }
+            Spacer()
+            if let refreshed = store.provider.lastCatalogRefresh {
+                Text("Updated \(refreshed.formatted(date: .omitted, time: .shortened))")
+                    .interfaceFont(size: 10)
+                    .foregroundColor(Color.mimo.textMuted)
+            }
+            Button(action: refreshCatalog) {
+                HStack(spacing: 5) {
+                    if isRefreshing {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    Text(isRefreshing ? "Refreshing…" : "Refresh catalog")
+                }
+                .interfaceFont(size: 11, weight: .medium)
+                .foregroundColor(Color.mimo.brand)
+            }
+            .buttonStyle(.plain)
+            .disabled(isRefreshing)
+        }
+        .padding(10)
+        .background(Color.mimo.background)
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.mimo.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var protocolDetails: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Provider parameters")
+                .interfaceFont(size: 12, weight: .semibold)
+                .foregroundColor(Color.mimo.textPrimary)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 8) {
+                parameter(title: "Endpoint", value: "opencode.ai/zen/v1")
+                parameter(title: "Protocol", value: "OpenAI-compatible SSE")
+                parameter(title: "Access", value: "Anonymous · no key")
+                parameter(title: "Fallback", value: "Rate limit or 5 failures")
+            }
+        }
+    }
+
+    private func parameter(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title.uppercased())
+                .interfaceFont(size: 9, weight: .bold)
+                .foregroundColor(Color.mimo.textMuted)
+            Text(value)
+                .interfaceFont(size: 11)
+                .foregroundColor(Color.mimo.textSecondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var modelCatalog: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Live free models")
+                    .interfaceFont(size: 12, weight: .semibold)
+                    .foregroundColor(Color.mimo.textPrimary)
+                Spacer()
+                Text("Select a card to use it")
+                    .interfaceFont(size: 10)
+                    .foregroundColor(Color.mimo.textMuted)
+            }
+
+            if store.provider.models.isEmpty {
+                Text("No eligible free models are currently returned by OpenCode. Refresh the catalog or choose another provider.")
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.textMuted)
+                    .padding(.vertical, 8)
+            } else {
+                LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
+                    ForEach(store.provider.models) { model in
+                        AutoFreeModelCard(
+                            model: model,
+                            isSelected: isSelected(model.id),
+                            isLocked: isSelected(model.id) && store.provider.isModelLocked,
+                            status: status(for: model),
+                            onSelect: { selectModel(model.id) },
+                            onToggleLock: { toggleLock(for: model.id) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private var lockPolicy: some View {
+        HStack(spacing: 8) {
+            Image(systemName: store.provider.isModelLocked ? "lock.fill" : "arrow.triangle.2.circlepath")
+                .foregroundColor(store.provider.isModelLocked ? Color.mimo.brand : Color.mimo.textMuted)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(store.provider.isModelLocked ? "Model locked" : "Automatic fallback enabled")
+                    .interfaceFont(size: 11, weight: .semibold)
+                    .foregroundColor(Color.mimo.textPrimary)
+                Text(store.provider.isModelLocked
+                     ? "The selected model will not be changed automatically. Unlock it to allow failover."
+                     : "Rate limits and repeated failures can move the request to another live free model.")
+                    .interfaceFont(size: 10)
+                    .foregroundColor(Color.mimo.textMuted)
+                    .lineLimit(2)
+            }
+            Spacer()
+            Toggle("Lock selected model", isOn: Binding(
+                get: { store.provider.isModelLocked },
+                set: { store.setModelLocked($0) }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+        }
+        .padding(10)
+        .background(Color.mimo.background)
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.mimo.border, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var systemPromptEditor: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("System prompt")
+                .interfaceFont(size: 12, weight: .semibold)
+                .foregroundColor(Color.mimo.textPrimary)
+            TextEditor(text: $systemPromptInput)
+                .font(.system(size: 12))
+                .foregroundColor(Color.mimo.textPrimary)
+                .frame(minHeight: 72, maxHeight: 120)
+                .padding(6)
+                .background(Color.mimo.background)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
+            HStack {
+                Text("Sent before every free-model request.")
+                    .interfaceFont(size: 10)
+                    .foregroundColor(Color.mimo.textMuted)
+                Spacer()
+                Button("Save prompt") { store.setSystemPrompt(systemPromptInput) }
+                    .buttonStyle(.plain)
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.brand)
+            }
+        }
+    }
+
+    private var privacyNote: some View {
+        Text("Free models are temporary OpenCode routes. Availability, rate limits, model metadata and data-use terms can change. Do not send secrets.")
+            .interfaceFont(size: 10)
+            .foregroundColor(Color.mimo.textMuted)
+    }
+
+    private func refreshCatalog() {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        Task {
+            _ = await store.refreshModels()
+            isRefreshing = false
+        }
+    }
+
     private func selectModel(_ modelID: String) {
         store.selectModel(modelID)
         if appState.selectedProviderID == MiCoderAutoFreeProvider.builtInID {
@@ -151,22 +247,95 @@ struct MiCoderAutoFreeSection: View {
         }
     }
 
-    private func displayName(for modelID: String) -> String {
-        switch modelID {
-        case "big-pickle": return "Big Pickle"
-        case "deepseek-v4-flash-free": return "DeepSeek V4 Flash Free"
-        case "mimo-v2.5-free": return "MiMo V2.5 Free"
-        case "hy3-free": return "Hy3 Free"
-        case "laguna-s-2.1-free": return "Laguna S 2.1 Free"
-        case "ling-3.0-tiny-free": return "Ling 3.0 Tiny Free"
-        case "nemotron-3-ultra-free": return "Nemotron 3 Ultra Free"
-        case "nemotron-3.5-lightning-free": return "Nemotron 3.5 Lightning Free"
-        default: return modelID
+    private func toggleLock(for modelID: String) {
+        if !isSelected(modelID) {
+            selectModel(modelID)
         }
+        store.setModelLocked(!store.provider.isModelLocked)
+    }
+
+    private func status(for model: MiCoderAutoFreeClient.Model) -> String {
+        store.modelStatus(for: model.id)
     }
 
     private func isSelected(_ modelID: String) -> Bool {
-        appState.selectedModel == modelID || (appState.selectedModel.isEmpty && store.provider.selectedModel == modelID)
+        store.provider.selectedModel == modelID
+    }
+}
+
+struct AutoFreeModelCard: View {
+    let model: MiCoderAutoFreeClient.Model
+    let isSelected: Bool
+    let isLocked: Bool
+    let status: String
+    let onSelect: () -> Void
+    let onToggleLock: () -> Void
+
+    private var statusColor: Color {
+        let lower = status.lowercased()
+        if lower.contains("rate") || lower.contains("failed") || lower.contains("unavailable") {
+            return Color.mimo.error
+        }
+        if isSelected { return Color.mimo.brand }
+        return Color.mimo.textMuted
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: isLocked ? "lock.fill" : (isSelected ? "checkmark.circle.fill" : "circle"))
+                    .foregroundColor(isSelected ? Color.mimo.brand : Color.mimo.textMuted)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.name)
+                        .interfaceFont(size: 12, weight: .semibold)
+                        .foregroundColor(Color.mimo.textPrimary)
+                    Text(model.id)
+                        .interfaceFont(size: 9, design: .monospaced)
+                        .foregroundColor(Color.mimo.textMuted)
+                        .lineLimit(1)
+                }
+                Spacer()
+                Text(status)
+                    .interfaceFont(size: 9, weight: .medium)
+                    .foregroundColor(statusColor)
+            }
+
+            Text(model.effectiveDescription)
+                .interfaceFont(size: 10)
+                .foregroundColor(Color.mimo.textSecondary)
+                .lineLimit(2)
+
+            Text(model.profile.capabilityLine)
+                .interfaceFont(size: 9, weight: .medium)
+                .foregroundColor(Color.mimo.success)
+                .lineLimit(1)
+
+            HStack(spacing: 8) {
+                Text("Context: \(model.contextDescription)")
+                    .interfaceFont(size: 9)
+                    .foregroundColor(Color.mimo.textMuted)
+                Spacer()
+                Button(action: onToggleLock) {
+                    Image(systemName: isLocked ? "lock.open" : "lock")
+                    Text(isLocked ? "Unlock" : "Lock")
+                }
+                .buttonStyle(.plain)
+                .interfaceFont(size: 10, weight: .medium)
+                .foregroundColor(isSelected ? Color.mimo.brand : Color.mimo.textMuted)
+                .disabled(!isSelected)
+            }
+        }
+        .padding(11)
+        .background(isSelected ? Color.mimo.brand.opacity(0.10) : Color.mimo.background)
+        .overlay(
+            RoundedRectangle(cornerRadius: 9)
+                .stroke(isLocked ? Color.mimo.brand : (isSelected ? Color.mimo.brand.opacity(0.65) : Color.mimo.border), lineWidth: isSelected ? 1.5 : 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 9))
+        .contentShape(RoundedRectangle(cornerRadius: 9))
+        .onTapGesture(perform: onSelect)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(model.name), \(status)")
     }
 }
 

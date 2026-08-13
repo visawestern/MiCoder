@@ -81,6 +81,9 @@ struct MiCoderApp: App {
 class AppState: ObservableObject {
     let instanceID = UUID().uuidString.prefix(8)
     deinit {
+        if let observer = autoFreeSwitchObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
         MiCoderAPIServer.appendLog("💀 AppState.deinit: id=\(instanceID)")
     }
     /// The UserDefaults instance used for persistence.  Public so tests can
@@ -264,6 +267,8 @@ class AppState: ObservableObject {
     @Published var showRemoveProviderConfirmation = false
     @Published var pendingProviderToDelete: CustomProvider?
     @Published var notificationService = NotificationService()
+    @Published var transientProviderNotification: AppNotification? = nil
+    private var autoFreeSwitchObserver: NSObjectProtocol? = nil
     
     var displayedWorkspaces: [Workspace] {
         let nameFiltered = SidebarWorkspaceLogic.filtered(workspaces, query: workspaceFilterQuery)
@@ -348,6 +353,18 @@ class AppState: ObservableObject {
         LocalizationRuntime.currentLanguage = appLanguage
 
         migrateLegacyPreferences()
+        autoFreeSwitchObserver = NotificationCenter.default.addObserver(
+            forName: .miCoderAutoFreeModelSwitched,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self else { return }
+            let appNotification = MiCoderAutoFreeNotificationLogic.make(
+                userInfo: notification.userInfo ?? [:]
+            )
+            self.notificationService.add(appNotification)
+            self.transientProviderNotification = appNotification
+        }
 
         guard !Self.isRunningTests else { return }
 
@@ -931,6 +948,19 @@ class AppState: ObservableObject {
     func refreshModels(for providerID: String) {
         guard let provider = customProviders.first(where: { $0.id == providerID }) else { return }
         loadModelsFromCustomProvider(provider)
+    }
+
+    func removeModel(_ modelID: String, from providerID: String) {
+        guard let index = customProviders.firstIndex(where: { $0.id == providerID }) else { return }
+        customProviders[index].models.removeAll { $0 == modelID }
+        saveCustomProviders()
+        if selectedProviderID == providerID && selectedModel == modelID {
+            selectedModel = customProviders[index].models.first ?? ""
+            defaults.set(selectedModel, forKey: "com.micoder.selectedModel")
+            defaults.set(selectedModel, forKey: "com.micoder.preferredModelID")
+            selectedVariant = ""
+        }
+        validateAndReconcileSelections()
     }
 
     func providerModelLoadMessage(for providerID: String) -> String? {

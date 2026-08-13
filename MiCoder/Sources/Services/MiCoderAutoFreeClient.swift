@@ -25,12 +25,28 @@ final class MiCoderAutoFreeClient {
 
     private let session = URLSession.shared
 
+    struct ModelProfile: Identifiable, Hashable {
+        let id: String
+        let displayName: String
+        let summary: String
+        let capabilities: [String]
+
+        var capabilityLine: String { capabilities.joined(separator: " · ") }
+    }
+
     struct Model: Identifiable, Codable, Hashable {
         let id: String
-        var name: String { id }
+        var name: String { MiCoderAutoFreeClient.profile(for: id).displayName }
         let isFree: Bool
         let contextLength: Int?
         let description: String?
+
+        var profile: ModelProfile { MiCoderAutoFreeClient.profile(for: id) }
+        var effectiveDescription: String { description ?? profile.summary }
+        var contextDescription: String {
+            if let contextLength { return "\(contextLength.formatted()) tokens" }
+            return "Not reported by live catalog"
+        }
 
         init(id: String, isFree: Bool = true, contextLength: Int? = nil, description: String? = nil) {
             self.id = id
@@ -39,6 +55,66 @@ final class MiCoderAutoFreeClient {
             self.description = description
         }
     }
+
+    static func profile(for modelID: String) -> ModelProfile {
+        profiles[modelID] ?? ModelProfile(
+            id: modelID,
+            displayName: modelID,
+            summary: "Temporary OpenCode free route.",
+            capabilities: ["Free", "Anonymous", "SSE"]
+        )
+    }
+
+    private static let profiles: [String: ModelProfile] = [
+        "big-pickle": ModelProfile(
+            id: "big-pickle",
+            displayName: "Big Pickle",
+            summary: "Preferred temporary OpenCode free route.",
+            capabilities: ["Free", "Anonymous", "SSE"]
+        ),
+        "deepseek-v4-flash-free": ModelProfile(
+            id: "deepseek-v4-flash-free",
+            displayName: "DeepSeek V4 Flash Free",
+            summary: "Temporary OpenCode free route.",
+            capabilities: ["Free", "Anonymous", "SSE"]
+        ),
+        "mimo-v2.5-free": ModelProfile(
+            id: "mimo-v2.5-free",
+            displayName: "MiMo V2.5 Free",
+            summary: "Temporary OpenCode free route.",
+            capabilities: ["Free", "Anonymous", "SSE"]
+        ),
+        "hy3-free": ModelProfile(
+            id: "hy3-free",
+            displayName: "Hy3 Free",
+            summary: "Temporary OpenCode free route.",
+            capabilities: ["Free", "Anonymous", "SSE"]
+        ),
+        "laguna-s-2.1-free": ModelProfile(
+            id: "laguna-s-2.1-free",
+            displayName: "Laguna S 2.1 Free",
+            summary: "Temporary OpenCode free route.",
+            capabilities: ["Free", "Anonymous", "SSE"]
+        ),
+        "ling-3.0-tiny-free": ModelProfile(
+            id: "ling-3.0-tiny-free",
+            displayName: "Ling 3.0 Tiny Free",
+            summary: "Temporary OpenCode free route.",
+            capabilities: ["Free", "Anonymous", "SSE"]
+        ),
+        "nemotron-3-ultra-free": ModelProfile(
+            id: "nemotron-3-ultra-free",
+            displayName: "Nemotron 3 Ultra Free",
+            summary: "Temporary OpenCode free route.",
+            capabilities: ["Free", "Anonymous", "SSE"]
+        ),
+        "nemotron-3.5-lightning-free": ModelProfile(
+            id: "nemotron-3.5-lightning-free",
+            displayName: "Nemotron 3.5 Lightning Free",
+            summary: "Temporary OpenCode free route.",
+            capabilities: ["Free", "Anonymous", "SSE"]
+        )
+    ]
 
     struct Message: Codable, Equatable {
         let role: String
@@ -55,7 +131,9 @@ final class MiCoderAutoFreeClient {
         try validate(response, data: data, operation: "OpenCode free model list")
         let decoded = try JSONDecoder().decode(ModelListResponse.self, from: data)
         let byID = Dictionary(uniqueKeysWithValues: decoded.data.map { ($0.id, $0) })
-        let models = Self.freeModelIDs.compactMap { id -> Model? in
+        let liveFreeIDs = decoded.data.map(\.id).filter { Self.isEligibleFreeModel($0) }
+        let orderedIDs = Self.freeModelIDs + liveFreeIDs.filter { !Self.freeModelIDs.contains($0) }.sorted()
+        let models = orderedIDs.compactMap { id -> Model? in
             guard let dto = byID[id] else { return nil }
             return Model(id: dto.id, contextLength: dto.contextLength, description: dto.description)
         }
@@ -65,18 +143,23 @@ final class MiCoderAutoFreeClient {
         return models
     }
 
-    /// Stream a completion without an API key. The selected model must be in the
-    /// trusted free-model allow-list; this prevents accidental paid usage.
+    static func isEligibleFreeModel(_ modelID: String) -> Bool {
+        modelID == defaultModelID || modelID.hasSuffix("-free")
+    }
+
+    /// Stream a completion without an API key. The selected model must be in
+    /// the live temporary free catalog; this prevents accidental paid usage.
     func chatCompletion(
-        model: String = Self.defaultModelID,
+        model: String = MiCoderAutoFreeClient.defaultModelID,
         messages: [Message],
+        parameters: ModelCallParameters = ModelCallParameters(),
         stream: Bool = true
     ) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             Task {
                 do {
-                    let effectiveModel = model.isEmpty ? Self.defaultModelID : model
-                    guard Self.freeModelIDs.contains(effectiveModel) else {
+                    let effectiveModel = model.isEmpty ? MiCoderAutoFreeClient.defaultModelID : model
+                    guard MiCoderAutoFreeClient.isEligibleFreeModel(effectiveModel) else {
                         throw MiCoderAutoFreeError.modelUnavailable(effectiveModel, "Model is not in the OpenCode temporary free catalog")
                     }
 
@@ -86,7 +169,7 @@ final class MiCoderAutoFreeClient {
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                     request.httpBody = try JSONEncoder().encode(
-                        CompletionRequest(model: effectiveModel, messages: messages, stream: stream)
+                        CompletionRequest(model: effectiveModel, messages: messages, parameters: parameters, stream: stream)
                     )
 
                     if stream {
@@ -184,7 +267,22 @@ private struct ModelListResponse: Decodable {
 private struct CompletionRequest: Encodable {
     let model: String
     let messages: [MiCoderAutoFreeClient.Message]
+    let parameters: ModelCallParameters
     let stream: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case model, messages, stream, temperature, maxTokens = "max_tokens", topP = "top_p"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(model, forKey: .model)
+        try container.encode(messages, forKey: .messages)
+        try container.encode(stream, forKey: .stream)
+        try container.encodeIfPresent(parameters.temperature, forKey: .temperature)
+        try container.encodeIfPresent(parameters.maxTokens, forKey: .maxTokens)
+        try container.encodeIfPresent(parameters.topP, forKey: .topP)
+    }
 }
 
 private struct StreamChunk: Decodable {

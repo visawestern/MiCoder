@@ -24,6 +24,16 @@ struct ChatPanelView: View {
     
     var body: some View {
         VStack(spacing: 0) {
+            if let notification = appState.transientProviderNotification {
+                AutoFreeSwitchBanner(notification: notification) {
+                    appState.transientProviderNotification = nil
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .zIndex(10)
+            }
+
             #if canImport(WebKit)
             // Keep the persistent chat WKWebView attached to the window. A
             // detached zero-sized WKWebView can load login pages but cannot
@@ -1489,5 +1499,51 @@ struct ScrollToBottomButton: View {
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
         .accessibilityLabel("Scroll to latest message")
+    }
+}
+
+
+struct AutoFreeSwitchBanner: View {
+    let notification: AppNotification
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: notification.type.icon)
+                .interfaceFont(size: 15, weight: .semibold)
+                .foregroundColor(Color.mimo.error)
+                .padding(.top, 1)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(notification.title)
+                    .interfaceFont(size: 12, weight: .semibold)
+                    .foregroundColor(Color.mimo.textPrimary)
+                Text(notification.message)
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 8)
+
+            Button(action: onDismiss) {
+                Image(systemName: "xmark")
+                    .interfaceFont(size: 10, weight: .semibold)
+                    .foregroundColor(Color.mimo.textMuted)
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss notification")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Color.mimo.error.opacity(0.12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.mimo.error.opacity(0.45), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .combine)
     }
 }

@@ -255,3 +255,36 @@ struct NotificationServiceTests {
         #expect(service.notifications.count <= 10)
     }
 }
+
+
+@Suite("MiCoder Auto Free switch notifications")
+struct MiCoderAutoFreeNotificationTests {
+    @Test("Rate-limit switch creates an explicit warning")
+    func rateLimitMessage() {
+        let notification = MiCoderAutoFreeNotificationLogic.make(userInfo: [
+            "fromModel": "big-pickle",
+            "toModel": "deepseek-v4-flash-free",
+            "reason": "rate limit"
+        ])
+
+        #expect(notification.type == .warning)
+        #expect(notification.title == "Free model rate limited")
+        #expect(notification.message.contains("big-pickle"))
+        #expect(notification.message.contains("deepseek-v4-flash-free"))
+        #expect(notification.message.contains("rate limit"))
+    }
+
+    @Test("Non-rate-limit switch remains distinguishable")
+    func genericSwitchMessage() {
+        let notification = MiCoderAutoFreeNotificationLogic.make(userInfo: [
+            "fromModel": "big-pickle",
+            "toModel": "hy3-free",
+            "reason": "model unavailable"
+        ])
+
+        #expect(notification.type == .warning)
+        #expect(notification.title == "Free model switched")
+        #expect(notification.message.contains("model unavailable"))
+        #expect(notification.message.contains("hy3-free"))
+    }
+}

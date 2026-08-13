@@ -216,3 +216,20 @@ The user clarified that OpenCode's free route works without an API key. A live p
 | UX-07 | The user needs to understand why and where the provider switched. | Settings lists available free models and fallback policy; the assistant stream receives a visible switch notice; status text records the selected model and failure reason. | FIXED |
 
 The canonical registry now includes `PROV-15`. The previous Round 34 key-gated statements remain as historical work in the report but are superseded by this round. A macOS/Xcode build and a real anonymous send are still required for runtime confirmation because the Linux sandbox lacks SwiftUI, AppKit, WebKit, and Xcode.
+
+
+## Round 36 (2026-08-13) — model workspace and provider settings UX correction
+
+The screenshots exposed three concrete settings defects: a localized successful connection test was classified as an error because the UI searched for the English word “Success”; the provider details column could grow into the models column; and the model Parameters menu item had an empty action. The same review also required model management controls that were missing from the previous implementation.
+
+| ID | Confirmed issue or requirement | Correction | Status |
+|---|---|---|---|
+| UX-08 | Provider types were rendered as one long list and could not be collapsed predictably. | Added real `DisclosureGroup` sections for built-in, custom, web and local providers, with independent expanded state. | FIXED |
+| UX-09 | A Russian/localized success message did not contain the English word `Success`, so the successful result appeared red. | Added an explicit `testSucceeded` state and a prominent green `Connection verified` banner; red is reserved for actual failures. | FIXED |
+| LAYOUT-04 | Provider details could extend below its fixed grid and visually overlap the models list. | Wrapped the details card in its own `ScrollView` and gave wide/compact layouts explicit bounded heights. | FIXED |
+| MODEL-16 | The model Parameters menu action did nothing. | Added an inline editable panel that loads provider metadata, displays context/output/capability values, validates overrides, persists them through `ModelCallParametersStore`, and applies them to AutoFree requests. | FIXED |
+| MODEL-17 | The model list had no filtering or sorting and used passive headers instead of spoilers. | Added search filtering, sorting by name/context/reasoning/tools, and real `DisclosureGroup` sections for model prefixes. | FIXED |
+| MODEL-18 | A custom-provider model could not be removed from its row. | Added a trash icon to custom-provider model rows and an AppState mutation that persists removal and chooses a valid fallback when necessary. Live server/local/web catalogs remain read-only because their source owns the model list. | FIXED |
+| PROV-16 | The free model list could become stale. | AutoFree now discovers eligible live `*-free` IDs from anonymous OpenCode `/models`, preserves Big Pickle priority, and exposes refresh plus last-updated status. | FIXED |
+
+The Linux sandbox completed source scans, brace checks and `git diff --check`, but it cannot compile SwiftUI/AppKit/WebKit. A macOS/Xcode build remains required for final visual and compiler verification.

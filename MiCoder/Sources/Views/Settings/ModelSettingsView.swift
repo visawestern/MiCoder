@@ -1,5 +1,22 @@
 import SwiftUI
 
+enum ModelSortOrder: String, CaseIterable, Identifiable {
+    case name
+    case context
+    case reasoning
+    case tools
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .name: return "Name"
+        case .context: return "Context"
+        case .reasoning: return "Reasoning"
+        case .tools: return "Tools"
+        }
+    }
+}
+
 struct ModelSettingsView: View {
     let availableWidth: CGFloat
     @EnvironmentObject var appState: AppState
@@ -45,6 +62,17 @@ struct ModelSettingsProviderColumns: View {
     @State private var detailProviderID: String = ""
     @State private var customAPIKeyDraft: String = ""
     @State private var customBaseURLDraft: String = ""
+    @State private var parameterModelID: String = ""
+    @State private var parameterProviderID: String = ""
+    @State private var parameterTemperature: String = ""
+    @State private var parameterMaxTokens: String = ""
+    @State private var parameterTopP: String = ""
+    @State private var parameterSystemPrompt: String = ""
+    @State private var parameterError: String?
+    @State private var modelSearchQuery: String = ""
+    @State private var modelSortOrder: ModelSortOrder = .name
+    @State private var collapsedProviderCategories: Set<String> = []
+    @State private var collapsedModelGroups: Set<String> = []
 
     private var options: [ProviderOption] {
         appState.providerOptions
@@ -100,7 +128,7 @@ struct ModelSettingsProviderColumns: View {
                 // Custom-provider credentials and endpoint controls need more
                 // room than the old 320pt card allowed; otherwise the Save /
                 // Refresh actions were clipped and effectively unreachable.
-                .frame(minHeight: 320, maxHeight: 480)
+                .frame(height: 480)
             } else {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .top, spacing: 12) {
@@ -109,11 +137,15 @@ struct ModelSettingsProviderColumns: View {
                         providerDetailColumn
                             .frame(maxWidth: .infinity)
                     }
-                    .frame(minHeight: 180, maxHeight: 240)
+                    .frame(height: 240)
 
                     modelsColumn
                         .frame(maxWidth: .infinity, minHeight: 160, alignment: .topLeading)
                 }
+            }
+
+            if !parameterModelID.isEmpty {
+                modelParametersPanel
             }
         }
         .onAppear {
@@ -135,6 +167,31 @@ struct ModelSettingsProviderColumns: View {
         ModelSettingsLayoutLogic.mode(availableWidth: availableWidth)
     }
 
+    private var providerGroups: [(key: String, options: [ProviderOption])] {
+        let grouped = Dictionary(grouping: options) { providerCategory(for: $0) }
+        return grouped.keys.sorted().map { key in
+            (key: key, options: grouped[key, default: []].sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            })
+        }
+    }
+
+    private func providerCategory(for option: ProviderOption) -> String {
+        if option.isCustom { return "Custom providers" }
+        if WebProviderConnectivity.configID(fromOptionID: option.id) != nil { return "Web providers" }
+        if LocalProviderLogic.load().contains(where: { $0.id == option.id }) { return "Local providers" }
+        return "Built-in providers"
+    }
+
+    private func providerCategoryIcon(_ category: String) -> String {
+        switch category {
+        case "Custom providers": return "server.rack"
+        case "Web providers": return "globe"
+        case "Local providers": return "desktopcomputer"
+        default: return "sparkles"
+        }
+    }
+
     private var providerListColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(L.t(AppLocalizationKey.locProviders))
@@ -152,44 +209,41 @@ struct ModelSettingsProviderColumns: View {
                 )
             } else {
                 ScrollView {
-                    VStack(spacing: 4) {
-                        ForEach(options) { option in
-                            Button(action: {
-                                detailProviderID = option.id
-                                appState.selectProvider(option.id)
-                            }) {
-                                HStack(spacing: 8) {
-                                    Circle()
-                                        .fill(option.isConnected ? Color.mimo.success : Color.mimo.textMuted)
-                                        .frame(width: 6, height: 6)
-                                    Text(option.name)
-                                        .interfaceFont(size: 12)
-                                        .foregroundColor(Color.mimo.textPrimary)
-                                        .lineLimit(1)
-                                    Spacer(minLength: 0)
-                                    if appState.selectedProviderID == option.id {
-                                        Image(systemName: "checkmark")
-                                            .interfaceFont(size: 10)
-                                            .foregroundColor(Color.mimo.brand)
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(providerGroups.indices, id: \.self) { groupIndex in
+                            let group = providerGroups[groupIndex]
+                            DisclosureGroup(
+                                isExpanded: Binding(
+                                    get: { !collapsedProviderCategories.contains(group.key) },
+                                    set: { expanded in
+                                        if expanded {
+                                            collapsedProviderCategories.remove(group.key)
+                                        } else {
+                                            collapsedProviderCategories.insert(group.key)
+                                        }
+                                    }
+                                )
+                            ) {
+                                VStack(spacing: 4) {
+                                    ForEach(group.options) { option in
+                                        providerOptionRow(option)
                                     }
                                 }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 8)
-                                .background(
-                                    detailProviderID == option.id
-                                        ? Color.mimo.subtleFill
-                                        : Color.mimo.surface
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(
-                                            detailProviderID == option.id ? Color.mimo.border : Color.clear,
-                                            lineWidth: 1
-                                        )
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                .padding(.top, 4)
+                            } label: {
+                                HStack(spacing: 7) {
+                                    Image(systemName: providerCategoryIcon(group.key))
+                                        .interfaceFont(size: 10, weight: .semibold)
+                                        .foregroundColor(Color.mimo.brand)
+                                    Text(group.key)
+                                        .interfaceFont(size: 10, weight: .semibold)
+                                        .foregroundColor(Color.mimo.textSecondary)
+                                    Text("· \(group.options.count)")
+                                        .interfaceFont(size: 10)
+                                        .foregroundColor(Color.mimo.textMuted)
+                                }
                             }
-                            .buttonStyle(.plain)
+                            .accentColor(Color.mimo.brand)
                         }
                     }
                 }
@@ -202,8 +256,41 @@ struct ModelSettingsProviderColumns: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
+    private func providerOptionRow(_ option: ProviderOption) -> some View {
+        Button(action: {
+            detailProviderID = option.id
+            appState.selectProvider(option.id)
+        }) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(option.isConnected ? Color.mimo.success : Color.mimo.textMuted)
+                    .frame(width: 6, height: 6)
+                Text(option.name)
+                    .interfaceFont(size: 12)
+                    .foregroundColor(Color.mimo.textPrimary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                if appState.selectedProviderID == option.id {
+                    Image(systemName: "checkmark")
+                        .interfaceFont(size: 10)
+                        .foregroundColor(Color.mimo.brand)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(detailProviderID == option.id ? Color.mimo.subtleFill : Color.mimo.surface)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(detailProviderID == option.id ? Color.mimo.border : Color.clear, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+    }
+
     private var providerDetailColumn: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
             Text(L.t(AppLocalizationKey.locDetails))
                 .interfaceFont(size: 12, weight: .semibold)
                 .foregroundColor(Color.mimo.textMuted)
@@ -343,11 +430,193 @@ struct ModelSettingsProviderColumns: View {
                 )
             }
         }
+        }
         .settingsCardFrame()
         .padding(12)
         .background(Color.mimo.surface)
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.mimo.border, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var selectedParameterMetadata: MimoProviderModel? {
+        guard !parameterModelID.isEmpty else { return nil }
+        return ProviderSettingsLogic.model(
+            for: parameterModelID,
+            in: appState.serverProviders,
+            providerID: parameterProviderID.isEmpty ? nil : parameterProviderID
+        )
+    }
+
+    @ViewBuilder
+    private var modelParametersPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Model parameters")
+                        .interfaceFont(size: 14, weight: .semibold)
+                        .foregroundColor(Color.mimo.textPrimary)
+                    Text("\(parameterProviderID.isEmpty ? "Provider" : parameterProviderID) / \(parameterModelID)")
+                        .interfaceFont(size: 10, design: .monospaced)
+                        .foregroundColor(Color.mimo.textMuted)
+                }
+                Spacer()
+                Button {
+                    parameterModelID = ""
+                    parameterError = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .interfaceFont(size: 15)
+                        .foregroundColor(Color.mimo.textMuted)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close model parameters")
+            }
+
+            if let meta = selectedParameterMetadata {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("Provider metadata")
+                        .interfaceFont(size: 11, weight: .semibold)
+                        .foregroundColor(Color.mimo.textSecondary)
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 7) {
+                        metadataValue("Context", meta.limit?.context.map { "\($0 / 1000)k" } ?? "—")
+                        metadataValue("Output", meta.limit?.output.map { String($0) } ?? "—")
+                        metadataValue("Reasoning", meta.capabilities?.reasoning == true ? "Yes" : "No")
+                        metadataValue("Tools", meta.capabilities?.toolcall != false ? "Yes" : "No")
+                        metadataValue("Plan", meta.capabilities?.plan == true ? "Yes" : "No")
+                        metadataValue("Variants", meta.variants?.count.map { String($0) } ?? "—")
+                    }
+                }
+            } else {
+                Text("This provider did not return model metadata. You can still set request overrides below.")
+                    .interfaceFont(size: 10)
+                    .foregroundColor(Color.mimo.textMuted)
+            }
+
+            HStack(spacing: 10) {
+                parameterField(title: "Temperature", placeholder: "default", text: $parameterTemperature)
+                parameterField(title: "Max tokens", placeholder: "default", text: $parameterMaxTokens)
+                parameterField(title: "Top P", placeholder: "default", text: $parameterTopP)
+            }
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text("System prompt override")
+                    .interfaceFont(size: 11, weight: .medium)
+                    .foregroundColor(Color.mimo.textSecondary)
+                TextEditor(text: $parameterSystemPrompt)
+                    .font(.system(size: 11))
+                    .frame(minHeight: 58, maxHeight: 100)
+                    .padding(6)
+                    .background(Color.mimo.background)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
+            }
+
+            if let parameterError {
+                Text(parameterError)
+                    .interfaceFont(size: 10, weight: .medium)
+                    .foregroundColor(Color.mimo.error)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack {
+                Text("Blank values use provider defaults.")
+                    .interfaceFont(size: 10)
+                    .foregroundColor(Color.mimo.textMuted)
+                Spacer()
+                Button("Reset") { resetParameters() }
+                    .buttonStyle(.plain)
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.textSecondary)
+                Button("Save parameters") { saveParameters() }
+                    .buttonStyle(.borderedProminent)
+                    .interfaceFont(size: 11)
+            }
+        }
+        .padding(14)
+        .background(Color.mimo.surface)
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.mimo.brand.opacity(0.35), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    private func metadataValue(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title.uppercased())
+                .interfaceFont(size: 8, weight: .bold)
+                .foregroundColor(Color.mimo.textMuted)
+            Text(value)
+                .interfaceFont(size: 10, weight: .medium)
+                .foregroundColor(Color.mimo.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func parameterField(title: String, placeholder: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .interfaceFont(size: 10, weight: .medium)
+                .foregroundColor(Color.mimo.textSecondary)
+            TextField(placeholder, text: text)
+                .zcodeTextFieldStyle()
+                .interfaceFont(size: 11, design: .monospaced)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func openParameters(modelID: String, providerID: String) {
+        parameterModelID = modelID
+        parameterProviderID = providerID
+        let params = ModelCallParametersStore.parameters(for: modelID)
+        parameterTemperature = params.temperature.map(String.init) ?? ""
+        parameterMaxTokens = params.maxTokens.map(String.init) ?? ""
+        parameterTopP = params.topP.map(String.init) ?? ""
+        parameterSystemPrompt = params.systemPrompt ?? ""
+        parameterError = nil
+    }
+
+    private func resetParameters() {
+        parameterTemperature = ""
+        parameterMaxTokens = ""
+        parameterTopP = ""
+        parameterSystemPrompt = ""
+        saveParameters()
+    }
+
+    private func saveParameters() {
+        guard !parameterModelID.isEmpty else { return }
+        let trimmedTemperature = parameterTemperature.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedMaxTokens = parameterMaxTokens.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTopP = parameterTopP.trimmingCharacters(in: .whitespacesAndNewlines)
+        let temperature = trimmedTemperature.isEmpty ? nil : Double(trimmedTemperature)
+        let maxTokens = trimmedMaxTokens.isEmpty ? nil : Int(trimmedMaxTokens)
+        let topP = trimmedTopP.isEmpty ? nil : Double(trimmedTopP)
+        guard trimmedTemperature.isEmpty || temperature != nil,
+              trimmedMaxTokens.isEmpty || maxTokens != nil,
+              trimmedTopP.isEmpty || topP != nil else {
+            parameterError = "Use numeric values for temperature, max tokens and top P."
+            return
+        }
+        if let temperature, !(0...2).contains(temperature) {
+            parameterError = "Temperature must be between 0 and 2."
+            return
+        }
+        if let maxTokens, maxTokens <= 0 {
+            parameterError = "Max tokens must be greater than 0."
+            return
+        }
+        if let topP, !(0...1).contains(topP) {
+            parameterError = "Top P must be between 0 and 1."
+            return
+        }
+        ModelCallParametersStore.set(
+            ModelCallParameters(
+                temperature: temperature,
+                maxTokens: maxTokens,
+                topP: topP,
+                systemPrompt: parameterSystemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : parameterSystemPrompt
+            ),
+            for: parameterModelID
+        )
+        parameterError = nil
     }
 
     private func detailModelCount(for providerID: String) -> Int {
@@ -428,14 +697,57 @@ struct ModelSettingsProviderColumns: View {
 
     private var modelsColumn: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(L.t(AppLocalizationKey.locModels))
-                .interfaceFont(size: 12, weight: .semibold)
-                .foregroundColor(Color.mimo.textMuted)
+            HStack {
+                Text(L.t(AppLocalizationKey.locModels))
+                    .interfaceFont(size: 12, weight: .semibold)
+                    .foregroundColor(Color.mimo.textMuted)
+                Spacer()
+                Menu {
+                    ForEach(ModelSortOrder.allCases) { order in
+                        Button {
+                            modelSortOrder = order
+                        } label: {
+                            Label(order.title, systemImage: modelSortOrder == order ? "checkmark" : "arrow.up.arrow.down")
+                        }
+                    }
+                } label: {
+                    Label("Sort: \(modelSortOrder.title)", systemImage: "arrow.up.arrow.down")
+                        .interfaceFont(size: 10, weight: .medium)
+                        .foregroundColor(Color.mimo.brand)
+                }
+                .menuStyle(.borderlessButton)
+            }
 
-            let models = models(for: detailProviderID.isEmpty ? appState.selectedProviderID : detailProviderID)
             let providerID = detailProviderID.isEmpty ? appState.selectedProviderID : detailProviderID
+            let allModels = models(for: providerID)
+            let filteredModels = visibleModelIDs(allModels, providerID: providerID)
 
-            if models.isEmpty {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.textMuted)
+                TextField("Filter models", text: $modelSearchQuery)
+                    .textFieldStyle(.plain)
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.textPrimary)
+                if !modelSearchQuery.isEmpty {
+                    Button {
+                        modelSearchQuery = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .interfaceFont(size: 10)
+                            .foregroundColor(Color.mimo.textMuted)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 7)
+            .background(Color.mimo.background)
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+
+            if allModels.isEmpty {
                 SettingsCardEmptyState(
                     icon: "cpu",
                     title: L.t(AppLocalizationKey.locModelsLoaded),
@@ -443,21 +755,43 @@ struct ModelSettingsProviderColumns: View {
                         ? L.t(AppLocalizationKey.locSelectProviderToBrowseModels)
                         : L.t(AppLocalizationKey.locStartLocalAgentOrCheck)
                 )
+            } else if filteredModels.isEmpty {
+                Text("No models match this filter.")
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.textMuted)
+                    .padding(.vertical, 8)
             } else {
-                let groups = Self.groupedModels(models, providerID: providerID, serverProviders: appState.serverProviders, customProviders: appState.customProviders)
+                Text("\(filteredModels.count) of \(allModels.count) models")
+                    .interfaceFont(size: 10)
+                    .foregroundColor(Color.mimo.textMuted)
 
+                let groups = Self.groupedModels(filteredModels, providerID: providerID, serverProviders: appState.serverProviders, customProviders: appState.customProviders)
                 ScrollView {
-                    VStack(spacing: 4) {
+                    VStack(alignment: .leading, spacing: 4) {
                         ForEach(groups.indices, id: \.self) { groupIndex in
                             let group = groups[groupIndex]
-                            VStack(spacing: 2) {
-                                if let prefix = group.prefix {
-                                    modelGroupHeader(prefix: prefix, count: group.models.count)
+                            let key = modelGroupKey(prefix: group.prefix, providerID: providerID)
+                            DisclosureGroup(
+                                isExpanded: Binding(
+                                    get: { !collapsedModelGroups.contains(key) },
+                                    set: { expanded in
+                                        if expanded {
+                                            collapsedModelGroups.remove(key)
+                                        } else {
+                                            collapsedModelGroups.insert(key)
+                                        }
+                                    }
+                                )
+                            ) {
+                                VStack(spacing: 2) {
+                                    ForEach(group.models, id: \.self) { modelID in
+                                        compactModelCard(modelID: modelID, providerID: providerID, prefix: group.prefix)
+                                    }
                                 }
-                                ForEach(group.models, id: \.self) { modelID in
-                                    compactModelCard(modelID: modelID, providerID: providerID, prefix: group.prefix)
-                                }
+                            } label: {
+                                modelGroupHeader(prefix: group.prefix ?? "All models", count: group.models.count)
                             }
+                            .accentColor(Color.mimo.brand)
                         }
                     }
                 }
@@ -468,6 +802,41 @@ struct ModelSettingsProviderColumns: View {
         .background(Color.mimo.surface)
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.mimo.border, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func visibleModelIDs(_ models: [String], providerID: String) -> [String] {
+        let query = modelSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let filtered = query.isEmpty ? models : models.filter { modelID in
+            let meta = ProviderSettingsLogic.model(
+                for: modelID,
+                in: appState.serverProviders,
+                providerID: providerID.isEmpty ? nil : providerID
+            )
+            return modelID.localizedCaseInsensitiveContains(query)
+                || (meta?.name?.localizedCaseInsensitiveContains(query) == true)
+        }
+        return filtered.sorted { lhs, rhs in
+            switch modelSortOrder {
+            case .name:
+                return Self.splitModelID(lhs).name.localizedCaseInsensitiveCompare(Self.splitModelID(rhs).name) == .orderedAscending
+            case .context:
+                let left = ProviderSettingsLogic.model(for: lhs, in: appState.serverProviders, providerID: providerID.isEmpty ? nil : providerID)?.limit?.context ?? -1
+                let right = ProviderSettingsLogic.model(for: rhs, in: appState.serverProviders, providerID: providerID.isEmpty ? nil : providerID)?.limit?.context ?? -1
+                return left == right ? lhs < rhs : left > right
+            case .reasoning:
+                let left = ProviderSettingsLogic.model(for: lhs, in: appState.serverProviders, providerID: providerID.isEmpty ? nil : providerID)?.capabilities?.reasoning == true
+                let right = ProviderSettingsLogic.model(for: rhs, in: appState.serverProviders, providerID: providerID.isEmpty ? nil : providerID)?.capabilities?.reasoning == true
+                return left == right ? lhs < rhs : left && !right
+            case .tools:
+                let left = ProviderSettingsLogic.model(for: lhs, in: appState.serverProviders, providerID: providerID.isEmpty ? nil : providerID)?.capabilities?.toolcall != false
+                let right = ProviderSettingsLogic.model(for: rhs, in: appState.serverProviders, providerID: providerID.isEmpty ? nil : providerID)?.capabilities?.toolcall != false
+                return left == right ? lhs < rhs : left && !right
+            }
+        }
+    }
+
+    private func modelGroupKey(prefix: String?, providerID: String) -> String {
+        "\(providerID)::\(prefix ?? "__all__")"
     }
 
     private func modelGroupHeader(prefix: String, count: Int) -> some View {
@@ -560,6 +929,20 @@ struct ModelSettingsProviderColumns: View {
 
             Spacer(minLength: 4)
 
+            if appState.customProviders.contains(where: { $0.id == providerID }) {
+                Button {
+                    appState.removeModel(modelID, from: providerID)
+                } label: {
+                    Image(systemName: "trash")
+                        .interfaceFont(size: 11, weight: .semibold)
+                        .foregroundColor(Color.mimo.error)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Remove model \(modelID)")
+            }
+
             // Three-dot menu
             Menu {
                 Button(action: {
@@ -574,7 +957,7 @@ struct ModelSettingsProviderColumns: View {
                 Divider()
 
                 Button(action: {
-                    // Show model parameters in a popover/inline detail
+                    openParameters(modelID: modelID, providerID: providerID)
                 }) {
                     Label(L.t(AppLocalizationKey.locParameters), systemImage: "slider.horizontal.3")
                 }
@@ -741,6 +1124,7 @@ struct AddProviderSheet: View {
     @EnvironmentObject var appState: AppState
     @State private var isTesting = false
     @State private var testResult: String?
+    @State private var testSucceeded: Bool?
     @State private var supportsTools = true
     @State private var acpEnabled = false
     @State private var requiresAPIKey = true
@@ -835,14 +1219,8 @@ struct AddProviderSheet: View {
                         }
                     }
                     
-                    if let result = testResult {
-                        HStack(spacing: 6) {
-                            Image(systemName: result.contains("Success") ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                .foregroundColor(result.contains("Success") ? Color.mimo.success : Color.mimo.error)
-                            Text(result)
-                                .interfaceFont(size: 12)
-                                .foregroundColor(result.contains("Success") ? Color.mimo.success : Color.mimo.error)
-                        }
+                    if let result = testResult, let succeeded = testSucceeded {
+                        ProviderConnectionResultBanner(message: result, succeeded: succeeded)
                     }
                 }
                 .padding(16)
@@ -857,6 +1235,7 @@ struct AddProviderSheet: View {
                         let success = await appState.testProvider(url: url, apiKey: apiKey, type: type)
                         await MainActor.run {
                             isTesting = false
+                            testSucceeded = success
                             testResult = success ? L.t(AppLocalizationKey.locConnectionSuccess) : L.t(AppLocalizationKey.locConnectionFailed)
                         }
                     }
@@ -913,5 +1292,37 @@ struct AddProviderSheet: View {
         }
         .frame(width: 480, height: 600)
         .background(Color.mimo.background)
+    }
+}
+
+
+private struct ProviderConnectionResultBanner: View {
+    let message: String
+    let succeeded: Bool
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: succeeded ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                .interfaceFont(size: 17, weight: .semibold)
+                .foregroundColor(succeeded ? Color.mimo.success : Color.mimo.error)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(succeeded ? "Connection verified" : "Connection failed")
+                    .interfaceFont(size: 12, weight: .semibold)
+                    .foregroundColor(Color.mimo.textPrimary)
+                Text(message)
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background((succeeded ? Color.mimo.success : Color.mimo.error).opacity(0.13))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke((succeeded ? Color.mimo.success : Color.mimo.error).opacity(0.55), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .combine)
     }
 }

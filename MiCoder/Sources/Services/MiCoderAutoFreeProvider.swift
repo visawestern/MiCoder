@@ -10,9 +10,10 @@ struct MiCoderAutoFreeProvider: Identifiable, Codable, Equatable {
     var id: String = MiCoderAutoFreeProvider.builtInID
     var isEnabled: Bool = true
     var selectedModel: String = MiCoderAutoFreeProvider.defaultModelID
+    var isModelLocked: Bool = false
     var systemPrompt: String = ""
 
-    var isFreeTier: Bool { MiCoderAutoFreeClient.freeModelIDs.contains(selectedModel) }
+    var isFreeTier: Bool { MiCoderAutoFreeClient.isEligibleFreeModel(selectedModel) }
     var displayName: String { "MiCoder Auto Free" }
     var icon: String = "sparkles"
     var isBuiltIn: Bool { true }
@@ -20,11 +21,13 @@ struct MiCoderAutoFreeProvider: Identifiable, Codable, Equatable {
     /// True only when the anonymous free catalog contains at least one trusted model.
     var isCatalogReady: Bool = false
     var models: [MiCoderAutoFreeClient.Model] = []
+    var lastCatalogRefresh: Date?
+    var modelStatuses: [String: String] = [:]
     var consecutiveFailures: Int = 0
     var statusMessage: String = ""
 
     enum CodingKeys: String, CodingKey {
-        case id, isEnabled, selectedModel, systemPrompt, models
+        case id, isEnabled, selectedModel, isModelLocked, systemPrompt, models
     }
 
     init() {}
@@ -53,6 +56,7 @@ final class MiCoderAutoFreeStore: ObservableObject {
         var restored = MiCoderAutoFreeProvider()
         restored.selectedModel = UserDefaults.standard.string(forKey: "com.micoder.autoFree.model")
             ?? MiCoderAutoFreeProvider.defaultModelID
+        restored.isModelLocked = UserDefaults.standard.bool(forKey: "com.micoder.autoFree.locked")
         restored.systemPrompt = UserDefaults.standard.string(forKey: "com.micoder.autoFree.systemPrompt") ?? ""
         provider = restored
         Task { await refreshModels() }
@@ -63,6 +67,7 @@ final class MiCoderAutoFreeStore: ObservableObject {
         do {
             let fetched = try await MiCoderAutoFreeClient.shared.listModels()
             applyCatalog(fetched)
+            provider.lastCatalogRefresh = Date()
             provider.statusMessage = "Anonymous OpenCode free catalog ready."
             return true
         } catch {
@@ -77,9 +82,28 @@ final class MiCoderAutoFreeStore: ObservableObject {
     func selectModel(_ modelID: String) {
         guard provider.models.contains(where: { $0.id == modelID }) else { return }
         provider.selectedModel = modelID
+        provider.modelStatuses[modelID] = "Healthy"
+        provider.isModelLocked = false
         provider.consecutiveFailures = 0
         provider.statusMessage = "Using \(modelID)."
         defaults.set(modelID, forKey: "com.micoder.autoFree.model")
+        defaults.set(false, forKey: "com.micoder.autoFree.locked")
+    }
+
+    func modelStatus(for modelID: String) -> String {
+        if provider.selectedModel == modelID {
+            return provider.isModelLocked ? "Pinned" : "Active · fallback eligible"
+        }
+        return provider.modelStatuses[modelID] ?? "Live · available"
+    }
+
+    func setModelLocked(_ locked: Bool) {
+        guard provider.models.contains(where: { $0.id == provider.selectedModel }) else { return }
+        provider.isModelLocked = locked
+        provider.statusMessage = locked
+            ? "Locked to \(provider.selectedModel). Automatic fallback is off."
+            : "Unlocked \(provider.selectedModel). Automatic fallback is on."
+        defaults.set(locked, forKey: "com.micoder.autoFree.locked")
     }
 
     func setSystemPrompt(_ prompt: String) {
@@ -90,23 +114,28 @@ final class MiCoderAutoFreeStore: ObservableObject {
     func streamChat(
         messages: [MiCoderAutoFreeClient.Message]
     ) -> AsyncThrowingStream<String, Error> {
-        var effectiveMessages = messages
-        if !provider.systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            effectiveMessages.insert(
-                MiCoderAutoFreeClient.Message(role: "system", content: provider.systemPrompt),
-                at: 0
-            )
-        }
-
         return AsyncThrowingStream { continuation in
             Task {
                 var attemptedModels = Set<String>()
                 var currentModel = provider.selectedModel
                 while true {
+                    let modelParameters = ModelCallParametersStore.parameters(for: currentModel)
+                    var effectiveMessages = messages
+                    let systemPrompts = [
+                        provider.systemPrompt,
+                        modelParameters.systemPrompt ?? ""
+                    ].filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                    for prompt in systemPrompts.reversed() {
+                        effectiveMessages.insert(
+                            MiCoderAutoFreeClient.Message(role: "system", content: prompt),
+                            at: 0
+                        )
+                    }
                     do {
                         for try await chunk in MiCoderAutoFreeClient.shared.chatCompletion(
                             model: currentModel,
                             messages: effectiveMessages,
+                            parameters: modelParameters,
                             stream: true
                         ) {
                             continuation.yield(chunk)
@@ -118,8 +147,21 @@ final class MiCoderAutoFreeStore: ObservableObject {
                         continuation.finish()
                         return
                     } catch {
+                        if provider.isModelLocked {
+                            provider.modelStatuses[currentModel] = "Rate limited / failed while pinned"
+                            if let autoFreeError = error as? MiCoderAutoFreeError,
+                               case .rateLimited = autoFreeError {
+                                provider.modelStatuses[currentModel] = "Rate limited"
+                            }
+
+                            provider.consecutiveFailures += 1
+                            provider.statusMessage = "\(currentModel) failed while locked. Unlock the model to allow automatic fallback."
+                            continuation.finish(throwing: error)
+                            return
+                        }
                         provider.consecutiveFailures += 1
                         let failureCount = provider.consecutiveFailures
+                        provider.modelStatuses[currentModel] = Self.modelFailureStatus(for: error, failureCount: failureCount)
                         let switchNow = MiCoderAutoFreeClient.shouldSwitch(
                             for: error,
                             consecutiveFailures: failureCount
@@ -144,8 +186,18 @@ final class MiCoderAutoFreeStore: ObservableObject {
 
                         let reason = Self.switchReason(for: error, failureCount: failureCount)
                         provider.selectedModel = nextModel.id
+                        provider.modelStatuses[nextModel.id] = "Active · fallback eligible"
                         provider.consecutiveFailures = 0
                         provider.statusMessage = "Switched from \(currentModel) to \(nextModel.id): \(reason)"
+                        NotificationCenter.default.post(
+                            name: .miCoderAutoFreeModelSwitched,
+                            object: nil,
+                            userInfo: [
+                                "fromModel": currentModel,
+                                "toModel": nextModel.id,
+                                "reason": reason
+                            ]
+                        )
                         defaults.set(nextModel.id, forKey: "com.micoder.autoFree.model")
                         continuation.yield("\n\n[MiCoder Auto Free switched to \(nextModel.id): \(reason)]\n\n")
                         currentModel = nextModel.id
@@ -157,11 +209,30 @@ final class MiCoderAutoFreeStore: ObservableObject {
 
     private func applyCatalog(_ fetched: [MiCoderAutoFreeClient.Model]) {
         provider.models = fetched
+        let liveIDs = Set(fetched.map(\.id))
+        provider.modelStatuses = provider.modelStatuses.filter { liveIDs.contains($0.key) }
         provider.isCatalogReady = !fetched.isEmpty
         if !fetched.contains(where: { $0.id == provider.selectedModel }) {
+            provider.isModelLocked = false
             provider.selectedModel = fetched.first?.id ?? MiCoderAutoFreeProvider.defaultModelID
+            provider.statusMessage = fetched.isEmpty
+                ? "No free OpenCode models are currently available."
+                : "Previously selected model is unavailable; switched to \(provider.selectedModel)."
             defaults.set(provider.selectedModel, forKey: "com.micoder.autoFree.model")
+            defaults.set(false, forKey: "com.micoder.autoFree.locked")
         }
+    }
+
+    private static func modelFailureStatus(for error: Error, failureCount: Int) -> String {
+        if let autoFreeError = error as? MiCoderAutoFreeError,
+           case .rateLimited = autoFreeError {
+            return "Rate limited"
+        }
+        if let autoFreeError = error as? MiCoderAutoFreeError,
+           case .modelUnavailable = autoFreeError {
+            return "Unavailable"
+        }
+        return "Failed \(failureCount)/\(MiCoderAutoFreeClient.maxConsecutiveFailures)"
     }
 
     private static func switchReason(for error: Error, failureCount: Int) -> String {
