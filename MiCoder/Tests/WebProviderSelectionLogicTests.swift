@@ -1,4 +1,5 @@
 import Foundation
+import Testing
 @testable import MiCoder
 
 @Suite("Web provider selection and send contract")

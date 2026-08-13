@@ -1,0 +1,683 @@
+7:/Users/apple/projects/micoder-987719cf/MiCoder/Sources/Services/MiCoderAPIServer.swift:109:19: warning: value 'appState' was defined but never used; consider replacing with boolean test [#no-usage]
+11:    |                   `- warning: value 'appState' was defined but never used; consider replacing with boolean test [#no-usage]
+14:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/StopGenerationFlowTests.swift:369:13: warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+18:    |             `- warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+21:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/StopGenerationFlowTests.swift:369:13: warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+25:    |             `- warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+28:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/StopGenerationFlowTests.swift:369:13: warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+32:    |             `- warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+35:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/StopGenerationFlowTests.swift:369:13: warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+39:    |             `- warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+42:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/StopGenerationFlowTests.swift:369:13: warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+46:    |             `- warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+49:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/StopGenerationFlowTests.swift:369:13: warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+53:    |             `- warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+56:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/StopGenerationFlowTests.swift:369:13: warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+60:    |             `- warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+63:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/StopGenerationFlowTests.swift:369:13: warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+67:    |             `- warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+70:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/StopGenerationFlowTests.swift:369:13: warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+74:    |             `- warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+77:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/StopGenerationFlowTests.swift:369:13: warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+81:    |             `- warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+84:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/StopGenerationFlowTests.swift:369:13: warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+88:    |             `- warning: variable 'currentAssistantMessageID' was never mutated; consider changing to 'let' constant
+91:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ProvidersSettingsTests.swift:76:13: warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+95:    |             `- warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+99:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/RightPanelTests.swift:115:25: warning: 'is' test is always true
+103:    |                         `- warning: 'is' test is always true
+106:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ProvidersSettingsTests.swift:76:13: warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+110:    |             `- warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+114:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/RightPanelTests.swift:115:25: warning: 'is' test is always true
+118:    |                         `- warning: 'is' test is always true
+121:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ProvidersSettingsTests.swift:76:13: warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+125:    |             `- warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+129:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/RightPanelTests.swift:115:25: warning: 'is' test is always true
+133:    |                         `- warning: 'is' test is always true
+136:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ProvidersSettingsTests.swift:76:13: warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+140:    |             `- warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+144:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/RightPanelTests.swift:115:25: warning: 'is' test is always true
+148:    |                         `- warning: 'is' test is always true
+151:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ProvidersSettingsTests.swift:76:13: warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+155:    |             `- warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+159:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/RightPanelTests.swift:115:25: warning: 'is' test is always true
+163:    |                         `- warning: 'is' test is always true
+166:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ProvidersSettingsTests.swift:76:13: warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+170:    |             `- warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+174:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/RightPanelTests.swift:115:25: warning: 'is' test is always true
+178:    |                         `- warning: 'is' test is always true
+181:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ProvidersSettingsTests.swift:76:13: warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+185:    |             `- warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+189:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/RightPanelTests.swift:115:25: warning: 'is' test is always true
+193:    |                         `- warning: 'is' test is always true
+196:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ProvidersSettingsTests.swift:76:13: warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+200:    |             `- warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+204:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/RightPanelTests.swift:115:25: warning: 'is' test is always true
+208:    |                         `- warning: 'is' test is always true
+211:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ProvidersSettingsTests.swift:76:13: warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+215:    |             `- warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+219:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/RightPanelTests.swift:115:25: warning: 'is' test is always true
+223:    |                         `- warning: 'is' test is always true
+226:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ProvidersSettingsTests.swift:76:13: warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+230:    |             `- warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+234:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/RightPanelTests.swift:115:25: warning: 'is' test is always true
+238:    |                         `- warning: 'is' test is always true
+241:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ProvidersSettingsTests.swift:76:13: warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+245:    |             `- warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+249:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/RightPanelTests.swift:115:25: warning: 'is' test is always true
+253:    |                         `- warning: 'is' test is always true
+256:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ProvidersSettingsTests.swift:76:13: warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+260:    |             `- warning: initialization of immutable value 'view' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+264:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/RightPanelTests.swift:115:25: warning: 'is' test is always true
+268:    |                         `- warning: 'is' test is always true
+271:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:50:22: warning: no calls to throwing functions occur within 'try' expression
+275:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+279:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:64:13: warning: no calls to throwing functions occur within 'try' expression
+283:    |             `- warning: no calls to throwing functions occur within 'try' expression
+287:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:76:22: warning: no calls to throwing functions occur within 'try' expression
+291:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+295:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:4:2: error: unknown attribute 'Suite'
+299:    |  `- error: unknown attribute 'Suite'
+303:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:6:6: error: unknown attribute 'Test'
+307:    |      `- error: unknown attribute 'Test'
+311:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:21:6: error: unknown attribute 'Test'
+315:    |      `- error: unknown attribute 'Test'
+319:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:32:6: error: unknown attribute 'Test'
+323:    |      `- error: unknown attribute 'Test'
+327:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:41:6: error: unknown attribute 'Test'
+331:    |      `- error: unknown attribute 'Test'
+335:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:49:2: error: unknown attribute 'Suite'
+339:    |  `- error: unknown attribute 'Suite'
+343:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:87:6: error: unknown attribute 'Test'
+347:    |      `- error: unknown attribute 'Test'
+351:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:110:6: error: unknown attribute 'Test'
+355:    |      `- error: unknown attribute 'Test'
+359:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:18:10: error: no macro named 'expect'
+363:    |          `- error: no macro named 'expect'
+367:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:29:10: error: no macro named 'expect'
+371:    |          `- error: no macro named 'expect'
+375:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:36:14: error: no macro named 'expect'
+379:    |              `- error: no macro named 'expect'
+383:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:38:10: error: no macro named 'expect'
+387:    |          `- error: no macro named 'expect'
+391:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:45:10: error: no macro named 'expect'
+395:    |          `- error: no macro named 'expect'
+399:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:102:10: error: no macro named 'expect'
+403:    |          `- error: no macro named 'expect'
+407:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:103:10: error: no macro named 'expect'
+411:    |          `- error: no macro named 'expect'
+415:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:104:10: error: no macro named 'expect'
+419:    |          `- error: no macro named 'expect'
+423:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:124:10: error: no macro named 'expect'
+427:    |          `- error: no macro named 'expect'
+431:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:125:10: error: no macro named 'expect'
+435:    |          `- error: no macro named 'expect'
+438:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:50:22: warning: no calls to throwing functions occur within 'try' expression
+442:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+446:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:64:13: warning: no calls to throwing functions occur within 'try' expression
+450:    |             `- warning: no calls to throwing functions occur within 'try' expression
+454:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:76:22: warning: no calls to throwing functions occur within 'try' expression
+458:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+462:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:4:2: error: unknown attribute 'Suite'
+466:    |  `- error: unknown attribute 'Suite'
+470:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:6:6: error: unknown attribute 'Test'
+474:    |      `- error: unknown attribute 'Test'
+478:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:21:6: error: unknown attribute 'Test'
+482:    |      `- error: unknown attribute 'Test'
+486:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:32:6: error: unknown attribute 'Test'
+490:    |      `- error: unknown attribute 'Test'
+494:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:41:6: error: unknown attribute 'Test'
+498:    |      `- error: unknown attribute 'Test'
+502:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:49:2: error: unknown attribute 'Suite'
+506:    |  `- error: unknown attribute 'Suite'
+510:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:87:6: error: unknown attribute 'Test'
+514:    |      `- error: unknown attribute 'Test'
+518:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:110:6: error: unknown attribute 'Test'
+522:    |      `- error: unknown attribute 'Test'
+526:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:18:10: error: no macro named 'expect'
+530:    |          `- error: no macro named 'expect'
+534:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:29:10: error: no macro named 'expect'
+538:    |          `- error: no macro named 'expect'
+542:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:36:14: error: no macro named 'expect'
+546:    |              `- error: no macro named 'expect'
+550:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:38:10: error: no macro named 'expect'
+554:    |          `- error: no macro named 'expect'
+558:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:45:10: error: no macro named 'expect'
+562:    |          `- error: no macro named 'expect'
+566:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:102:10: error: no macro named 'expect'
+570:    |          `- error: no macro named 'expect'
+574:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:103:10: error: no macro named 'expect'
+578:    |          `- error: no macro named 'expect'
+582:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:104:10: error: no macro named 'expect'
+586:    |          `- error: no macro named 'expect'
+590:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:124:10: error: no macro named 'expect'
+594:    |          `- error: no macro named 'expect'
+598:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:125:10: error: no macro named 'expect'
+602:    |          `- error: no macro named 'expect'
+605:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:50:22: warning: no calls to throwing functions occur within 'try' expression
+609:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+613:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:64:13: warning: no calls to throwing functions occur within 'try' expression
+617:    |             `- warning: no calls to throwing functions occur within 'try' expression
+621:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:76:22: warning: no calls to throwing functions occur within 'try' expression
+625:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+629:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:4:2: error: unknown attribute 'Suite'
+633:    |  `- error: unknown attribute 'Suite'
+637:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:6:6: error: unknown attribute 'Test'
+641:    |      `- error: unknown attribute 'Test'
+645:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:21:6: error: unknown attribute 'Test'
+649:    |      `- error: unknown attribute 'Test'
+653:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:32:6: error: unknown attribute 'Test'
+657:    |      `- error: unknown attribute 'Test'
+661:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:41:6: error: unknown attribute 'Test'
+665:    |      `- error: unknown attribute 'Test'
+669:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:49:2: error: unknown attribute 'Suite'
+673:    |  `- error: unknown attribute 'Suite'
+677:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:87:6: error: unknown attribute 'Test'
+681:    |      `- error: unknown attribute 'Test'
+685:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:110:6: error: unknown attribute 'Test'
+689:    |      `- error: unknown attribute 'Test'
+693:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:18:10: error: no macro named 'expect'
+697:    |          `- error: no macro named 'expect'
+701:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:29:10: error: no macro named 'expect'
+705:    |          `- error: no macro named 'expect'
+709:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:36:14: error: no macro named 'expect'
+713:    |              `- error: no macro named 'expect'
+717:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:38:10: error: no macro named 'expect'
+721:    |          `- error: no macro named 'expect'
+725:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:45:10: error: no macro named 'expect'
+729:    |          `- error: no macro named 'expect'
+733:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:102:10: error: no macro named 'expect'
+737:    |          `- error: no macro named 'expect'
+741:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:103:10: error: no macro named 'expect'
+745:    |          `- error: no macro named 'expect'
+749:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:104:10: error: no macro named 'expect'
+753:    |          `- error: no macro named 'expect'
+757:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:124:10: error: no macro named 'expect'
+761:    |          `- error: no macro named 'expect'
+765:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:125:10: error: no macro named 'expect'
+769:    |          `- error: no macro named 'expect'
+772:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:50:22: warning: no calls to throwing functions occur within 'try' expression
+776:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+780:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:64:13: warning: no calls to throwing functions occur within 'try' expression
+784:    |             `- warning: no calls to throwing functions occur within 'try' expression
+788:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:76:22: warning: no calls to throwing functions occur within 'try' expression
+792:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+796:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:4:2: error: unknown attribute 'Suite'
+800:    |  `- error: unknown attribute 'Suite'
+804:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:6:6: error: unknown attribute 'Test'
+808:    |      `- error: unknown attribute 'Test'
+812:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:21:6: error: unknown attribute 'Test'
+816:    |      `- error: unknown attribute 'Test'
+820:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:32:6: error: unknown attribute 'Test'
+824:    |      `- error: unknown attribute 'Test'
+828:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:41:6: error: unknown attribute 'Test'
+832:    |      `- error: unknown attribute 'Test'
+836:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:49:2: error: unknown attribute 'Suite'
+840:    |  `- error: unknown attribute 'Suite'
+844:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:87:6: error: unknown attribute 'Test'
+848:    |      `- error: unknown attribute 'Test'
+852:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:110:6: error: unknown attribute 'Test'
+856:    |      `- error: unknown attribute 'Test'
+860:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:18:10: error: no macro named 'expect'
+864:    |          `- error: no macro named 'expect'
+868:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:29:10: error: no macro named 'expect'
+872:    |          `- error: no macro named 'expect'
+876:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:36:14: error: no macro named 'expect'
+880:    |              `- error: no macro named 'expect'
+884:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:38:10: error: no macro named 'expect'
+888:    |          `- error: no macro named 'expect'
+892:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:45:10: error: no macro named 'expect'
+896:    |          `- error: no macro named 'expect'
+900:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:102:10: error: no macro named 'expect'
+904:    |          `- error: no macro named 'expect'
+908:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:103:10: error: no macro named 'expect'
+912:    |          `- error: no macro named 'expect'
+916:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:104:10: error: no macro named 'expect'
+920:    |          `- error: no macro named 'expect'
+924:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:124:10: error: no macro named 'expect'
+928:    |          `- error: no macro named 'expect'
+932:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:125:10: error: no macro named 'expect'
+936:    |          `- error: no macro named 'expect'
+939:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:50:22: warning: no calls to throwing functions occur within 'try' expression
+943:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+947:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:64:13: warning: no calls to throwing functions occur within 'try' expression
+951:    |             `- warning: no calls to throwing functions occur within 'try' expression
+955:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:76:22: warning: no calls to throwing functions occur within 'try' expression
+959:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+963:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:4:2: error: unknown attribute 'Suite'
+967:    |  `- error: unknown attribute 'Suite'
+971:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:6:6: error: unknown attribute 'Test'
+975:    |      `- error: unknown attribute 'Test'
+979:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:21:6: error: unknown attribute 'Test'
+983:    |      `- error: unknown attribute 'Test'
+987:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:32:6: error: unknown attribute 'Test'
+991:    |      `- error: unknown attribute 'Test'
+995:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:41:6: error: unknown attribute 'Test'
+999:    |      `- error: unknown attribute 'Test'
+1003:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:49:2: error: unknown attribute 'Suite'
+1007:    |  `- error: unknown attribute 'Suite'
+1011:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:87:6: error: unknown attribute 'Test'
+1015:    |      `- error: unknown attribute 'Test'
+1019:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:110:6: error: unknown attribute 'Test'
+1023:    |      `- error: unknown attribute 'Test'
+1027:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:18:10: error: no macro named 'expect'
+1031:    |          `- error: no macro named 'expect'
+1035:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:29:10: error: no macro named 'expect'
+1039:    |          `- error: no macro named 'expect'
+1043:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:36:14: error: no macro named 'expect'
+1047:    |              `- error: no macro named 'expect'
+1051:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:38:10: error: no macro named 'expect'
+1055:    |          `- error: no macro named 'expect'
+1059:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:45:10: error: no macro named 'expect'
+1063:    |          `- error: no macro named 'expect'
+1067:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:102:10: error: no macro named 'expect'
+1071:    |          `- error: no macro named 'expect'
+1075:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:103:10: error: no macro named 'expect'
+1079:    |          `- error: no macro named 'expect'
+1083:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:104:10: error: no macro named 'expect'
+1087:    |          `- error: no macro named 'expect'
+1091:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:124:10: error: no macro named 'expect'
+1095:    |          `- error: no macro named 'expect'
+1099:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:125:10: error: no macro named 'expect'
+1103:    |          `- error: no macro named 'expect'
+1106:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:50:22: warning: no calls to throwing functions occur within 'try' expression
+1110:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+1114:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:64:13: warning: no calls to throwing functions occur within 'try' expression
+1118:    |             `- warning: no calls to throwing functions occur within 'try' expression
+1122:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:76:22: warning: no calls to throwing functions occur within 'try' expression
+1126:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+1130:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:4:2: error: unknown attribute 'Suite'
+1134:    |  `- error: unknown attribute 'Suite'
+1138:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:6:6: error: unknown attribute 'Test'
+1142:    |      `- error: unknown attribute 'Test'
+1146:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:21:6: error: unknown attribute 'Test'
+1150:    |      `- error: unknown attribute 'Test'
+1154:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:32:6: error: unknown attribute 'Test'
+1158:    |      `- error: unknown attribute 'Test'
+1162:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:41:6: error: unknown attribute 'Test'
+1166:    |      `- error: unknown attribute 'Test'
+1170:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:49:2: error: unknown attribute 'Suite'
+1174:    |  `- error: unknown attribute 'Suite'
+1178:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:87:6: error: unknown attribute 'Test'
+1182:    |      `- error: unknown attribute 'Test'
+1186:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:110:6: error: unknown attribute 'Test'
+1190:    |      `- error: unknown attribute 'Test'
+1194:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:18:10: error: no macro named 'expect'
+1198:    |          `- error: no macro named 'expect'
+1202:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:29:10: error: no macro named 'expect'
+1206:    |          `- error: no macro named 'expect'
+1210:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:36:14: error: no macro named 'expect'
+1214:    |              `- error: no macro named 'expect'
+1218:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:38:10: error: no macro named 'expect'
+1222:    |          `- error: no macro named 'expect'
+1226:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:45:10: error: no macro named 'expect'
+1230:    |          `- error: no macro named 'expect'
+1234:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:102:10: error: no macro named 'expect'
+1238:    |          `- error: no macro named 'expect'
+1242:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:103:10: error: no macro named 'expect'
+1246:    |          `- error: no macro named 'expect'
+1250:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:104:10: error: no macro named 'expect'
+1254:    |          `- error: no macro named 'expect'
+1258:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:124:10: error: no macro named 'expect'
+1262:    |          `- error: no macro named 'expect'
+1266:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:125:10: error: no macro named 'expect'
+1270:    |          `- error: no macro named 'expect'
+1273:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:50:22: warning: no calls to throwing functions occur within 'try' expression
+1277:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+1281:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:64:13: warning: no calls to throwing functions occur within 'try' expression
+1285:    |             `- warning: no calls to throwing functions occur within 'try' expression
+1289:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:76:22: warning: no calls to throwing functions occur within 'try' expression
+1293:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+1297:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:4:2: error: unknown attribute 'Suite'
+1301:    |  `- error: unknown attribute 'Suite'
+1305:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:6:6: error: unknown attribute 'Test'
+1309:    |      `- error: unknown attribute 'Test'
+1313:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:21:6: error: unknown attribute 'Test'
+1317:    |      `- error: unknown attribute 'Test'
+1321:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:32:6: error: unknown attribute 'Test'
+1325:    |      `- error: unknown attribute 'Test'
+1329:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:41:6: error: unknown attribute 'Test'
+1333:    |      `- error: unknown attribute 'Test'
+1337:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:49:2: error: unknown attribute 'Suite'
+1341:    |  `- error: unknown attribute 'Suite'
+1345:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:87:6: error: unknown attribute 'Test'
+1349:    |      `- error: unknown attribute 'Test'
+1353:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:110:6: error: unknown attribute 'Test'
+1357:    |      `- error: unknown attribute 'Test'
+1361:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:18:10: error: no macro named 'expect'
+1365:    |          `- error: no macro named 'expect'
+1369:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:29:10: error: no macro named 'expect'
+1373:    |          `- error: no macro named 'expect'
+1377:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:36:14: error: no macro named 'expect'
+1381:    |              `- error: no macro named 'expect'
+1385:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:38:10: error: no macro named 'expect'
+1389:    |          `- error: no macro named 'expect'
+1393:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:45:10: error: no macro named 'expect'
+1397:    |          `- error: no macro named 'expect'
+1401:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:102:10: error: no macro named 'expect'
+1405:    |          `- error: no macro named 'expect'
+1409:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:103:10: error: no macro named 'expect'
+1413:    |          `- error: no macro named 'expect'
+1417:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:104:10: error: no macro named 'expect'
+1421:    |          `- error: no macro named 'expect'
+1425:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:124:10: error: no macro named 'expect'
+1429:    |          `- error: no macro named 'expect'
+1433:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:125:10: error: no macro named 'expect'
+1437:    |          `- error: no macro named 'expect'
+1440:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:50:22: warning: no calls to throwing functions occur within 'try' expression
+1444:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+1448:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:64:13: warning: no calls to throwing functions occur within 'try' expression
+1452:    |             `- warning: no calls to throwing functions occur within 'try' expression
+1456:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:76:22: warning: no calls to throwing functions occur within 'try' expression
+1460:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+1464:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:4:2: error: unknown attribute 'Suite'
+1468:    |  `- error: unknown attribute 'Suite'
+1472:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:6:6: error: unknown attribute 'Test'
+1476:    |      `- error: unknown attribute 'Test'
+1480:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:21:6: error: unknown attribute 'Test'
+1484:    |      `- error: unknown attribute 'Test'
+1488:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:32:6: error: unknown attribute 'Test'
+1492:    |      `- error: unknown attribute 'Test'
+1496:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:41:6: error: unknown attribute 'Test'
+1500:    |      `- error: unknown attribute 'Test'
+1504:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:49:2: error: unknown attribute 'Suite'
+1508:    |  `- error: unknown attribute 'Suite'
+1512:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:87:6: error: unknown attribute 'Test'
+1516:    |      `- error: unknown attribute 'Test'
+1520:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:110:6: error: unknown attribute 'Test'
+1524:    |      `- error: unknown attribute 'Test'
+1528:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:18:10: error: no macro named 'expect'
+1532:    |          `- error: no macro named 'expect'
+1536:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:29:10: error: no macro named 'expect'
+1540:    |          `- error: no macro named 'expect'
+1544:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:36:14: error: no macro named 'expect'
+1548:    |              `- error: no macro named 'expect'
+1552:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:38:10: error: no macro named 'expect'
+1556:    |          `- error: no macro named 'expect'
+1560:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:45:10: error: no macro named 'expect'
+1564:    |          `- error: no macro named 'expect'
+1568:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:102:10: error: no macro named 'expect'
+1572:    |          `- error: no macro named 'expect'
+1576:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:103:10: error: no macro named 'expect'
+1580:    |          `- error: no macro named 'expect'
+1584:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:104:10: error: no macro named 'expect'
+1588:    |          `- error: no macro named 'expect'
+1592:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:124:10: error: no macro named 'expect'
+1596:    |          `- error: no macro named 'expect'
+1600:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:125:10: error: no macro named 'expect'
+1604:    |          `- error: no macro named 'expect'
+1607:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:50:22: warning: no calls to throwing functions occur within 'try' expression
+1611:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+1615:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:64:13: warning: no calls to throwing functions occur within 'try' expression
+1619:    |             `- warning: no calls to throwing functions occur within 'try' expression
+1623:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:76:22: warning: no calls to throwing functions occur within 'try' expression
+1627:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+1631:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:4:2: error: unknown attribute 'Suite'
+1635:    |  `- error: unknown attribute 'Suite'
+1639:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:6:6: error: unknown attribute 'Test'
+1643:    |      `- error: unknown attribute 'Test'
+1647:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:21:6: error: unknown attribute 'Test'
+1651:    |      `- error: unknown attribute 'Test'
+1655:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:32:6: error: unknown attribute 'Test'
+1659:    |      `- error: unknown attribute 'Test'
+1663:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:41:6: error: unknown attribute 'Test'
+1667:    |      `- error: unknown attribute 'Test'
+1671:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:49:2: error: unknown attribute 'Suite'
+1675:    |  `- error: unknown attribute 'Suite'
+1679:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:87:6: error: unknown attribute 'Test'
+1683:    |      `- error: unknown attribute 'Test'
+1687:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:110:6: error: unknown attribute 'Test'
+1691:    |      `- error: unknown attribute 'Test'
+1695:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:18:10: error: no macro named 'expect'
+1699:    |          `- error: no macro named 'expect'
+1703:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:29:10: error: no macro named 'expect'
+1707:    |          `- error: no macro named 'expect'
+1711:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:36:14: error: no macro named 'expect'
+1715:    |              `- error: no macro named 'expect'
+1719:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:38:10: error: no macro named 'expect'
+1723:    |          `- error: no macro named 'expect'
+1727:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:45:10: error: no macro named 'expect'
+1731:    |          `- error: no macro named 'expect'
+1735:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:102:10: error: no macro named 'expect'
+1739:    |          `- error: no macro named 'expect'
+1743:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:103:10: error: no macro named 'expect'
+1747:    |          `- error: no macro named 'expect'
+1751:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:104:10: error: no macro named 'expect'
+1755:    |          `- error: no macro named 'expect'
+1759:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:124:10: error: no macro named 'expect'
+1763:    |          `- error: no macro named 'expect'
+1767:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:125:10: error: no macro named 'expect'
+1771:    |          `- error: no macro named 'expect'
+1774:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:50:22: warning: no calls to throwing functions occur within 'try' expression
+1778:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+1782:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:64:13: warning: no calls to throwing functions occur within 'try' expression
+1786:    |             `- warning: no calls to throwing functions occur within 'try' expression
+1790:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:76:22: warning: no calls to throwing functions occur within 'try' expression
+1794:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+1798:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:4:2: error: unknown attribute 'Suite'
+1802:    |  `- error: unknown attribute 'Suite'
+1806:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:6:6: error: unknown attribute 'Test'
+1810:    |      `- error: unknown attribute 'Test'
+1814:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:21:6: error: unknown attribute 'Test'
+1818:    |      `- error: unknown attribute 'Test'
+1822:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:32:6: error: unknown attribute 'Test'
+1826:    |      `- error: unknown attribute 'Test'
+1830:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:41:6: error: unknown attribute 'Test'
+1834:    |      `- error: unknown attribute 'Test'
+1838:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:49:2: error: unknown attribute 'Suite'
+1842:    |  `- error: unknown attribute 'Suite'
+1846:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:87:6: error: unknown attribute 'Test'
+1850:    |      `- error: unknown attribute 'Test'
+1854:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:110:6: error: unknown attribute 'Test'
+1858:    |      `- error: unknown attribute 'Test'
+1862:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:18:10: error: no macro named 'expect'
+1866:    |          `- error: no macro named 'expect'
+1870:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:29:10: error: no macro named 'expect'
+1874:    |          `- error: no macro named 'expect'
+1878:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:36:14: error: no macro named 'expect'
+1882:    |              `- error: no macro named 'expect'
+1886:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:38:10: error: no macro named 'expect'
+1890:    |          `- error: no macro named 'expect'
+1894:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:45:10: error: no macro named 'expect'
+1898:    |          `- error: no macro named 'expect'
+1902:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:102:10: error: no macro named 'expect'
+1906:    |          `- error: no macro named 'expect'
+1910:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:103:10: error: no macro named 'expect'
+1914:    |          `- error: no macro named 'expect'
+1918:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:104:10: error: no macro named 'expect'
+1922:    |          `- error: no macro named 'expect'
+1926:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:124:10: error: no macro named 'expect'
+1930:    |          `- error: no macro named 'expect'
+1934:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:125:10: error: no macro named 'expect'
+1938:    |          `- error: no macro named 'expect'
+1941:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:50:22: warning: no calls to throwing functions occur within 'try' expression
+1945:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+1949:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:64:13: warning: no calls to throwing functions occur within 'try' expression
+1953:    |             `- warning: no calls to throwing functions occur within 'try' expression
+1957:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebModelDiscoveryTests.swift:76:22: warning: no calls to throwing functions occur within 'try' expression
+1961:    |                      `- warning: no calls to throwing functions occur within 'try' expression
+1965:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:4:2: error: unknown attribute 'Suite'
+1969:    |  `- error: unknown attribute 'Suite'
+1973:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:6:6: error: unknown attribute 'Test'
+1977:    |      `- error: unknown attribute 'Test'
+1981:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:21:6: error: unknown attribute 'Test'
+1985:    |      `- error: unknown attribute 'Test'
+1989:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:32:6: error: unknown attribute 'Test'
+1993:    |      `- error: unknown attribute 'Test'
+1997:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:41:6: error: unknown attribute 'Test'
+2001:    |      `- error: unknown attribute 'Test'
+2005:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:49:2: error: unknown attribute 'Suite'
+2009:    |  `- error: unknown attribute 'Suite'
+2013:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:87:6: error: unknown attribute 'Test'
+2017:    |      `- error: unknown attribute 'Test'
+2021:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:110:6: error: unknown attribute 'Test'
+2025:    |      `- error: unknown attribute 'Test'
+2029:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:18:10: error: no macro named 'expect'
+2033:    |          `- error: no macro named 'expect'
+2037:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:29:10: error: no macro named 'expect'
+2041:    |          `- error: no macro named 'expect'
+2045:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:36:14: error: no macro named 'expect'
+2049:    |              `- error: no macro named 'expect'
+2053:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:38:10: error: no macro named 'expect'
+2057:    |          `- error: no macro named 'expect'
+2061:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:45:10: error: no macro named 'expect'
+2065:    |          `- error: no macro named 'expect'
+2069:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:102:10: error: no macro named 'expect'
+2073:    |          `- error: no macro named 'expect'
+2077:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:103:10: error: no macro named 'expect'
+2081:    |          `- error: no macro named 'expect'
+2085:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:104:10: error: no macro named 'expect'
+2089:    |          `- error: no macro named 'expect'
+2093:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:124:10: error: no macro named 'expect'
+2097:    |          `- error: no macro named 'expect'
+2101:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:125:10: error: no macro named 'expect'
+2105:    |          `- error: no macro named 'expect'
+2108:error: emit-module command failed with exit code 1 (use -v to see invocation)
+2109:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:4:2: error: unknown attribute 'Suite'
+2113:    |  `- error: unknown attribute 'Suite'
+2117:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:6:6: error: unknown attribute 'Test'
+2121:    |      `- error: unknown attribute 'Test'
+2125:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:21:6: error: unknown attribute 'Test'
+2129:    |      `- error: unknown attribute 'Test'
+2133:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:32:6: error: unknown attribute 'Test'
+2137:    |      `- error: unknown attribute 'Test'
+2141:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:41:6: error: unknown attribute 'Test'
+2145:    |      `- error: unknown attribute 'Test'
+2149:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:49:2: error: unknown attribute 'Suite'
+2153:    |  `- error: unknown attribute 'Suite'
+2157:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:87:6: error: unknown attribute 'Test'
+2161:    |      `- error: unknown attribute 'Test'
+2165:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/WebProviderSelectionLogicTests.swift:110:6: error: unknown attribute 'Test'
+2169:    |      `- error: unknown attribute 'Test'
+2172:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ChatPanelLayoutTests.swift:47:47: warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2176:   |                                               `- warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2180:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/CustomModelAdditionTests.swift:29:13: warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2184:   |             `- warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2187:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ChatPanelLayoutTests.swift:47:47: warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2191:   |                                               `- warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2195:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/CustomModelAdditionTests.swift:29:13: warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2199:   |             `- warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2202:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ChatPanelLayoutTests.swift:47:47: warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2206:   |                                               `- warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2210:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/CustomModelAdditionTests.swift:29:13: warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2214:   |             `- warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2217:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ChatPanelLayoutTests.swift:47:47: warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2221:   |                                               `- warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2225:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/CustomModelAdditionTests.swift:29:13: warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2229:   |             `- warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2232:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ChatPanelLayoutTests.swift:47:47: warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2236:   |                                               `- warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2240:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/CustomModelAdditionTests.swift:29:13: warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2244:   |             `- warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2247:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ChatPanelLayoutTests.swift:47:47: warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2251:   |                                               `- warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2255:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/CustomModelAdditionTests.swift:29:13: warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2259:   |             `- warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2262:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ChatPanelLayoutTests.swift:47:47: warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2266:   |                                               `- warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2270:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/CustomModelAdditionTests.swift:29:13: warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2274:   |             `- warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2277:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ChatPanelLayoutTests.swift:47:47: warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2281:   |                                               `- warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2285:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/CustomModelAdditionTests.swift:29:13: warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2289:   |             `- warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2292:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ChatPanelLayoutTests.swift:47:47: warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2296:   |                                               `- warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2300:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/CustomModelAdditionTests.swift:29:13: warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2304:   |             `- warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2307:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ChatPanelLayoutTests.swift:47:47: warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2311:   |                                               `- warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2315:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/CustomModelAdditionTests.swift:29:13: warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2319:   |             `- warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2322:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ChatPanelLayoutTests.swift:47:47: warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2326:   |                                               `- warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2330:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/CustomModelAdditionTests.swift:29:13: warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2334:   |             `- warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2337:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ChatPanelLayoutTests.swift:47:47: warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2341:   |                                               `- warning: comparing non-optional value of type 'Bundle' to 'nil' always returns true
+2345:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/CustomModelAdditionTests.swift:29:13: warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2349:   |             `- warning: variable 'providers' was never mutated; consider changing to 'let' constant
+2352:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:456:13: warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2356:    |             `- warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2360:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:457:13: warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2364:    |             `- warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2367:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:456:13: warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2371:    |             `- warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2375:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:457:13: warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2379:    |             `- warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2382:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:456:13: warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2386:    |             `- warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2390:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:457:13: warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2394:    |             `- warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2397:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:456:13: warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2401:    |             `- warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2405:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:457:13: warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2409:    |             `- warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2412:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:456:13: warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2416:    |             `- warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2420:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:457:13: warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2424:    |             `- warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2427:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:456:13: warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2431:    |             `- warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2435:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:457:13: warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2439:    |             `- warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2442:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:456:13: warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2446:    |             `- warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2450:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:457:13: warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2454:    |             `- warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2457:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:456:13: warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2461:    |             `- warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2465:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:457:13: warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2469:    |             `- warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2472:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:456:13: warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2476:    |             `- warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2480:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:457:13: warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2484:    |             `- warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2487:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:456:13: warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2491:    |             `- warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2495:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:457:13: warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2499:    |             `- warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2502:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:456:13: warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2506:    |             `- warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2510:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:457:13: warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2514:    |             `- warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2517:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:456:13: warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2521:    |             `- warning: initialization of immutable value 'ollamaType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2525:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/ACPClientTests.swift:457:13: warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2529:    |             `- warning: initialization of immutable value 'openAIType' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+2561:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/SecurityThemeLogicTests.swift:580:22: warning: will never be executed
+2563:576 |         let error: MimoServeError
+2569:    |                      `- warning: will never be executed
+2601:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/SecurityThemeLogicTests.swift:580:22: warning: will never be executed
+2603:576 |         let error: MimoServeError
+2609:    |                      `- warning: will never be executed
+2641:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/SecurityThemeLogicTests.swift:580:22: warning: will never be executed
+2643:576 |         let error: MimoServeError
+2649:    |                      `- warning: will never be executed
+2681:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/SecurityThemeLogicTests.swift:580:22: warning: will never be executed
+2683:576 |         let error: MimoServeError
+2689:    |                      `- warning: will never be executed
+2721:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/SecurityThemeLogicTests.swift:580:22: warning: will never be executed
+2723:576 |         let error: MimoServeError
+2729:    |                      `- warning: will never be executed
+2761:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/SecurityThemeLogicTests.swift:580:22: warning: will never be executed
+2763:576 |         let error: MimoServeError
+2769:    |                      `- warning: will never be executed
+2801:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/SecurityThemeLogicTests.swift:580:22: warning: will never be executed
+2803:576 |         let error: MimoServeError
+2809:    |                      `- warning: will never be executed
+2841:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/SecurityThemeLogicTests.swift:580:22: warning: will never be executed
+2843:576 |         let error: MimoServeError
+2849:    |                      `- warning: will never be executed
+2881:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/SecurityThemeLogicTests.swift:580:22: warning: will never be executed
+2883:576 |         let error: MimoServeError
+2889:    |                      `- warning: will never be executed
+2921:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/SecurityThemeLogicTests.swift:580:22: warning: will never be executed
+2923:576 |         let error: MimoServeError
+2929:    |                      `- warning: will never be executed
+2961:/Users/apple/projects/micoder-987719cf/MiCoder/Tests/SecurityThemeLogicTests.swift:580:22: warning: will never be executed
+2963:576 |         let error: MimoServeError
+2969:    |                      `- warning: will never be executed
+2973:error: fatalError
+2979:/Users/apple/projects/micoder-987719cf/MiCoder/Sources/Services/MiCoderAPIServer.swift:109:19: warning: value 'appState' was defined but never used; consider replacing with boolean test [#no-usage]
+2983:    |                   `- warning: value 'appState' was defined but never used; consider replacing with boolean test [#no-usage]

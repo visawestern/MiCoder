@@ -45,9 +45,9 @@ struct WebModelDiscoveryTests {
         }
     }
 
-    @Test func discoverReturnsModelsFromCustomDropdown() async throws {
+    @Test func discoverReturnsModelsFromCustomDropdown() async {
         let bridge = FakeKimiBridge()
-        let models = try await WebModelDiscovery.discover(
+        let models = await WebModelDiscovery.discover(
             using: bridge,
             dropdownSelector: "div.current-model",
             vendor: .kimi
@@ -59,9 +59,9 @@ struct WebModelDiscoveryTests {
         #expect(models?.contains { $0.name == "K3 Swarm" } == true)
     }
 
-    @Test func discoverClicksModelButtonFirst() async throws {
+    @Test func discoverClicksModelButtonFirst() async {
         let bridge = FakeKimiBridge()
-        _ = try await WebModelDiscovery.discover(
+        _ = await WebModelDiscovery.discover(
             using: bridge,
             dropdownSelector: "div.current-model",
             vendor: .kimi
@@ -70,10 +70,10 @@ struct WebModelDiscoveryTests {
         #expect(bridge.clickedSelectors.contains("div.current-model"))
     }
 
-    @Test func discoverReturnsNilWhenButtonNotFound() async throws {
+    @Test func discoverReturnsNilWhenButtonNotFound() async {
         let bridge = FakeKimiBridge()
         // Simulate button not found even after fallback
-        let models = try await WebModelDiscovery.discover(
+        let models = await WebModelDiscovery.discover(
             using: bridge,
             dropdownSelector: "div.nonexistent",
             vendor: .kimi

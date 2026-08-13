@@ -73,7 +73,7 @@ struct ProvidersSettingsTests {
 
     @Test("ProviderCountChip displays correctly")
     func testProviderCountChip() {
-        let view = ProviderCountChip(title: "Providers", count: 5)
+        _ = ProviderCountChip(title: "Providers", count: 5)
         // The view should render without crashing
         // Testing view existence is implicit - if it compiles, it works
     }

@@ -366,7 +366,7 @@ struct StopGenerationFlowTests {
     @Test("stopGeneration fails gracefully without assistant message")
     func stopGracefulNoAssistantMessage() {
         let messageStore = MessageStore()
-        var currentAssistantMessageID: String? = nil
+        let currentAssistantMessageID: String? = nil
         
         // Should not crash even with nil assistant ID
         if let id = currentAssistantMessageID {

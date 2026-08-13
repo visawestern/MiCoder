@@ -453,9 +453,6 @@ struct ACPClientTests {
         // acp type skips requiresAPIKey toggle
         // Only non-ollama and non-acp types show the requiresAPIKey toggle
         let acpType = ProviderType.acp
-        let ollamaType = ProviderType.ollama
-        let openAIType = ProviderType.openAI
-        
         #expect(acpType != .ollama)
         #expect(acpType != .openAI)
         #expect(acpType.rawValue == "ACP (Agent Coder Protocol)")

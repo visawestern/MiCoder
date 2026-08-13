@@ -106,7 +106,7 @@ final class MiCoderAPIServer {
     }
     
     private func providersInfo() -> [String: Any] {
-        guard let appState = __miCoderAppState else { return ["error": "app not ready"] }
+        guard __miCoderAppState != nil else { return ["error": "app not ready"] }
         var providers: [[String: Any]] = []
         
         // MiMo Auto

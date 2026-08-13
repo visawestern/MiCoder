@@ -44,7 +44,7 @@ struct ChatPanelLayoutTests {
         #expect(MiMoLogoLoader.resourceName == "MiLogo")
         // In test environment bundle resources may not be available;
         // verify the loader resolves a bundle (not nil) and resourceName is correct.
-        #expect(MiMoLogoLoader.resourceBundle != nil)
+        #expect(!MiMoLogoLoader.resourceBundle.bundlePath.isEmpty)
     }
 
     @Test("ClipboardProvider reads NSImage pasteboard constructor")

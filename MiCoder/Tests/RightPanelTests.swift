@@ -112,7 +112,7 @@ struct TaskStepModelTests {
     @Test("TaskStep is Identifiable")
     func taskStepIdentifiable() {
         let step = TaskStep(title: "test", status: .inProgress)
-        #expect(step.id is UUID)
+        #expect(!step.id.uuidString.isEmpty)
     }
 }
 

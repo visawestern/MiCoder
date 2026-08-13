@@ -499,48 +499,57 @@ struct MimoServeErrorTests {
     @Test("decodingError is identified via pattern matching")
     func decodingErrorPatternMatch() {
         let error = MimoServeError.decodingError(TestingError.testError)
-        switch error {
-        case .decodingError:
-            #expect(true)
-        default:
-            #expect(Bool(false), "Expected decodingError")
+        let matchesCase: Bool
+        if case .decodingError = error {
+            matchesCase = true
+        } else {
+            matchesCase = false
         }
+        #expect(matchesCase)
     }
 
     @Test("connectionFailed is identified via pattern matching")
     func connectionFailedPatternMatch() {
         let error = MimoServeError.connectionFailed
-        switch error {
-        case .connectionFailed:
-            #expect(true)
-        default:
-            #expect(Bool(false), "Expected connectionFailed")
+        let matchesCase: Bool
+        if case .connectionFailed = error {
+            matchesCase = true
+        } else {
+            matchesCase = false
         }
+        #expect(matchesCase)
     }
 
     @Test("sessionBusy is identified via pattern matching")
     func sessionBusyPatternMatch() {
         let error = MimoServeError.sessionBusy
-        switch error {
-        case .sessionBusy:
-            #expect(true)
-        default:
-            #expect(Bool(false), "Expected sessionBusy")
+        let matchesCase: Bool
+        if case .sessionBusy = error {
+            matchesCase = true
+        } else {
+            matchesCase = false
         }
+        #expect(matchesCase)
     }
 
     @Test("sessionBusy is distinct from httpError(409)")
     func sessionBusyDistinctFrom409() {
         let busy = MimoServeError.sessionBusy
         let http409 = MimoServeError.httpError(statusCode: 409)
-        switch busy {
-        case .sessionBusy: break
-        default: #expect(Bool(false), "Expected sessionBusy")
+        let busyMatches: Bool
+        if case .sessionBusy = busy {
+            busyMatches = true
+        } else {
+            busyMatches = false
         }
-        switch http409 {
-        case .httpError(let code, _): #expect(code == 409)
-        default: #expect(Bool(false), "Expected httpError")
+        let httpCode: Int?
+        if case .httpError(let code, _) = http409 {
+            httpCode = code
+        } else {
+            httpCode = nil
         }
+        #expect(busyMatches)
+        #expect(httpCode == 409)
     }
 
     // MARK: LocalizedError conformance
@@ -571,18 +580,16 @@ struct MimoServeErrorTests {
 
     @Test("MimoServeClient interprets 409 as sessionBusy")
     func client409MapsToSessionBusy() {
-        // This mirrors the logic in MimoServeClient.sendMessage
+        // This mirrors the 409 mapping in MimoServeClient.sendMessage.
         let statusCode = 409
-        let error: MimoServeError
-        if statusCode == 409 {
-            error = .sessionBusy
+        let error: MimoServeError = statusCode == 409 ? .sessionBusy : .httpError(statusCode: statusCode)
+        let matchesSessionBusy: Bool
+        if case .sessionBusy = error {
+            matchesSessionBusy = true
         } else {
-            error = .httpError(statusCode: statusCode)
+            matchesSessionBusy = false
         }
-        switch error {
-        case .sessionBusy: #expect(true)
-        default: #expect(Bool(false), "Expected sessionBusy for 409")
-        }
+        #expect(matchesSessionBusy)
     }
 
     // MARK: Timeout / retry constants

@@ -26,7 +26,7 @@ final class CustomModelAdditionTests: XCTestCase {
         config.addCustomModel("another-model")
 
         // When: saved and reloaded
-        var providers = [config]
+        let providers = [config]
         WebProviderStore.save(providers)
         let loaded = WebProviderStore.load()
 
