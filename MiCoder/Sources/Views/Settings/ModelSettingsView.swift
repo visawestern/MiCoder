@@ -83,6 +83,30 @@ struct ModelSettingsProviderColumns: View {
         return WebProviderStore.load().first(where: { $0.id == id })
     }
 
+    private func isMutableProvider(_ option: ProviderOption) -> Bool {
+        option.isCustom || webConfig(for: option.id) != nil
+    }
+
+    private func selectProvider(_ option: ProviderOption) {
+        detailProviderID = option.id
+        appState.selectProvider(option.id)
+    }
+
+    private func removeProvider(_ option: ProviderOption) {
+        if let custom = appState.customProviders.first(where: { $0.id == option.id }) {
+            appState.removeCustomProvider(custom)
+            return
+        }
+        if let web = webConfig(for: option.id) {
+            var configs = WebProviderStore.load()
+            configs.removeAll { $0.id == web.id }
+            WebProviderStore.save(configs)
+            try? WebSessionManager.clear(providerId: web.id,
+                                         homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+            if appState.selectedProviderID == option.id { appState.selectProvider("") }
+        }
+    }
+
     private func models(for providerID: String) -> [String] {
         if let web = webConfig(for: providerID) {
             return WebProviderConnectivity.models(for: web)
@@ -225,38 +249,54 @@ struct ModelSettingsProviderColumns: View {
                     VStack(alignment: .leading, spacing: 6) {
                         ForEach(providerGroups.indices, id: \.self) { groupIndex in
                             let group = providerGroups[groupIndex]
-                            DisclosureGroup(
-                                isExpanded: Binding(
-                                    get: { !collapsedProviderCategories.contains(group.key) },
-                                    set: { expanded in
-                                        if expanded {
+                            let isCollapsed = collapsedProviderCategories.contains(group.key)
+                            VStack(spacing: 4) {
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.16)) {
+                                        if isCollapsed {
                                             collapsedProviderCategories.remove(group.key)
                                         } else {
                                             collapsedProviderCategories.insert(group.key)
                                         }
                                     }
-                                )
-                            ) {
-                                VStack(spacing: 4) {
-                                    ForEach(group.options) { option in
-                                        providerOptionRow(option)
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: isCollapsed ? "rectangle.expand.vertical" : "rectangle.compress.vertical")
+                                            .interfaceFont(size: 12, weight: .semibold)
+                                            .foregroundColor(Color.mimo.brand)
+                                        Image(systemName: providerCategoryIcon(group.key))
+                                            .interfaceFont(size: 11, weight: .semibold)
+                                            .foregroundColor(Color.mimo.brand)
+                                        Text(group.key)
+                                            .interfaceFont(size: 11, weight: .semibold)
+                                            .foregroundColor(Color.mimo.textSecondary)
+                                        Text("· \(group.options.count)")
+                                            .interfaceFont(size: 10)
+                                            .foregroundColor(Color.mimo.textMuted)
+                                        Spacer()
+                                        Text(isCollapsed ? "Show" : "Hide")
+                                            .interfaceFont(size: 10, weight: .medium)
+                                            .foregroundColor(Color.mimo.brand)
                                     }
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 7)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.mimo.backgroundAlt)
+                                    .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.mimo.border, lineWidth: 1))
+                                    .clipShape(RoundedRectangle(cornerRadius: 7))
                                 }
-                                .padding(.top, 4)
-                            } label: {
-                                HStack(spacing: 7) {
-                                    Image(systemName: providerCategoryIcon(group.key))
-                                        .interfaceFont(size: 10, weight: .semibold)
-                                        .foregroundColor(Color.mimo.brand)
-                                    Text(group.key)
-                                        .interfaceFont(size: 10, weight: .semibold)
-                                        .foregroundColor(Color.mimo.textSecondary)
-                                    Text("· \(group.options.count)")
-                                        .interfaceFont(size: 10)
-                                        .foregroundColor(Color.mimo.textMuted)
+                                .buttonStyle(.plain)
+                                .help(isCollapsed ? "Show \(group.key)" : "Hide \(group.key)")
+
+                                if !isCollapsed {
+                                    VStack(spacing: 4) {
+                                        ForEach(group.options) { option in
+                                            providerOptionRow(option)
+                                        }
+                                    }
+                                    .padding(.top, 2)
                                 }
                             }
-                            .accentColor(Color.mimo.brand)
                         }
                     }
                 }
@@ -270,35 +310,57 @@ struct ModelSettingsProviderColumns: View {
     }
 
     private func providerOptionRow(_ option: ProviderOption) -> some View {
-        Button(action: {
-            detailProviderID = option.id
-            appState.selectProvider(option.id)
-        }) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(option.isConnected ? Color.mimo.success : Color.mimo.textMuted)
-                    .frame(width: 6, height: 6)
-                Text(option.name)
-                    .interfaceFont(size: 12)
-                    .foregroundColor(Color.mimo.textPrimary)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
-                if appState.selectedProviderID == option.id {
-                    Image(systemName: "checkmark")
-                        .interfaceFont(size: 10)
-                        .foregroundColor(Color.mimo.brand)
+        HStack(spacing: 6) {
+            Button(action: { selectProvider(option) }) {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(option.isConnected ? Color.mimo.success : Color.mimo.textMuted)
+                        .frame(width: 6, height: 6)
+                    Text(option.name)
+                        .interfaceFont(size: 12)
+                        .foregroundColor(Color.mimo.textPrimary)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    if appState.selectedProviderID == option.id {
+                        Image(systemName: "checkmark")
+                            .interfaceFont(size: 10)
+                            .foregroundColor(Color.mimo.brand)
+                    }
                 }
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(detailProviderID == option.id ? Color.mimo.subtleFill : Color.mimo.surface)
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(detailProviderID == option.id ? Color.mimo.border : Color.clear, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .buttonStyle(.plain)
+
+            if isMutableProvider(option) {
+                Button(action: { selectProvider(option) }) {
+                    Image(systemName: "pencil")
+                        .interfaceFont(size: 10, weight: .semibold)
+                        .foregroundColor(Color.mimo.textSecondary)
+                        .frame(width: 25, height: 25)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Edit \(option.name)")
+
+                Button(role: .destructive, action: { removeProvider(option) }) {
+                    Image(systemName: "trash")
+                        .interfaceFont(size: 10, weight: .semibold)
+                        .foregroundColor(Color.mimo.error)
+                        .frame(width: 25, height: 25)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Delete \(option.name)")
+            }
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(detailProviderID == option.id ? Color.mimo.subtleFill : Color.mimo.surface)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(detailProviderID == option.id ? Color.mimo.border : Color.clear, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private var providerDetailColumn: some View {
@@ -798,27 +860,53 @@ struct ModelSettingsProviderColumns: View {
                         ForEach(groups.indices, id: \.self) { groupIndex in
                             let group = groups[groupIndex]
                             let key = modelGroupKey(prefix: group.prefix, providerID: providerID)
-                            DisclosureGroup(
-                                isExpanded: Binding(
-                                    get: { !collapsedModelGroups.contains(key) },
-                                    set: { expanded in
-                                        if expanded {
+                            let isCollapsed = collapsedModelGroups.contains(key)
+                            VStack(spacing: 4) {
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.16)) {
+                                        if isCollapsed {
                                             collapsedModelGroups.remove(key)
                                         } else {
                                             collapsedModelGroups.insert(key)
                                         }
                                     }
-                                )
-                            ) {
-                                VStack(spacing: 2) {
-                                    ForEach(group.models, id: \.self) { modelID in
-                                        compactModelCard(modelID: modelID, providerID: providerID, prefix: group.prefix)
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: isCollapsed ? "rectangle.expand.vertical" : "rectangle.compress.vertical")
+                                            .interfaceFont(size: 12, weight: .semibold)
+                                            .foregroundColor(Color.mimo.brand)
+                                        Image(systemName: "cube.fill")
+                                            .interfaceFont(size: 11)
+                                            .foregroundColor(Color.mimo.textMuted)
+                                        Text(group.prefix ?? "All models")
+                                            .interfaceFont(size: 11, weight: .semibold, design: .monospaced)
+                                            .foregroundColor(Color.mimo.textSecondary)
+                                        Text("· \(group.models.count)")
+                                            .interfaceFont(size: 10)
+                                            .foregroundColor(Color.mimo.textMuted)
+                                        Spacer()
+                                        Text(isCollapsed ? "Show" : "Hide")
+                                            .interfaceFont(size: 10, weight: .medium)
+                                            .foregroundColor(Color.mimo.brand)
+                                    }
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 7)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.mimo.backgroundAlt)
+                                    .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.mimo.border, lineWidth: 1))
+                                    .clipShape(RoundedRectangle(cornerRadius: 7))
+                                }
+                                .buttonStyle(.plain)
+                                .help(isCollapsed ? "Show models" : "Hide models")
+
+                                if !isCollapsed {
+                                    VStack(spacing: 2) {
+                                        ForEach(group.models, id: \.self) { modelID in
+                                            compactModelCard(modelID: modelID, providerID: providerID, prefix: group.prefix)
+                                        }
                                     }
                                 }
-                            } label: {
-                                modelGroupHeader(prefix: group.prefix ?? "All models", count: group.models.count)
                             }
-                            .accentColor(Color.mimo.brand)
                         }
                     }
                 }
@@ -1022,7 +1110,7 @@ struct ModelSettingsProviderColumns: View {
                     }
                 }
             } label: {
-                Image(systemName: "ellipsis")
+                Image(systemName: "ellipsis.vertical")
                     .interfaceFont(size: 12, weight: .bold)
                     .foregroundColor(Color.mimo.textMuted)
                     .frame(width: 24, height: 24)

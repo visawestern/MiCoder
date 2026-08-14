@@ -24,8 +24,6 @@ struct MiCoderAutoFreeSection: View {
     @State private var systemPromptInput: String = ""
     @State private var isRefreshing = false
 
-    private let columns = [GridItem(.adaptive(minimum: 250), spacing: 10)]
-
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
@@ -155,9 +153,33 @@ struct MiCoderAutoFreeSection: View {
                     .foregroundColor(Color.mimo.textMuted)
                     .padding(.vertical, 8)
             } else {
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
+                if let selected = store.provider.models.first(where: { isSelected($0.id) }) {
+                    HStack(spacing: 7) {
+                        Image(systemName: store.provider.isModelLocked ? "lock.fill" : "checkmark.circle.fill")
+                            .foregroundColor(Color.mimo.brand)
+                        Text("Using")
+                            .interfaceFont(size: 10, weight: .medium)
+                            .foregroundColor(Color.mimo.textMuted)
+                        Text(selected.name)
+                            .interfaceFont(size: 11, weight: .semibold)
+                            .foregroundColor(Color.mimo.textPrimary)
+                        Text("· \(status(for: selected))")
+                            .interfaceFont(size: 10)
+                            .foregroundColor(Color.mimo.success)
+                        Spacer()
+                        Text(store.provider.isModelLocked ? "Pinned" : "Auto fallback")
+                            .interfaceFont(size: 10, weight: .medium)
+                            .foregroundColor(Color.mimo.brand)
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 7)
+                    .background(Color.mimo.brand.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 7))
+                }
+
+                VStack(spacing: 3) {
                     ForEach(store.provider.models) { model in
-                        AutoFreeModelCard(
+                        AutoFreeCompactModelRow(
                             model: model,
                             isSelected: isSelected(model.id),
                             isLocked: isSelected(model.id) && store.provider.isModelLocked,
@@ -260,6 +282,70 @@ struct MiCoderAutoFreeSection: View {
 
     private func isSelected(_ modelID: String) -> Bool {
         store.provider.selectedModel == modelID
+    }
+}
+
+struct AutoFreeCompactModelRow: View {
+    let model: MiCoderAutoFreeClient.Model
+    let isSelected: Bool
+    let isLocked: Bool
+    let status: String
+    let onSelect: () -> Void
+    let onToggleLock: () -> Void
+
+    private var statusColor: Color {
+        let lower = status.lowercased()
+        if lower.contains("rate") || lower.contains("failed") || lower.contains("unavailable") {
+            return Color.mimo.error
+        }
+        return isSelected ? Color.mimo.brand : Color.mimo.textMuted
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: isLocked ? "lock.fill" : (isSelected ? "checkmark.circle.fill" : "circle"))
+                .interfaceFont(size: 12)
+                .foregroundColor(isSelected ? Color.mimo.brand : Color.mimo.textMuted)
+                .frame(width: 16)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(model.name)
+                    .interfaceFont(size: 11, weight: isSelected ? .semibold : .regular)
+                    .foregroundColor(Color.mimo.textPrimary)
+                    .lineLimit(1)
+                Text(model.id)
+                    .interfaceFont(size: 9, design: .monospaced)
+                    .foregroundColor(Color.mimo.textMuted)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 6)
+            Text(status)
+                .interfaceFont(size: 9, weight: .medium)
+                .foregroundColor(statusColor)
+                .lineLimit(1)
+            if isSelected {
+                Button(action: onToggleLock) {
+                    Image(systemName: isLocked ? "lock.open" : "lock")
+                        .interfaceFont(size: 10, weight: .medium)
+                        .foregroundColor(Color.mimo.brand)
+                        .frame(width: 24, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(isLocked ? "Unlock model" : "Lock selected model")
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(isSelected ? Color.mimo.subtleFill : Color.clear)
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(isSelected ? Color.mimo.brand.opacity(0.35) : Color.clear, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(model.name), \(status)")
     }
 }
 

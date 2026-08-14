@@ -19,13 +19,13 @@
       "effortToggle": "thinking",
       "selectors": {
         "input": "textarea, div[contenteditable='true']",
-        "sendButton": ".send-button-container",
+        "sendButton": ".send-button-container, button[type='submit'], button[aria-label*='send' i], button[data-testid*='send' i], [class*='send-button']",
         "responseContainer": "div[class*='markdown']",
         "stopButton": "button[aria-label*='top']",
-        "modelDropdown": ".current-model",
-        "modelButton": ".current-model",
-        "modelItem": "div.model-item span.name",
-        "effortDropdown": "div.effort-item",
+        "modelDropdown": ".current-model, [class*='model-selector'], [data-testid*='model'], button[aria-label*='model' i]",
+        "modelButton": ".current-model, [class*='model-selector'], [data-testid*='model'], button[aria-label*='model' i]",
+        "modelItem": "div.model-item span.name, [class*='model-item'] span, [role='option'] [class*='model'], [role='option']",
+        "effortDropdown": "div.effort-item, [class*='effort'], [class*='thinking'], [aria-label*='think' i], [data-testid*='thinking']",
         "effortItem": "div.effort-item",
         "newChatTexts": [
           "Новый чат",

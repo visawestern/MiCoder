@@ -129,9 +129,15 @@ struct WorkspacesSectionHeader: View {
     @EnvironmentObject var appState: AppState
     
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            fullWorkspaceToolbar
+            compactWorkspaceToolbar
+        }
+        .padding(.bottom, 6)
+    }
+
+    private var fullWorkspaceToolbar: some View {
         HStack(spacing: 6) {
-            // Group / Project pill (plan Раздел 11 Блок 2 п.11). No "Workspaces"
-            // title — the sidebar mirrors the reference (plan Раздел 13 п.7).
             SidebarGroupingPill(mode: $appState.sidebarGroupingMode)
 
             Button(action: { withAnimation { appState.workspacesSectionExpanded.toggle() } }) {
@@ -140,7 +146,8 @@ struct WorkspacesSectionHeader: View {
                     .foregroundColor(Color.mimo.textMuted)
             }
             .buttonStyle(.plain)
-            
+            .help(appState.workspacesSectionExpanded ? "Collapse workspaces" : "Expand workspaces")
+
             Button(action: { appState.showWorkspacesOverview = true }) {
                 Image(systemName: SidebarLayout.workspacesExpandIcon)
                     .interfaceFont(size: 10)
@@ -148,89 +155,166 @@ struct WorkspacesSectionHeader: View {
             }
             .buttonStyle(.plain)
             .help("All workspaces")
-            
-            Spacer()
 
-            // Archive quick-access (plan Раздел 11 Блок 2 п.16).
-            Button(action: { appState.showArchivePopover.toggle() }) {
-                Image(systemName: "archivebox")
-                    .interfaceFont(size: 11)
-                    .foregroundColor(Color.mimo.textMuted)
-            }
-            .buttonStyle(.plain)
-            .help("Archived projects")
-            .popover(isPresented: $appState.showArchivePopover) {
-                ArchivedProjectsPopover().environmentObject(appState)
-            }
-            
-            Menu {
-                ForEach(WorkspaceSortOrder.allCases) { order in
-                    Button(action: { appState.workspaceSortOrder = order }) {
-                        HStack {
-                            Text(order.rawValue)
-                            if appState.workspaceSortOrder == order {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Image(systemName: SidebarLayout.workspacesFilterIcon)
-                    .interfaceFont(size: 11)
-                    .foregroundColor(Color.mimo.textMuted)
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help("Sort workspaces")
-            
-            Menu {
-                ForEach(WorkspaceFilterPreset.allCases, id: \.self) { preset in
-                    Button(action: { appState.workspaceFilterPreset = preset }) {
-                        HStack {
-                            Text(preset.rawValue)
-                            if appState.workspaceFilterPreset == preset {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Image(systemName: appState.workspaceFilterPreset == .all ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-                    .interfaceFont(size: 11)
-                    .foregroundColor(appState.workspaceFilterPreset != .all ? Color.mimo.brand : Color.mimo.textMuted)
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help("Filter: \(appState.workspaceFilterPreset.rawValue)")
-            
-            Button(action: {
-                withAnimation {
-                    appState.showWorkspaceSearchField.toggle()
-                    if !appState.showWorkspaceSearchField {
-                        appState.workspaceFilterQuery = ""
-                    }
-                }
-            }) {
-                Image(systemName: SidebarLayout.workspacesSearchIcon)
-                    .interfaceFont(size: 11)
-                    .foregroundColor(appState.showWorkspaceSearchField ? Color.mimo.brand : Color.mimo.textMuted)
-            }
-            .buttonStyle(.plain)
-            .help("Filter workspaces")
-            
-            Button(action: {
-                withAnimation {
-                    appState.workspaceViewMode = appState.workspaceViewMode == .list ? .grid : .list
-                }
-            }) {
-                Image(systemName: appState.workspaceViewMode == .list ? SidebarLayout.workspacesViewGridIcon : SidebarLayout.workspacesViewListIcon)
-                    .interfaceFont(size: 11)
-                    .foregroundColor(Color.mimo.textMuted)
-            }
-            .buttonStyle(.plain)
-            .help("Toggle list/grid view")
+            Spacer(minLength: 4)
+            archiveButton
+            sortMenu
+            filterMenu
+            searchButton
+            viewModeButton
         }
-        .padding(.bottom, 6)
+    }
+
+    private var compactWorkspaceToolbar: some View {
+        HStack(spacing: 6) {
+            SidebarGroupingPill(mode: $appState.sidebarGroupingMode)
+            Spacer(minLength: 4)
+            Menu {
+                workspaceOverflowMenu
+            } label: {
+                Image(systemName: "ellipsis.vertical")
+                    .interfaceFont(size: 13, weight: .semibold)
+                    .foregroundColor(Color.mimo.textSecondary)
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help("Workspace actions")
+        }
+    }
+
+    @ViewBuilder
+    private var workspaceOverflowMenu: some View {
+        Button {
+            withAnimation { appState.workspacesSectionExpanded.toggle() }
+        } label: {
+            Label(appState.workspacesSectionExpanded ? "Collapse workspaces" : "Expand workspaces",
+                  systemImage: appState.workspacesSectionExpanded ? "rectangle.compress.vertical" : "rectangle.expand.vertical")
+        }
+        Button { appState.showWorkspacesOverview = true } label: {
+            Label("All workspaces", systemImage: SidebarLayout.workspacesExpandIcon)
+        }
+        Button { appState.showArchivePopover.toggle() } label: {
+            Label("Archived projects", systemImage: "archivebox")
+        }
+        Menu("Sort workspaces") {
+            ForEach(WorkspaceSortOrder.allCases) { order in
+                Button {
+                    appState.workspaceSortOrder = order
+                } label: {
+                    Label(order.rawValue, systemImage: appState.workspaceSortOrder == order ? "checkmark" : "")
+                }
+            }
+        }
+        Menu("Filter workspaces") {
+            ForEach(WorkspaceFilterPreset.allCases, id: \.self) { preset in
+                Button {
+                    appState.workspaceFilterPreset = preset
+                } label: {
+                    Label(preset.rawValue, systemImage: appState.workspaceFilterPreset == preset ? "checkmark" : "")
+                }
+            }
+        }
+        Button {
+            withAnimation {
+                appState.showWorkspaceSearchField.toggle()
+                if !appState.showWorkspaceSearchField { appState.workspaceFilterQuery = "" }
+            }
+        } label: {
+            Label(appState.showWorkspaceSearchField ? "Hide workspace search" : "Search workspaces",
+                  systemImage: SidebarLayout.workspacesSearchIcon)
+        }
+        Button {
+            withAnimation {
+                appState.workspaceViewMode = appState.workspaceViewMode == .list ? .grid : .list
+            }
+        } label: {
+            Label(appState.workspaceViewMode == .list ? "Show grid" : "Show list",
+                  systemImage: appState.workspaceViewMode == .list ? SidebarLayout.workspacesViewGridIcon : SidebarLayout.workspacesViewListIcon)
+        }
+    }
+
+    private var archiveButton: some View {
+        Button(action: { appState.showArchivePopover.toggle() }) {
+            Image(systemName: "archivebox")
+                .interfaceFont(size: 11)
+                .foregroundColor(Color.mimo.textMuted)
+        }
+        .buttonStyle(.plain)
+        .help("Archived projects")
+        .popover(isPresented: $appState.showArchivePopover) {
+            ArchivedProjectsPopover().environmentObject(appState)
+        }
+    }
+
+    private var sortMenu: some View {
+        Menu {
+            ForEach(WorkspaceSortOrder.allCases) { order in
+                Button(action: { appState.workspaceSortOrder = order }) {
+                    HStack {
+                        Text(order.rawValue)
+                        if appState.workspaceSortOrder == order { Image(systemName: "checkmark") }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: SidebarLayout.workspacesFilterIcon)
+                .interfaceFont(size: 11)
+                .foregroundColor(Color.mimo.textMuted)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Sort workspaces")
+    }
+
+    private var filterMenu: some View {
+        Menu {
+            ForEach(WorkspaceFilterPreset.allCases, id: \.self) { preset in
+                Button(action: { appState.workspaceFilterPreset = preset }) {
+                    HStack {
+                        Text(preset.rawValue)
+                        if appState.workspaceFilterPreset == preset { Image(systemName: "checkmark") }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: appState.workspaceFilterPreset == .all ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                .interfaceFont(size: 11)
+                .foregroundColor(appState.workspaceFilterPreset != .all ? Color.mimo.brand : Color.mimo.textMuted)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Filter: \(appState.workspaceFilterPreset.rawValue)")
+    }
+
+    private var searchButton: some View {
+        Button(action: {
+            withAnimation {
+                appState.showWorkspaceSearchField.toggle()
+                if !appState.showWorkspaceSearchField { appState.workspaceFilterQuery = "" }
+            }
+        }) {
+            Image(systemName: SidebarLayout.workspacesSearchIcon)
+                .interfaceFont(size: 11)
+                .foregroundColor(appState.showWorkspaceSearchField ? Color.mimo.brand : Color.mimo.textMuted)
+        }
+        .buttonStyle(.plain)
+        .help("Filter workspaces")
+    }
+
+    private var viewModeButton: some View {
+        Button(action: {
+            withAnimation {
+                appState.workspaceViewMode = appState.workspaceViewMode == .list ? .grid : .list
+            }
+        }) {
+            Image(systemName: appState.workspaceViewMode == .list ? SidebarLayout.workspacesViewGridIcon : SidebarLayout.workspacesViewListIcon)
+                .interfaceFont(size: 11)
+                .foregroundColor(Color.mimo.textMuted)
+        }
+        .buttonStyle(.plain)
+        .help("Toggle list/grid view")
     }
 }
 
@@ -786,7 +870,7 @@ struct SessionTaskRow: View {
                             appState.startNewTask(in: workspace)
                         }
                     } label: {
-                        Image(systemName: "ellipsis")
+                        Image(systemName: "ellipsis.vertical")
                             .interfaceFont(size: 10)
                             .foregroundColor(Color.mimo.textMuted)
                     }

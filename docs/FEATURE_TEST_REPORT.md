@@ -295,3 +295,16 @@ The regression test now includes `.openCodeZen` in its expected case list. No pr
 The previous build script silently changed both the marketing version and the build number on every default release build. The new contract is explicit and reproducible: a normal `./build-app.sh` does not mutate `Info.plist`; a release operation must use `./build-app.sh --bump patch`, `--bump minor`, or `--bump major`. The selected operation increments `CFBundleShortVersionString` exactly once according to semantic versioning and `CFBundleVersion` exactly once. `--no-bump` remains accepted as a backwards-compatible no-op.
 
 The existing two-component marketing version `2.119` was normalized to `2.119.0` without increasing the version or build. The next patch release therefore becomes `2.119.1` and build `118`, exactly once. Invalid semantic versions and non-numeric build numbers now fail before tests or compilation.
+
+
+## Round 42 (2026-08-14) — screenshot-driven settings and sidebar UX overhaul
+
+The screenshot audit identified four related interaction failures. The narrow sidebar workspace toolbar previously placed grouping, archive, sort, filter, search and view controls in one fixed horizontal row. It now uses `ViewThatFits`: wide sidebars retain direct buttons, while narrow sidebars expose one vertical-dots workspace-actions menu containing the complete set of secondary actions. The session row action menu also uses vertical dots.
+
+The MiCoder Auto Free catalog previously rendered tall adaptive cards for every free model. It now shows a compact current-model summary first, followed by dense one-row model choices. Lock/unlock is available only for the selected model, while status and model identity remain visible for every row.
+
+Provider management now assigns edit and delete ownership to the provider row itself. Custom and web providers expose pencil and trash controls directly beside the provider name; built-in providers remain protected. Deleting a web provider removes its stored configuration and saved session, while selecting the pencil action opens the existing provider detail editor rather than creating a duplicate card.
+
+Provider categories and model groups no longer rely on tiny `DisclosureGroup` chevrons. Each group has a full-width accordion bar with a large expand/compress affordance and an explicit Show/Hide label. Model row actions use vertical three dots, eliminating the previous horizontal ellipsis ambiguity.
+
+Static validation passed for the changed Swift files with `swiftc -parse`, the web catalog JSON parsed successfully, and `git diff --check` passed. Real macOS visual verification remains required for sidebar resizing, hit targets, provider deletion persistence, and live Auto Free selection because Linux cannot render SwiftUI/AppKit.
