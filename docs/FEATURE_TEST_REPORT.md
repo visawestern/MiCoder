@@ -288,3 +288,10 @@ The cause was ordering: `runTurn` attempted `typeText` before calling `checkInte
 The user's macOS run completed the build and executed all 1,882 tests in 269 suites. The only failure was `ProviderConnectionTests.providerTypeAllCases()` in `SecurityThemeLogicTests.swift:399`: production `ProviderType.allCases` contained 12 cases while the test expected 11. The additional case is the intentional `.openCodeZen` provider introduced by the OpenCode Zen provider preset; it has explicit icon and default URL switch branches in `Settings.swift`.
 
 The regression test now includes `.openCodeZen` in its expected case list. No production provider behavior was removed or hidden; the test expectation was stale. The full macOS `swift test` must be rerun after pulling the commit to confirm the expected 1,882/1,882 result.
+
+
+## Round 41 (2026-08-14) — single explicit release version bump
+
+The previous build script silently changed both the marketing version and the build number on every default release build. The new contract is explicit and reproducible: a normal `./build-app.sh` does not mutate `Info.plist`; a release operation must use `./build-app.sh --bump patch`, `--bump minor`, or `--bump major`. The selected operation increments `CFBundleShortVersionString` exactly once according to semantic versioning and `CFBundleVersion` exactly once. `--no-bump` remains accepted as a backwards-compatible no-op.
+
+The existing two-component marketing version `2.119` was normalized to `2.119.0` without increasing the version or build. The next patch release therefore becomes `2.119.1` and build `118`, exactly once. Invalid semantic versions and non-numeric build numbers now fail before tests or compilation.

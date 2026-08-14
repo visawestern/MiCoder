@@ -1,44 +1,63 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# build-app.sh — Build MiCoder.app with automatic version bump.
+# build-app.sh — Build MiCoder.app with explicit semantic-version bumping.
 #
-# Produces MiCoder.app in the REPO ROOT (not hidden in .build/), copying the
-# SPM-generated resource bundles so Skills/MCP catalogs load. Full compiler
-# output is shown on failure — no truncation, no guesswork.
-#
-# Usage:
-#   ./build-app.sh              # bump + test + build + bundle (release)
-#   ./build-app.sh --skip-tests # bump + build + bundle (skip tests)
-#   ./build-app.sh --no-bump    # don't bump the version
-#   ./build-app.sh --parallel   # parallel build (may deadlock on Swift 6.3)
+# Normal builds are reproducible and do not mutate version metadata.
+# A release bump is explicit: ./build-app.sh --bump [patch|minor|major].
+# The selected release operation increments the marketing version once and
+# increments CFBundleVersion once. There is no hidden/double bump.
 # ═══════════════════════════════════════════════════════════════
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-APP_NAME="MiCoder"          # SPM executable target/product name
-APP_BUNDLE="MiCoder.app"    # user-facing bundle name (in repo root)
+APP_NAME="MiCoder"
+APP_BUNDLE="MiCoder.app"
 BUILD_DIR=".build/release"
 RESOURCES_DIR="MiCoder/Resources"
 INFO_PLIST="$RESOURCES_DIR/Info.plist"
 
 SKIP_TESTS=0
-DO_BUMP=1
+BUMP_KIND=""
 PARALLEL=0
-for arg in "$@"; do
-    case "$arg" in
-        --skip-tests) SKIP_TESTS=1 ;;
-        --no-bump)    DO_BUMP=0 ;;
-        --parallel)   PARALLEL=1 ;;
-        *) echo "Unknown option: $arg"; exit 2 ;;
+
+while (($# > 0)); do
+    case "$1" in
+        --skip-tests)
+            SKIP_TESTS=1
+            shift
+            ;;
+        --no-bump)
+            BUMP_KIND=""
+            shift
+            ;;
+        --bump)
+            BUMP_KIND="patch"
+            shift
+            if (($# > 0)) && [[ "$1" != --* ]]; then
+                case "$1" in
+                    major|minor|patch) BUMP_KIND="$1"; shift ;;
+                    *) echo "Unknown bump kind: $1 (use major, minor, or patch)"; exit 2 ;;
+                esac
+            fi
+            ;;
+        --bump=major|--bump=minor|--bump=patch)
+            BUMP_KIND="${1#*=}"
+            shift
+            ;;
+        --parallel)
+            PARALLEL=1
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 2
+            ;;
     esac
 done
 
 # ── Platform/toolchain preflight ─────────────────────────────
-# MiCoder is a macOS SwiftUI/AppKit/WebKit application. Fail before the
-# version bump on Linux or on a machine without Xcode/Swift, rather than
-# leaving a misleading half-bumped checkout.
 if [ "$(uname -s)" != "Darwin" ]; then
     echo "━━━ ❌ MiCoder build requires macOS (SwiftUI/AppKit/WebKit)."
     echo "━━━    Current platform: $(uname -s). Run this script on a macOS runner."
@@ -50,20 +69,39 @@ if [ ! -x /usr/libexec/PlistBuddy ] || ! command -v swift >/dev/null 2>&1 || ! c
     exit 3
 fi
 
-# ── Version bump ─────────────────────────────────────────────
-SHORT_VER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST" 2>/dev/null || echo "0.0")
+# ── Version metadata ─────────────────────────────────────────
+SHORT_VER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST" 2>/dev/null || echo "0.1.0")
 BUILD_NUM=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$INFO_PLIST" 2>/dev/null || echo "0")
 echo "━━━ Current: v$SHORT_VER (build $BUILD_NUM)"
 
-if [ "$DO_BUMP" -eq 1 ]; then
-    MAJOR="${SHORT_VER%%.*}"; REST="${SHORT_VER#*.}"; MINOR="${REST%%.*}"
-    NEW_SHORT="${MAJOR}.$((MINOR + 1))"
+# Normalize and bump one semantic version component only when explicitly asked.
+version_parts=(${SHORT_VER//./ })
+MAJOR="${version_parts[0]:-0}"
+MINOR="${version_parts[1]:-0}"
+PATCH="${version_parts[2]:-0}"
+if ! [[ "$MAJOR" =~ ^[0-9]+$ && "$MINOR" =~ ^[0-9]+$ && "$PATCH" =~ ^[0-9]+$ ]]; then
+    echo "━━━ ❌ Invalid semantic version in $INFO_PLIST: $SHORT_VER"
+    exit 2
+fi
+if ! [[ "$BUILD_NUM" =~ ^[0-9]+$ ]]; then
+    echo "━━━ ❌ Invalid numeric build number in $INFO_PLIST: $BUILD_NUM"
+    exit 2
+fi
+
+if [ -n "$BUMP_KIND" ]; then
+    case "$BUMP_KIND" in
+        major) NEW_SHORT="$((MAJOR + 1)).0.0" ;;
+        minor) NEW_SHORT="${MAJOR}.$((MINOR + 1)).0" ;;
+        patch) NEW_SHORT="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
+    esac
     NEW_BUILD=$((BUILD_NUM + 1))
-    echo "━━━ Bumping to v$NEW_SHORT (build $NEW_BUILD)"
+    echo "━━━ Release bump ($BUMP_KIND): v$SHORT_VER → v$NEW_SHORT; build $BUILD_NUM → $NEW_BUILD"
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $NEW_SHORT" "$INFO_PLIST"
     /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD" "$INFO_PLIST"
 else
-    NEW_SHORT="$SHORT_VER"; NEW_BUILD="$BUILD_NUM"
+    NEW_SHORT="$SHORT_VER"
+    NEW_BUILD="$BUILD_NUM"
+    echo "━━━ No version bump (use --bump [patch|minor|major] for a release)"
 fi
 
 # ── Tests (optional — never block a build check) ─────────────
@@ -79,9 +117,6 @@ else
 fi
 
 # ── Build release ────────────────────────────────────────────
-# Swift 6.3 compiler deadlocks on -O optimization with SQLite.swift.
-# Default: single-threaded with -Onone. Use --parallel for faster builds
-# if your toolchain doesn't deadlock.
 echo "━━━ Building release…"
 if [ "$PARALLEL" -eq 1 ]; then
     CORES=$(sysctl -n hw.ncpu 2>/dev/null || echo 8)
@@ -113,8 +148,6 @@ if [ -f "$RESOURCES_DIR/AppIcon.icns" ]; then
     cp "$RESOURCES_DIR/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 fi
 
-# SPM packages resources (catalogs, skill markdown) into <Target>_<Product>.bundle.
-# Without copying these the packaged app shows "resource catalog is missing".
 echo "━━━ Copying resource bundles…"
 shopt -s nullglob
 copied=0
