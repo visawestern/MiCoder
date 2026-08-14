@@ -262,3 +262,22 @@ The latest screenshot-driven review identified four remaining UX/transport defec
 | WEB-15 | Background send used a plain value assignment and direct click, which modern React editors could ignore; model selection could fall back to an ambiguous dropdown; unchanged/empty DOM content could be reported as a model-empty response. | WKWebView now uses the native value setter, `beforeinput`/`input`/`change`, Enter keyboard events, and pointer/click dispatch. WebChatDriver uses only `modelButton` for model injection and only `effortDropdown` for effort injection, waits for the model menu to settle, fingerprints response DOM identity, and reports a submit timeout when no new response is observed. | FIXED |
 
 Round 38 deterministic coverage includes the stable-baseline sidebar test, model/effort selector separation, successful injection ordering, repeated-text response identity, and iteration-limit behavior. Static validation passed with `git diff --check`, `python3 -m json.tool` for the web catalog, `bash -n build-app.sh`, and source scans for removed labels/fallbacks. The Linux sandbox has no Swift/Xcode/WebKit toolchain, so the final `./build-app.sh`, Swift test suite, and real Kimi/Qwen/ChatGPT background-send checks remain macOS verification steps.
+
+
+## Round 39 (2026-08-14) — logged-out preflight regression found by real Swift harness
+
+A real Swift 6.0.3 test run was performed in the Linux sandbox after installing the missing compiler/linker prerequisites. The complete macOS target could not compile because Linux has no SwiftUI or AppKit modules, but a Foundation-only harness compiled the current production WebChatDriver, WebProviderConfig, WebModelDiscovery, session manager, protocol emulator, parser, and the existing WebChatDriver/WebProviderSelection test files.
+
+The first harness run reproduced the remaining failure exactly:
+
+> `loggedOutInterrupts()` expected `.loggedOut`, but received `error("selectorNotFound(\"textarea\")")`.
+
+The cause was ordering: `runTurn` attempted `typeText` before calling `checkInterruptions`, so a logged-out page with no composer masked the actionable session state as a missing-input error. The fix performs the session/captcha/input preflight before the first send. The existing captcha and logged-out tests now both pass, while the iteration-limit test remains green.
+
+| Verification | Result |
+|---|---|
+| Foundation-only WebChatDriver/selection/session harness | **20 tests passed** |
+| `loggedOutInterrupts()` after preflight fix | **Passed** |
+| `iterationLimitStopsRunawayLoop()` after preflight fix | **Passed** in 5.011 seconds |
+| Full MiCoder `swift test` on Linux | Cannot compile target: `SwiftUI` module unavailable; this is an environment limitation, not a test assertion failure |
+| macOS `./build-app.sh` | Still requires the user's macOS/Xcode environment |

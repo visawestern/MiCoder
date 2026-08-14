@@ -51,6 +51,14 @@ struct WebChatDriver {
                 message = preamble + "\n\n---\n\n" + userMessage
             }
 
+            // Check session state before touching the composer. A logged-out or
+            // captcha page must produce its actionable interruption event rather
+            // than a misleading missing-input/send-selector error.
+            if let interruption = try await checkInterruptions(emit: emit) {
+                emit(interruption)
+                return
+            }
+
             var responseBaseline = try await sendPossiblyChunked(message, emit: emit)
 
             var iteration = 0
