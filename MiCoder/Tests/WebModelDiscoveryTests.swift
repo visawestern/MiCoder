@@ -10,6 +10,7 @@ struct WebModelDiscoveryTests {
         var clickedSelectors: [String] = []
         var clickedTexts: [(selector: String, text: String)] = []
         var dropdownOpen = false
+        var expandedMoreModels = false
 
         func navigate(to url: String) async throws {}
         func typeText(_ text: String, into selector: String, humanized: Bool) async throws {}
@@ -21,8 +22,12 @@ struct WebModelDiscoveryTests {
         }
         func clickByText(selector: String, text: String) async throws -> Bool {
             clickedTexts.append((selector, text))
+            if text == "Expand more models" && !expandedMoreModels {
+                expandedMoreModels = true
+                return true
+            }
             // Simulate finding the model in dropdown
-            return text == "K3" || text == "Быстрый" || text == "K3 Swarm"
+            return text == "K3" || text == "Быстрый" || text == "K3 Swarm" || text == "K3 Swarm Pro" || text == "K3 Vision"
         }
         func readText(selector: String) async throws -> String { "" }
         func exists(selector: String) async throws -> Bool {
@@ -41,6 +46,9 @@ struct WebModelDiscoveryTests {
         }
         func readModelItems(modelItemSelector: String) async throws -> [String] {
             guard dropdownOpen else { return [] }
+            if expandedMoreModels {
+                return ["Быстрый", "K3", "K3 Swarm", "K3 Swarm Pro", "K3 Vision"]
+            }
             return ["Быстрый", "K3", "K3 Swarm"]
         }
     }
@@ -57,6 +65,18 @@ struct WebModelDiscoveryTests {
         #expect(models?.contains { $0.name == "K3" } == true)
         #expect(models?.contains { $0.name == "Быстрый" } == true)
         #expect(models?.contains { $0.name == "K3 Swarm" } == true)
+    }
+
+    @Test func discoverAllModelsExpandsNestedMenu() async {
+        let bridge = FakeKimiBridge()
+        let models = await WebModelDiscovery.discoverAllModels(
+            using: bridge,
+            dropdownSelector: "div.current-model",
+            vendor: .kimi
+        )
+        #expect(models?.count == 5)
+        #expect(models?.contains { $0.name == "K3 Swarm Pro" } == true)
+        #expect(models?.contains { $0.name == "K3 Vision" } == true)
     }
 
     @Test func discoverClicksModelButtonFirst() async {

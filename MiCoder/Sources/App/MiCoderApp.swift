@@ -522,7 +522,9 @@ class AppState: ObservableObject {
     }
 
     var selectedWebEffort: WebEffort? {
-        selectedWebProviderConfig?.effort
+        guard let config = selectedWebProviderConfig,
+              availableWebEffortsForSelectedProvider.contains(config.effort) else { return nil }
+        return config.effort
     }
 
     private func updateWebProvider(_ configID: String,
@@ -547,6 +549,13 @@ class AppState: ObservableObject {
         guard let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
               availableWebEffortsForSelectedProvider.contains(effort) else { return }
         updateWebProvider(webID, effort: effort)
+        if let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID }) {
+            recordWebBrowserAction(action: "effort_selected",
+                                   config: config,
+                                   modelID: config.selectedModel,
+                                   effort: effort,
+                                   detail: "Composer effort selection")
+        }
         objectWillChange.send()
     }
 
@@ -687,6 +696,13 @@ class AppState: ObservableObject {
         }
         if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID) {
             updateWebProvider(webID, modelID: modelID)
+            if let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID }) {
+                recordWebBrowserAction(action: "model_selected",
+                                       config: config,
+                                       modelID: modelID,
+                                       effort: selectedWebEffort,
+                                       detail: "Composer model selection")
+            }
             selectedVariant = ""
             return
         }
@@ -1091,14 +1107,60 @@ class AppState: ObservableObject {
     
     /// Current session goal, shown in the TopBar (plan Раздел 5 Блок 1 п.9).
     #if canImport(WebKit)
-    /// Persistent web views per web provider so the authenticated session is
-    /// reused across turns (plan Раздел 12).
+    /// Lazy browser pool. Each project/chat/provider gets an isolated page;
+    /// cookies remain shared through WKWebView's default data store. We never
+    /// create 100 pages up front: the cap is a safety ceiling, not a target.
     private var webViews: [String: WKWebView] = [:]
-    func webView(for config: WebProviderConfig) -> WKWebView {
-        if let existing = webViews[config.id] { return existing }
+    private var webViewLastUsed: [String: Date] = [:]
+    private let maxWebBrowserInstances = 100
+
+    @Published private(set) var webBrowserActionJournal: [WebBrowserActionRecord] = WebBrowserActionJournal.load()
+
+    @MainActor
+    func webView(for config: WebProviderConfig,
+                 projectID: String? = nil,
+                 chatID: String? = nil) -> WKWebView {
+        let key = WebBrowserInstanceKey(
+            projectID: projectID ?? selectedWorkspace?.id ?? "global",
+            chatID: chatID ?? selectedSession?.id ?? "provider-default",
+            providerID: config.id
+        ).storageKey
+        if let existing = webViews[key] {
+            webViewLastUsed[key] = Date()
+            return existing
+        }
+        if webViews.count >= maxWebBrowserInstances,
+           let evictKey = webViewLastUsed.min(by: { $0.value < $1.value })?.key,
+           let evicted = webViews.removeValue(forKey: evictKey) {
+            evicted.stopLoading()
+            evicted.removeFromSuperview()
+            webViewLastUsed.removeValue(forKey: evictKey)
+        }
         let wv = WKWebView(frame: .zero)
-        webViews[config.id] = wv
+        webViews[key] = wv
+        webViewLastUsed[key] = Date()
         return wv
+    }
+
+    @MainActor
+    func recordWebBrowserAction(action: String,
+                                config: WebProviderConfig,
+                                projectID: String? = nil,
+                                chatID: String? = nil,
+                                modelID: String? = nil,
+                                effort: WebEffort? = nil,
+                                detail: String? = nil) {
+        let record = WebBrowserActionRecord(
+            action: action,
+            projectID: projectID ?? selectedWorkspace?.id ?? "global",
+            chatID: chatID ?? selectedSession?.id ?? "unknown-chat",
+            providerID: config.id,
+            providerName: config.displayName,
+            modelID: modelID ?? config.selectedModel,
+            effort: effort,
+            detail: detail
+        )
+        webBrowserActionJournal = WebBrowserActionJournal.append(record, defaults: defaults)
     }
 
     /// Stop the active browser generation for a provider. This is separate from
@@ -1125,10 +1187,13 @@ class AppState: ObservableObject {
     /// It returns an actionable message instead of silently leaving 0 models.
     @MainActor
     func refreshWebModels(for config: WebProviderConfig) async -> String {
-        // Prefer user-picked selector (element picker), then catalog
-        let selector = config.customModelSelector
-            ?? (try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id))?.modelDropdown
-            ?? ""
+        // Prefer the user-picked selector but always retain catalog fallbacks.
+        // A stale custom selector must not hide the live model menu.
+        let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)
+        let selector = [
+            config.customModelSelector?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+            catalogEntry?.modelDropdown ?? ""
+        ].filter { !$0.isEmpty }.joined(separator: ", ")
         if selector.isEmpty {
             return L.t(AppLocalizationKey.locWebNoSelectorYet)
         }
@@ -1160,15 +1225,29 @@ class AppState: ObservableObject {
             guard inputFound else {
                 return L.t(AppLocalizationKey.locWebInputNotFound)
             }
-            let models = await WebModelDiscovery.discover(using: bridge,
-                                                                 dropdownSelector: selector,
-                                                                 vendor: config.vendor)
-            // Note: discover() already handles the "New Chat" fallback internally
+            let models = await WebModelDiscovery.discoverAllModels(using: bridge,
+                                                                    dropdownSelector: selector,
+                                                                    vendor: config.vendor)
             guard let found = models, !found.isEmpty else {
                 return String(format: L.t(AppLocalizationKey.locWebModelListFailed), config.displayName)
             }
+            let capabilityModels = await WebModelDiscovery.discoverModelCapabilities(
+                using: bridge,
+                dropdownSelector: selector,
+                vendor: config.vendor,
+                models: found,
+                effortDropdownSelector: config.effortDropdown ?? catalogEntry?.effortDropdown
+            )
+            let resolvedModels = capabilityModels.isEmpty ? found : capabilityModels
+            let discoveredEfforts = Array(Set(resolvedModels.flatMap(\.availableEfforts))).sorted { $0.rawValue < $1.rawValue }
+            if !config.selectedModel.isEmpty {
+                let itemSelector = catalogEntry?.modelItem ?? "[role='option'], [class*='model'], li"
+                _ = try? await bridge.clickByText(selector: itemSelector, text: config.selectedModel)
+                await bridge.wait(ms: 250)
+            }
             var updated = config
-            updated.discoveredModels = found
+            updated.discoveredModels = resolvedModels
+            updated.discoveredEffortLevels = discoveredEfforts
             if !updated.allModels.contains(updated.selectedModel) {
                 updated.selectedModel = updated.allModels.first ?? ""
             }

@@ -14,6 +14,13 @@ struct WebModeSelectorView: View {
         self._selectedThinking = State(initialValue: config.wrappedValue.effort.rawValue)
     }
 
+    private var effortsForSelectedModel: [WebEffort] {
+        if let model = config.discoveredModels.first(where: { $0.name == selectedModel }) {
+            return model.availableEfforts
+        }
+        return config.discoveredEffortLevels
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Model pills
@@ -21,8 +28,9 @@ struct WebModeSelectorView: View {
                 modelSection
             }
 
-            // Thinking/Effort selector
-            if !config.discoveredEffortLevels.isEmpty {
+            // Thinking/Effort is model-specific. A model with no live effort
+            // capability gets no custom selector at all.
+            if !effortsForSelectedModel.isEmpty {
                 thinkingSection
             }
 
@@ -33,9 +41,16 @@ struct WebModeSelectorView: View {
         }
         .onChange(of: selectedModel) { newValue in
             config.selectedModel = newValue
+            let efforts = effortsForSelectedModel
+            if let first = efforts.first {
+                if !efforts.contains(where: { $0.rawValue == selectedThinking }) {
+                    selectedThinking = first.rawValue
+                }
+                config.effort = WebEffort(rawValue: selectedThinking) ?? first
+            }
         }
         .onChange(of: selectedThinking) { newValue in
-            if let effort = WebEffort(rawValue: newValue) {
+            if let effort = effortsForSelectedModel.first(where: { $0.rawValue == newValue }) {
                 config.effort = effort
             }
         }
@@ -72,7 +87,7 @@ struct WebModeSelectorView: View {
                 .foregroundColor(Color.mimo.textMuted)
 
             Picker("", selection: $selectedThinking) {
-                ForEach(config.discoveredEffortLevels, id: \.self) { level in
+                ForEach(effortsForSelectedModel, id: \.self) { level in
                     Text(level.displayName).tag(level.rawValue)
                 }
             }

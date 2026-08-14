@@ -117,7 +117,8 @@ enum WebModelDiscovery {
     /// or throws — never silently successful with stale data.
     static func discover(using bridge: BrowserAutomationBridge,
                         dropdownSelector: String,
-                        vendor: WebChatVendor) async -> [WebProviderModel]? {
+                        vendor: WebChatVendor,
+                        includeAllModels: Bool = false) async -> [WebProviderModel]? {
         // Resolve vendor-specific selectors from the catalog.
         let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: vendor.id)
         let modelItemSelector = catalogEntry?.modelItem ?? "div.model-item"
@@ -207,7 +208,7 @@ enum WebModelDiscovery {
             modelNames = modelNames
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
-            if vendor == .chatgpt {
+            if vendor == .chatgpt && !includeAllModels {
                 modelNames = Array(modelNames.prefix(1))
             }
             if !modelNames.isEmpty {
@@ -228,6 +229,95 @@ enum WebModelDiscovery {
         } catch {
             return nil
         }
+    }
+
+    /// Discover every model exposed through nested/secondary model menus.
+    /// The page remains the source of truth; the bounded depth prevents a broken
+    /// menu from producing an infinite browser loop.
+    static func discoverAllModels(using bridge: BrowserAutomationBridge,
+                                  dropdownSelector: String,
+                                  vendor: WebChatVendor,
+                                  maxExpansionDepth: Int = 12) async -> [WebProviderModel]? {
+        let initial = await discover(using: bridge, dropdownSelector: dropdownSelector,
+                                     vendor: vendor, includeAllModels: true) ?? []
+        var names = initial.map(\.name)
+        var seen = Set(names.map { $0.lowercased() })
+        let expandLabels = [
+            "Expand more models", "Expand more", "More models", "Show more models",
+            "Ещё модели", "Показать ещё", "更多模型", "展开更多模型"
+        ]
+        let menuSelector = "button, a, [role='button'], [role='menuitem'], li, div"
+        let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: vendor.id)
+        let itemSelector = catalogEntry?.modelItem ?? "[role='option'], [class*='model'], [class*='option']"
+
+        for _ in 0..<maxExpansionDepth {
+            var expanded = false
+            for label in expandLabels {
+                if (try? await bridge.clickByText(selector: menuSelector, text: label)) == true {
+                    expanded = true
+                    await bridge.wait(ms: 250)
+                    break
+                }
+            }
+            guard expanded else { break }
+            let extra = (try? await bridge.readModelItems(modelItemSelector: itemSelector)) ?? []
+            for name in extra {
+                let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !normalized.isEmpty, seen.insert(normalized.lowercased()).inserted else { continue }
+                names.append(normalized)
+            }
+        }
+
+        guard !names.isEmpty else { return nil }
+        return names.map { WebProviderModel(name: $0) }
+    }
+
+    /// Probe effort after selecting each live model. A model with no visible
+    /// thinking control receives an empty capability list, which the UI uses to
+    /// hide its custom effort selector rather than inventing a global setting.
+    static func discoverModelCapabilities(using bridge: BrowserAutomationBridge,
+                                          dropdownSelector: String,
+                                          vendor: WebChatVendor,
+                                          models: [WebProviderModel],
+                                          effortDropdownSelector: String?) async -> [WebProviderModel] {
+        guard !models.isEmpty else { return [] }
+        let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: vendor.id)
+        let itemSelector = catalogEntry?.modelItem ?? "[role='option'], [class*='model'], [class*='option']"
+        let effortSelector = effortDropdownSelector ?? catalogEntry?.effortDropdown
+        var result: [WebProviderModel] = []
+
+        for model in models {
+            // Re-open the model menu for every probe because selecting a model
+            // normally closes it. If a site virtualizes the list, the current
+            // visible menu still provides the empirical answer for this model.
+            _ = try? await bridge.click(selector: dropdownSelector)
+            await bridge.wait(ms: 250)
+            var selected = (try? await bridge.clickByText(selector: itemSelector, text: model.name)) == true
+            if !selected {
+                selected = (try? await bridge.clickByText(selector: "button, [role='option'], li, div", text: model.name)) == true
+            }
+            guard selected else {
+                result.append(model)
+                continue
+            }
+            await bridge.wait(ms: 350)
+            let efforts: [WebEffort]
+            if let effortSelector {
+                efforts = await discoverEffort(using: bridge,
+                                               effortDropdownSelector: effortSelector,
+                                               vendor: vendor) ?? []
+            } else {
+                efforts = []
+            }
+            result.append(WebProviderModel(name: model.name,
+                                           description: model.description,
+                                           availableModes: model.availableModes,
+                                           availableEfforts: efforts,
+                                           supportsImageGeneration: model.supportsImageGeneration,
+                                           supportsDeepResearch: model.supportsDeepResearch,
+                                           supportsWebDev: model.supportsWebDev))
+        }
+        return result
     }
 
     /// Discover the vendor's real effort/thinking levels from the web UI.

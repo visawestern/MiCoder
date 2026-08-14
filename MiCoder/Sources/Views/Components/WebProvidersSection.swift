@@ -667,22 +667,32 @@ struct WebProviderLoginView: View {
                 }
                 try? await Task.sleep(nanoseconds: 250_000_000)
             }
-            // Discover models and effort independently. Effort is optional and
-            // must never be inferred from model labels.
-            let models = await WebModelDiscovery.discover(using: bridge, dropdownSelector: dropdownSelector, vendor: config.vendor) ?? []
-            let effortSelector = catalogEntry?.effortDropdown ?? ""
-            let efforts = effortSelector.isEmpty ? [] : (await WebModelDiscovery.discoverEffort(using: bridge, effortDropdownSelector: effortSelector, vendor: config.vendor) ?? [])
+            // Discover every nested model and then probe effort per model.
+            // Effort is optional and never inferred from model labels.
+            let models = await WebModelDiscovery.discoverAllModels(
+                using: bridge,
+                dropdownSelector: dropdownSelector,
+                vendor: config.vendor
+            ) ?? []
+            let effortSelector = catalogEntry?.effortDropdown
+            let profiledModels = await WebModelDiscovery.discoverModelCapabilities(
+                using: bridge,
+                dropdownSelector: dropdownSelector,
+                vendor: config.vendor,
+                models: models,
+                effortDropdownSelector: effortSelector
+            )
+            let resolvedModels = profiledModels.isEmpty ? models : profiledModels
+            let efforts = Array(Set(resolvedModels.flatMap(\.availableEfforts))).sorted { $0.rawValue < $1.rawValue }
             await MainActor.run {
-                if models.isEmpty {
-                    detectResult = .failed("No models found in dropdown.")
+                if resolvedModels.isEmpty {
+                    detectResult = .failed("No models found in the live model menu.")
                 } else {
-                    detectResult = .found(models)
-                    // Save discovered models to store AND update local config
+                    detectResult = .found(resolvedModels)
                     var updated = config
-                    updated.discoveredModels = models
+                    updated.discoveredModels = resolvedModels
                     updated.discoveredEffortLevels = efforts
                     WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
-                    // Update local config so canCapture becomes true
                     config = updated
                 }
             }

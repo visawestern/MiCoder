@@ -308,3 +308,26 @@ Provider management now assigns edit and delete ownership to the provider row it
 Provider categories and model groups no longer rely on tiny `DisclosureGroup` chevrons. Each group has a full-width accordion bar with a large expand/compress affordance and an explicit Show/Hide label. Model row actions use vertical three dots, eliminating the previous horizontal ellipsis ambiguity.
 
 Static validation passed for the changed Swift files with `swiftc -parse`, the web catalog JSON parsed successfully, and `git diff --check` passed. Real macOS visual verification remains required for sidebar resizing, hit targets, provider deletion persistence, and live Auto Free selection because Linux cannot render SwiftUI/AppKit.
+
+
+## Round 43 (2026-08-14) — full live model catalog, model-specific effort and isolated browser chats
+
+The screenshot audit exposed a deeper runtime problem: the visible model selector showed only the first level while the provider page contained an `Expand more models` branch, and the effort control was treated as a provider-wide setting even when the selected model did not support thinking.
+
+The browser discovery contract is now empirical and bounded. `WebModelDiscovery.discoverAllModels` starts from the live model menu, expands localized `Expand more models`/`More models` variants up to a fixed depth, reads additional visible options, deduplicates labels, and returns the complete discovered set. The previous selected model is restored after capability probing so discovery does not silently leave the vendor chat on the last model visited.
+
+Each discovered model now stores `availableEfforts`. The runtime selects each model, probes the live effort control, and records an empty capability list when that model has no thinking mode. `WebProviderSelectionLogic.availableEfforts` and `WebModeSelectorView` consume the selected model's capability list; the custom effort selector is hidden when the current model does not support it. No synthetic global effort is shown for a known model with no live effort control.
+
+The hidden browser runtime now uses a lazy pool keyed by `projectID + chatID + providerID`. The same key reuses one page, different projects/chats cannot mix their browser conversation state, and the pool is capped at 100 instances with least-recently-used eviction. The active hidden host is attached using the same key as the send operation. Existing chat titles are selected with a bounded best-effort DOM click before sending when the provider exposes a conversation list.
+
+Every model selection, effort selection, send start and send completion writes a bounded persistent routing record containing project, chat, provider, model, effort and detail. The final assistant message also identifies the browser route used, so a user can tell which chat and model performed the action.
+
+| Verification | Result |
+|---|---|
+| Foundation dynamic web harness | **54 tests passed** |
+| Nested `Expand more models` regression | **Passed** |
+| Model-specific effort visibility and legacy Codable migration | **Passed** |
+| Browser instance identity and bounded journal | **Passed** |
+| Existing WebChatDriver/Kimi selector/effort suite | **Passed** |
+| Changed Swift source parse and `git diff --check` | **Passed** |
+| Live Qwen/Kimi/ChatGPT DOM traversal and 100-instance macOS UI runtime | Requires macOS/WebKit verification |

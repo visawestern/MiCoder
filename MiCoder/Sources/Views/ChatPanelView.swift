@@ -18,6 +18,7 @@ struct ChatPanelView: View {
     @State private var serveTimeoutTask: Task<Void, Never>?
     #if canImport(WebKit)
     @State private var activeWebProviderID: String?
+    @State private var activeWebChatID: String?
     #endif
     private let sseClient = SSEClient()
     private let db = DatabaseManager.shared
@@ -39,7 +40,9 @@ struct ChatPanelView: View {
             // detached zero-sized WKWebView can load login pages but cannot
             // reliably execute DOM events during a real send.
             if let webConfig = appState.selectedWebProviderConfig {
-                WebViewRepresentable(webView: appState.webView(for: webConfig), url: webConfig.chatURL)
+                let projectID = appState.selectedWorkspace?.id ?? appState.selectedWorkspace?.path ?? "global"
+                let chatID = activeWebChatID ?? appState.selectedSession?.id ?? "provider-default"
+                WebViewRepresentable(webView: appState.webView(for: webConfig, projectID: projectID, chatID: chatID), url: webConfig.chatURL)
                     .frame(width: 2, height: 2)
                     .opacity(0.01)
                     .allowsHitTesting(false)
@@ -714,7 +717,9 @@ struct ChatPanelView: View {
                     }
                     return
                 }
-                await runWebChatTurn(config: cfg, text: text, assistantID: assistantID)
+                let chatID = messageStore.currentSessionID ?? appState.selectedSession?.id ?? assistantID
+                activeWebChatID = chatID
+                await runWebChatTurn(config: cfg, text: text, assistantID: assistantID, chatID: chatID)
                 return
             }
 
@@ -1035,7 +1040,10 @@ struct ChatPanelView: View {
     /// into the chat so the message actually reaches the web model and shows a
     /// real response (plan Раздел 12). Restores the captured session cookies.
     @MainActor
-    private func runWebChatTurn(config: WebProviderConfig, text: String, assistantID: String) async {
+    private func runWebChatTurn(config: WebProviderConfig,
+                                text: String,
+                                assistantID: String,
+                                chatID: String) async {
         #if canImport(WebKit)
         // Reconcile selections created before the unified web-selection contract
         // existed. The browser must use the same model and effort the composer
@@ -1053,8 +1061,17 @@ struct ChatPanelView: View {
         }
         activeWebProviderID = effectiveConfig.id
 
-        // Reuse (or lazily create) a persistent web view for this provider.
-        let webView = appState.webView(for: effectiveConfig)
+        // Each project/chat/provider gets an isolated hidden WKWebView page;
+        // the shared cookie store keeps login state without mixing conversations.
+        let projectID = appState.selectedWorkspace?.id ?? appState.selectedWorkspace?.path ?? "global"
+        let webView = appState.webView(for: effectiveConfig, projectID: projectID, chatID: chatID)
+        appState.recordWebBrowserAction(action: "send_started",
+                                        config: effectiveConfig,
+                                        projectID: projectID,
+                                        chatID: chatID,
+                                        modelID: effectiveConfig.selectedModel,
+                                        effort: appState.selectedWebEffort,
+                                        detail: "WKWebView background send")
         // Resolve vendor-specific selectors from the catalog.
         let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: effectiveConfig.vendor.id)
         let selectors = WebVendorSelectors(
@@ -1075,7 +1092,22 @@ struct ChatPanelView: View {
             }
         }
         do {
-            try await bridge.navigate(to: effectiveConfig.chatURL)
+            let targetHost = URL(string: effectiveConfig.chatURL)?.host
+            let alreadyOnVendorPage = webView.url?.host != nil && webView.url?.host == targetHost
+            if !alreadyOnVendorPage {
+                try await bridge.navigate(to: effectiveConfig.chatURL)
+            }
+
+            // If the app session already has a title, try to select the matching
+            // vendor chat from its visible conversation list. This is bounded and
+            // best-effort: a provider may not expose a stable chat list selector.
+            if let chatTitle = appState.selectedSession?.title,
+               !chatTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                let chatSelectors = "[data-testid*='conversation'], [data-testid*='chat'], nav a, nav button, [role='listitem'], li"
+                _ = try? await bridge.clickByText(selector: chatSelectors, text: chatTitle)
+                await bridge.wait(ms: 250)
+            }
+
             // Wait for chat interface to be ready (input element present).
             // Some sites need extra time to hydrate the chat UI after auth restore.
             var ready = false
@@ -1159,6 +1191,17 @@ struct ChatPanelView: View {
                 }
             }
         }
+        appState.recordWebBrowserAction(action: "send_completed",
+                                        config: effectiveConfig,
+                                        projectID: projectID,
+                                        chatID: chatID,
+                                        modelID: effectiveConfig.selectedModel,
+                                        effort: appState.selectedWebEffort,
+                                        detail: "WebChatDriver completed")
+        messageStore.update(id: assistantID) { message in
+            let effortLabel = appState.selectedWebEffort?.displayName ?? "not supported"
+            message.content += "\n\nBrowser route: \(effectiveConfig.displayName) · chat \(chatID) · model \(effectiveConfig.selectedModel.isEmpty ? "auto" : effectiveConfig.selectedModel) · effort \(effortLabel)"
+        }
         finishWebTurn()
         #else
         messageStore.update(id: assistantID) { m in
@@ -1194,6 +1237,7 @@ struct ChatPanelView: View {
         currentAssistantMessageID = nil
         #if canImport(WebKit)
         activeWebProviderID = nil
+        activeWebChatID = nil
         #endif
     }
 

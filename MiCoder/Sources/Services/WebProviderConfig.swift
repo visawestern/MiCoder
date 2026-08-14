@@ -77,19 +77,38 @@ struct WebProviderModel: Codable, Equatable, Identifiable, Hashable {
     let name: String
     let description: String?
     var availableModes: [String]      // ["auto", "think", "fast", "image"]
+    var availableEfforts: [WebEffort]
     var supportsImageGeneration: Bool
     var supportsDeepResearch: Bool
     var supportsWebDev: Bool
 
     init(name: String, description: String? = nil, availableModes: [String] = [],
+         availableEfforts: [WebEffort] = [],
          supportsImageGeneration: Bool = false, supportsDeepResearch: Bool = false,
          supportsWebDev: Bool = false) {
         self.name = name
         self.description = description
         self.availableModes = availableModes
+        self.availableEfforts = availableEfforts
         self.supportsImageGeneration = supportsImageGeneration
         self.supportsDeepResearch = supportsDeepResearch
         self.supportsWebDev = supportsWebDev
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name, description, availableModes, availableEfforts
+        case supportsImageGeneration, supportsDeepResearch, supportsWebDev
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        availableModes = try container.decodeIfPresent([String].self, forKey: .availableModes) ?? []
+        availableEfforts = try container.decodeIfPresent([WebEffort].self, forKey: .availableEfforts) ?? []
+        supportsImageGeneration = try container.decodeIfPresent(Bool.self, forKey: .supportsImageGeneration) ?? false
+        supportsDeepResearch = try container.decodeIfPresent(Bool.self, forKey: .supportsDeepResearch) ?? false
+        supportsWebDev = try container.decodeIfPresent(Bool.self, forKey: .supportsWebDev) ?? false
     }
 }
 
@@ -192,6 +211,12 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
     /// A web provider's runtime readiness is determined by its captured session,
     /// live discovery and browser page state. The legacy ToS field is ignored.
     var isReady: Bool { true }
+
+    /// The live effort capability of the selected model. An empty result means
+    /// the provider exposed no thinking/effort control for that model.
+    func efforts(for modelID: String) -> [WebEffort] {
+        discoveredModels.first(where: { $0.name == modelID })?.availableEfforts ?? []
+    }
 
     /// All models: auto-detected + explicitly configured. Vendor catalog data is
     /// intentionally not included because it goes stale independently of login.

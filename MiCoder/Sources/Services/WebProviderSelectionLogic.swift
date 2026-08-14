@@ -21,6 +21,12 @@ enum WebProviderSelectionLogic {
     }
 
     static func availableEfforts(for config: WebProviderConfig) -> [WebEffort] {
+        // A profiled live model owns its own capability list. Empty means the
+        // selected model has no effort/thinking control and the composer must
+        // hide the custom effort selector rather than exposing a global one.
+        if let model = config.discoveredModels.first(where: { $0.name == config.selectedModel }) {
+            return model.availableEfforts
+        }
         if !config.discoveredEffortLevels.isEmpty {
             return config.discoveredEffortLevels
         }
