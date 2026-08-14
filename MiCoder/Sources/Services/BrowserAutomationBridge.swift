@@ -29,6 +29,8 @@ protocol BrowserAutomationBridge {
     func cookies() async throws -> [BrowserCookie]
     /// Restore cookies into the browser context.
     func setCookies(_ cookies: [BrowserCookie]) async throws
+    /// Restore origin-scoped localStorage into the browser page before navigation.
+    func setLocalStorage(_ values: [String: String]) async throws
     /// Take a screenshot of a region (for showing captcha in-chat); returns PNG bytes.
     func screenshot(selector: String?) async throws -> Data
     /// Request the vendor UI to stop the current generation.
@@ -94,6 +96,9 @@ extension BrowserAutomationBridge {
         try await clickByText(selector: selector, text: text)
     }
 
+    /// Default: no-op for test doubles without a real browser.
+    func setLocalStorage(_ values: [String: String]) async throws {}
+
     /// Default: nil (test fakes override).
     func evaluateJS(_ script: String) async throws -> Any? { nil }
 }
@@ -151,6 +156,7 @@ enum WebChatEvent: Equatable {
     case sessionRestarted               // fresh session seeded with carry-over
     case modelInjectionFailed(String)   // could not set the selected model in web UI
     case effortInjectionFailed(String)  // could not set the selected effort in web UI
+    case approvalRequired(tool: String, message: String) // user approval is required before a mutation
 }
 
 /// Vendor selector set resolved from web_providers_catalog.json (plan Блок 1 п.10).

@@ -178,6 +178,10 @@ struct WebToolProtocolEmulatorTests {
 
     @Test func destructiveToolsRequireApproval() {
         #expect(WebToolProtocolEmulator.requiresApproval(WebToolCall(name: "write_file", arguments: [:])))
+        #expect(WebToolProtocolEmulator.requiresApproval(WebToolCall(name: "edit_file", arguments: [:])))
+        #expect(WebToolProtocolEmulator.requiresApproval(WebToolCall(name: "todo_write", arguments: [:])))
+        #expect(WebToolProtocolEmulator.requiresApproval(WebToolCall(name: "git_push", arguments: [:])))
+        #expect(WebToolProtocolEmulator.requiresApproval(WebToolCall(name: "task", arguments: [:])))
         #expect(WebToolProtocolEmulator.requiresApproval(WebToolCall(name: "run_command", arguments: [:])))
         #expect(!WebToolProtocolEmulator.requiresApproval(WebToolCall(name: "read_file", arguments: [:])))
     }

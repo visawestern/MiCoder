@@ -32,6 +32,8 @@ enum WebChatEventPresenter {
             return .status(L.t(AppLocalizationKey.locWebModelNote).replacingOccurrences(of: "{0}", with: msg))
         case .effortInjectionFailed(let msg):
             return .status(L.t(AppLocalizationKey.locWebEffortNote).replacingOccurrences(of: "{0}", with: msg))
+        case .approvalRequired(_, let message):
+            return .status("Approval required before this web-agent action: \(message)")
         case .promptSplit(let parts):
             return .status(L.t(AppLocalizationKey.locWebPromptSplit).replacingOccurrences(of: "{0}", with: "\(parts)"))
         case .toolCall(let call):

@@ -95,6 +95,11 @@ struct WebChatDriver {
                 var resultsBlock = ""
                 for call in calls {
                     emit(.toolCall(call))
+                    if WebToolAccessGate.permission(for: call, accessLevel: accessLevel) == .requireApproval {
+                        let message = "\(call.name) requires approval (AccessLevel: \(accessLevel.rawValue)); not executed"
+                        emit(.approvalRequired(tool: call.name, message: message))
+                        return
+                    }
                     if let validationError = WebToolProtocolEmulator.validate(call, projectRoot: projectRoot, accessLevel: accessLevel) {
                         let msg = "validation error: \(validationError)"
                         resultsBlock += WebToolProtocolEmulator.formatToolResult(name: call.name, result: msg) + "\n"
@@ -258,17 +263,27 @@ struct WebChatDriver {
     /// Returns false when a requested model/effort could not be confirmed. The
     /// caller must abort before typing so a recovery retry cannot duplicate text.
     private func injectModelAndEffort(emit: (WebChatEvent) -> Void) async -> Bool {
-        // Resolve vendor-specific selectors from the catalog.
-        guard let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id) else {
-            return true
-        }
+        // Resolve vendor-specific selectors from the catalog. A custom provider
+        // may have no bundled entry, but can still be safe when the user saved a
+        // custom model selector. A selected model without either route is a hard
+        // failure: never send under an unverified model.
+        let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)
         var injectionSucceeded = true
 
         // Model selection requires exact confirmation before sending.
         if !config.selectedModel.isEmpty {
-            let modelSelectors = (catalogEntry.modelButton?.split(separator: ",")
+            let configuredModelButton = config.customModelSelector?.trimmingCharacters(in: .whitespacesAndNewlines)
+                ?? catalogEntry?.modelButton
+            let modelSelectors = (configuredModelButton?.split(separator: ",")
                 .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) } ?? [])
                 .filter { !$0.isEmpty }
+            guard !modelSelectors.isEmpty else {
+                injectionSucceeded = false
+                emit(.modelInjectionFailed(
+                    "No model selector is configured; injection was blocked before send."
+                ))
+                return false
+            }
             var openedSelector: String?
             for selector in modelSelectors {
                 guard (try? await bridge.exists(selector: selector)) == true else { continue }
@@ -285,7 +300,7 @@ struct WebChatDriver {
                 try? await bridge.waitForSelector(selector: "div.model-item, [class*='model-item'], [role='option']", timeout: 5000)
                 await bridge.wait(ms: 500)
                 let modelText = config.selectedModel
-                let itemSelector = catalogEntry.modelItem ?? "[role='option'], [class*='option']"
+                let itemSelector = catalogEntry?.modelItem ?? "[role='option'], [class*='option']"
                 let clicked = (try? await bridge.clickVisibleTextExact(selector: itemSelector, text: modelText)) == true
                 if clicked {
                     // Let the model menu close and the provider commit its state
@@ -293,8 +308,11 @@ struct WebChatDriver {
                     await bridge.wait(ms: 800)
                 } else {
                     // Toggle the same control once to avoid leaving a menu overlay
-                    // in front of the composer, then continue with the page model.
+                    // in front of the composer. A visible dropdown without an exact
+                    // confirmed option is still a hard failure: never send under a
+                    // different model than the one shown in the composer.
                     try? await bridge.click(selector: openedSelector)
+                    injectionSucceeded = false
                     emit(.modelInjectionFailed(
                         "Model '\(modelText)' was not found; injection was blocked before send."
                     ))
@@ -315,7 +333,7 @@ struct WebChatDriver {
             guard let selectedModelEfforts else { return config.effort }
             return selectedModelEfforts.contains(config.effort) ? config.effort : nil
         }()
-        if let effortLabel = effortToInject.flatMap(effortLabel) {
+        if let effortLabel = effortToInject.flatMap(effortLabel), let catalogEntry {
             let selectors = (catalogEntry.effortDropdown?.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) } ?? [])
                 .filter { !$0.isEmpty }
             var anySuccess = false

@@ -324,9 +324,14 @@ enum WebToolProtocolEmulator {
     }
 
     static func requiresApproval(_ call: WebToolCall) -> Bool {
-        call.name == WebEmulatedTool.writeFile.rawValue
-            || call.name == WebEmulatedTool.editFile.rawValue
-            || call.name == WebEmulatedTool.runCommand.rawValue
+        switch WebEmulatedTool(rawValue: call.name) {
+        case .writeFile, .editFile, .todoWrite,
+             .gitBranch, .gitCheckout, .gitCommit, .gitPush, .gitPull,
+             .runCommand, .task:
+            return true
+        default:
+            return false
+        }
     }
 
     static func isPathInsideRoot(_ path: String, root: String) -> Bool {

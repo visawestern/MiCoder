@@ -274,3 +274,75 @@ struct WebSessionManagerTests {
         #expect(!WebSessionManager.isExpired(store, now: Date(timeIntervalSince1970: 50)))
     }
 }
+
+
+@Suite("WEB-CHAT-12: approval interruption in web agent loop")
+struct WebChatApprovalInterruptionTests {
+    final class ApprovalBridge: BrowserAutomationBridge, @unchecked Sendable {
+        var typed: [String] = []
+        var submitted = false
+
+        func navigate(to url: String) async throws {}
+        func typeText(_ text: String, into selector: String, humanized: Bool) async throws { typed.append(text) }
+        func click(selector: String) async throws { submitted = true }
+        func readText(selector: String) async throws -> String {
+            submitted ? "```tool\n{\"name\":\"write_file\",\"args\":{\"path\":\"a.txt\",\"content\":\"x\"}}\n```" : ""
+        }
+        func responseFingerprint(selector: String) async throws -> String { submitted ? "submitted" : "" }
+        func exists(selector: String) async throws -> Bool { selector.contains("stop") ? false : true }
+        func pageText() async throws -> String { "chat ready" }
+        func currentURL() async throws -> String { "https://kimi.com/chat" }
+        func cookies() async throws -> [BrowserCookie] { [] }
+        func setCookies(_ cookies: [BrowserCookie]) async throws {}
+        func screenshot(selector: String?) async throws -> Data { Data() }
+        func wait(ms: Int) async {}
+    }
+
+    struct RecordingExecutor: WebToolExecutor {
+        var calls = LockedCalls()
+        func execute(_ call: WebToolCall) async -> String {
+            calls.append(call)
+            return "should not execute"
+        }
+    }
+
+    final class LockedCalls: @unchecked Sendable {
+        private var storage: [WebToolCall] = []
+        private let lock = NSLock()
+        func append(_ call: WebToolCall) { lock.lock(); storage.append(call); lock.unlock() }
+        func snapshot() -> [WebToolCall] { lock.lock(); defer { lock.unlock() }; return storage }
+    }
+
+    @Test("ask-before-changes blocks the web mutation before executor side effects")
+    func mutationIsBlockedBeforeExecution() async {
+        let bridge = ApprovalBridge()
+        let calls = LockedCalls()
+        let executor = ClosureWebToolExecutor { call in
+            calls.append(call)
+            return "should not execute"
+        }
+        let driver = WebChatDriver(
+            bridge: bridge,
+            executor: executor,
+            selectors: WebVendorSelectors(input: "textarea", sendButton: "button.send", responseContainer: "div.response", stopButton: "button.stop"),
+            config: WebProviderConfig(vendor: .kimi, maxToolIterations: 3, acknowledgedToS: true),
+            projectRoot: "/tmp",
+            accessLevel: .askBeforeChanges,
+            pollIntervalMs: 0,
+            stabilityChecks: 1,
+            injectModelAndEffortEnabled: false
+        )
+        var events: [WebChatEvent] = []
+        await driver.runTurn(userMessage: "edit", isFirstMessage: false) { events.append($0) }
+        #expect(calls.snapshot().isEmpty)
+        #expect(events.contains { event in
+            if case .approvalRequired(let tool, _) = event { return tool == "write_file" }
+            return false
+        })
+    }
+
+    struct ClosureWebToolExecutor: WebToolExecutor {
+        let body: (WebToolCall) async -> String
+        func execute(_ call: WebToolCall) async -> String { await body(call) }
+    }
+}

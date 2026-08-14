@@ -1273,9 +1273,19 @@ class AppState: ObservableObject {
             stopButton: "button[aria-label*='stop'], button[data-testid='stop-button'], button[class*='stop']"
         )
         let bridge = WKWebViewBrowserBridge(webView: webView(for: config, projectID: projectID, chatID: chatID), selectors: selectors)
+        var localStorageWarning: String?
         do {
-            try await bridge.setCookies(store.cookies)
+            let payload = WebSessionRestorationLogic.payload(from: store)
+            try await bridge.setCookies(payload.cookies)
             try await bridge.navigate(to: config.chatURL)
+            do {
+                try await bridge.setLocalStorage(payload.localStorage)
+                if !payload.localStorage.isEmpty {
+                    try await bridge.navigate(to: config.chatURL)
+                }
+            } catch {
+                localStorageWarning = " (localStorage restore unavailable: \(error.localizedDescription))"
+            }
             var inputFound = false
             for _ in 0..<30 {
                 if try await bridge.exists(selector: selectors.input) {
@@ -1327,7 +1337,8 @@ class AppState: ObservableObject {
             }
             let count = resolvedModels.count
             let plural = count == 1 ? "" : "s"
-            return String(format: L.t(AppLocalizationKey.locWebLoadedModels), count, plural, config.displayName)
+            let message = String(format: L.t(AppLocalizationKey.locWebLoadedModels), count, plural, config.displayName)
+            return message + (localStorageWarning ?? "")
         } catch {
             return String(format: L.t(AppLocalizationKey.locWebRefreshFailed), error.localizedDescription)
         }
@@ -1360,9 +1371,19 @@ class AppState: ObservableObject {
             stopButton: "button[aria-label*='stop'], button[data-testid='stop-button'], button[class*='stop']"
         )
         let bridge = WKWebViewBrowserBridge(webView: webView(for: config, projectID: projectID, chatID: chatID), selectors: selectors)
+        var localStorageWarning: String?
         do {
-            try await bridge.setCookies(store.cookies)
+            let payload = WebSessionRestorationLogic.payload(from: store)
+            try await bridge.setCookies(payload.cookies)
             try await bridge.navigate(to: config.chatURL)
+            do {
+                try await bridge.setLocalStorage(payload.localStorage)
+                if !payload.localStorage.isEmpty {
+                    try await bridge.navigate(to: config.chatURL)
+                }
+            } catch {
+                localStorageWarning = " (localStorage restore unavailable: \(error.localizedDescription))"
+            }
             var inputFound = false
             for _ in 0..<30 {
                 if try await bridge.exists(selector: selectors.input) {
@@ -1388,7 +1409,8 @@ class AppState: ObservableObject {
             }
             let count = efforts.count
             let plural = count == 1 ? "" : "s"
-            return String(format: L.t(AppLocalizationKey.locWebLoadedEffort), count, plural, config.displayName)
+            let message = String(format: L.t(AppLocalizationKey.locWebLoadedEffort), count, plural, config.displayName)
+            return message + (localStorageWarning ?? "")
         } catch {
             return String(format: L.t(AppLocalizationKey.locWebEffortRefreshFailed), error.localizedDescription)
         }

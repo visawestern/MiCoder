@@ -62,8 +62,8 @@ struct WebProvidersSection: View {
             }
         }
         .sheet(item: $loginConfig) { cfg in
-            WebProviderLoginView(config: cfg) { cookies in
-                persistCookies(cookies, for: cfg, sessionID: loginSessionID, sessionName: loginSessionName)
+            WebProviderLoginView(config: cfg) { session in
+                persistSession(session, for: cfg, sessionID: loginSessionID, sessionName: loginSessionName)
                 loginConfig = nil
             }
         }
@@ -107,11 +107,10 @@ struct WebProvidersSection: View {
         WebProviderStore.save(providers)
     }
 
-    private func persistCookies(_ cookies: [BrowserCookie],
+    private func persistSession(_ store: WebSessionStore,
                                 for cfg: WebProviderConfig,
                                 sessionID: String,
                                 sessionName: String) {
-        let store = WebSessionStore(cookies: cookies, localStorage: [:], savedAt: Date())
         do {
             try WebSessionManager.persist(store,
                                           providerId: cfg.id,
@@ -126,7 +125,7 @@ struct WebProvidersSection: View {
             return
         }
         guard WebLoginCaptureLogic.shouldActivateSession(
-            cookieCount: cookies.count,
+            cookieCount: store.cookies.count,
             persistenceSucceeded: true
         ) else { return }
         var refreshConfig = cfg
@@ -638,7 +637,7 @@ struct CustomModelEditor: View {
 /// we capture cookies for session persistence (plan Раздел 12 Блок 3 п.35).
 struct WebProviderLoginView: View {
     @State var config: WebProviderConfig
-    let onCookies: ([BrowserCookie]) -> Void
+    let onSession: (WebSessionStore) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var webView = WKWebView()
 
@@ -964,9 +963,32 @@ struct WebProviderLoginView: View {
                 detectResult = .failed(WebLoginCaptureLogic.captureMessage(cookieCount: mapped.count))
                 return
             }
-            capturedCookies = mapped  // Update UI immediately
-            onCookies(mapped)
-            dismiss()
+            let localStorageScript = """
+            (function(){
+              const values = {};
+              try {
+                for (let i = 0; i < localStorage.length; i++) {
+                  const key = localStorage.key(i);
+                  if (key !== null) values[key] = localStorage.getItem(key) || "";
+                }
+              } catch (_) {}
+              return JSON.stringify(values);
+            })();
+            """
+            webView.evaluateJavaScript(localStorageScript) { result, _ in
+                let localStorage: [String: String]
+                if let json = result as? String,
+                   let data = json.data(using: .utf8),
+                   let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
+                    localStorage = decoded
+                } else {
+                    localStorage = [:]
+                }
+                let session = WebSessionStore(cookies: mapped, localStorage: localStorage, savedAt: Date())
+                capturedCookies = mapped  // Update UI immediately
+                onSession(session)
+                dismiss()
+            }
         }
     }
 }

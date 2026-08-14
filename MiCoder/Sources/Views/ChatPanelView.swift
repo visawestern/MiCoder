@@ -1148,11 +1148,14 @@ struct ChatPanelView: View {
         // Restore cookies captured at login so the session is authenticated.
         // Round 8 P2: cookie/navigation failures must be VISIBLE, not swallowed.
         let sessionID = effectiveConfig.activeSessionID ?? WebSessionManager.defaultSessionID
+        var restorationPayload: WebSessionRestorationPayload?
         if let store = WebSessionManager.restore(providerId: effectiveConfig.id,
                                                  homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
                                                  sessionID: sessionID) {
             do {
-                try await bridge.setCookies(store.cookies)
+                let payload = WebSessionRestorationLogic.payload(from: store)
+                try await bridge.setCookies(payload.cookies)
+                restorationPayload = payload
             } catch {
                 appendWebStatus(to: assistantID, line: "Failed to restore the saved session: \(error.localizedDescription)")
             }
@@ -1162,6 +1165,15 @@ struct ChatPanelView: View {
             let alreadyOnVendorPage = webView.url?.host != nil && webView.url?.host == targetHost
             if !alreadyOnVendorPage {
                 try await bridge.navigate(to: effectiveConfig.chatURL)
+            }
+            if let payload = restorationPayload, !payload.localStorage.isEmpty {
+                do {
+                    try await bridge.setLocalStorage(payload.localStorage)
+                    let reloadURL = webView.url?.absoluteString ?? effectiveConfig.chatURL
+                    try await bridge.navigate(to: reloadURL)
+                } catch {
+                    appendWebStatus(to: assistantID, line: "Saved cookies restored, but localStorage could not be restored: \(error.localizedDescription)")
+                }
             }
 
             // Wait for chat interface to be ready (input element present).
@@ -1254,7 +1266,11 @@ struct ChatPanelView: View {
         let isFirst = appState.webSessionIsFirstTurn(remoteMapping.key)
         appState.markWebSessionStarted(remoteMapping.key)
         let retrySignal = WebChatRetrySignal()
+        let approvalSignal = WebChatApprovalSignal()
         let presentEvent: (WebChatEvent) -> Void = { event in
+            if case .approvalRequired(_, let message) = event {
+                approvalSignal.record(message)
+            }
             if let reason = self.webCatalogRefreshReason(for: event) {
                 retrySignal.record(reason)
             }
@@ -1285,6 +1301,22 @@ struct ChatPanelView: View {
         // once, reload the persisted model/profile snapshot, and retry exactly
         // once; never create a second assistant bubble or a second remote chat.
         var finalConfig = effectiveConfig
+        if let approvalMessage = approvalSignal.take() {
+            appState.recordWebBrowserAction(action: "send_blocked_approval",
+                                            config: effectiveConfig,
+                                            projectID: projectID,
+                                            chatID: chatID,
+                                            modelID: effectiveConfig.selectedModel,
+                                            effort: appState.selectedWebEffort,
+                                            remoteChatID: remoteMapping.remoteChatID,
+                                            detail: approvalMessage)
+            messageStore.update(id: assistantID) { message in
+                message.isFinished = true
+                message.isStreaming = false
+            }
+            finishWebTurn()
+            return
+        }
         if retrySignal.take() != nil {
             appendWebStatus(to: assistantID, line: "Refreshing model catalog before retry…")
             self.appState.resetWebSession(remoteMapping.key)

@@ -7,10 +7,9 @@ enum WebToolPermission: Equatable {
 }
 
 /// Maps the app's `AccessLevel` onto the emulated web-tool protocol (Раздел 12
-/// п.18). Read-only tools always run; file-mutating tools keep the executor's
-/// established behavior (they are executed, with undo + request_history
-/// recording — the file-edit approval prompt is a separate UI concern driven
-/// by `requiresApproval`); `run_command` — the only tool that can affect the
+/// п.18). Read-only tools always run; file-mutating tools require an explicit
+/// approval interruption at `askBeforeChanges` and execute with undo +
+/// request_history recording at higher edit levels; `run_command` — the only tool that can affect the
 /// machine outside the project — is gated: it executes only at `.fullAccess`
 /// and requires approval at every lower level. The old executor returned a
 /// canned "requires approval" message for commands at every level without ever
@@ -22,9 +21,10 @@ enum WebToolAccessGate {
         // Read-only tools — always allowed
         case .readFile, .listDir, .grep, .gitStatus, .gitDiff, .gitLog, .glob, .todoRead:
             return .allow
-        // File-modifying tools — allowed at all levels (undo stack provides safety)
+        // File-modifying tools — ask before mutating; higher edit levels allow
+        // execution after the user has chosen the corresponding global policy.
         case .writeFile, .editFile, .todoWrite:
-            return .allow
+            return accessLevel == .askBeforeChanges ? .requireApproval : .allow
         // Git mutating operations
         case .gitBranch, .gitCheckout, .gitCommit, .gitPush, .gitPull:
             return accessLevel == .askBeforeChanges ? .requireApproval : .allow

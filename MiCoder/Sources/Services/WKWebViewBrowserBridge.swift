@@ -409,6 +409,16 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         }
     }
 
+    func setLocalStorage(_ values: [String: String]) async throws {
+        guard !values.isEmpty else { return }
+        for (key, value) in values {
+            let script = "localStorage.setItem(\(Self.jsString(key)), \(Self.jsString(value))); true;"
+            guard (try await eval(script) as? Bool) == true else {
+                throw WKWebViewBridgeError.elementNotFound("localStorage")
+            }
+        }
+    }
+
     func screenshot(selector: String?) async throws -> Data {
         await withCheckedContinuation { cont in
             let config = WKSnapshotConfiguration()

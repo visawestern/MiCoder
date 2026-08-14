@@ -165,4 +165,55 @@ struct WebDriverSelectionGuardTests {
         #expect(bridge.typed.count == 1)
         #expect(bridge.sendClicks == 1)
     }
+
+    @Test("A failed model confirmation blocks send even when the model has no effort control")
+    func failedModelOnlyInjectionBlocksSend() async {
+        let bridge = InjectionBridge(acceptsOption: false)
+        let config = WebProviderConfig(
+            vendor: .kimi,
+            selectedModel: "model-without-effort",
+            discoveredModels: [WebProviderModel(name: "model-without-effort", availableEfforts: [])]
+        )
+        let driver = WebChatDriver(
+            bridge: bridge,
+            executor: NoopExecutor(),
+            selectors: selectors,
+            config: config,
+            projectRoot: "/tmp",
+            accessLevel: .askBeforeChanges,
+            pollIntervalMs: 0,
+            stabilityChecks: 1
+        )
+        var events: [WebChatEvent] = []
+        await driver.runTurn(userMessage: "hello", isFirstMessage: false) { events.append($0) }
+        #expect(bridge.typed.isEmpty)
+        #expect(bridge.sendClicks == 0)
+        #expect(events.contains { event in
+            if case .modelInjectionFailed = event { return true }
+            return false
+        })
+        }
+    @Test("Custom vendor uses its persisted model selector when no bundled catalog entry exists")
+    func customVendorUsesCustomModelSelector() async {
+        let bridge = InjectionBridge(acceptsOption: true)
+        let config = WebProviderConfig(
+            vendor: .custom,
+            selectedModel: "custom-model",
+            customModelSelector: ".custom-model"
+        )
+        let driver = WebChatDriver(
+            bridge: bridge,
+            executor: NoopExecutor(),
+            selectors: selectors,
+            config: config,
+            projectRoot: "/tmp",
+            accessLevel: .askBeforeChanges,
+            pollIntervalMs: 0,
+            stabilityChecks: 1
+        )
+        await driver.runTurn(userMessage: "hello", isFirstMessage: false) { _ in }
+        #expect(bridge.clickedSelectors.contains(".custom-model"))
+        #expect(bridge.typed.count == 1)
+        #expect(bridge.sendClicks == 1)
+    }
 }
