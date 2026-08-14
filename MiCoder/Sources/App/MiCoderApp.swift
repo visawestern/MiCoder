@@ -401,10 +401,18 @@ class AppState: ObservableObject {
     }
     
     func connectToServer() async {
-        // Non-blocking connection check
+        // Complete the health check before deciding whether server-backed
+        // models may load. Previously the manager became connected while this
+        // AppState boolean stayed false, so ContentView skipped model loading
+        // on a healthy server during the first startup task.
         await serverConnectionManager?.checkAvailability()
-        
-        if serverConnectionManager?.isConnected == true {
+        let managerConnected = serverConnectionManager?.isConnected == true
+        serverConnected = ServerConnectionReadinessLogic.appStateConnectionState(
+            isConnected: serverConnected,
+            healthHealthy: managerConnected
+        )
+
+        if serverConnected {
             await syncAccessLevelFromServer()
         }
     }

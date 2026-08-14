@@ -1,0 +1,81 @@
+=== GIT ===
+main
+8191543fb5cf2e6287262cf437ee22700bcf196e
+origin	https://github.com/visawestern/MiCoder.git (fetch)
+origin	https://github.com/visawestern/MiCoder.git (push)
+[31m??[m .acceptance/ROUND49_INVENTORY.txt
+=== ROOT DOCUMENTS ===
+./.acceptance/ACCEPTANCE_MATRIX.csv
+./.acceptance/AUDIT_SCOPE.md
+./.acceptance/EVIDENCE.md
+./.acceptance/FIX_CONTRACT.md
+./.openresearch/STATUS.md
+./AUDIT.md
+./PLAN.md
+./README.md
+./docs/135_POINT_VERIFICATION_REPORT.md
+./docs/CONSOLIDATED_PROJECT_REPORT.md
+./docs/CONSOLIDATED_REPORT_2026-08-01.md
+./docs/DATA_STORAGE_PROGRESS.md
+./docs/DEVILS_ADVOCATE_ROUND_10_2026-07-31.md
+./docs/DEVILS_ADVOCATE_ROUND_12_2026-08-01.md
+./docs/DEVILS_ADVOCATE_ROUND_22_2026-08-05.md
+./docs/DEVILS_ADVOCATE_ROUND_23_2026-08-05.md
+./docs/DEVILS_ADVOCATE_ROUND_24_2026-08-07.md
+./docs/DEVILS_ADVOCATE_ROUND_25_2026-08-07.md
+./docs/DEVILS_ADVOCATE_ROUND_26_2026-08-07.md
+./docs/DEVILS_ADVOCATE_ROUND_27_2026-08-07.md
+./docs/DEVILS_ADVOCATE_ROUND_7_2026-07-24.md
+./docs/DEVILS_ADVOCATE_ROUND_8_2026-07-31.md
+./docs/DEVILS_ADVOCATE_ROUND_9_2026-07-31.md
+./docs/FEATURE_REGISTRY.md
+./docs/FEATURE_SPREADSHEET.csv
+./docs/FEATURE_TEST_REPORT.md
+./docs/INDEPENDENT_ACCEPTANCE_AUDIT_2026-08-14.md
+./docs/MIMO_API_RESEARCH_2026-08-13.md
+./docs/OPENCODE_BIG_PICKLE_RESEARCH_2026-08-13.md
+./docs/OSX_PROXMOX_RESEARCH_2026-08-13.md
+./docs/QUALITY_REPORT_2026-07-21.md
+./docs/UI_AUDIT_REPORT.md
+./docs/WEB_SEND_UI_AUDIT_2026-08-13.md
+./docs/ZCODE_PARITY_IMPLEMENTATION_PLAN.md
+./docs/clipboard_paste_verification.md
+./docs/devils_advocate_round_1_2026-07-17.md
+./docs/devils_advocate_round_2_2026-07-17.md
+./docs/devils_advocate_round_3_2026-07-21.md
+./docs/devils_advocate_round_4_2026-07-22.md
+./docs/devils_advocate_round_5_2026-07-23.md
+./docs/devils_advocate_round_6_2026-07-23.md
+./docs/light_theme_audit_2026-06-20.md
+./docs/mimo_zcode_parity_2026-06-20.md
+./docs/provider_cascade_api_probe.md
+./mimo_settings_full_overhaul_2026-07-23.md
+./plans/1.md
+./plans/1_parity.md
+=== DOCUMENT COUNTS ===
+71
+10
+=== SOURCE/TEST COUNTS ===
+185
+189
+=== RECENT COMMITS ===
+[33m8191543[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Make Auto Free model catalog compact
+[33mecbf9a7[m Purge stale model labels and restore accordion selection
+[33md0a624e[m Harden web discovery and isolate remote browser chats
+[33m06eb37e[m Add independent acceptance audit of requested features
+[33mf0d8f25[m Add per-model parameters, refresh-before-retry and named web sessions
+[33m30bf449[m Discover all web models and isolate browser chats
+[33m1c6cb9b[m Make web model and effort injection non-blocking
+[33m47a82b5[m Improve compact sidebar and provider model UX
+[33ma16a56c[m Use explicit single semantic version bump
+[33mb33c9ea[m Remove redundant await in AI model detection
+[33ma6a99e6[m Remove constant test warning
+[33m3070a49[m Update provider type regression expectation
+[33mf39903f[m Preflight web sessions before browser send
+[33m20548da[m Fix background web send and remaining UX issues
+[33mf0f1ea2[m Route temporary project directories to project databases
+[33mebb93b9[m Avoid Swift 6 captured model warnings
+[33me6eedf2[m Fix Swift 6 model settings build errors
+[33m5e06ea7[m Add OpenCode Zen provider preset
+[33meda08a6[m Fix provider settings and model workspace UX
+[33m4e02369[m Use anonymous OpenCode free catalog with model failover

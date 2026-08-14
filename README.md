@@ -33,18 +33,18 @@ in one native SwiftUI application.
 ## Status
 
 The current codebase has been audited screen-by-screen and tracked in the canonical feature
-spreadsheet (`docs/FEATURE_SPREADSHEET.csv`, 206 user stories):
+spreadsheet (`docs/FEATURE_SPREADSHEET.csv`, 250 user stories):
 
-- `188 PASS`
-- `8 PARTIAL`
+- `225 PASS`
+- `15 PARTIAL`
 - `5 MISSING`
 - `5 FUTURE`
 
-The send-chain recovery round added explicit coverage for web model/effort coherence, verified
-browser controls, embedded-browser stop, and mimo-auto feedback. The macOS UI/WebKit target
-requires macOS for the final runtime regression; the Linux-only sandbox cannot compile SwiftUI,
-AppKit, or WebKit. Incomplete behavior is intentionally marked in the canonical spreadsheet and
-is not presented as complete functionality.
+The send-chain recovery rounds added explicit coverage for web model/effort coherence, verified
+browser controls, embedded-browser stop, MiCoder Auto Free feedback, and startup connection
+readiness. The macOS UI/WebKit target requires macOS for the final runtime regression; the
+Linux-only sandbox cannot compile SwiftUI, AppKit, or WebKit. Incomplete behavior is intentionally
+marked `PARTIAL` in the canonical spreadsheet and is not presented as complete functionality.
 
 ## Requirements
 

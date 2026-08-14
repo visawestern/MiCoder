@@ -1,6 +1,6 @@
 # MiCoder — Feature Test Report (canonical)
 
-Date: 2026-08-13 · Method: every user story from `FEATURE_SPREADSHEET.csv` verified against actual code, per-screen checklists, and the full test suite (1849 tests, 262 suites at the last macOS baseline).
+Date: 2026-08-14 · Method: every user story from `FEATURE_SPREADSHEET.csv` is traced against actual code, per-screen checklists, regression tests, and available runtime evidence. The last reported macOS baseline was 1849 tests/262 suites; the current Linux Foundation harness is 72 tests/green, while the macOS SwiftUI/AppKit/WebKit target is unavailable in this sandbox.
 
 Canonical status source: `docs/FEATURE_SPREADSHEET.csv` (single spreadsheet — the /goal deliverable).
 This report documents the **errors found** (Phase 2), which Phase 3 fixes.
@@ -9,9 +9,10 @@ This report documents the **errors found** (Phase 2), which Phase 3 fixes.
 
 ## Baseline
 
-- Full test suite: `swift test` → 1849 tests in 262 suites, **all passing** after the 2026-08-10 routing/schema fixes.
-- Feature status rollup: 168 PASS · 13 PARTIAL · 10 MISSING · 5 FUTURE.
-- PASS features with NO automated test coverage (25 — need manual/verification attention): APP-01..04, SID-02..10, SID-12..18, SID-21, CON-02/03/05, INP-07, SRCH-03. These are UI wiring claims verified by code reading in this report, not by unit tests.
+- Available Foundation-only regression harness: `swift test --parallel` → **72 tests / 72 passed** after the Round 49 startup contract.
+- Full macOS target: **not runnable here** because SwiftUI, AppKit, and WebKit are unavailable on Linux; no target-runtime PASS is claimed from this environment.
+- Canonical feature status rollup: **225 PASS · 15 PARTIAL · 5 MISSING · 5 FUTURE** across 250 rows.
+- UI rows marked PASS are code/source-level claims unless a macOS runtime result is explicitly recorded. This distinction is now carried into the App Shell checklist and Round 49 evidence.
 
 ---
 
@@ -403,3 +404,66 @@ The provider-card detected-model accordion now has direct row selection as well 
 The previous web-accordion correction did not change the separate MiCoder Auto Free catalog surface. That gap is now corrected explicitly. The Auto Free settings section no longer renders every free model as a vertical list in the main card. It shows one compact selected-model summary row, opens a menu containing every currently eligible free model with ID and status, and keeps lock/unlock as a separate action for the selected model only. Selecting a menu item persists the model and updates the active provider selection.
 
 An adversarial source check now protects the compact contract (`Live free models`, `Choose from list`, menu switching and `Switch free model`). `MODEL-19` in the canonical registry is marked `PARTIAL` until the live catalog and macOS visual hit-target behavior are verified on the user's Mac.
+
+
+## Round 49 (2026-08-14) — App Shell startup readiness and documentation drift
+
+### Scope
+
+Round 49 restarted the audit at the first checklist item instead of continuing directly with web
+providers. The first chain was traced manually from `MiCoderApp.body` and `ContentView.task` through
+provider loading, health checking, session loading, model loading, provider-option construction and
+composer consumption. The repository document index was rebuilt for the current 71 project documents. The audit also compared README totals and branding against the canonical 250-row CSV.
+
+### Confirmed defect and cause chain
+
+| Step | Observed behavior | Evidence | Result |
+|---|---|---|---|
+| Trigger | App opens and runs `ContentView.task` | `Sources/Views/ContentView.swift` | Confirmed |
+| Handler | `loadCustomProviders()` then `await appState.connectToServer()` | `ContentView.swift:58-65`, `MiCoderApp.swift:403-418` | Confirmed |
+| State mutation | `MimoServeConnectionManager.checkAvailability()` updated only its own `isConnected`; `AppState.serverConnected` remained false | `MimoServeConnectionManager.swift:25-41`, previous `connectToServer` body | **Defect** |
+| Consumer | `async let models: () = appState.serverConnected ? appState.loadModelsFromServer() : ()` read stale false | `ContentView.swift:61` | **Defect** |
+| Visible result | Healthy MiMo Serve could show no server model catalog after first launch; the route appeared offline despite a successful health response | derived from the complete chain | **Defect confirmed** |
+
+The offline branch itself remains intentionally non-blocking: local database sessions load without a
+server, and the built-in **MiCoder Auto Free** route remains available. The defect was specifically
+the online first-start path, not a justification for reintroducing the obsolete anonymous
+`MiMo-Auto` route.
+
+### TDD and fix
+
+A red regression suite was written before the production fix in
+`MiCoder/Tests/ServerConnectionReadinessLogicTests.swift`. It covers successful health, unhealthy
+health, missing/cancelled health, stale AppState state, and the model-loading gate. The full target
+could not be compiled in this Linux sandbox because the target imports SwiftUI/AppKit; this limitation
+is recorded rather than misreported as a test failure or pass.
+
+The pure Foundation contract `ServerConnectionReadinessLogic` was then added and mirrored into the
+Linux harness. `AppState.connectToServer()` now awaits the health check, derives the AppState flag
+from the completed manager result, and synchronizes before the startup task evaluates whether to load
+server models. Missing health fails closed. The Linux Foundation harness now reports **72/72 tests
+passed**, including the new `APP-01: startup connection readiness` suite.
+
+### Documentation corrections
+
+`README.md` was corrected from the stale 206-story/188-PASS rollup to the actual canonical
+**250 stories: 225 PASS, 15 PARTIAL, 5 MISSING, 5 FUTURE**. `docs/activity-checklists/01-app-shell.md`
+now contains all 14 App Shell controls/actions with trigger→handler→state→consumer chains,
+code-quality and task-fit scores, and explicit macOS runtime status. Its user story now names
+**MiCoder Auto Free** rather than the obsolete “free MiMo-Auto route”. `APP-07` was added to the
+canonical CSV for startup connection readiness.
+
+### Adversarial quality scores
+
+| Dimension | Before Round 49 | After Round 49 | Evidence boundary |
+|---|---:|---:|---|
+| Implementation quality for APP-07 | 55/100 | 95/100 | Pure contract + harness green; macOS target not buildable here |
+| Task adherence for APP-07 | 70/100 | 100/100 | Started at first checklist item; red test before fix; docs updated |
+| Overall App Shell code audit | 83/100 | 94/100 | Source-chain audit and Foundation evidence |
+| Overall App Shell target-runtime confidence | 0/100 | 0/100 | No macOS/WebKit runtime available; not promoted to PASS |
+
+### Commit evidence
+
+Round 49 is complete only after the documentation, source, regression tests and harness evidence
+are committed and pushed. The commit hash is recorded in the next audit inventory after the Git
+operation; no runtime claim is inferred from a clean source diff alone.
