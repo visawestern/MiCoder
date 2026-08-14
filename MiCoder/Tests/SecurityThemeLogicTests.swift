@@ -582,7 +582,10 @@ struct MimoServeErrorTests {
     func client409MapsToSessionBusy() {
         // This mirrors the 409 mapping in MimoServeClient.sendMessage.
         let statusCode = 409
-        let error: MimoServeError = statusCode == 409 ? .sessionBusy : .httpError(statusCode: statusCode)
+        func mapStatusCode(_ status: Int) -> MimoServeError {
+            status == 409 ? .sessionBusy : .httpError(statusCode: status)
+        }
+        let error = mapStatusCode(statusCode)
         let matchesSessionBusy: Bool
         if case .sessionBusy = error {
             matchesSessionBusy = true
