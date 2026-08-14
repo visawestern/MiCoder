@@ -47,6 +47,11 @@ struct WebModeSelectorView: View {
                     selectedThinking = first.rawValue
                 }
                 config.effort = WebEffort(rawValue: selectedThinking) ?? first
+            } else {
+                // Unsupported/not-detected models must not retain a stale effort
+                // value that could be injected on the next browser turn.
+                selectedThinking = "auto"
+                config.effort = .medium
             }
         }
         .onChange(of: selectedThinking) { newValue in

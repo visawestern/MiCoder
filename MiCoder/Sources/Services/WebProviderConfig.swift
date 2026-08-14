@@ -70,6 +70,14 @@ enum WebTransport: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum WebDiscoveryStatus: String, Codable, Equatable, Hashable {
+    case active
+    case inactive
+    case unsupported
+    case notDetected
+    case error
+}
+
 /// Full configuration of a web-chat provider (plan Раздел 12 Блок 1 п.4).
 /// A web provider model with its capabilities and available modes.
 struct WebProviderModel: Codable, Equatable, Identifiable, Hashable {
@@ -82,12 +90,20 @@ struct WebProviderModel: Codable, Equatable, Identifiable, Hashable {
     var supportsImageGeneration: Bool
     var supportsDeepResearch: Bool
     var supportsWebDev: Bool
+    var discoveryStatus: WebDiscoveryStatus
+    var isLiveDiscovered: Bool
+    var isSelectable: Bool
+    var discoveryMessage: String?
 
     init(name: String, description: String? = nil, availableModes: [String] = [],
          availableEfforts: [WebEffort] = [],
          parameterProfile: WebModelParameterProfile = WebModelParameterProfile(),
          supportsImageGeneration: Bool = false, supportsDeepResearch: Bool = false,
-         supportsWebDev: Bool = false) {
+         supportsWebDev: Bool = false,
+         discoveryStatus: WebDiscoveryStatus = .notDetected,
+         isLiveDiscovered: Bool = false,
+         isSelectable: Bool = true,
+         discoveryMessage: String? = nil) {
         self.name = name
         self.description = description
         self.availableModes = availableModes
@@ -96,11 +112,16 @@ struct WebProviderModel: Codable, Equatable, Identifiable, Hashable {
         self.supportsImageGeneration = supportsImageGeneration
         self.supportsDeepResearch = supportsDeepResearch
         self.supportsWebDev = supportsWebDev
+        self.discoveryStatus = discoveryStatus
+        self.isLiveDiscovered = isLiveDiscovered
+        self.isSelectable = isSelectable
+        self.discoveryMessage = discoveryMessage
     }
 
     private enum CodingKeys: String, CodingKey {
         case name, description, availableModes, availableEfforts, parameterProfile
         case supportsImageGeneration, supportsDeepResearch, supportsWebDev
+        case discoveryStatus, isLiveDiscovered, isSelectable, discoveryMessage
     }
 
     init(from decoder: Decoder) throws {
@@ -113,6 +134,10 @@ struct WebProviderModel: Codable, Equatable, Identifiable, Hashable {
         supportsImageGeneration = try container.decodeIfPresent(Bool.self, forKey: .supportsImageGeneration) ?? false
         supportsDeepResearch = try container.decodeIfPresent(Bool.self, forKey: .supportsDeepResearch) ?? false
         supportsWebDev = try container.decodeIfPresent(Bool.self, forKey: .supportsWebDev) ?? false
+        discoveryStatus = try container.decodeIfPresent(WebDiscoveryStatus.self, forKey: .discoveryStatus) ?? .notDetected
+        isLiveDiscovered = try container.decodeIfPresent(Bool.self, forKey: .isLiveDiscovered) ?? false
+        isSelectable = try container.decodeIfPresent(Bool.self, forKey: .isSelectable) ?? true
+        discoveryMessage = try container.decodeIfPresent(String.self, forKey: .discoveryMessage)
     }
 }
 
@@ -233,7 +258,7 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
     /// All models: auto-detected + explicitly configured. Vendor catalog data is
     /// intentionally not included because it goes stale independently of login.
     var allModels: [String] {
-        var names = discoveredModels.map { $0.name }
+        var names = discoveredModels.filter(\.isSelectable).map { $0.name }
         names.append(contentsOf: manuallyAddedModels)
         return Array(Set(names)).sorted()
     }

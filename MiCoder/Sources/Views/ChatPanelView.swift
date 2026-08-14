@@ -1068,13 +1068,6 @@ struct ChatPanelView: View {
         let refreshKey = "\(effectiveConfig.id)|\(projectID)|\(chatID)"
         webCatalogRefreshKeys.remove(refreshKey)
         let webView = appState.webView(for: effectiveConfig, projectID: projectID, chatID: chatID)
-        appState.recordWebBrowserAction(action: "send_started",
-                                        config: effectiveConfig,
-                                        projectID: projectID,
-                                        chatID: chatID,
-                                        modelID: effectiveConfig.selectedModel,
-                                        effort: appState.selectedWebEffort,
-                                        detail: "WKWebView background send")
         // Resolve vendor-specific selectors from the catalog.
         let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: effectiveConfig.vendor.id)
         let selectors = WebVendorSelectors(
@@ -1101,16 +1094,6 @@ struct ChatPanelView: View {
             let alreadyOnVendorPage = webView.url?.host != nil && webView.url?.host == targetHost
             if !alreadyOnVendorPage {
                 try await bridge.navigate(to: effectiveConfig.chatURL)
-            }
-
-            // If the app session already has a title, try to select the matching
-            // vendor chat from its visible conversation list. This is bounded and
-            // best-effort: a provider may not expose a stable chat list selector.
-            if let chatTitle = appState.selectedSession?.title,
-               !chatTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                let chatSelectors = "[data-testid*='conversation'], [data-testid*='chat'], nav a, nav button, [role='listitem'], li"
-                _ = try? await bridge.clickByText(selector: chatSelectors, text: chatTitle)
-                await bridge.wait(ms: 250)
             }
 
             // Wait for chat interface to be ready (input element present).
@@ -1166,17 +1149,49 @@ struct ChatPanelView: View {
         let driver = WebChatDriver(bridge: bridge, executor: executor, selectors: selectors,
                                    config: effectiveConfig, projectRoot: workspacePath, accessLevel: appState.accessLevel)
 
-        // Send the tool-protocol preamble only on the first turn of a session
-        // (audit P2); later turns continue the same web conversation.
-        let isFirst = appState.webSessionIsFirstTurn(effectiveConfig.id)
-        appState.markWebSessionStarted(effectiveConfig.id)
-        await driver.runTurn(userMessage: text, isFirstMessage: isFirst) { event in
+        let remoteMapping: WebRemoteChatMapping
+        do {
+            remoteMapping = try await bindWebRemoteChat(driver: driver,
+                                                        bridge: bridge,
+                                                        config: effectiveConfig,
+                                                        projectID: projectID,
+                                                        chatID: chatID)
+        } catch {
+            appState.recordWebBrowserAction(action: "remote_chat_binding_failed",
+                                            config: effectiveConfig,
+                                            projectID: projectID,
+                                            chatID: chatID,
+                                            modelID: effectiveConfig.selectedModel,
+                                            effort: appState.selectedWebEffort,
+                                            detail: error.localizedDescription)
+            messageStore.update(id: assistantID) { m in
+                m.content = "Web chat was not sent: \(error.localizedDescription)"
+                m.isFinished = true
+                m.isStreaming = false
+            }
+            finishWebTurn()
+            return
+        }
+        appState.recordWebBrowserAction(action: "send_started",
+                                        config: effectiveConfig,
+                                        projectID: projectID,
+                                        chatID: chatID,
+                                        modelID: effectiveConfig.selectedModel,
+                                        effort: appState.selectedWebEffort,
+                                        remoteChatID: remoteMapping.remoteChatID,
+                                        detail: "WKWebView background send bound to verified remote chat")
+
+        // Send the tool-protocol preamble only on the first mapped conversation;
+        // later turns continue exactly that remote conversation.
+        let isFirst = appState.webSessionIsFirstTurn(remoteMapping.key)
+        appState.markWebSessionStarted(remoteMapping.key)
+        let retrySignal = WebChatRetrySignal()
+        let presentEvent: (WebChatEvent) -> Void = { event in
+            if let reason = self.webCatalogRefreshReason(for: event) {
+                retrySignal.record(reason)
+            }
             Task { @MainActor in
-                // Round 8 P2: every non-suppressed event now mutates the
-                // assistant bubble, so statuses ("Session expired", captcha,
-                // iteration limit) are never lost to a transient buffer.
                 let presentation = WebChatEventPresenter.present(event)
-                let refreshReason = self.webCatalogRefreshReason(for: event)
                 switch WebChatTurnMutation.mutation(for: presentation) {
                 case .replaceText(let t, let finished, let streaming):
                     self.messageStore.update(id: assistantID) { m in
@@ -1188,33 +1203,48 @@ struct ChatPanelView: View {
                         m.content = m.content.isEmpty ? line : "\(m.content)\n\(line)"
                         m.isStreaming = false
                     }
-                    // A logout/session-restart means the next turn must re-seed.
                     if WebChatEventPresenter.blocksUntilUserAction(event) || line.contains("fresh session") {
-                        self.appState.resetWebSession(effectiveConfig.id)
+                        self.appState.resetWebSession(remoteMapping.key)
                     }
                 case .none:
                     break
                 }
-                if let refreshReason {
-                    self.scheduleWebCatalogRefreshIfNeeded(reason: refreshReason,
-                                                           key: refreshKey,
-                                                           config: effectiveConfig,
-                                                           projectID: projectID,
-                                                           chatID: chatID,
-                                                           assistantID: assistantID)
-                }
+            }
+        }
+        await driver.runTurn(userMessage: text, isFirstMessage: isFirst, emit: presentEvent)
+
+        // Injection failures happen before typing. Refresh the same live page
+        // once, reload the persisted model/profile snapshot, and retry exactly
+        // once; never create a second assistant bubble or a second remote chat.
+        var finalConfig = effectiveConfig
+        if retrySignal.take() != nil {
+            appendWebStatus(to: assistantID, line: "Refreshing model catalog before retry…")
+            self.appState.resetWebSession(remoteMapping.key)
+            _ = await appState.refreshWebModelsAndEffort(for: effectiveConfig,
+                                                         projectID: projectID,
+                                                         chatID: chatID)
+            let refreshedConfig = WebProviderStore.load().first(where: { $0.id == effectiveConfig.id }) ?? effectiveConfig
+            finalConfig = refreshedConfig
+            if !refreshedConfig.discoveredModels.isEmpty {
+                let retryDriver = WebChatDriver(bridge: bridge, executor: executor, selectors: selectors,
+                                                config: refreshedConfig, projectRoot: workspacePath,
+                                                accessLevel: appState.accessLevel)
+                await retryDriver.runTurn(userMessage: text, isFirstMessage: true, emit: presentEvent)
+            } else {
+                appendWebStatus(to: assistantID, line: "Model catalog refresh returned no selectable models; retry stopped.")
             }
         }
         appState.recordWebBrowserAction(action: "send_completed",
-                                        config: effectiveConfig,
+                                        config: finalConfig,
                                         projectID: projectID,
                                         chatID: chatID,
-                                        modelID: effectiveConfig.selectedModel,
+                                        modelID: finalConfig.selectedModel,
                                         effort: appState.selectedWebEffort,
+                                        remoteChatID: remoteMapping.remoteChatID,
                                         detail: "WebChatDriver completed")
         messageStore.update(id: assistantID) { message in
             let effortLabel = appState.selectedWebEffort?.displayName ?? "not supported"
-            message.content += "\n\nBrowser route: \(effectiveConfig.displayName) · chat \(chatID) · model \(effectiveConfig.selectedModel.isEmpty ? "auto" : effectiveConfig.selectedModel) · effort \(effortLabel)"
+            message.content += "\n\nBrowser route: \(finalConfig.displayName) · local chat \(chatID) · remote chat \(remoteMapping.remoteChatID) · model \(finalConfig.selectedModel.isEmpty ? "auto" : finalConfig.selectedModel) · effort \(effortLabel)"
         }
         finishWebTurn()
         #else
@@ -1222,6 +1252,48 @@ struct ChatPanelView: View {
             m.content = "Web providers require WebKit (macOS)."; m.isFinished = true; m.isStreaming = false
         }
         #endif
+    }
+
+    @MainActor
+    private func bindWebRemoteChat(driver: WebChatDriver,
+                                   bridge: WKWebViewBrowserBridge,
+                                   config: WebProviderConfig,
+                                   projectID: String,
+                                   chatID: String) async throws -> WebRemoteChatMapping {
+        let key = appState.webRemoteChatKey(for: config, projectID: projectID, chatID: chatID)
+        let providerHost = URL(string: config.chatURL)?.host
+        if var existing = appState.webRemoteChatMapping(for: config, projectID: projectID, chatID: chatID) {
+            guard URL(string: existing.remoteURL)?.host == providerHost else {
+                throw WebChatError.remoteChatBindingFailed("Stored remote chat belongs to another provider host; sending was blocked.")
+            }
+            let currentID = try? await driver.getCurrentChatID()
+            if currentID != existing.remoteChatID {
+                try await bridge.navigate(to: existing.remoteURL)
+                try? await bridge.waitForSelector(selector: driver.selectors.input, timeout: 10_000)
+            }
+            guard try await driver.getCurrentChatID() == existing.remoteChatID else {
+                throw WebChatError.remoteChatBindingFailed("The browser did not verify the stored remote chat UUID after navigation; sending was blocked.")
+            }
+            existing.lastUsedAt = Date()
+            existing.status = "verified"
+            appState.saveWebRemoteChatMapping(existing)
+            return existing
+        }
+
+        guard let newURL = try await driver.startNewSession(),
+              let remoteID = try await driver.getCurrentChatID(),
+              !remoteID.isEmpty,
+              let remoteHost = URL(string: newURL)?.host,
+              remoteHost == providerHost else {
+            throw WebChatError.remoteChatBindingFailed("The provider did not expose a verified remote chat UUID for this local project/chat. Sending was blocked to prevent context mixing.")
+        }
+        let mapping = WebRemoteChatMapping(key: key,
+                                            remoteChatID: remoteID,
+                                            remoteURL: newURL,
+                                            verifiedTitle: appState.selectedSession?.title)
+        appState.saveWebRemoteChatMapping(mapping)
+        try? await bridge.waitForSelector(selector: driver.selectors.input, timeout: 10_000)
+        return mapping
     }
 
     /// Returns a refresh reason only for failures that can be fixed by a live
@@ -1243,8 +1315,9 @@ struct ChatPanelView: View {
     }
 
     /// Refreshes the live model catalog once per provider/project/chat turn.
-    /// This is deliberately a recovery preparation step rather than an
-    /// automatic second send: a stale page must not receive duplicate prompts.
+    /// Generic string errors use this bounded background refresh as a diagnostic
+    /// fallback. Typed pre-send injection failures use the automatic one-shot
+    /// retry path above, so no duplicate prompt is created.
     @MainActor
     private func scheduleWebCatalogRefreshIfNeeded(reason: String,
                                                     key: String,

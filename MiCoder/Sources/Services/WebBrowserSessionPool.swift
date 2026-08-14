@@ -7,9 +7,17 @@ struct WebBrowserInstanceKey: Codable, Equatable, Hashable, Sendable {
     let projectID: String
     let chatID: String
     let providerID: String
+    let activeSessionID: String
+
+    init(projectID: String, chatID: String, providerID: String, activeSessionID: String = "default") {
+        self.projectID = projectID
+        self.chatID = chatID
+        self.providerID = providerID
+        self.activeSessionID = activeSessionID
+    }
 
     var storageKey: String {
-        [projectID, chatID, providerID]
+        [projectID, chatID, providerID, activeSessionID]
             .map { $0.isEmpty ? "-" : $0 }
             .joined(separator: "::")
     }
@@ -27,6 +35,7 @@ struct WebBrowserActionRecord: Codable, Equatable, Identifiable, Sendable {
     let providerName: String
     let modelID: String
     let effort: WebEffort?
+    let remoteChatID: String?
     let detail: String?
 
     init(id: String = UUID().uuidString,
@@ -38,6 +47,7 @@ struct WebBrowserActionRecord: Codable, Equatable, Identifiable, Sendable {
          providerName: String,
          modelID: String,
          effort: WebEffort?,
+         remoteChatID: String? = nil,
          detail: String? = nil) {
         self.id = id
         self.timestamp = timestamp
@@ -48,6 +58,7 @@ struct WebBrowserActionRecord: Codable, Equatable, Identifiable, Sendable {
         self.providerName = providerName
         self.modelID = modelID
         self.effort = effort
+        self.remoteChatID = remoteChatID
         self.detail = detail
     }
 }

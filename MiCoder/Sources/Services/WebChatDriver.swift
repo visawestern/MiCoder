@@ -34,12 +34,11 @@ struct WebChatDriver {
             // Inject the selected model and effort before sending, so the web
             // UI reflects the user's current selection (plan Раздел 13 п.5).
             if injectModelAndEffortEnabled {
-                do {
-                    try await injectModelAndEffort(emit: emit)
-                } catch {
-                    // Never send when the browser did not confirm the selected
-                    // model/effort. A silent fallback is worse than a clear retry.
-                    emit(.error(error.localizedDescription))
+                let injectionSucceeded = await injectModelAndEffort(emit: emit)
+                guard injectionSucceeded else {
+                    // Never type/send when the browser did not confirm the
+                    // selected model or required effort. The caller may refresh
+                    // the live catalog and retry this same local turn safely.
                     return
                 }
             }
@@ -256,16 +255,16 @@ struct WebChatDriver {
     /// Inject the currently selected model and effort into the web UI before
     /// sending a message. Reads the vendor selectors from the catalog; if the
     /// dropdowns are present, clicks them and selects the matching option.
-    /// Best-effort — failures are surfaced as events but don't abort the turn.
-    private func injectModelAndEffort(emit: (WebChatEvent) -> Void) async throws {
+    /// Returns false when a requested model/effort could not be confirmed. The
+    /// caller must abort before typing so a recovery retry cannot duplicate text.
+    private func injectModelAndEffort(emit: (WebChatEvent) -> Void) async -> Bool {
         // Resolve vendor-specific selectors from the catalog.
         guard let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id) else {
-            return
+            return true
         }
+        var injectionSucceeded = true
 
-        // Model selection is best-effort. A provider can redesign or hide its
-        // model control while the page remains perfectly able to send using its
-        // current model. Never block the user's message on a stale selector.
+        // Model selection requires exact confirmation before sending.
         if !config.selectedModel.isEmpty {
             let modelSelectors = (catalogEntry.modelButton?.split(separator: ",")
                 .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) } ?? [])
@@ -287,12 +286,8 @@ struct WebChatDriver {
                 await bridge.wait(ms: 500)
                 let modelText = config.selectedModel
                 let itemSelector = catalogEntry.modelItem ?? "[role='option'], [class*='option']"
-                let clicked = (try? await bridge.clickByText(selector: itemSelector, text: modelText)) ?? false
-                let fallbackClicked = clicked ? true : ((try? await bridge.clickByText(
-                    selector: "li, div, span, button, [role='option']",
-                    text: modelText
-                )) ?? false)
-                if fallbackClicked {
+                let clicked = (try? await bridge.clickVisibleTextExact(selector: itemSelector, text: modelText)) == true
+                if clicked {
                     // Let the model menu close and the provider commit its state
                     // before touching the independent effort control.
                     await bridge.wait(ms: 800)
@@ -301,20 +296,26 @@ struct WebChatDriver {
                     // in front of the composer, then continue with the page model.
                     try? await bridge.click(selector: openedSelector)
                     emit(.modelInjectionFailed(
-                        "Model '\(modelText)' was not found; sending with the model already active on the page."
+                        "Model '\(modelText)' was not found; injection was blocked before send."
                     ))
                 }
             } else {
+                injectionSucceeded = false
                 emit(.modelInjectionFailed(
-                    "The page model control is unavailable; sending with the model already active on the page."
+                    "The page model control is unavailable; model injection was blocked before send."
                 ))
             }
         }
 
-        // Effort is optional: many vendor pages have no thinking selector or
-        // expose it only for specific models. Never block a normal send because
-        // an optional control is absent; only use it when live DOM confirms it.
-        if let effortLabel = effortLabel(for: config.effort) {
+        // Effort is optional: models without a live effort selector are not
+        // injected. If a requested effort selector exists but cannot confirm the
+        // choice, block before typing so recovery cannot duplicate a turn.
+        let selectedModelEfforts = config.discoveredModels.first(where: { $0.name == config.selectedModel })?.availableEfforts
+        let effortToInject: WebEffort? = {
+            guard let selectedModelEfforts else { return config.effort }
+            return selectedModelEfforts.contains(config.effort) ? config.effort : nil
+        }()
+        if let effortLabel = effortToInject.flatMap(effortLabel) {
             let selectors = (catalogEntry.effortDropdown?.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) } ?? [])
                 .filter { !$0.isEmpty }
             var anySuccess = false
@@ -328,12 +329,8 @@ struct WebChatDriver {
                     try? await bridge.waitForSelector(selector: "[class*='effort'], [class*='thinking'], [role='option'], [class*='option']", timeout: 5000)
                     await bridge.wait(ms: 500)
                     let itemSelector = catalogEntry.effortItem ?? "[role='option'], [class*='option']"
-                    let clicked = (try? await bridge.clickByText(selector: itemSelector, text: effortLabel)) ?? false
-                    let fallbackClicked = clicked ? true : ((try? await bridge.clickByText(
-                        selector: "li, div, span, button, [role='option']",
-                        text: effortLabel
-                    )) ?? false)
-                    guard fallbackClicked else {
+                    let clicked = (try? await bridge.clickVisibleTextExact(selector: itemSelector, text: effortLabel)) == true
+                    guard clicked else {
                         lastError = "effort option not found"
                         continue
                     }
@@ -346,12 +343,68 @@ struct WebChatDriver {
                 }
             }
             if foundControl && !anySuccess {
+                injectionSucceeded = false
                 emit(.effortInjectionFailed(
                     L.t(AppLocalizationKey.locWebEffortNote)
-                        .replacingOccurrences(of: "{0}", with: lastError.isEmpty ? "effort option not found; sending with the current page setting" : lastError)
+                        .replacingOccurrences(of: "{0}", with: lastError.isEmpty ? "effort option not found; effort injection was blocked before send" : lastError)
                 ))
             }
         }
+
+        // Parameters are optional vendor controls. Apply only the user's saved
+        // overrides and only when discovery identified matching live controls;
+        // absence never blocks a normal send.
+        if let model = config.discoveredModels.first(where: { $0.name == config.selectedModel }) {
+            await injectParameters(ModelCallParametersStore.parameters(for: config.selectedModel),
+                                   profile: model.parameterProfile)
+        }
+        return injectionSucceeded
+    }
+
+    private func injectParameters(_ parameters: ModelCallParameters,
+                                  profile: WebModelParameterProfile) async {
+        guard parameters.isCustomized, !profile.availableKeys.isEmpty else { return }
+        let fragment = ModelCallParametersStore.requestFragment(parameters)
+        guard let data = try? JSONSerialization.data(withJSONObject: fragment),
+              let json = String(data: data, encoding: .utf8) else { return }
+        let script = """
+        (function(){
+          const values = \(json);
+          const visible = el => {
+            const s = getComputedStyle(el), r = el.getBoundingClientRect();
+            return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+          };
+          const nodes = Array.from(document.querySelectorAll('input, textarea, select, [role=spinbutton], [role=slider]')).filter(visible);
+          const aliases = {
+            temperature: /temperature|temp/i,
+            max_tokens: /max.?tokens?|max.?output|token.?limit/i,
+            top_p: /top.?p/i,
+            system: /system.?prompt/i
+          };
+          let applied = 0;
+          Object.keys(values).forEach(key => {
+            if (!aliases[key]) return;
+            const el = nodes.find(node => {
+              const label = ((node.getAttribute('name') || '') + ' ' + (node.getAttribute('aria-label') || '') + ' ' + (node.id || '') + ' ' + (node.innerText || '')).toLowerCase();
+              return aliases[key].test(label);
+            });
+            if (!el) return;
+            const value = String(values[key]);
+            if (el.tagName.toLowerCase() === 'textarea' || el.tagName.toLowerCase() === 'input') {
+              const proto = el.tagName.toLowerCase() === 'textarea' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+              const descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
+              if (descriptor && descriptor.set) descriptor.set.call(el, value); else el.value = value;
+            } else {
+              el.setAttribute('data-micoder-value', value);
+            }
+            el.dispatchEvent(new Event('input', {bubbles: true}));
+            el.dispatchEvent(new Event('change', {bubbles: true}));
+            applied += 1;
+          });
+          return applied;
+        })();
+        """
+        _ = try? await bridge.evaluateJS(script)
     }
 
     /// Start a new chat session by clicking the "New Chat" button.
@@ -361,14 +414,20 @@ struct WebChatDriver {
             return nil
         }
 
-        // Try each "New Chat" text variant until one works
+        // Try exact interactive controls only. A fuzzy div click can select a
+        // history row or page heading and silently keep the old remote chat.
+        let beforeURL = try? await bridge.currentURL()
+        let beforeID = try? await getCurrentChatID()
         let newChatTexts = catalogEntry.newChatTexts ?? ["New Chat", "Новый чат", "Начать", "新对话"]
         for text in newChatTexts {
-            let clicked = (try? await bridge.clickByText(selector: "button, a, div", text: text)) ?? false
-            if clicked {
-                await bridge.wait(ms: 2000)
-                return try await bridge.currentURL()
-            }
+            let clicked = (try? await bridge.clickVisibleTextExact(selector: "button, a, [role='button'], [role='menuitem']", text: text)) ?? false
+            guard clicked else { continue }
+            await bridge.wait(ms: 2000)
+            let afterURL = try await bridge.currentURL()
+            let afterID = try? await getCurrentChatID()
+            guard afterURL != beforeURL || afterID != beforeID,
+                  afterID?.isEmpty == false else { continue }
+            return afterURL
         }
         return nil
     }
@@ -381,8 +440,11 @@ struct WebChatDriver {
         for pattern in patterns {
             if let range = url.range(of: pattern) {
                 let after = url[range.upperBound...]
-                let chatId = after.split(separator: "/").first.map(String.init) ?? String(after)
-                if !chatId.isEmpty { return chatId }
+                let pathPart = after.split(whereSeparator: { $0 == "/" || $0 == "?" || $0 == "#" }).first.map(String.init) ?? String(after)
+                let chatId = pathPart.trimmingCharacters(in: .whitespacesAndNewlines)
+                if chatId.count >= 4, chatId.rangeOfCharacter(from: .letters) != nil {
+                    return chatId
+                }
             }
         }
         return nil
@@ -396,8 +458,8 @@ struct WebChatDriver {
         // Wait for dropdown
         try await bridge.waitForSelector(selector: "div.model-item, [class*='model-item']", timeout: 5000)
         // Find and click matching model
-        let clicked = try await bridge.clickByText(
-            selector: "div.model-item, [class*='model-item']",
+        let clicked = try await bridge.clickVisibleTextExact(
+            selector: "div.model-item, [class*='model-item'], [role='option'], [role='menuitem']",
             text: modelName
         )
         if !clicked {
@@ -510,6 +572,7 @@ enum WebChatError: LocalizedError {
     case responseTimeout
     case noModelSelector
     case noSession
+    case remoteChatBindingFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -522,6 +585,7 @@ enum WebChatError: LocalizedError {
         case .responseTimeout: return "The browser did not confirm a new response after submit. The message may not have been sent; check the web page/session and retry."
         case .noModelSelector: return "No model selector configured for this vendor"
         case .noSession: return "No active web session"
+        case .remoteChatBindingFailed(let message): return message
         }
     }
 }

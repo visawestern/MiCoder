@@ -1123,7 +1123,8 @@ class AppState: ObservableObject {
         let key = WebBrowserInstanceKey(
             projectID: projectID ?? selectedWorkspace?.id ?? "global",
             chatID: chatID ?? selectedSession?.id ?? "provider-default",
-            providerID: config.id
+            providerID: config.id,
+            activeSessionID: config.activeSessionID ?? WebSessionManager.defaultSessionID
         ).storageKey
         if let existing = webViews[key] {
             webViewLastUsed[key] = Date()
@@ -1149,6 +1150,7 @@ class AppState: ObservableObject {
                                 chatID: String? = nil,
                                 modelID: String? = nil,
                                 effort: WebEffort? = nil,
+                                remoteChatID: String? = nil,
                                 detail: String? = nil) {
         let record = WebBrowserActionRecord(
             action: action,
@@ -1158,9 +1160,38 @@ class AppState: ObservableObject {
             providerName: config.displayName,
             modelID: modelID ?? config.selectedModel,
             effort: effort,
+            remoteChatID: remoteChatID,
             detail: detail
         )
         webBrowserActionJournal = WebBrowserActionJournal.append(record, defaults: defaults)
+    }
+
+    @MainActor
+    func webRemoteChatKey(for config: WebProviderConfig,
+                          projectID: String,
+                          chatID: String) -> WebRemoteChatKey {
+        WebRemoteChatKey(providerID: config.id,
+                         activeSessionID: config.activeSessionID ?? WebSessionManager.defaultSessionID,
+                         projectID: projectID,
+                         localChatID: chatID)
+    }
+
+    @MainActor
+    func webRemoteChatMapping(for config: WebProviderConfig,
+                              projectID: String,
+                              chatID: String) -> WebRemoteChatMapping? {
+        WebRemoteChatStore.mapping(for: webRemoteChatKey(for: config, projectID: projectID, chatID: chatID),
+                                   defaults: defaults)
+    }
+
+    @MainActor
+    func saveWebRemoteChatMapping(_ mapping: WebRemoteChatMapping) {
+        WebRemoteChatStore.upsert(mapping, defaults: defaults)
+    }
+
+    @MainActor
+    func clearWebRemoteChats(providerID: String, activeSessionID: String? = nil) {
+        WebRemoteChatStore.clear(providerID: providerID, activeSessionID: activeSessionID, defaults: defaults)
     }
 
     /// Stop the active browser generation for a provider. This is separate from
@@ -1246,8 +1277,16 @@ class AppState: ObservableObject {
             let discoveredEfforts = Array(Set(resolvedModels.flatMap(\.availableEfforts))).sorted { $0.rawValue < $1.rawValue }
             if !config.selectedModel.isEmpty {
                 let itemSelector = catalogEntry?.modelItem ?? "[role='option'], [class*='model'], li"
-                _ = try? await bridge.clickByText(selector: itemSelector, text: config.selectedModel)
-                await bridge.wait(ms: 250)
+                var restored = (try? await bridge.clickVisibleTextExact(selector: itemSelector, text: config.selectedModel)) == true
+                if !restored {
+                    for selector in ["[role='option']", "[role='menuitem']", "[class*='model-item']"] {
+                        if (try? await bridge.clickVisibleTextExact(selector: selector, text: config.selectedModel)) == true {
+                            restored = true
+                            break
+                        }
+                    }
+                }
+                if restored { await bridge.wait(ms: 250) }
             }
             var updated = config
             updated.discoveredModels = resolvedModels
@@ -1259,7 +1298,7 @@ class AppState: ObservableObject {
             if selectedProviderID == "web:\(config.id)" {
                 selectProvider(selectedProviderID, persistPreference: false)
             }
-            let count = found.count
+            let count = resolvedModels.count
             let plural = count == 1 ? "" : "s"
             return String(format: L.t(AppLocalizationKey.locWebLoadedModels), count, plural, config.displayName)
         } catch {
@@ -1331,14 +1370,20 @@ class AppState: ObservableObject {
         #endif
     }
 
-    /// Refresh both models and effort levels for a web provider.
+    /// Refresh the complete model capability snapshot. `refreshWebModels` already
+    /// probes effort and parameter controls for every validated model; calling
+    /// the older provider-global effort probe afterwards would overwrite the
+    /// atomic per-model result with an ambiguous union.
     @MainActor
     func refreshWebModelsAndEffort(for config: WebProviderConfig,
                                    projectID: String? = nil,
                                    chatID: String? = nil) async -> (modelsMsg: String, effortMsg: String) {
         let modelsMsg = await refreshWebModels(for: config, projectID: projectID, chatID: chatID)
         let refreshedConfig = WebProviderStore.load().first(where: { $0.id == config.id }) ?? config
-        let effortMsg = await refreshWebEffort(for: refreshedConfig, projectID: projectID, chatID: chatID)
+        let profiledCount = refreshedConfig.discoveredModels.filter { !$0.availableEfforts.isEmpty }.count
+        let effortMsg = profiledCount == 0
+            ? "No per-model effort controls were confirmed."
+            : "Per-model effort detected for \(profiledCount) model(s)."
         return (modelsMsg, effortMsg)
     }
 
@@ -1350,6 +1395,10 @@ class AppState: ObservableObject {
     func webSessionIsFirstTurn(_ providerID: String) -> Bool { !webSessionStarted.contains(providerID) }
     func markWebSessionStarted(_ providerID: String) { webSessionStarted.insert(providerID) }
     func resetWebSession(_ providerID: String) { webSessionStarted.remove(providerID) }
+
+    func webSessionIsFirstTurn(_ key: WebRemoteChatKey) -> Bool { !webSessionStarted.contains(key.storageKey) }
+    func markWebSessionStarted(_ key: WebRemoteChatKey) { webSessionStarted.insert(key.storageKey) }
+    func resetWebSession(_ key: WebRemoteChatKey) { webSessionStarted.remove(key.storageKey) }
 
     /// Ids of enabled local providers (for send-routing / readiness checks).
     var localProviderIDs: [String] {

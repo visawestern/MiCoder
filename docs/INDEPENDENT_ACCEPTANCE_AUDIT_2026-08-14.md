@@ -116,3 +116,26 @@ MiCoder Auto Free имеет отдельный OpenCode Zen client, free allow-
 [7]: ../MiCoder/Sources/App/MiCoderApp.swift "Provider-global web session seed state"
 [8]: ../MiCoder/Sources/Services/MiCoderAutoFreeProvider.swift "Auto Free runtime failover"
 [9]: ../MiCoder/Sources/Services/NotificationService.swift "Auto Free notification severity"
+
+
+## 6. Round 46 adversarial recheck and correction
+
+The P0/P1 defects above were used as the implementation contract rather than silently reclassified. The live bridge now returns structured candidates, strict vendor grammar rejects UI noise, and recursive discovery requires exact expansion controls plus a changing DOM fingerprint. The added adversarial fake traverses two expansion levels and includes a Qwen Coder branch; Foundation tests pass.
+
+The catalog now separates `active`, `inactive`, `unsupported` and `notDetected` states, with an explicit `isSelectable` invariant. AI-assisted labels are strict-validator candidates only and remain unselectable until built-in DOM discovery confirms them. The provider card and settings surface use full-width accordion/row actions, and the parameter panel displays live profile keys, labels and numeric defaults separately from user overrides. Unsupported models no longer inherit a global effort list.
+
+Remote routing now uses a persisted mapping keyed by provider, active named session, project and local chat. New mappings require verified New Chat URL/ID change; existing mappings verify host and remote ID after navigation and fail closed on mismatch. The hidden browser instance key includes activeSessionID. Typed injection failures abort before typing; ChatPanel refreshes the same page once and retries once in the same remote mapping, so recovery cannot duplicate a prompt or mix contexts. Auto Free rate-limit notifications now use error severity and its stream path rejects selected models absent from the live free catalog.
+
+| Round-46 evidence | Result |
+|---|---|
+| Foundation web harness | **68/68 passed** |
+| Nested Qwen-style expansion and noise rejection | **Passed** |
+| Unselectable candidate filtering | **Passed** |
+| Named-session browser pool identity | **Passed** |
+| Remote mapping/journal persistence | **Passed** |
+| Failed injection blocks duplicate typing/send | **Passed** |
+| Adversarial source contract checks | **11/11 passed** |
+| Changed Swift parse and diff hygiene | **Passed** |
+| macOS/WebKit live runtime | **Still unverified in Linux** |
+
+The acceptance matrix now has **32 rows: 31 PARTIAL and 1 environment FAIL**. Code-level implementation and task-fit averages are **4.38/5**. These are not target-runtime scores: no row is promoted to 5/5 or PASS until the required Mac build and live Kimi/Qwen/WebKit checklist is executed. The original findings remain retained as historical evidence; this section records their Round-46 correction rather than deleting the audit trail.

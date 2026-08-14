@@ -116,8 +116,28 @@ final class MiCoderAutoFreeStore: ObservableObject {
     ) -> AsyncThrowingStream<String, Error> {
         return AsyncThrowingStream { continuation in
             Task {
+                if provider.models.isEmpty {
+                    _ = await refreshModels()
+                }
                 var attemptedModels = Set<String>()
                 var currentModel = provider.selectedModel
+                if !provider.models.contains(where: { $0.id == currentModel }) {
+                    guard !provider.isModelLocked,
+                          let replacement = provider.models.first else {
+                        continuation.finish(throwing: MiCoderAutoFreeError.noFreeModels)
+                        return
+                    }
+                    let previous = currentModel
+                    currentModel = replacement.id
+                    provider.selectedModel = currentModel
+                    provider.statusMessage = "Previously selected model \(previous) is unavailable; switched to \(currentModel)."
+                    defaults.set(currentModel, forKey: "com.micoder.autoFree.model")
+                    NotificationCenter.default.post(
+                        name: .miCoderAutoFreeModelSwitched,
+                        object: nil,
+                        userInfo: ["fromModel": previous, "toModel": currentModel, "reason": "model unavailable"]
+                    )
+                }
                 while true {
                     let modelParameters = ModelCallParametersStore.parameters(for: currentModel)
                     var effectiveMessages = messages

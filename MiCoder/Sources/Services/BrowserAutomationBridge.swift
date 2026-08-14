@@ -40,6 +40,10 @@ protocol BrowserAutomationBridge {
     func waitForSelector(selector: String, timeout: Int) async throws
     /// Read model names from a custom dropdown using a vendor-specific selector.
     func readModelItems(modelItemSelector: String) async throws -> [String]
+    /// Read visible, selectable leaf candidates with DOM metadata.
+    func readModelCandidates(modelItemSelector: String) async throws -> [WebModelDOMItem]
+    /// Click a visible element whose normalized text exactly matches the label.
+    @discardableResult func clickVisibleTextExact(selector: String, text: String) async throws -> Bool
     /// Evaluate JavaScript in the web view and return the result.
     func evaluateJS(_ script: String) async throws -> Any?
 }
@@ -73,8 +77,35 @@ extension BrowserAutomationBridge {
     /// Default: empty list (test fakes override).
     func readModelItems(modelItemSelector: String) async throws -> [String] { [] }
 
+    func readModelCandidates(modelItemSelector: String) async throws -> [WebModelDOMItem] {
+        let labels = try await readModelItems(modelItemSelector: modelItemSelector)
+        return labels.enumerated().map { index, label in
+            WebModelDOMItem(label: label,
+                            identity: "fallback-\(index)-\(label)",
+                            isVisible: true,
+                            isSelectable: true,
+                            isDisabled: false,
+                            isLeaf: true,
+                            sourceSelector: modelItemSelector)
+        }
+    }
+
+    @discardableResult func clickVisibleTextExact(selector: String, text: String) async throws -> Bool {
+        try await clickByText(selector: selector, text: text)
+    }
+
     /// Default: nil (test fakes override).
     func evaluateJS(_ script: String) async throws -> Any? { nil }
+}
+
+struct WebModelDOMItem: Codable, Equatable, Hashable {
+    let label: String
+    let identity: String
+    let isVisible: Bool
+    let isSelectable: Bool
+    let isDisabled: Bool
+    let isLeaf: Bool
+    let sourceSelector: String
 }
 
 struct BrowserCookie: Codable, Equatable {

@@ -97,6 +97,7 @@ struct WebProvidersSection: View {
         save()
         try? WebSessionManager.clear(providerId: cfg.id,
                                       homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+        appState.clearWebRemoteChats(providerID: cfg.id)
         if appState.selectedProviderID == "web:\(cfg.id)" {
             appState.selectProvider("")
         }
@@ -116,15 +117,17 @@ struct WebProvidersSection: View {
                                        homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
                                        sessionID: sessionID,
                                        sessionName: sessionName)
+        var refreshConfig = cfg
         if var updated = WebProviderStore.load().first(where: { $0.id == cfg.id }) {
             updated.activeSessionID = sessionID
             updated.activeSessionName = sessionName
             providers = WebProviderStore.upsert(updated, in: providers)
             save()
+            refreshConfig = updated
         }
-        // Round 9 A: refresh the real model list now that the session is live,
-        // so the picker isn't stuck showing hardcoded defaults until first send.
-        Task { await refreshModels(for: cfg) }
+        // Refresh the real model+capability list using the newly captured named
+        // session, never the old session from the login sheet's input config.
+        Task { await refreshModels(for: refreshConfig) }
     }
 
     /// Discover the vendor's real models from the page after connect (Round 9 A).
@@ -138,12 +141,12 @@ struct WebProvidersSection: View {
         #endif
     }
 
-    /// Refresh the available effort/thinking levels for a web provider.
+    /// Refresh the complete per-model effort and parameter profile snapshot.
     private func refreshEffort(for cfg: WebProviderConfig) async -> String? {
         #if canImport(WebKit)
-        let message = await appState.refreshWebEffort(for: cfg)
+        let result = await appState.refreshWebModelsAndEffort(for: cfg)
         providers = WebProviderStore.load()
-        return message
+        return "\(result.modelsMsg) \(result.effortMsg)"
         #else
         return L.t(AppLocalizationKey.locWebRequiresWebKit)
         #endif
@@ -262,15 +265,12 @@ Use clear headings, code examples, and cross-references.
                         .foregroundColor(Color.mimo.brand)
                         .help("Change login / capture another web session")
 
-                        // Compact model detection status
-                        if !isRefreshing && lastRefreshCount > 0 {
-                            Button(action: { showDiscoveredModels.toggle() }) {
-                                Text("\(lastRefreshCount) models")
-                                    .interfaceFont(size: 10)
-                                    .foregroundColor(Color.mimo.success)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Tap to see discovered models")
+                        // The complete catalog is rendered below as a full-width
+                        // accordion; the header only reports the current count.
+                        if !isRefreshing && !config.discoveredModels.isEmpty {
+                            Text("\(config.discoveredModels.count) detected")
+                                .interfaceFont(size: 10)
+                                .foregroundColor(Color.mimo.success)
                         } else if !isRefreshing && lastRefreshError != nil {
                             Label("Detection failed", systemImage: "exclamationmark.triangle")
                                 .interfaceFont(size: 10).foregroundColor(Color.mimo.warning)
@@ -326,7 +326,7 @@ Use clear headings, code examples, and cross-references.
                                 .interfaceFont(size: 12)
                         }
                         .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
-                        .help("Refresh effort/thinking levels from web UI")
+                        .help("Refresh per-model effort and parameter profiles from web UI")
 
                         if let err = lastRefreshError {
                             Text(err).interfaceFont(size: 10).foregroundColor(Color.mimo.error)
@@ -334,23 +334,6 @@ Use clear headings, code examples, and cross-references.
                     }
                 }
 
-                // Expandable discovered models list (compact)
-                if showDiscoveredModels && !config.discoveredModels.isEmpty {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(config.discoveredModels.prefix(8)) { model in
-                            Text(model.name).interfaceFont(size: 10).foregroundColor(Color.mimo.textMuted)
-                        }
-                        if config.discoveredModels.count > 8 {
-                            Text("+ \(config.discoveredModels.count - 8) more")
-                                .interfaceFont(size: 10).foregroundColor(Color.mimo.textMuted)
-                        }
-                    }
-                    .frame(maxWidth: 200)
-                    .padding(6)
-                    .background(Color.mimo.surface)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 0.5))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
                 Button(action: { showRemoveConfirmation = true }) {
                     Image(systemName: "trash").interfaceFont(size: 12).foregroundColor(Color.mimo.error)
                 }
@@ -361,6 +344,93 @@ Use clear headings, code examples, and cross-references.
                     Button("Cancel", role: .cancel) {}
                 } message: {
                     Text("The saved browser session and provider settings will be deleted.")
+                }
+            }
+
+            if !config.discoveredModels.isEmpty {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.16)) {
+                        showDiscoveredModels.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: showDiscoveredModels ? "rectangle.compress.vertical" : "rectangle.expand.vertical")
+                            .interfaceFont(size: 12, weight: .semibold)
+                            .foregroundColor(Color.mimo.brand)
+                        Image(systemName: "cube.fill")
+                            .interfaceFont(size: 11)
+                            .foregroundColor(Color.mimo.textMuted)
+                        Text("Detected models · \(config.discoveredModels.count)")
+                            .interfaceFont(size: 11, weight: .semibold)
+                            .foregroundColor(Color.mimo.textSecondary)
+                        Spacer()
+                        Text(showDiscoveredModels ? "Hide" : "Show")
+                            .interfaceFont(size: 10, weight: .medium)
+                            .foregroundColor(Color.mimo.brand)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.mimo.backgroundAlt)
+                    .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.mimo.border, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 7))
+                }
+                .buttonStyle(.plain)
+                .help(showDiscoveredModels ? "Hide all detected models" : "Show all detected models")
+
+                if showDiscoveredModels {
+                    VStack(alignment: .leading, spacing: 3) {
+                        ForEach(config.discoveredModels) { model in
+                            HStack(spacing: 7) {
+                                Circle()
+                                    .fill(model.discoveryStatus == .active ? Color.mimo.success : Color.mimo.warning)
+                                    .frame(width: 6, height: 6)
+                                Text(model.name)
+                                    .interfaceFont(size: 11, weight: .medium, design: .monospaced)
+                                    .foregroundColor(Color.mimo.textPrimary)
+                                    .lineLimit(1)
+                                Spacer(minLength: 8)
+                                Text(model.discoveryStatus == .active ? "Active" : model.discoveryStatus.rawValue)
+                                    .interfaceFont(size: 9, weight: .medium)
+                                    .foregroundColor(model.discoveryStatus == .active ? Color.mimo.success : Color.mimo.warning)
+                                if !model.availableEfforts.isEmpty {
+                                    Text("Effort")
+                                        .interfaceFont(size: 9)
+                                        .foregroundColor(Color.mimo.violet)
+                                } else {
+                                    Text("No effort")
+                                        .interfaceFont(size: 9)
+                                        .foregroundColor(Color.mimo.textMuted)
+                                }
+                                if !model.parameterProfile.isEmpty {
+                                    Text("Params")
+                                        .interfaceFont(size: 9)
+                                        .foregroundColor(Color.mimo.cyan)
+                                }
+                                if model.discoveryStatus != .active {
+                                    Button {
+                                        config.discoveredModels.removeAll { $0.id == model.id }
+                                        onSave()
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .interfaceFont(size: 10, weight: .semibold)
+                                            .foregroundColor(Color.mimo.error)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Remove this unavailable detection result")
+                                }
+                            }
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .background(Color.mimo.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(6)
+                    .background(Color.mimo.surface)
+                    .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.mimo.border, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 7))
                 }
             }
 
@@ -839,8 +909,13 @@ struct WebProviderLoginView: View {
             name = name.replacingOccurrences(of: "[`\\\"']", with: "", options: .regularExpression)
             guard !name.isEmpty, name.count <= 100,
                   !name.contains(":"), !name.contains("\n"),
-                  seen.insert(name.lowercased()).inserted else { return nil }
-            return WebProviderModel(name: name)
+                  let normalized = WebModelListParser.normalize(name, vendor: config.vendor),
+                  seen.insert(normalized.lowercased()).inserted else { return nil }
+            return WebProviderModel(name: normalized,
+                                    discoveryStatus: .notDetected,
+                                    isLiveDiscovered: false,
+                                    isSelectable: false,
+                                    discoveryMessage: "AI-assisted candidate; verify with built-in DOM detection before use.")
         }
     }
 
@@ -852,7 +927,10 @@ struct WebProviderLoginView: View {
         }
         detectResult = .found(models)
         var updated = config
-        updated.discoveredModels = models
+        var merged = updated.discoveredModels
+        let existingNames = Set(merged.map { $0.name.lowercased() })
+        merged.append(contentsOf: models.filter { !existingNames.contains($0.name.lowercased()) })
+        updated.discoveredModels = merged
         WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
         config = updated
     }

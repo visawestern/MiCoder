@@ -76,7 +76,9 @@ enum MiCoderAutoFreeNotificationLogic {
         let message = isRateLimit
             ? "\(fromModel) reached its rate limit. MiCoder switched to \(toModel)."
             : "\(fromModel) was unavailable (\(reason)). MiCoder switched to \(toModel)."
-        return AppNotification(title: title, message: message, type: .warning)
+        return AppNotification(title: title,
+                               message: message,
+                               type: isRateLimit ? .error : .warning)
     }
 }
 

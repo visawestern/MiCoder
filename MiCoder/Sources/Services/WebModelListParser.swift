@@ -38,14 +38,55 @@ enum WebModelListParser {
         for prefix in ["✓", "✔", "•", "- ", "* "] {
             if s.hasPrefix(prefix) { s.removeFirst(prefix.count); s = s.trimmingCharacters(in: .whitespaces) }
         }
-        // Drop obvious non-model UI entries.
-        let lower = s.lowercased()
-        let noise = ["new", "upgrade", "plus", "pro plan", "manage", "settings",
-                     "see all", "more", "beta", "coming soon", "sign in", "log in"]
-        if noise.contains(lower) { return nil }
-        // Must contain at least one letter and be reasonably short.
-        guard s.rangeOfCharacter(from: .letters) != nil, s.count <= 60 else { return nil }
+        guard isValidModelLabel(s, vendor: vendor) else { return nil }
         return s
+    }
+
+    /// Validate a label before it can enter a persisted web model catalog.
+    /// Raw text parsing is intentionally conservative; structured DOM discovery
+    /// additionally requires a visible selectable leaf option.
+    static func isValidModelLabel(_ raw: String, vendor: WebChatVendor) -> Bool {
+        let normalized = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        guard !normalized.isEmpty, normalized.count <= 80,
+              normalized.rangeOfCharacter(from: .letters) != nil else { return false }
+
+        let lower = normalized.lowercased()
+        let compact = lower.replacingOccurrences(of: "[^a-z0-9а-яё]", with: "", options: .regularExpression)
+        let exactNoise: Set<String> = [
+            "new", "upgrade", "plus", "pro plan", "manage", "settings", "see all",
+            "more", "more models", "expand more", "expand more models", "coming soon",
+            "beta", "sign in", "log in", "model", "model comparison", "all models",
+            "models", "model selector", "model settings", "select model", "choose model",
+            "быстрый", "быстро", "авто", "мышление", "глубокое мышление", "размышление",
+            "fast", "quick", "auto", "thinking", "deep thinking", "reasoning", "effort"
+        ]
+        guard !exactNoise.contains(lower) else { return false }
+        let rejectedFragments = [
+            "model comparison", "all models", "expand more", "show more", "more models",
+            "select model", "choose model", "upgrade", "settings", "sign in", "log in"
+        ]
+        guard !rejectedFragments.contains(where: { lower.contains($0) }) else { return false }
+        guard !compact.allSatisfy({ $0.isNumber }) else { return false }
+
+        switch vendor {
+        case .qwen:
+            // Qwen's selectable labels are Qwen/Qwen-Coder family names. This
+            // rejects page headings while retaining Qwen3.x and coder branches.
+            return lower.contains("qwen") || lower.contains("qwencoder")
+        case .kimi:
+            // Kimi exposes K2/K3/Kimi/Moonshot families; effort labels have no
+            // model-family marker and are rejected above.
+            return lower.contains("kimi") || lower.contains("moonshot")
+                || lower.range(of: "\\bk[0-9]", options: .regularExpression) != nil
+        case .chatgpt:
+            return isChatGPTModelLabel(normalized)
+        case .custom:
+            // Custom sites cannot be safely inferred from arbitrary text. Keep
+            // only labels that resemble a versioned/provider model ID.
+            return lower.range(of: "[a-z][a-z0-9._:-]*[0-9]", options: .regularExpression) != nil
+                || lower.contains("gpt") || lower.contains("claude") || lower.contains("llama")
+        }
     }
 
     /// ChatGPT's model switcher can contain feature actions beside model

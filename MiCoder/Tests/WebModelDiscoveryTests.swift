@@ -61,9 +61,9 @@ struct WebModelDiscoveryTests {
             vendor: .kimi
         )
 
-        #expect(models?.count == 3)
+        #expect(models?.count == 2)
         #expect(models?.contains { $0.name == "K3" } == true)
-        #expect(models?.contains { $0.name == "Быстрый" } == true)
+        #expect(models?.contains { $0.name == "Быстрый" } == false)
         #expect(models?.contains { $0.name == "K3 Swarm" } == true)
     }
 
@@ -74,9 +74,10 @@ struct WebModelDiscoveryTests {
             dropdownSelector: "div.current-model",
             vendor: .kimi
         )
-        #expect(models?.count == 5)
+        #expect(models?.count == 4)
         #expect(models?.contains { $0.name == "K3 Swarm Pro" } == true)
         #expect(models?.contains { $0.name == "K3 Vision" } == true)
+        #expect(models?.contains { $0.name == "Быстрый" } == false)
     }
 
     @Test func discoverClicksModelButtonFirst() async {
@@ -88,6 +89,19 @@ struct WebModelDiscoveryTests {
         )
 
         #expect(bridge.clickedSelectors.contains("div.current-model"))
+    }
+
+    @Test func discoverAllModelsTraversesTwoExpansionLevelsAndRejectsHeadings() async {
+        let bridge = FakeNestedQwenBridge()
+        let models = await WebModelDiscovery.discoverAllModels(
+            using: bridge,
+            dropdownSelector: "button.qwen-model",
+            vendor: .qwen,
+            maxExpansionDepth: 4
+        )
+        #expect(models?.map(\.name) == ["Qwen3.8-Max", "Qwen3-Coder", "Qwen3.5-Coder"])
+        #expect(models?.contains { $0.name == "Model" } == false)
+        #expect(bridge.expansionLevel == 2)
     }
 
     @Test func discoverReturnsNilWhenButtonNotFound() async {
@@ -103,14 +117,51 @@ struct WebModelDiscoveryTests {
     }
 }
 
+private final class FakeNestedQwenBridge: BrowserAutomationBridge {
+    var dropdownOpen = false
+    var expansionLevel = 0
+
+    func navigate(to url: String) async throws {}
+    func typeText(_ text: String, into selector: String, humanized: Bool) async throws {}
+    func click(selector: String) async throws {
+        if selector.contains("qwen-model") { dropdownOpen = true }
+    }
+    func clickByText(selector: String, text: String) async throws -> Bool {
+        if text == "Expand more models", expansionLevel < 2 {
+            expansionLevel += 1
+            return true
+        }
+        return text.hasPrefix("Qwen3")
+    }
+    func readText(selector: String) async throws -> String { "" }
+    func responseFingerprint(selector: String) async throws -> String { "level-\(expansionLevel)" }
+    func exists(selector: String) async throws -> Bool {
+        selector.contains("qwen-model") || (dropdownOpen && selector.contains("model-item"))
+    }
+    func pageText() async throws -> String { "" }
+    func currentURL() async throws -> String { "https://chat.qwen.ai/chat/test" }
+    func cookies() async throws -> [BrowserCookie] { [] }
+    func setCookies(_ cookies: [BrowserCookie]) async throws {}
+    func screenshot(selector: String?) async throws -> Data { Data() }
+    func wait(ms: Int) async {}
+    func waitForSelector(selector: String, timeout: Int) async throws {}
+    func readModelItems(modelItemSelector: String) async throws -> [String] {
+        guard dropdownOpen else { return [] }
+        switch expansionLevel {
+        case 0: return ["Model", "Qwen3.8-Max", "Expand more models"]
+        case 1: return ["Model", "Qwen3.8-Max", "Qwen3-Coder", "Expand more models"]
+        default: return ["Model", "Qwen3.8-Max", "Qwen3-Coder", "Qwen3.5-Coder"]
+        }
+    }
+}
+
 @Suite("WebModelListParser — parse dropdown text")
 struct WebModelListParserCustomTests {
 
     @Test func parseKimiStyleText() {
         let text = "Быстрый\nK3\nK3 Swarm"
         let models = WebModelListParser.parse(dropdownText: text, vendor: .kimi)
-        #expect(models.count == 3)
-        #expect(models[0] == "Быстрый")
+        #expect(models == ["K3", "K3 Swarm"])
     }
 
     @Test func parseFiltersNoise() {
@@ -120,6 +171,15 @@ struct WebModelListParserCustomTests {
         #expect(models.contains("o1-preview"))
         #expect(!models.contains("New"))
         #expect(!models.contains("Upgrade"))
+    }
+
+    @Test func rejectsModelHeadingsAndEffortLabels() {
+        let text = "Model\nModel Comparison\nAll models\nQwen3.8-Max\nQwen3.5-Coder\nDeep thinking\nFast"
+        let models = WebModelListParser.parse(dropdownText: text, vendor: .qwen)
+        #expect(models == ["Qwen3.8-Max", "Qwen3.5-Coder"])
+        #expect(!WebModelListParser.isValidModelLabel("Model", vendor: .qwen))
+        #expect(!WebModelListParser.isValidModelLabel("Model Comparison", vendor: .qwen))
+        #expect(!WebModelListParser.isValidModelLabel("Fast", vendor: .qwen))
     }
 
     @Test func parseDeduplicates() {

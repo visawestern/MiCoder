@@ -536,6 +536,12 @@ struct ModelSettingsProviderColumns: View {
         )
     }
 
+    private var selectedWebModel: WebProviderModel? {
+        guard !parameterModelID.isEmpty,
+              let web = webConfig(for: parameterProviderID) else { return nil }
+        return web.discoveredModels.first(where: { $0.name == parameterModelID })
+    }
+
     @ViewBuilder
     private var modelParametersPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -561,6 +567,10 @@ struct ModelSettingsProviderColumns: View {
                 .accessibilityLabel("Close model parameters")
             }
 
+            if let webModel = selectedWebModel {
+                webProfilePanel(webModel)
+            }
+
             if let meta = selectedParameterMetadata {
                 VStack(alignment: .leading, spacing: 7) {
                     Text("Provider metadata")
@@ -575,7 +585,7 @@ struct ModelSettingsProviderColumns: View {
                         metadataValue("Variants", meta.variants.map { String($0.count) } ?? "—")
                     }
                 }
-            } else {
+            } else if selectedWebModel == nil {
                 Text("This provider did not return model metadata. You can still set request overrides below.")
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
@@ -625,6 +635,37 @@ struct ModelSettingsProviderColumns: View {
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.mimo.brand.opacity(0.35), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    private func webProfilePanel(_ model: WebProviderModel) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text("Live web profile")
+                .interfaceFont(size: 11, weight: .semibold)
+                .foregroundColor(Color.mimo.textSecondary)
+            HStack(spacing: 6) {
+                Text(model.discoveryStatus == .active ? "Active" : model.discoveryStatus.rawValue)
+                    .interfaceFont(size: 10, weight: .medium)
+                    .foregroundColor(model.discoveryStatus == .active ? Color.mimo.success : Color.mimo.warning)
+                Text(model.parameterProfile.availableKeys.isEmpty ? "No parameter controls detected" : model.parameterProfile.availableKeys.joined(separator: ", "))
+                    .interfaceFont(size: 10, design: .monospaced)
+                    .foregroundColor(Color.mimo.textMuted)
+                    .lineLimit(2)
+            }
+            let detected = model.parameterProfile.values
+            Text("Detected defaults: temperature \(detected.temperature.map(String.init) ?? "—") · max tokens \(detected.maxTokens.map(String.init) ?? "—") · top P \(detected.topP.map(String.init) ?? "—")")
+                .interfaceFont(size: 10, design: .monospaced)
+                .foregroundColor(Color.mimo.textMuted)
+                .lineLimit(2)
+            if !model.parameterProfile.labels.isEmpty {
+                Text("Detected labels: \(model.parameterProfile.labels.joined(separator: ", "))")
+                    .interfaceFont(size: 10)
+                    .foregroundColor(Color.mimo.textMuted)
+                    .lineLimit(2)
+            }
+        }
+        .padding(8)
+        .background(Color.mimo.backgroundAlt.opacity(0.45))
+        .clipShape(RoundedRectangle(cornerRadius: 7))
     }
 
     private func metadataValue(_ title: String, _ value: String) -> some View {
@@ -1060,17 +1101,8 @@ struct ModelSettingsProviderColumns: View {
 
             // Three-dot menu
             Menu {
-                Button(action: {
-                    if !providerID.isEmpty {
-                        appState.selectProvider(providerID)
-                    }
-                    appState.selectModel(modelID)
-                }) {
-                    Label(L.t(AppLocalizationKey.locSelect), systemImage: isSelected ? "checkmark.circle.fill" : "circle")
-                }
-
-                Divider()
-
+                // Selection is performed by clicking the full model row.
+                // Keep the menu for parameters and secondary actions only.
                 Button(action: {
                     openParameters(modelID: modelID, providerID: providerID)
                 }) {
@@ -1129,6 +1161,13 @@ struct ModelSettingsProviderColumns: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .contentShape(Rectangle())
+        .onTapGesture {
+            guard !isSelected else { return }
+            if !providerID.isEmpty {
+                appState.selectProvider(providerID)
+            }
+            appState.selectModel(modelID)
+        }
     }
 
     // MARK: - OmniRouter / agentRouter support

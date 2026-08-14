@@ -354,3 +354,29 @@ Web login state is now named and independent per provider. `Change login` create
 The user requested an independent re-acceptance because the previous cumulative PASS claims did not match observed behavior. The audit reconstructed 32 major requirements from the complete conversation and traced each through trigger, handler, state, persistence, runtime consumer and visible result. The full matrix is `docs/../.acceptance/ACCEPTANCE_MATRIX.csv`; the narrative report is `docs/INDEPENDENT_ACCEPTANCE_AUDIT_2026-08-14.md`.
 
 The independent result is **14 FAIL and 18 PARTIAL**, with no target-runtime PASS. Average implementation quality is **2.25/5** and average task-fit quality is **1.31/5**. The most severe failures are strict web-model validation, complete Qwen nested-menu discovery, immediate per-model effort detection, persistent full detected-model list, removal of the redundant `Select` action, and remote web-chat UUID creation/persistence/reuse. The Foundation-only harness passes 55/55; the full package cannot compile in the Linux sandbox because SwiftUI/AppKit are unavailable, so no macOS/WebKit claim is promoted by this audit.
+
+## Round 46 (2026-08-14) — independent acceptance fixes with adversarial review
+
+Round 46 replaces the broad web-model scraping path with a structured DOM-candidate contract. The live bridge now returns visibility, selectability, disabled state, leaf status and DOM identity; the parser applies vendor-aware validation and rejects headings, actions, effort labels, model-comparison text and container aggregates. Nested expansion uses exact interactive-text clicks, bounded state fingerprints and repeated candidate validation. The regression suite covers Kimi noise rejection and a two-level Qwen branch containing a Qwen Coder model.
+
+Per-model capability handling now stores an explicit discovery status, `isSelectable` flag, effort state and live parameter profile. A model without an effort control no longer inherits a provider-global effort list. The provider card renders a full-width accordion with every discovered row, status, effort/profile indicators and removal for unavailable candidates. The settings row selects by direct click; the vertical-dots menu no longer contains `Select`/`Выбрать`. The parameter panel shows live-detected keys, labels and numeric defaults separately from editable user overrides.
+
+AI-assisted detection is now an explicitly non-authoritative mode. Its output passes the same vendor validator and is stored only as an unselectable review candidate; it cannot enter `allModels` or be injected into a chat until built-in DOM detection validates it. This prevents page text or an AI hallucination from becoming a sendable model.
+
+Web routing now persists `WebRemoteChatMapping` under provider, active named session, project and local chat IDs. First use requires an exact New Chat action followed by a changed and verified remote URL/ID; existing mappings navigate to the stored URL and fail closed if the host or UUID does not match. The action journal records `remoteChatID`. The hidden browser pool also includes `activeSessionID`, so named logins cannot reuse the same page and stale cookie context. Model/effort injection now aborts before typing when confirmation fails. ChatPanel performs one same-page catalog refresh, reloads the saved config and retries once in the same remote chat, preventing duplicate prompts and context mixing.
+
+MiCoder Auto Free now checks the selected model against the live free catalog before streaming and switches only when unlocked; rate-limit model switches use error severity so the existing prominent red banner remains semantically red.
+
+| Verification | Result |
+|---|---|
+| Foundation dynamic web harness | **68 tests passed** |
+| Two-level nested expansion with Qwen Coder branch | **Passed** |
+| UI noise rejection and `isSelectable` filtering | **Passed** |
+| Remote mapping persist/list/clear isolation | **Passed** |
+| Named-session browser pool identity | **Passed** |
+| Failed injection blocks typed/send duplicate | **Passed** |
+| Source adversarial checks | **11/11 passed** |
+| Changed Swift parse and `git diff --check` | **Passed** |
+| Full macOS build, live Qwen/Kimi WebKit discovery, two-account switching and real provider response | **Not available in Linux; requires macOS acceptance run** |
+
+The independent acceptance matrix was updated from the old unverified 14 FAIL/18 PARTIAL baseline. Current code-level implementation and task-fit averages are **4.38/5**, while runtime is intentionally not promoted above `UNVERIFIED` without macOS/WebKit evidence. `AUD-30` remains a genuine build/runtime FAIL in this environment, not a hidden PASS.

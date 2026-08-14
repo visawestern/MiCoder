@@ -73,16 +73,89 @@ struct WebBrowserRuntimeTests {
                                           sessionID: config.activeSessionID ?? "")?.cookies.first?.value == "second")
     }
 
+    @Test("Remote chat mappings isolate local chat, project and active login")
+    func remoteChatMappingIsolationAndRoundTrip() {
+        let suiteName = "WebRemoteChatStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let firstKey = WebRemoteChatKey(providerID: "qwen", activeSessionID: "work", projectID: "project-a", localChatID: "chat-1")
+        let secondKey = WebRemoteChatKey(providerID: "qwen", activeSessionID: "work", projectID: "project-a", localChatID: "chat-2")
+        let otherLoginKey = WebRemoteChatKey(providerID: "qwen", activeSessionID: "personal", projectID: "project-a", localChatID: "chat-1")
+        let first = WebRemoteChatMapping(key: firstKey, remoteChatID: "remote-1", remoteURL: "https://chat.qwen.ai/chat/remote-1", verifiedTitle: "First")
+        let second = WebRemoteChatMapping(key: secondKey, remoteChatID: "remote-2", remoteURL: "https://chat.qwen.ai/chat/remote-2", verifiedTitle: "Second")
+        let otherLogin = WebRemoteChatMapping(key: otherLoginKey, remoteChatID: "remote-3", remoteURL: "https://chat.qwen.ai/chat/remote-3", verifiedTitle: "Personal")
+
+        WebRemoteChatStore.upsert(first, defaults: defaults)
+        WebRemoteChatStore.upsert(second, defaults: defaults)
+        WebRemoteChatStore.upsert(otherLogin, defaults: defaults)
+
+        #expect(WebRemoteChatStore.mapping(for: firstKey, defaults: defaults)?.remoteChatID == "remote-1")
+        #expect(WebRemoteChatStore.mapping(for: secondKey, defaults: defaults)?.remoteChatID == "remote-2")
+        #expect(WebRemoteChatStore.mapping(for: otherLoginKey, defaults: defaults)?.remoteChatID == "remote-3")
+        WebRemoteChatStore.clear(providerID: "qwen", activeSessionID: "work", defaults: defaults)
+        #expect(WebRemoteChatStore.mapping(for: firstKey, defaults: defaults) == nil)
+        #expect(WebRemoteChatStore.mapping(for: otherLoginKey, defaults: defaults)?.remoteChatID == "remote-3")
+    }
+
+    @Test("Legacy model record migrates discovery status without rejecting valid model")
+    func legacyModelStatusMigration() throws {
+        let data = Data(#"{"name":"Qwen3.8-Max","availableModes":[],"availableEfforts":[],"supportsImageGeneration":false,"supportsDeepResearch":false,"supportsWebDev":false}"#.utf8)
+        let model = try JSONDecoder().decode(WebProviderModel.self, from: data)
+        #expect(model.name == "Qwen3.8-Max")
+        #expect(model.discoveryStatus == .notDetected)
+        #expect(model.isLiveDiscovered == false)
+    }
+
+    @Test("Journal records the verified remote chat ID")
+    func journalKeepsRemoteChatID() throws {
+        let suiteName = "WebBrowserJournalRemote.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let record = WebBrowserActionRecord(action: "send_started",
+                                            projectID: "project",
+                                            chatID: "local",
+                                            providerID: "qwen",
+                                            providerName: "Qwen",
+                                            modelID: "Qwen3.8-Max",
+                                            effort: .high,
+                                            remoteChatID: "remote-uuid",
+                                            detail: "verified")
+        let loaded = WebBrowserActionJournal.append(record, defaults: defaults)
+        #expect(loaded.last?.remoteChatID == "remote-uuid")
+    }
+
+    @Test("Unselectable discovered candidates stay visible but never enter sendable model list")
+    func unselectableCandidatesAreFilteredFromAllModels() {
+        let invalid = WebProviderModel(name: "Model Comparison",
+                                       discoveryStatus: .notDetected,
+                                       isLiveDiscovered: false,
+                                       isSelectable: false)
+        let active = WebProviderModel(name: "Qwen3-Coder",
+                                      discoveryStatus: .active,
+                                      isLiveDiscovered: true,
+                                      isSelectable: true)
+        let config = WebProviderConfig(vendor: .qwen,
+                                       selectedModel: "Qwen3-Coder",
+                                       discoveredModels: [invalid, active])
+        #expect(config.discoveredModels.count == 2)
+        #expect(config.allModels == ["Qwen3-Coder"])
+        #expect(WebProviderSelectionLogic.selectingModel("Model Comparison", in: config) == config)
+    }
+
     @Test("Browser instance identity isolates project, chat and provider")
     func instanceIdentity() {
         let first = WebBrowserInstanceKey(projectID: "project-a", chatID: "chat-1", providerID: "kimi")
         let same = WebBrowserInstanceKey(projectID: "project-a", chatID: "chat-1", providerID: "kimi")
         let differentChat = WebBrowserInstanceKey(projectID: "project-a", chatID: "chat-2", providerID: "kimi")
         let differentProject = WebBrowserInstanceKey(projectID: "project-b", chatID: "chat-1", providerID: "kimi")
+        let differentLogin = WebBrowserInstanceKey(projectID: "project-a", chatID: "chat-1", providerID: "kimi", activeSessionID: "work")
         #expect(first == same)
         #expect(first != differentChat)
         #expect(first != differentProject)
+        #expect(first != differentLogin)
         #expect(first.storageKey != differentChat.storageKey)
+        #expect(first.storageKey != differentLogin.storageKey)
     }
 
     @Test("Browser action journal is bounded and keeps routing metadata")

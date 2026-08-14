@@ -234,6 +234,28 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         return (try? await eval(js)) as? Bool ?? false
     }
 
+    @discardableResult
+    func clickVisibleTextExact(selector: String, text: String) async throws -> Bool {
+        let js = """
+        (function(){
+          var wanted = String(\(Self.jsString(text))).trim().toLowerCase().replace(/\\s+/g,' ');
+          var els = document.querySelectorAll(\(Self.jsString(selector)));
+          for (var i = 0; i < els.length; i++) {
+            var el = els[i];
+            var style = window.getComputedStyle(el);
+            if (style.display === 'none' || style.visibility === 'hidden') { continue; }
+            var actual = String(el.innerText || el.textContent || '').trim().toLowerCase().replace(/\\s+/g,' ');
+            if (actual !== wanted) { continue; }
+            var target = el.closest('[role="option"], [role="menuitem"], button, a, [tabindex]') || el;
+            target.click();
+            return true;
+          }
+          return false;
+        })();
+        """
+        return (try? await eval(js)) as? Bool ?? false
+    }
+
     func readText(selector: String) async throws -> String {
         let js = """
         (function(){
@@ -317,6 +339,40 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
               let data = json.data(using: .utf8),
               let arr = try? JSONSerialization.jsonObject(with: data) as? [String] else { return [] }
         return arr
+    }
+
+    func readModelCandidates(modelItemSelector: String) async throws -> [WebModelDOMItem] {
+        let selector = Self.jsString(modelItemSelector)
+        let js = """
+        (function(){
+          var els = document.querySelectorAll(\(selector));
+          var result = [];
+          for (var i = 0; i < els.length; i++) {
+            var el = els[i];
+            var style = window.getComputedStyle(el);
+            var rect = el.getBoundingClientRect();
+            var visible = style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+            var label = String(el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ');
+            var parent = el.closest('[role="option"], [role="menuitem"], button, a, li, [class*="model-item"], [class*="option"]');
+            var role = String(el.getAttribute('role') || (parent && parent.getAttribute('role')) || '').toLowerCase();
+            var tag = String(el.tagName || '').toLowerCase();
+            var parentTag = String(parent && parent.tagName || '').toLowerCase();
+            var cls = String((el.className && el.className.toString()) || '') + ' ' + String((parent && parent.className && parent.className.toString()) || '');
+            var selectable = role === 'option' || role === 'menuitem' || tag === 'button' || tag === 'option' || parentTag === 'button' || parentTag === 'a' || parentTag === 'li' || /model-item|model-option|option|model-selector/i.test(cls);
+            var nestedOptions = el.querySelectorAll('[role="option"], [role="menuitem"], [class*="model-item"]');
+            var leaf = nestedOptions.length === 0;
+            var disabled = el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true' || (parent && (parent.hasAttribute('disabled') || parent.getAttribute('aria-disabled') === 'true'));
+            var key = el.getAttribute('data-model-id') || el.getAttribute('data-id') || el.getAttribute('aria-label') || (parent && (parent.getAttribute('data-model-id') || parent.getAttribute('data-id') || parent.getAttribute('aria-label'))) || (label + '|' + cls.trim());
+            if (label && label.length <= 100) {
+              result.push({label: label, identity: String(key), isVisible: visible, isSelectable: selectable, isDisabled: disabled, isLeaf: leaf, sourceSelector: \(selector)});
+            }
+          }
+          return JSON.stringify(result);
+        })();
+        """
+        guard let json = (try? await eval(js)) as? String,
+              let data = json.data(using: .utf8) else { return [] }
+        return (try? JSONDecoder().decode([WebModelDOMItem].self, from: data)) ?? []
     }
 
     func evaluateJS(_ script: String) async throws -> Any? {

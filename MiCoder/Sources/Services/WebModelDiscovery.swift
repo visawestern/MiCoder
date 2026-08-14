@@ -188,46 +188,56 @@ enum WebModelDiscovery {
 
             guard modelBtnFound else { return nil }
 
-            // Click to open the vendor dropdown and read visible options from
-            // the actual page. The previous implementation only waited for
-            // Kimi's div.model-item, so Qwen/ChatGPT often returned nothing.
+            // Open the vendor dropdown and inspect structured visible leaf nodes.
             try await bridge.click(selector: dropdownSelector)
-            // Wait for vendor-specific dropdown items (not hardcoded div.model-item).
             try? await bridge.waitForSelector(selector: modelItemSelector, timeout: 5000)
 
-            var modelNames = (try? await bridge.readModelItems(modelItemSelector: modelItemSelector)) ?? []
-            if vendor == .qwen {
-                for selector in ["[role='option']", "[class*='model-item']", "li[class*='model']"] {
-                    let extra = (try? await bridge.readModelItems(modelItemSelector: selector)) ?? []
-                    modelNames.append(contentsOf: extra)
-                }
+            let candidateSelectors = [modelItemSelector,
+                                      "[role='option']",
+                                      "[role='menuitem']",
+                                      "[class*='model-item']"]
+            var candidates: [WebModelDOMItem] = []
+            for selector in candidateSelectors {
+                candidates.append(contentsOf: (try? await bridge.readModelCandidates(modelItemSelector: selector)) ?? [])
             }
-            modelNames.append(contentsOf: (try? await readVisibleTexts(using: bridge, selector: modelItemSelector)) ?? [])
-
-            var seen = Set<String>()
-            modelNames = modelNames
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
-            if vendor == .chatgpt && !includeAllModels {
-                modelNames = Array(modelNames.prefix(1))
-            }
-            if !modelNames.isEmpty {
-                return modelNames.map { WebProviderModel(name: $0) }
+            let validNames = validatedNames(candidates, vendor: vendor)
+            if !validNames.isEmpty {
+                let limited = vendor == .chatgpt && !includeAllModels ? Array(validNames.prefix(1)) : validNames
+                return limited.map { liveModel($0) }
             }
 
-            // Fallback: read raw text from the dropdown container.
+            // Text fallback is still strict; it cannot bypass the vendor validator.
             let text = try await bridge.readText(selector: dropdownSelector)
             let parsed = WebModelListParser.parse(dropdownText: text, vendor: vendor)
             if !parsed.isEmpty {
-                return parsed.map { WebProviderModel(name: $0) }
+                let limited = vendor == .chatgpt && !includeAllModels ? Array(parsed.prefix(1)) : parsed
+                return limited.map { liveModel($0) }
             }
 
-            // Last resort: try reading from universal selectors
             let universalText = try await bridge.readText(selector: fallbackItemSelector)
             let universalParsed = WebModelListParser.parse(dropdownText: universalText, vendor: vendor)
-            return universalParsed.isEmpty ? nil : universalParsed.map { WebProviderModel(name: $0) }
+            guard !universalParsed.isEmpty else { return nil }
+            let limited = vendor == .chatgpt && !includeAllModels ? Array(universalParsed.prefix(1)) : universalParsed
+            return limited.map { WebProviderModel(name: $0) }
         } catch {
             return nil
+        }
+    }
+
+    private static func liveModel(_ name: String) -> WebProviderModel {
+        WebProviderModel(name: name,
+                         discoveryStatus: .active,
+                         isLiveDiscovered: true)
+    }
+
+    private static func validatedNames(_ candidates: [WebModelDOMItem], vendor: WebChatVendor) -> [String] {
+        var seen = Set<String>()
+        return candidates.compactMap { candidate in
+            guard candidate.isVisible, candidate.isSelectable, !candidate.isDisabled, candidate.isLeaf,
+                  let name = WebModelListParser.normalize(candidate.label, vendor: vendor) else { return nil }
+            let key = name.lowercased()
+            guard seen.insert(key).inserted else { return nil }
+            return name
         }
     }
 
@@ -246,30 +256,42 @@ enum WebModelDiscovery {
             "Expand more models", "Expand more", "More models", "Show more models",
             "Ещё модели", "Показать ещё", "更多模型", "展开更多模型"
         ]
-        let menuSelector = "button, a, [role='button'], [role='menuitem'], li, div"
+        let expansionSelector = "button, a, [role='button'], [role='menuitem']"
         let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: vendor.id)
         let itemSelector = catalogEntry?.modelItem ?? "[role='option'], [class*='model'], [class*='option']"
+        let candidateSelectors = [itemSelector, "[role='option']", "[role='menuitem']", "[class*='model-item']"]
+        var attemptedStates = Set<String>()
 
         for _ in 0..<maxExpansionDepth {
-            var expanded = false
+            var progressed = false
             for label in expandLabels {
-                if (try? await bridge.clickByText(selector: menuSelector, text: label)) == true {
-                    expanded = true
-                    await bridge.wait(ms: 250)
+                let beforeFingerprint = (try? await bridge.responseFingerprint(selector: itemSelector)) ?? ""
+                let stateKey = "\(beforeFingerprint)|\(label.lowercased())"
+                guard attemptedStates.insert(stateKey).inserted else { continue }
+                guard (try? await bridge.clickVisibleTextExact(selector: expansionSelector, text: label)) == true else { continue }
+                await bridge.wait(ms: 350)
+
+                var candidates: [WebModelDOMItem] = []
+                for selector in candidateSelectors {
+                    candidates.append(contentsOf: (try? await bridge.readModelCandidates(modelItemSelector: selector)) ?? [])
+                }
+                let discovered = validatedNames(candidates, vendor: vendor)
+                var added = false
+                for name in discovered where seen.insert(name.lowercased()).inserted {
+                    names.append(name)
+                    added = true
+                }
+                let afterFingerprint = (try? await bridge.responseFingerprint(selector: itemSelector)) ?? ""
+                if added || afterFingerprint != beforeFingerprint {
+                    progressed = true
                     break
                 }
             }
-            guard expanded else { break }
-            let extra = (try? await bridge.readModelItems(modelItemSelector: itemSelector)) ?? []
-            for name in extra {
-                let normalized = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !normalized.isEmpty, seen.insert(normalized.lowercased()).inserted else { continue }
-                names.append(normalized)
-            }
+            guard progressed else { break }
         }
 
         guard !names.isEmpty else { return nil }
-        return names.map { WebProviderModel(name: $0) }
+        return names.map { liveModel($0) }
     }
 
     /// Probe effort after selecting each live model. A model with no visible
@@ -292,23 +314,45 @@ enum WebModelDiscovery {
             // visible menu still provides the empirical answer for this model.
             _ = try? await bridge.click(selector: dropdownSelector)
             await bridge.wait(ms: 250)
-            var selected = (try? await bridge.clickByText(selector: itemSelector, text: model.name)) == true
+            var selected = (try? await bridge.clickVisibleTextExact(selector: itemSelector, text: model.name)) == true
             if !selected {
-                selected = (try? await bridge.clickByText(selector: "button, [role='option'], li, div", text: model.name)) == true
+                for selector in ["[role='option']", "[role='menuitem']", "[class*='model-item']"] {
+                    if (try? await bridge.clickVisibleTextExact(selector: selector, text: model.name)) == true {
+                        selected = true
+                        break
+                    }
+                }
             }
             guard selected else {
-                result.append(model)
+                result.append(WebProviderModel(name: model.name,
+                                               description: model.description,
+                                               availableModes: model.availableModes,
+                                               availableEfforts: [],
+                                               parameterProfile: model.parameterProfile,
+                                               supportsImageGeneration: model.supportsImageGeneration,
+                                               supportsDeepResearch: model.supportsDeepResearch,
+                                               supportsWebDev: model.supportsWebDev,
+                                               discoveryStatus: .inactive,
+                                               isLiveDiscovered: model.isLiveDiscovered,
+                                               isSelectable: false,
+                                               discoveryMessage: "The live menu did not expose a selectable option for this model."))
                 continue
             }
             await bridge.wait(ms: 350)
-            let efforts: [WebEffort]
+            let effortProbe: [WebEffort]?
             if let effortSelector {
-                efforts = await discoverEffort(using: bridge,
-                                               effortDropdownSelector: effortSelector,
-                                               vendor: vendor) ?? []
+                effortProbe = await discoverEffort(using: bridge,
+                                                   effortDropdownSelector: effortSelector,
+                                                   vendor: vendor)
             } else {
-                efforts = []
+                effortProbe = nil
             }
+            let efforts = effortProbe ?? []
+            let effortStatus: WebDiscoveryStatus = {
+                guard effortSelector != nil else { return .unsupported }
+                guard effortProbe != nil else { return .notDetected }
+                return efforts.isEmpty ? .unsupported : .active
+            }()
             let parameterProfile = await discoverParameterProfile(using: bridge)
             let existingParameters = ModelCallParametersStore.parameters(for: model.name)
             if !existingParameters.isCustomized && parameterProfile.values.isCustomized {
@@ -321,7 +365,16 @@ enum WebModelDiscovery {
                                            parameterProfile: parameterProfile,
                                            supportsImageGeneration: model.supportsImageGeneration,
                                            supportsDeepResearch: model.supportsDeepResearch,
-                                           supportsWebDev: model.supportsWebDev))
+                                           supportsWebDev: model.supportsWebDev,
+                                           discoveryStatus: effortStatus,
+                                           isLiveDiscovered: true,
+                                           discoveryMessage: {
+                                               switch effortStatus {
+                                               case .unsupported: return "This model has no visible effort control."
+                                               case .notDetected: return "The effort control was expected but could not be read."
+                                               default: return nil
+                                               }
+                                           }()))
         }
         return result
     }

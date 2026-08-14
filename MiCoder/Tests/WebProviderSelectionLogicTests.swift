@@ -98,8 +98,8 @@ struct WebDriverSelectionGuardTests {
         stopButton: "button.stop"
     )
 
-    @Test("A failed model or effort injection reports status but does not block the send")
-    func failedModelInjectionDoesNotBlockSend() async {
+    @Test("A failed model or effort injection reports status and blocks duplicate send")
+    func failedModelInjectionBlocksSendUntilRefresh() async {
         let bridge = InjectionBridge(acceptsOption: false)
         let driver = WebChatDriver(
             bridge: bridge,
@@ -113,8 +113,8 @@ struct WebDriverSelectionGuardTests {
         )
         var events: [WebChatEvent] = []
         await driver.runTurn(userMessage: "hello", isFirstMessage: false) { events.append($0) }
-        #expect(bridge.typed.count == 1)
-        #expect(bridge.sendClicks == 1)
+        #expect(bridge.typed.count == 0)
+        #expect(bridge.sendClicks == 0)
         #expect(events.contains { event in
             if case .modelInjectionFailed = event { return true }
             return false
