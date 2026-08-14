@@ -82,7 +82,7 @@ enum WebDiscoveryStatus: String, Codable, Equatable, Hashable {
 /// A web provider model with its capabilities and available modes.
 struct WebProviderModel: Codable, Equatable, Identifiable, Hashable {
     var id: String { name }
-    let name: String
+    var name: String
     let description: String?
     var availableModes: [String]      // ["auto", "think", "fast", "image"]
     var availableEfforts: [WebEffort]
@@ -293,7 +293,36 @@ enum WebProviderStore {
               let providers = try? JSONDecoder().decode([WebProviderConfig].self, from: data) else {
             return []
         }
-        return providers
+        let sanitized = providers.map(sanitize)
+        if let sanitizedData = try? JSONEncoder().encode(sanitized), sanitizedData != data {
+            defaults.set(sanitizedData, forKey: storageKey)
+        }
+        return sanitized
+    }
+
+    /// Removes stale UI labels from catalogs persisted by older discovery
+    /// versions. The list remains visible only for validated model labels; an
+    /// invalid selected model is cleared rather than silently sent.
+    static func sanitize(_ config: WebProviderConfig) -> WebProviderConfig {
+        var updated = config
+        var seen = Set<String>()
+        updated.discoveredModels = config.discoveredModels.compactMap { original in
+            guard let normalized = WebModelListParser.normalize(original.name, vendor: config.vendor),
+                  seen.insert(normalized.lowercased()).inserted else { return nil }
+            var model = original
+            model.name = normalized
+            return model
+        }
+        updated.manuallyAddedModels = config.manuallyAddedModels.compactMap { raw in
+            guard let normalized = WebModelListParser.normalize(raw, vendor: config.vendor) else { return nil }
+            return normalized
+        }
+        updated.discoveredEffortLevels = Array(Set(updated.discoveredModels.flatMap(\.availableEfforts)))
+            .sorted { $0.rawValue < $1.rawValue }
+        if !updated.allModels.contains(updated.selectedModel) {
+            updated.selectedModel = updated.allModels.first ?? ""
+        }
+        return updated
     }
 
     static func upsert(_ config: WebProviderConfig, in providers: [WebProviderConfig]) -> [WebProviderConfig] {

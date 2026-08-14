@@ -380,3 +380,19 @@ MiCoder Auto Free now checks the selected model against the live free catalog be
 | Full macOS build, live Qwen/Kimi WebKit discovery, two-account switching and real provider response | **Not available in Linux; requires macOS acceptance run** |
 
 The independent acceptance matrix was updated from the old unverified 14 FAIL/18 PARTIAL baseline. Current code-level implementation and task-fit averages are **4.38/5**, while runtime is intentionally not promoted above `UNVERIFIED` without macOS/WebKit evidence. `AUD-30` remains a genuine build/runtime FAIL in this environment, not a hidden PASS.
+
+
+## Round 47 (2026-08-14) — purge stale UI labels and restore direct model selection
+
+The first checklist item had one remaining production gap even after strict discovery was implemented: providers already saved by an older build could still contain `Model` or `Model Comparison`, because validation ran only during a new detection pass. `WebProviderStore.load()` now sanitizes every decoded provider before returning it and persists the sanitized snapshot. Invalid labels are removed, duplicate names are normalized, invalid manually-added labels are removed, effort levels are rebuilt from valid model profiles, and a selected invalid model is replaced by the first valid selectable model or cleared.
+
+The provider-card detected-model accordion now has direct row selection as well as the settings catalog. Clicking an active validated row selects `web:<providerID>` and that model in `AppState`, highlights the selected row and leaves inactive/unverified candidates available only for review/removal. The settings vertical-dots menu retains Parameters, Copy info and provider-specific actions only; there is no Select/Choose action.
+
+| Verification | Result |
+|---|---|
+| Legacy `Model`/`Model Comparison` migration purge | **Passed** |
+| Foundation dynamic web harness | **69 tests passed** |
+| Strict parser and nested discovery regressions | **Passed** |
+| Provider/settings accordion source parse | **Passed** |
+| `Select`/`prefix(8)` source contract checks | **Passed** |
+| Live macOS WebKit verification | Still requires a real Mac run |

@@ -155,6 +155,7 @@ struct WebProvidersSection: View {
 
 /// Editable card for one web provider (plan Раздел 12 Блок 4 п.43-47).
 struct WebProviderCard: View {
+    @EnvironmentObject private var appState: AppState
     @Binding var config: WebProviderConfig
     let onSave: () -> Void
     let onLogin: () -> Void
@@ -422,8 +423,15 @@ Use clear headings, code examples, and cross-references.
                             }
                             .padding(.horizontal, 9)
                             .padding(.vertical, 5)
-                            .background(Color.mimo.surface)
+                            .background(appState.selectedProviderID == "web:\(config.id)" && appState.selectedModel == model.name ? Color.mimo.subtleFill : Color.mimo.surface)
+                            .overlay(RoundedRectangle(cornerRadius: 5).stroke(appState.selectedProviderID == "web:\(config.id)" && appState.selectedModel == model.name ? Color.mimo.brand.opacity(0.35) : Color.clear, lineWidth: 1))
                             .clipShape(RoundedRectangle(cornerRadius: 5))
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                guard model.isSelectable, model.discoveryStatus == .active else { return }
+                                appState.selectProvider("web:\(config.id)")
+                                appState.selectModel(model.name)
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

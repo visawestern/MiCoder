@@ -139,3 +139,12 @@ Remote routing now uses a persisted mapping keyed by provider, active named sess
 | macOS/WebKit live runtime | **Still unverified in Linux** |
 
 The acceptance matrix now has **32 rows: 31 PARTIAL and 1 environment FAIL**. Code-level implementation and task-fit averages are **4.38/5**. These are not target-runtime scores: no row is promoted to 5/5 or PASS until the required Mac build and live Kimi/Qwen/WebKit checklist is executed. The original findings remain retained as historical evidence; this section records their Round-46 correction rather than deleting the audit trail.
+
+
+## 7. Round 47 correction — stale persisted labels and direct accordion selection
+
+The first checklist item had one remaining gap: strict validation protected new detection, but older provider JSON could still contain `Model` or `Model Comparison`. `WebProviderStore.load()` now sanitizes decoded configurations before any provider card, settings list or composer consumes them. Invalid labels are removed, duplicates are normalized, effort levels are rebuilt from valid profiles and an invalid selected model is cleared or replaced by the first valid selectable model.
+
+The detected-model accordion in each provider card now supports direct selection of active validated rows. The selected row is highlighted and updates the active `web:<providerID>` plus model in `AppState`; inactive and AI-unverified rows cannot be selected and expose removal instead. The settings surface retains the full-width accordion and direct row click, while its vertical-dots menu has only Parameters, Copy info and provider-specific controls.
+
+Round-47 evidence: the legacy `Model`/`Model Comparison` migration test passes, the Foundation harness now passes **69/69**, all changed Swift files parse, and the 11 adversarial source checks remain green. Live macOS/WebKit discovery and visual hit-target verification still require the user's Mac, so the item is code-complete but not promoted to target-runtime PASS until that check is executed.

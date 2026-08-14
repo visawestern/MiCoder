@@ -125,6 +125,21 @@ struct WebBrowserRuntimeTests {
         #expect(loaded.last?.remoteChatID == "remote-uuid")
     }
 
+    @Test("Legacy persisted UI labels are purged before catalog rendering")
+    func legacyUiLabelsAreSanitized() {
+        let config = WebProviderConfig(vendor: .qwen,
+                                       selectedModel: "Model",
+                                       discoveredModels: [
+                                           WebProviderModel(name: "Model"),
+                                           WebProviderModel(name: "Model Comparison"),
+                                           WebProviderModel(name: "Qwen3.8-Max")
+                                       ])
+        let sanitized = WebProviderStore.sanitize(config)
+        #expect(sanitized.discoveredModels.map(\.name) == ["Qwen3.8-Max"])
+        #expect(sanitized.selectedModel == "Qwen3.8-Max")
+        #expect(!sanitized.allModels.contains("Model"))
+    }
+
     @Test("Unselectable discovered candidates stay visible but never enter sendable model list")
     func unselectableCandidatesAreFilteredFromAllModels() {
         let invalid = WebProviderModel(name: "Model Comparison",
