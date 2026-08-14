@@ -84,3 +84,17 @@ struct MiCoderAutoFreeClientContractTests {
         #expect(MiCoderAutoFreeClient.shouldSwitch(for: MiCoderAutoFreeError.apiError("HTTP 500"), consecutiveFailures: 5))
     }
 }
+
+@Suite("MiCoder Auto Free conversation context")
+struct MiCoderAutoFreeConversationContextTests {
+    @Test("multi-turn history preserves prior finished turns and drops in-flight placeholders")
+    func preservesPriorConversationTurns() {
+        let history = MiCoderAutoFreeHistoryLogic.history(from: [
+            .init(role: "user", content: "Remember project name", isFinished: true),
+            .init(role: "assistant", content: "MiCoder", isFinished: true),
+            .init(role: "assistant", content: "in-flight placeholder", isFinished: false)
+        ])
+        #expect(history.map(\.role) == ["user", "assistant"])
+        #expect(history.map(\.content) == ["Remember project name", "MiCoder"])
+    }
+}

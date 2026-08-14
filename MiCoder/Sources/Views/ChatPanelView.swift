@@ -732,8 +732,24 @@ struct ChatPanelView: View {
                 let store = MiCoderAutoFreeStore.shared
                 let model = appState.effectiveSelectedModel()
                 await MainActor.run { store.selectModel(model) }
+                let priorTurns = await MainActor.run { () -> [MiCoderAutoFreeHistoryLogic.Turn] in
+                    let priorMessages = messageStore.messages.count >= 2
+                        ? Array(messageStore.messages.dropLast(2))
+                        : []
+                    return priorMessages.map {
+                        MiCoderAutoFreeHistoryLogic.Turn(
+                            role: roleString($0.role),
+                            content: $0.content,
+                            isFinished: $0.isFinished
+                        )
+                    }
+                }
+                let history = MiCoderAutoFreeHistoryLogic.history(from: priorTurns)
                 let autoFreePayload = autoFreeMessageParts(text: text, files: files, images: images)
-                let messages = [MiCoderAutoFreeClient.Message(
+                let priorMessages = history.map {
+                    MiCoderAutoFreeClient.Message(role: $0.role, content: $0.content)
+                }
+                let messages = priorMessages + [MiCoderAutoFreeClient.Message(
                     role: "user",
                     parts: autoFreePayload.parts
                 )]

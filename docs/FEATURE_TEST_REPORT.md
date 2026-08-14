@@ -928,3 +928,79 @@ approval UX require macOS/WebKit/network execution.
 Canonical checklist 06, registry and README were updated. The registry now contains **264 rows:
 233 PASS, 21 PARTIAL, 5 MISSING, 5 FUTURE**. Round 55 is ready for the final source-check/diff
 validation and commit/push. The next sequential audit remains activity checklist 07 (`07-mimo-auto.md`).
+
+
+## Round 56 (2026-08-14) — MiCoder Auto Free context and failover notifications
+
+### Scope
+
+Activity checklist 07 was re-audited across the built-in provider option, legacy rename migration,
+startup default, anonymous OpenCode catalog refresh, model selection, lock/unlock, system prompt,
+parameters, send readiness, route resolution, ordinary send, conversation history, attachments, SSE
+streaming, immediate and threshold failover, notification severity, error persistence and settings
+privacy/status disclosure.
+
+### Confirmed defects and TDD fixes
+
+#### AUTO-FREE-01 / CHAT-20 — ordinary Auto Free turns dropped visible conversation history
+
+The direct OpenAI-compatible path already constructed prior turns, but the Auto Free branch built only
+one current user message. A second anonymous request therefore lost the previous user/assistant exchange
+although it remained visible in the local chat.
+
+A red Foundation test was written first. `MiCoderAutoFreeHistoryLogic` now retains finished,
+non-empty user/assistant turns, drops in-flight assistant placeholders, excludes other roles and caps
+history at 20 turns; edge coverage verifies zero-turn history. `ChatPanelView` maps prior local messages
+through this contract and prepends them to the current attachment-bearing user message. Evidence:
+**2/2 pure history tests passed**.
+
+#### PROV-17 — textual HTTP 429/rate-limit failures did not produce the red alert path
+
+`MiCoderAutoFreeNotificationLogic` already treated the exact reason `"rate limit"` as an error, but
+`MiCoderAutoFreeProvider.switchReason` converted `MiCoderAutoFreeError.apiError("HTTP 429")` to a
+generic consecutive-failures reason. The user could therefore see a warning-level generic switch
+instead of the requested red rate-limit alert.
+
+Red tests were written first for HTTP 429 and ordinary rate-limit text, plus model and generic reason
+preservation. `MiCoderAutoFreeFailoverLogic` normalizes textual errors; provider switches now use
+`rate limit` for 429/rate-limit text, while model-unavailable and generic failures remain distinct.
+Evidence: **2/2 pure failover-reason tests passed**.
+
+### Source-traced controls with no additional confirmed defect
+
+The built-in provider is non-removable and selected only when a live eligible catalog is ready. Legacy
+`mimo-auto` preferences migrate to `micoder-auto-free`. The route resolver returns `.autoFree` before
+Serve fallback. The readiness gate independently checks catalog readiness, so MiMo Serve is not required.
+The anonymous client sends no API key, rejects paid/non-free IDs, parses SSE content and reasoning
+deltas, rejects empty responses, and maps HTTP failures to typed errors. Model selection, lock state,
+system prompt, last-known catalog and new-model discovery are source-traced. Existing attachment,
+parameter and exact notification tests remain in the project.
+
+The following remain **UNVERIFIED** without macOS/network/live OpenCode execution: SwiftUI picker and
+settings visual behavior, singleton refresh timing, real catalog contents and paid-model exclusion
+against the live endpoint, actual anonymous request acceptance, SSE streaming, multi-turn request body
+capture, real rate limits/failover, and local macOS persistence.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Auto Free history contract | **2/2 passed** | Foundation pure logic |
+| Failover reason normalization | **2/2 passed** | Foundation pure logic |
+| Full Foundation harness | **151/151 passed** | Linux-compatible logic and prior contracts |
+| Swift parser-only modified-file validation | **passed** | Syntax only; no macOS typecheck |
+| Adversarial source checks | **12/12 passed** | Static contracts |
+| Live anonymous OpenCode/SSE/failover | **UNVERIFIED** | Network/provider availability |
+| macOS SwiftUI settings/composer runtime | **UNVERIFIED** | macOS required |
+
+### Adversarial scores
+
+| Dimension | Before Round 56 | After Round 56 | Evidence |
+|---|---:|---:|---|
+| MiCoder Auto Free implementation quality | 88/100 | 96/100 | Two confirmed chain defects fixed; 4/4 new pure tests |
+| MiCoder Auto Free task adherence | 86/100 | 100/100 | Full control inventory and red tests before fixes |
+| Target-runtime confidence | 0/100 | 0/100 | No live OpenCode or macOS execution |
+| Overall verifiable project quality | 97/100 | 97/100 | 151/151 harness, parser and source checks passed |
+
+Canonical checklist 07, registry and README were updated. The registry now contains **266 rows:
+233 PASS, 23 PARTIAL, 5 MISSING, 5 FUTURE**. Round 56 final harness/parser/source validation passed and it is ready for commit/push. The next sequential audit remains checklist 08 (`08-project-session.md`).

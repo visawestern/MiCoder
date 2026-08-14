@@ -262,10 +262,18 @@ final class MiCoderAutoFreeStore: ObservableObject {
                 return "rate limit"
             case .modelUnavailable:
                 return "model unavailable"
+            case .apiError(let message):
+                return MiCoderAutoFreeFailoverLogic.reason(
+                    errorDescription: message,
+                    failureCount: failureCount
+                )
             default:
                 break
             }
         }
-        return "\(failureCount) consecutive failures"
+        return MiCoderAutoFreeFailoverLogic.reason(
+            errorDescription: error.localizedDescription,
+            failureCount: failureCount
+        )
     }
 }
