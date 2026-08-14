@@ -1317,11 +1317,10 @@ struct AddProviderSheet: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .onChange(of: type) { newType in
                             url = newType.defaultURL
-                            if newType == .openCodeZen {
-                                requiresAPIKey = false
-                                if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                    name = "OpenCode Zen"
-                                }
+                            requiresAPIKey = ProviderEndpointLogic.defaultRequiresAPIKey(for: newType)
+                            if newType == .openCodeZen,
+                               name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                name = "OpenCode Zen"
                             }
                         }
                     }
@@ -1341,6 +1340,12 @@ struct AddProviderSheet: View {
                         TextField("API endpoint URL", text: $url)
                             .zcodeTextFieldStyle()
                             .interfaceFont(size: 12, design: .monospaced)
+                        if !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                           ProviderEndpointLogic.normalizedBaseURL(url) == nil {
+                            Text("Enter a valid http:// or https:// endpoint without a query string.")
+                                .interfaceFont(size: 10)
+                                .foregroundColor(Color.mimo.error)
+                        }
                     }
                     
                     if type != .ollama && type != .acp && (requiresAPIKey || type == .openCodeZen) {
@@ -1397,7 +1402,11 @@ struct AddProviderSheet: View {
                 Button(action: {
                     isTesting = true
                     Task {
-                        let success = await appState.testProvider(url: url, apiKey: apiKey, type: type)
+                        let success = await appState.testProvider(
+                            url: ProviderEndpointLogic.normalizedBaseURL(url) ?? url,
+                            apiKey: apiKey.trimmingCharacters(in: .whitespacesAndNewlines),
+                            type: type
+                        )
                         await MainActor.run {
                             isTesting = false
                             testSucceeded = success
@@ -1413,7 +1422,8 @@ struct AddProviderSheet: View {
                     }
                 }
                 .buttonStyle(.bordered)
-                .disabled(name.isEmpty || url.isEmpty)
+                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                          ProviderEndpointLogic.normalizedBaseURL(url) == nil)
                 
                 Spacer()
                 
@@ -1424,12 +1434,14 @@ struct AddProviderSheet: View {
                 .foregroundColor(Color.mimo.textSecondary)
                 
                 Button(action: {
+                    guard let normalizedURL = ProviderEndpointLogic.normalizedBaseURL(url) else { return }
+                    let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
                     let provider = CustomProvider(
                         id: UUID().uuidString,
-                        name: name.isEmpty ? type.rawValue : name,
+                        name: normalizedName.isEmpty ? type.rawValue : normalizedName,
                         type: type,
-                        baseURL: url,
-                        apiKey: apiKey,
+                        baseURL: normalizedURL,
+                        apiKey: apiKey.trimmingCharacters(in: .whitespacesAndNewlines),
                         isEnabled: true,
                         models: [],
                         supportsTools: supportsTools,
@@ -1447,11 +1459,14 @@ struct AddProviderSheet: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(name.isEmpty || url.isEmpty ? Color.mimo.textMuted : Color.mimo.brand)
+                        .background(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                             ProviderEndpointLogic.normalizedBaseURL(url) == nil
+                             ? Color.mimo.textMuted : Color.mimo.brand)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
-                .disabled(name.isEmpty || url.isEmpty)
+                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                          ProviderEndpointLogic.normalizedBaseURL(url) == nil)
             }
             .padding(16)
         }

@@ -510,7 +510,8 @@ struct LocalProvidersSection: View {
                     ForEach(locals) { cfg in
                         LocalProviderRow(config: cfg,
                                          onRemove: { removeLocal(cfg) },
-                                         onToggle: { toggleLocal(cfg) })
+                                         onToggle: { toggleLocal(cfg) },
+                                         onSelect: { model in selectLocalModel(model, from: cfg) })
                     }
                 }
                 .padding(12)
@@ -585,6 +586,15 @@ struct LocalProvidersSection: View {
         pendingDetection = nil
     }
 
+    private func selectLocalModel(_ model: String, from config: LocalProviderConfig) {
+        let currentConfig = LocalProviderLogic.load().first(where: { $0.id == config.id }) ?? config
+        guard currentConfig.models.contains(model) else { return }
+        if appState.selectedProviderID != config.id {
+            appState.selectProvider(config.id)
+        }
+        appState.selectModel(model)
+    }
+
     private func addLocal(kind: LocalProviderKind) {
         guard !locals.contains(where: { $0.kind == kind }) else { return }
         locals.append(LocalProviderConfig(kind: kind))
@@ -644,9 +654,11 @@ struct LocalProviderCard: View {
 }
 
 struct LocalProviderRow: View {
+    @EnvironmentObject var appState: AppState
     let config: LocalProviderConfig
     let onRemove: () -> Void
     let onToggle: () -> Void
+    let onSelect: (String) -> Void
 
     @State private var refreshing = false
     @State private var models: [String] = []
@@ -716,11 +728,17 @@ struct LocalProviderRow: View {
     }
 
     private func isSelected(_ model: String) -> Bool {
-        config.models.contains(model)
+        LocalModelSelectionLogic.isSelected(
+            model,
+            selectedProviderID: config.id,
+            activeProviderID: appState.selectedProviderID,
+            selectedModel: appState.selectedModel
+        )
     }
 
     private func selectModel(_ model: String) {
-        // Model selection handled by parent via selectedModel in AppState
+        guard LocalModelSelectionLogic.modelAfterTap(model, catalog: models, current: nil) == model else { return }
+        onSelect(model)
     }
 
     private func refreshModels() async {

@@ -1001,7 +1001,8 @@ class AppState: ObservableObject {
     }
 
     func testProvider(url: String, apiKey: String, type: ProviderType) async -> Bool {
-        guard let testURL = URL(string: "\(url)/models") else { return false }
+        guard let modelsURLString = ProviderEndpointLogic.modelsURL(for: url),
+              let testURL = URL(string: modelsURLString) else { return false }
         var request = URLRequest(url: testURL)
         request.timeoutInterval = 10
         

@@ -38,18 +38,13 @@ struct PluginEntry: Identifiable, Equatable {
     private static let disabledKey = "disabledPlugins"
 
     static func togglePlugin(id: String) {
-        var disabled = defaults.stringArray(forKey: disabledKey) ?? []
-        if disabled.contains(id) {
-            disabled.removeAll { $0 == id }
-        } else {
-            disabled.append(id)
-        }
-        defaults.set(disabled, forKey: disabledKey)
+        let disabled = defaults.stringArray(forKey: disabledKey) ?? []
+        defaults.set(PluginToggleLogic.toggledDisabledIDs(disabled, pluginID: id), forKey: disabledKey)
     }
 
     static func isPluginDisabled(id: String) -> Bool {
         let disabled = defaults.stringArray(forKey: disabledKey) ?? []
-        return disabled.contains(id)
+        return !PluginToggleLogic.isEnabled(pluginID: id, disabledIDs: disabled)
     }
 }
 

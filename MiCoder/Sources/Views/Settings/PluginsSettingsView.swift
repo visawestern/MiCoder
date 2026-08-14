@@ -37,9 +37,14 @@ struct PluginsSettingsView: View {
                             .interfaceFont(size: 13, weight: .medium)
                             .foregroundColor(Color.mimo.textPrimary)
                         Spacer()
-                        Text(plugin.isEnabled ? L.t(AppLocalizationKey.locEnabled) : L.t(AppLocalizationKey.locDisabled))
-                            .interfaceFont(size: 11)
-                            .foregroundColor(plugin.isEnabled ? Color.mimo.success : Color.mimo.textMuted)
+                        Button(plugin.isEnabled ? L.t(AppLocalizationKey.locDisable) : L.t(AppLocalizationKey.locEnable)) {
+                            PluginEntry.togglePlugin(id: plugin.id)
+                            plugins = AgentResourcesLoader.loadPlugins()
+                        }
+                        .interfaceFont(size: 11)
+                        .buttonStyle(.plain)
+                        .foregroundColor(plugin.isEnabled ? Color.mimo.textSecondary : Color.mimo.success)
+                        .help(plugin.isEnabled ? "Disable plugin" : "Enable plugin")
                     }
                     .padding(12)
                     .background(Color.mimo.surface)
