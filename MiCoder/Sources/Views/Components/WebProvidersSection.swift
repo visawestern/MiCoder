@@ -712,7 +712,7 @@ struct WebProviderLoginView: View {
                     answer += chunk
                 }
                 let models = parseAIDetectedModels(answer)
-                await saveDetectedModels(models)
+                saveDetectedModels(models)
             } catch {
                 await MainActor.run { detectResult = .failed("AI detection failed: \(error.localizedDescription)") }
             }
