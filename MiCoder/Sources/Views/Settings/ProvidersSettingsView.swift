@@ -142,7 +142,7 @@ struct MiCoderAutoFreeSection: View {
                     .interfaceFont(size: 12, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 Spacer()
-                Text("Select a card to use it")
+                Text("Choose from list")
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
             }
@@ -152,42 +152,67 @@ struct MiCoderAutoFreeSection: View {
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
                     .padding(.vertical, 8)
-            } else {
-                if let selected = store.provider.models.first(where: { isSelected($0.id) }) {
-                    HStack(spacing: 7) {
-                        Image(systemName: store.provider.isModelLocked ? "lock.fill" : "checkmark.circle.fill")
-                            .foregroundColor(Color.mimo.brand)
-                        Text("Using")
-                            .interfaceFont(size: 10, weight: .medium)
-                            .foregroundColor(Color.mimo.textMuted)
-                        Text(selected.name)
-                            .interfaceFont(size: 11, weight: .semibold)
-                            .foregroundColor(Color.mimo.textPrimary)
-                        Text("· \(status(for: selected))")
-                            .interfaceFont(size: 10)
-                            .foregroundColor(Color.mimo.success)
-                        Spacer()
-                        Text(store.provider.isModelLocked ? "Pinned" : "Auto fallback")
-                            .interfaceFont(size: 10, weight: .medium)
-                            .foregroundColor(Color.mimo.brand)
+            } else if let selected = store.provider.models.first(where: { isSelected($0.id) }) {
+                HStack(spacing: 6) {
+                    Menu {
+                        ForEach(store.provider.models) { model in
+                            Button {
+                                selectModel(model.id)
+                            } label: {
+                                HStack(spacing: 7) {
+                                    Image(systemName: isSelected(model.id) ? "checkmark.circle.fill" : "circle")
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(model.name)
+                                        Text(model.id)
+                                            .font(.system(size: 9, design: .monospaced))
+                                    }
+                                    Spacer()
+                                    Text(status(for: model))
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 7) {
+                            Image(systemName: store.provider.isModelLocked ? "lock.fill" : "checkmark.circle.fill")
+                                .foregroundColor(Color.mimo.brand)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(selected.name)
+                                    .interfaceFont(size: 11, weight: .semibold)
+                                    .foregroundColor(Color.mimo.textPrimary)
+                                    .lineLimit(1)
+                                Text(selected.id)
+                                    .interfaceFont(size: 9, design: .monospaced)
+                                    .foregroundColor(Color.mimo.textMuted)
+                                    .lineLimit(1)
+                            }
+                            Spacer(minLength: 6)
+                            Text(status(for: selected))
+                                .interfaceFont(size: 9, weight: .medium)
+                                .foregroundColor(Color.mimo.success)
+                                .lineLimit(1)
+                            Image(systemName: "chevron.down")
+                                .interfaceFont(size: 9, weight: .semibold)
+                                .foregroundColor(Color.mimo.brand)
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 7)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.mimo.brand.opacity(0.08))
+                        .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.mimo.border, lineWidth: 1))
+                        .clipShape(RoundedRectangle(cornerRadius: 7))
                     }
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 7)
-                    .background(Color.mimo.brand.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 7))
-                }
+                    .menuStyle(.borderlessButton)
+                    .help("Switch free model")
 
-                VStack(spacing: 3) {
-                    ForEach(store.provider.models) { model in
-                        AutoFreeCompactModelRow(
-                            model: model,
-                            isSelected: isSelected(model.id),
-                            isLocked: isSelected(model.id) && store.provider.isModelLocked,
-                            status: status(for: model),
-                            onSelect: { selectModel(model.id) },
-                            onToggleLock: { toggleLock(for: model.id) }
-                        )
+                    Button(action: { toggleLock(for: selected.id) }) {
+                        Image(systemName: store.provider.isModelLocked ? "lock.open" : "lock")
+                            .interfaceFont(size: 11, weight: .medium)
+                            .foregroundColor(Color.mimo.brand)
+                            .frame(width: 30, height: 30)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .help(store.provider.isModelLocked ? "Unlock selected model" : "Lock selected model")
                 }
             }
         }

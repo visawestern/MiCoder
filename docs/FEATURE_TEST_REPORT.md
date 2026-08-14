@@ -396,3 +396,10 @@ The provider-card detected-model accordion now has direct row selection as well 
 | Provider/settings accordion source parse | **Passed** |
 | `Select`/`prefix(8)` source contract checks | **Passed** |
 | Live macOS WebKit verification | Still requires a real Mac run |
+
+
+## Round 48 (2026-08-14) — compact MiCoder Auto Free model catalog
+
+The previous web-accordion correction did not change the separate MiCoder Auto Free catalog surface. That gap is now corrected explicitly. The Auto Free settings section no longer renders every free model as a vertical list in the main card. It shows one compact selected-model summary row, opens a menu containing every currently eligible free model with ID and status, and keeps lock/unlock as a separate action for the selected model only. Selecting a menu item persists the model and updates the active provider selection.
+
+An adversarial source check now protects the compact contract (`Live free models`, `Choose from list`, menu switching and `Switch free model`). `MODEL-19` in the canonical registry is marked `PARTIAL` until the live catalog and macOS visual hit-target behavior are verified on the user's Mac.

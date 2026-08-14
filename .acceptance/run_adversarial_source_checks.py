@@ -13,6 +13,7 @@ checks = {
     'session_is_browser_key': ('MiCoder/Sources/Services/WebBrowserSessionPool.swift', 'activeSessionID' in (root / 'MiCoder/Sources/Services/WebBrowserSessionPool.swift').read_text()),
     'automatic_retry': ('MiCoder/Sources/Views/ChatPanelView.swift', 'Refreshing model catalog before retry' in (root / 'MiCoder/Sources/Views/ChatPanelView.swift').read_text()),
     'ai_candidates_unselectable': ('MiCoder/Sources/Views/Components/WebProvidersSection.swift', 'isSelectable: false' in (root / 'MiCoder/Sources/Views/Components/WebProvidersSection.swift').read_text()),
+    'compact_auto_free_catalog': ('MiCoder/Sources/Views/Settings/ProvidersSettingsView.swift', all(marker in (root / 'MiCoder/Sources/Views/Settings/ProvidersSettingsView.swift').read_text() for marker in ['Choose from list', 'Menu {', 'Switch free model', 'Live free models'])),
 }
 for name, (_, value) in checks.items():
     print(f'{name}={"PASS" if value else "FAIL"}')
