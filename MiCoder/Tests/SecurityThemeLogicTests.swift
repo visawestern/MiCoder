@@ -392,7 +392,7 @@ struct ProviderConnectionTests {
     @Test("ProviderType has all expected cases")
     func providerTypeAllCases() {
         let expectedCases: [ProviderType] = [
-            .openAI, .openRouter, .openModel, .ollama,
+            .openAI, .openRouter, .openModel, .openCodeZen, .ollama,
             .anthropic, .google, .mistral, .groq,
             .deepseek, .omni, .acp
         ]

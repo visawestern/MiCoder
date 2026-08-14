@@ -281,3 +281,10 @@ The cause was ordering: `runTurn` attempted `typeText` before calling `checkInte
 | `iterationLimitStopsRunawayLoop()` after preflight fix | **Passed** in 5.011 seconds |
 | Full MiCoder `swift test` on Linux | Cannot compile target: `SwiftUI` module unavailable; this is an environment limitation, not a test assertion failure |
 | macOS `./build-app.sh` | Still requires the user's macOS/Xcode environment |
+
+
+## Round 40 (2026-08-14) — ProviderType expectation updated after real macOS run
+
+The user's macOS run completed the build and executed all 1,882 tests in 269 suites. The only failure was `ProviderConnectionTests.providerTypeAllCases()` in `SecurityThemeLogicTests.swift:399`: production `ProviderType.allCases` contained 12 cases while the test expected 11. The additional case is the intentional `.openCodeZen` provider introduced by the OpenCode Zen provider preset; it has explicit icon and default URL switch branches in `Settings.swift`.
+
+The regression test now includes `.openCodeZen` in its expected case list. No production provider behavior was removed or hidden; the test expectation was stale. The full macOS `swift test` must be rerun after pulling the commit to confirm the expected 1,882/1,882 result.
