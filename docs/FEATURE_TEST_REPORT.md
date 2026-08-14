@@ -349,3 +349,8 @@ Web login state is now named and independent per provider. `Change login` create
 | `git diff --check` | **Passed** |
 | Live per-model parameter controls on Kimi/Qwen/ChatGPT | Requires macOS/WebKit verification |
 | Live injection-failure refresh and multi-account cookie switching | Requires macOS/WebKit verification |
+
+## Independent Acceptance Audit (2026-08-14) — recheck of the complete user dialogue
+The user requested an independent re-acceptance because the previous cumulative PASS claims did not match observed behavior. The audit reconstructed 32 major requirements from the complete conversation and traced each through trigger, handler, state, persistence, runtime consumer and visible result. The full matrix is `docs/../.acceptance/ACCEPTANCE_MATRIX.csv`; the narrative report is `docs/INDEPENDENT_ACCEPTANCE_AUDIT_2026-08-14.md`.
+
+The independent result is **14 FAIL and 18 PARTIAL**, with no target-runtime PASS. Average implementation quality is **2.25/5** and average task-fit quality is **1.31/5**. The most severe failures are strict web-model validation, complete Qwen nested-menu discovery, immediate per-model effort detection, persistent full detected-model list, removal of the redundant `Select` action, and remote web-chat UUID creation/persistence/reuse. The Foundation-only harness passes 55/55; the full package cannot compile in the Linux sandbox because SwiftUI/AppKit are unavailable, so no macOS/WebKit claim is promoted by this audit.
