@@ -118,7 +118,44 @@ final class MiCoderAutoFreeClient {
 
     struct Message: Codable, Equatable {
         let role: String
-        let content: String
+        let content: Content
+
+        enum Content: Codable, Equatable {
+            case text(String)
+            case parts([MiCoderAutoFreeContentPart])
+
+            init(from decoder: Decoder) throws {
+                if let single = try? decoder.singleValueContainer(),
+                   let text = try? single.decode(String.self) {
+                    self = .text(text)
+                    return
+                }
+                self = .parts(try [MiCoderAutoFreeContentPart](from: decoder))
+            }
+
+            func encode(to encoder: Encoder) throws {
+                switch self {
+                case .text(let text):
+                    var single = encoder.singleValueContainer()
+                    try single.encode(text)
+                case .parts(let parts):
+                    var container = encoder.unkeyedContainer()
+                    for part in parts {
+                        try container.encode(part)
+                    }
+                }
+            }
+        }
+
+        init(role: String, content: String) {
+            self.role = role
+            self.content = .text(content)
+        }
+
+        init(role: String, parts: [MiCoderAutoFreeContentPart]) {
+            self.role = role
+            self.content = .parts(parts)
+        }
     }
 
     /// Fetch the anonymous live catalog and return only known temporary free models.

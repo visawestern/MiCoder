@@ -732,20 +732,21 @@ struct ChatPanelView: View {
                 let store = MiCoderAutoFreeStore.shared
                 let model = appState.effectiveSelectedModel()
                 await MainActor.run { store.selectModel(model) }
-                let messages = MessagePartsBuilder.build(text: text, files: files, images: images)
-                    .compactMap { part -> MiCoderAutoFreeClient.Message? in
-                        if part["type"] as? String == "text" {
-                            return MiCoderAutoFreeClient.Message(role: "user", content: part["text"] as? String ?? "")
-                        }
-                        return nil
-                    }
+                let autoFreePayload = autoFreeMessageParts(text: text, files: files, images: images)
+                let messages = [MiCoderAutoFreeClient.Message(
+                    role: "user",
+                    parts: autoFreePayload.parts
+                )]
+                let attachmentNotice = autoFreePayload.warnings.joined(separator: "\n")
                 do {
                     var streamedContent = ""
                     for try await chunk in store.streamChat(messages: messages) {
                         streamedContent += chunk
                         await MainActor.run {
                             self.messageStore.update(id: assistantID) { m in
-                                m.content = streamedContent
+                                m.content = [attachmentNotice, streamedContent]
+                                    .filter { !$0.isEmpty }
+                                    .joined(separator: "\n\n")
                                 m.isStreaming = true
                             }
                         }
@@ -1414,6 +1415,54 @@ struct ChatPanelView: View {
             m.content = m.content.isEmpty ? line : "\(m.content)\n\(line)"
             m.isStreaming = false
         }
+    }
+
+    private func autoFreeMessageParts(
+        text: String,
+        files: [FileInfo],
+        images: [ClipboardImage]
+    ) -> (parts: [MiCoderAutoFreeContentPart], warnings: [String]) {
+        var imageDataURLs = images.compactMap { image in
+            guard !image.base64.isEmpty else { return nil }
+            return MessagePartsBuilder.dataURL(mimeType: image.mimeType, base64: image.base64)
+        }
+        var textFiles: [MiCoderAutoFreeTextFile] = []
+        var warnings: [String] = []
+
+        for file in files {
+            guard let path = file.path, !path.isEmpty else {
+                warnings.append("Attachment \(file.name) could not be read and was not sent to MiCoder Auto Free.")
+                continue
+            }
+            let url = URL(fileURLWithPath: path)
+            let mime = MessagePartsBuilder.mimeType(for: file)
+            if MessagePartsBuilder.isImageMimeType(mime),
+               let data = try? Data(contentsOf: url),
+               !data.isEmpty {
+                imageDataURLs.append(MessagePartsBuilder.dataURL(
+                    mimeType: mime,
+                    base64: data.base64EncodedString()
+                ))
+            } else if let data = try? Data(contentsOf: url),
+                      let content = String(data: data, encoding: .utf8) {
+                let bounded = String(content.prefix(250_000))
+                textFiles.append(MiCoderAutoFreeTextFile(name: file.name, content: bounded))
+                if content.count > bounded.count {
+                    warnings.append("Attachment \(file.name) was truncated to 250,000 characters for the free route.")
+                }
+            } else {
+                warnings.append("Attachment \(file.name) is not a readable text/image file and was not sent to MiCoder Auto Free.")
+            }
+        }
+
+        return (
+            MiCoderAutoFreeContentLogic.parts(
+                text: text,
+                imageDataURLs: imageDataURLs,
+                textFiles: textFiles
+            ),
+            warnings
+        )
     }
 
     private func roleString(_ role: MessageRole) -> String {

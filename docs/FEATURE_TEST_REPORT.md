@@ -604,3 +604,63 @@ longer describes nonexistent helpers, `12-quality-recheck.md` no longer claims t
 Round 51 is ready to publish only after source, tests, canonical docs, and this report pass diff
 checks and are committed/pushed. The next round must begin with a red test for Auto Free attachment
 transport rather than assuming the local preview proves model delivery.
+
+
+## Round 52 (2026-08-14) — MiCoder Auto Free attachment transport
+
+### Confirmed defect
+
+The Chat activity chain showed attachments in the local composer and transcript, but the Auto Free
+branch reduced `MessagePartsBuilder.build(text:files:images:)` to text-only messages with a
+`compactMap`. Pasted images, image files, and readable code/text files therefore never reached the
+anonymous OpenCode request. This was a confirmed logical transport defect, not a macOS-only visual
+uncertainty.
+
+### Red → green TDD fix
+
+`MiCoderAutoFreeContentLogicTests` was written before the implementation and initially failed
+because no content-part contract existed. The red cases covered text plus image preservation, text
+file preservation, and empty input. The green contract now models explicit text, image URL, and
+readable-file parts. A second test verifies the JSON boundary: multimodal user content encodes as an
+array while legacy system prompts remain a string, preserving the existing system-prompt route.
+
+`MiCoderAutoFreeClient.Message` now supports both `content: String` and `content: [part]` forms.
+`ChatPanelView` converts pasted images and image files to `data:` image URLs and reads UTF-8 text
+files with filenames, capped at 250,000 characters per file. Files that cannot be read as text or
+image produce a visible assistant warning and are not silently omitted from the user's understanding.
+The warning persists alongside the streamed answer.
+
+### Deliberate remaining boundary
+
+The anonymous OpenCode `/chat/completions` schema does not provide a portable arbitrary-binary or
+PDF file part compatible with this route. Such files remain unsupported by the payload and are
+explicitly reported. This is recorded as `PARTIAL`, not falsely marked complete. A future route can
+add a provider-specific file upload or switch to a Responses-style input-file contract, but that
+must be verified against the live provider before implementation.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| CHAT-19 content-part tests | 4/4 passed | Foundation contract |
+| Full Foundation harness | **92/92 passed** | Linux-compatible logic and prior web/send contracts |
+| Swift parser-only check for Auto Free client/content logic/ChatPanel | passed | Syntax only; no macOS typecheck |
+| Adversarial source checks | **12/12 passed** | Static source contracts |
+| Live OpenCode request capture | UNVERIFIED | External network/provider response unavailable in this target |
+| macOS attachment picker/paste and visual warning QA | UNVERIFIED | SwiftUI/AppKit runtime unavailable in Linux |
+
+Canonical checklist 03, quality recheck 12, README totals, and `CHAT-19` registry row were updated.
+The registry now contains **254 rows: 228 PASS, 16 PARTIAL, 5 MISSING, 5 FUTURE**.
+
+### Adversarial scores
+
+| Dimension | Before Round 52 | After Round 52 | Evidence |
+|---|---:|---:|---|
+| Auto Free attachment implementation quality | 55/100 | 92/100 | Explicit multimodal schema, bounded text reads, visible unsupported warning |
+| Attachment task adherence | 60/100 | 95/100 | Images and readable files are transmitted by code; binary limitation is explicit |
+| Target-runtime confidence | 0/100 | 0/100 | macOS picker and live request still unavailable |
+| Overall verifiable project quality | 93/100 | 94/100 | 92/92 harness and 12/12 source checks |
+
+Round 52 is ready to publish after diff checks and commit/push. The next sequential audit begins at
+activity checklist 04, not by assuming the settings/provider controls are complete because the
+source exists.

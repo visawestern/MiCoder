@@ -18,7 +18,7 @@
 | `SendRouteResolver.route` | Auto Free resolves `.autoFree` | PASS |
 | `MiCoderAutoFreeNotificationLogic` | rate limit is visible error notification | PASS |
 | `MiCoderAutoFreeClient.shouldSwitch` | immediate rate/model fallback or five-failure switch | PASS |
-| `ChatPanelView` Auto Free attachments | text is sent; image/file parts are currently omitted | PARTIAL — next TDD target |
+| `ChatPanelView` Auto Free attachments | image data URLs and readable text files become content parts; unsupported binary files show a warning | FIXED/PARTIAL — Round 52; live request capture pending |
 
 ## Readiness and persistence
 

@@ -16,7 +16,7 @@
 | 6 | Variant/effort menu | variant/effort selection → provider-local state → request options or web injection | Supported controls are visible; unsupported effort is disabled with a reason | 95/100 | 100/100 | UNVERIFIED — native menu and live route required |
 | 7 | Access menu | permission selection → `appState.accessLevel` → tool executor/send options | Permission changes affect tool execution and are not merely cosmetic | 95/100 | 100/100 | UNVERIFIED — macOS control/runtime required |
 | 8 | Parameters | parameters sheet → `ModelCallParametersStore` → direct/Auto Free/ACP request encoding | Save/reset temperature, tokens, topP and system prompt; selected values reach the route | 95/100 | 100/100 | UNVERIFIED — runtime request capture required |
-| 9 | Plus menu and attachments | plus actions → `MessageAttachmentStore` → preview/MessagePartsBuilder → route payload | File/photo/@/#/command actions are discoverable and previews are retained. Direct OpenAI-compatible and browser/local routes consume supported parts; **Auto Free currently serializes only text and does not yet transmit image/file parts** | 82/100 | 90/100 | PARTIAL — source-confirmed Auto Free transport gap; macOS picker/paste runtime pending |
+| 9 | Plus menu and attachments | plus actions → `MessageAttachmentStore` → preview/MessagePartsBuilder → Auto Free content parts/route payload | File/photo/@/#/command actions are discoverable and previews are retained. Images and readable text files reach Auto Free as content parts; unsupported binary files produce a visible warning instead of silent loss | 92/100 | 95/100 | PARTIAL — binary formats remain unsupported by the chat-completions content schema; macOS picker/paste/live request runtime pending |
 | 10 | Paste/drop | paste/drop coordinator → attachment store → preview and outgoing parts | Files/images are imported once, previewed, removable, and not duplicated | 90/100 | 95/100 | PARTIAL — native paste/drop runtime pending |
 | 11 | Queue | send while loading → `MessageQueue.enqueue` → pending cards/FIFO `processNext` when loading ends | Pending messages remain ordered and visible; user can remove individual entries | 90/100 | 95/100 | UNVERIFIED — runtime timing required |
 | 12 | Streaming | provider event/SSE chunks → `MessageStore.update` → streaming bubble/parts/reasoning | Deltas render incrementally; finished response clears loading state | 95/100 | 100/100 | UNVERIFIED — live SSE/provider runtime required |
@@ -59,13 +59,18 @@ validation passed for modified macOS source. A full macOS typecheck, SwiftUI/App
 provider/network request capture, and database relaunch test remain unavailable in Linux and are
 not claimed as PASS.
 
-## Newly confirmed follow-up boundary
+## Round 52 attachment fix and remaining boundary
 
-`MiCoderAutoFreeClient.Message` is currently string-only. In `ChatPanelView` the Auto Free branch
-maps `MessagePartsBuilder.build(text:files:images:)` through a text-only `compactMap`, so attached
-images/files appear in the local transcript but are not sent to OpenCode Zen. This is recorded as
-**PARTIAL**, not silently called PASS; it is the next red-test target before any multimodal schema
-change.
+The confirmed Auto Free attachment gap was fixed with a red→green contract. `MiCoderAutoFreeClient.Message`
+keeps legacy string content for system prompts, and supports an OpenAI-compatible content array for
+user turns. Pasted images and image files become `image_url` data URLs; readable text files become
+bounded text parts with filenames; unreadable/binary files produce a visible assistant warning and
+are not silently claimed as delivered. The content read is capped at 250,000 characters per file.
+
+The behavior remains **PARTIAL** because the anonymous `/chat/completions` schema does not provide a
+portable arbitrary-binary/PDF file part. The UI now tells the user when such a file was not sent,
+which is safer than pretending the attachment reached the model. Live OpenCode request capture and
+macOS picker/paste runtime are still UNVERIFIED.
 
 ## User story
 
