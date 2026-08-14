@@ -331,3 +331,21 @@ Every model selection, effort selection, send start and send completion writes a
 | Existing WebChatDriver/Kimi selector/effort suite | **Passed** |
 | Changed Swift source parse and `git diff --check` | **Passed** |
 | Live Qwen/Kimi/ChatGPT DOM traversal and 100-instance macOS UI runtime | Requires macOS/WebKit verification |
+
+## Round 44 (2026-08-14) — per-model parameters, refresh-before-retry and named web sessions
+The live model capability pass now records a `WebModelParameterProfile` for every detected model. The profile captures visible parameter keys, localized control labels and a safe snapshot of temperature, max-tokens and top-p values. Detection writes only provider-discovered values; a non-empty user override in `ModelCallParametersStore` remains authoritative. Older `WebProviderModel` JSON without `parameterProfile` decodes to an empty profile.
+
+Browser recovery now recognizes typed model/effort injection failures and conservative legacy error messages. For the current project/chat/provider turn it schedules at most one live model-and-effort catalog refresh, reports the failure and refresh result in the assistant bubble, and deliberately does not auto-send a duplicate prompt. The next manual retry starts from the refreshed persisted configuration. The combined refresh path rereads the model-updated provider config before the effort pass, preventing the second upsert from erasing discovered models or parameter profiles.
+
+Web login state is now named and independent per provider. `Change login` creates a new session ID/name, existing cookie stores remain untouched, and the active session ID/name is persisted in `WebProviderConfig`. Login-sheet preload, connectivity checks, background chat sends and model/effort refreshes all restore the active named session. Project/chat-bound browser instances continue to isolate conversations while sharing only the intended cookie store.
+
+| Verification | Result |
+|---|---|
+| Foundation dynamic web harness | **55 tests passed** |
+| Legacy `WebProviderModel` Codable migration without parameter profile | **Passed** |
+| Named session persist/list/restore and active-session switching | **Passed** |
+| Existing recursive model discovery and model-specific effort suite | **Passed** |
+| Changed Swift source parse | **Passed** |
+| `git diff --check` | **Passed** |
+| Live per-model parameter controls on Kimi/Qwen/ChatGPT | Requires macOS/WebKit verification |
+| Live injection-failure refresh and multi-account cookie switching | Requires macOS/WebKit verification |

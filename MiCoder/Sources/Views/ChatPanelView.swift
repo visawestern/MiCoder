@@ -19,6 +19,7 @@ struct ChatPanelView: View {
     #if canImport(WebKit)
     @State private var activeWebProviderID: String?
     @State private var activeWebChatID: String?
+    @State private var webCatalogRefreshKeys: Set<String> = []
     #endif
     private let sseClient = SSEClient()
     private let db = DatabaseManager.shared
@@ -1064,6 +1065,8 @@ struct ChatPanelView: View {
         // Each project/chat/provider gets an isolated hidden WKWebView page;
         // the shared cookie store keeps login state without mixing conversations.
         let projectID = appState.selectedWorkspace?.id ?? appState.selectedWorkspace?.path ?? "global"
+        let refreshKey = "\(effectiveConfig.id)|\(projectID)|\(chatID)"
+        webCatalogRefreshKeys.remove(refreshKey)
         let webView = appState.webView(for: effectiveConfig, projectID: projectID, chatID: chatID)
         appState.recordWebBrowserAction(action: "send_started",
                                         config: effectiveConfig,
@@ -1083,8 +1086,10 @@ struct ChatPanelView: View {
         let bridge = WKWebViewBrowserBridge(webView: webView, selectors: selectors)
         // Restore cookies captured at login so the session is authenticated.
         // Round 8 P2: cookie/navigation failures must be VISIBLE, not swallowed.
+        let sessionID = effectiveConfig.activeSessionID ?? WebSessionManager.defaultSessionID
         if let store = WebSessionManager.restore(providerId: effectiveConfig.id,
-                                                 homeDirectory: FileManager.default.homeDirectoryForCurrentUser) {
+                                                 homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
+                                                 sessionID: sessionID) {
             do {
                 try await bridge.setCookies(store.cookies)
             } catch {
@@ -1171,6 +1176,7 @@ struct ChatPanelView: View {
                 // assistant bubble, so statuses ("Session expired", captcha,
                 // iteration limit) are never lost to a transient buffer.
                 let presentation = WebChatEventPresenter.present(event)
+                let refreshReason = self.webCatalogRefreshReason(for: event)
                 switch WebChatTurnMutation.mutation(for: presentation) {
                 case .replaceText(let t, let finished, let streaming):
                     self.messageStore.update(id: assistantID) { m in
@@ -1188,6 +1194,14 @@ struct ChatPanelView: View {
                     }
                 case .none:
                     break
+                }
+                if let refreshReason {
+                    self.scheduleWebCatalogRefreshIfNeeded(reason: refreshReason,
+                                                           key: refreshKey,
+                                                           config: effectiveConfig,
+                                                           projectID: projectID,
+                                                           chatID: chatID,
+                                                           assistantID: assistantID)
                 }
             }
         }
@@ -1208,6 +1222,49 @@ struct ChatPanelView: View {
             m.content = "Web providers require WebKit (macOS)."; m.isFinished = true; m.isStreaming = false
         }
         #endif
+    }
+
+    /// Returns a refresh reason only for failures that can be fixed by a live
+    /// model/effort catalog probe. Typed injection events are authoritative;
+    /// generic errors use conservative keyword matching as a compatibility
+    /// fallback for older driver implementations.
+    private func webCatalogRefreshReason(for event: WebChatEvent) -> String? {
+        switch event {
+        case .modelInjectionFailed(let message), .effortInjectionFailed(let message):
+            return message
+        case .error(let message):
+            let normalized = message.lowercased()
+            let keywords = ["model", "effort", "injection", "not found in web ui", "not found in the web provider"]
+            guard keywords.contains(where: { normalized.contains($0) }) else { return nil }
+            return message
+        default:
+            return nil
+        }
+    }
+
+    /// Refreshes the live model catalog once per provider/project/chat turn.
+    /// This is deliberately a recovery preparation step rather than an
+    /// automatic second send: a stale page must not receive duplicate prompts.
+    @MainActor
+    private func scheduleWebCatalogRefreshIfNeeded(reason: String,
+                                                    key: String,
+                                                    config: WebProviderConfig,
+                                                    projectID: String,
+                                                    chatID: String,
+                                                    assistantID: String) {
+        guard !webCatalogRefreshKeys.contains(key) else { return }
+        webCatalogRefreshKeys.insert(key)
+        appendWebStatus(to: assistantID, line: "Model/effort injection failed: \(reason)\nRefreshing the live model catalog before your next retry…")
+        Task { @MainActor in
+            let result = await appState.refreshWebModelsAndEffort(for: config,
+                                                                  projectID: projectID,
+                                                                  chatID: chatID)
+            let summary = [result.modelsMsg, result.effortMsg]
+                .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                .joined(separator: " · ")
+            appendWebStatus(to: assistantID,
+                            line: summary.isEmpty ? "Model catalog refresh finished. Retry the message." : "Model catalog refresh finished: \(summary). Retry the message.")
+        }
     }
 
     /// Appends a status line to the assistant bubble without ending the turn.

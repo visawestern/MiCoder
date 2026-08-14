@@ -28,6 +28,49 @@ struct WebBrowserRuntimeTests {
         let model = try JSONDecoder().decode(WebProviderModel.self, from: data)
         #expect(model.name == "legacy")
         #expect(model.availableEfforts.isEmpty)
+        #expect(model.parameterProfile.isEmpty)
+    }
+
+    @Test("Named web sessions persist independently and active selection switches")
+    func namedSessionsRoundTripAndActivation() throws {
+        let home = FileManager.default.temporaryDirectory
+            .appendingPathComponent("micoder-named-sessions-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+
+        let first = WebSessionStore(
+            cookies: [BrowserCookie(name: "sid", value: "first", domain: "kimi.com", expiresEpoch: 9_999_999_999)],
+            localStorage: ["account": "first"],
+            savedAt: Date(timeIntervalSince1970: 100)
+        )
+        let second = WebSessionStore(
+            cookies: [BrowserCookie(name: "sid", value: "second", domain: "kimi.com", expiresEpoch: 9_999_999_999)],
+            localStorage: ["account": "second"],
+            savedAt: Date(timeIntervalSince1970: 200)
+        )
+        try WebSessionManager.persist(first, providerId: "kimi", homeDirectory: home,
+                                      sessionID: "account-first", sessionName: "Personal")
+        try WebSessionManager.persist(second, providerId: "kimi", homeDirectory: home,
+                                      sessionID: "account-second", sessionName: "Work")
+
+        let listed = WebSessionManager.list(providerId: "kimi", homeDirectory: home)
+        #expect(Set(listed.map(\.id)) == ["account-first", "account-second"])
+        #expect(listed.first(where: { $0.id == "account-first" })?.name == "Personal")
+        #expect(listed.first(where: { $0.id == "account-second" })?.name == "Work")
+        #expect(WebSessionManager.restore(providerId: "kimi", homeDirectory: home,
+                                          sessionID: "account-first")?.localStorage["account"] == "first")
+        #expect(WebSessionManager.restore(providerId: "kimi", homeDirectory: home,
+                                          sessionID: "account-second")?.localStorage["account"] == "second")
+
+        var config = WebProviderConfig(id: "kimi", vendor: .kimi,
+                                       activeSessionID: "account-first",
+                                       activeSessionName: "Personal")
+        config.activeSessionID = "account-second"
+        config.activeSessionName = "Work"
+        #expect(config.activeSessionID == "account-second")
+        #expect(config.activeSessionName == "Work")
+        #expect(WebSessionManager.restore(providerId: "kimi", homeDirectory: home,
+                                          sessionID: config.activeSessionID ?? "")?.cookies.first?.value == "second")
     }
 
     @Test("Browser instance identity isolates project, chat and provider")

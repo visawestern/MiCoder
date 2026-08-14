@@ -309,15 +309,63 @@ enum WebModelDiscovery {
             } else {
                 efforts = []
             }
+            let parameterProfile = await discoverParameterProfile(using: bridge)
+            let existingParameters = ModelCallParametersStore.parameters(for: model.name)
+            if !existingParameters.isCustomized && parameterProfile.values.isCustomized {
+                ModelCallParametersStore.set(parameterProfile.values, for: model.name)
+            }
             result.append(WebProviderModel(name: model.name,
                                            description: model.description,
                                            availableModes: model.availableModes,
                                            availableEfforts: efforts,
+                                           parameterProfile: parameterProfile,
                                            supportsImageGeneration: model.supportsImageGeneration,
                                            supportsDeepResearch: model.supportsDeepResearch,
                                            supportsWebDev: model.supportsWebDev))
         }
         return result
+    }
+
+    /// Probe the currently selected model's visible parameter controls. This is
+    /// intentionally descriptive: a vendor may expose only some controls, so
+    /// absent values remain nil and are never treated as defaults.
+    static func discoverParameterProfile(using bridge: BrowserAutomationBridge) async -> WebModelParameterProfile {
+        let script = """
+        (function() {
+          const visible = (el) => {
+            const s = getComputedStyle(el), r = el.getBoundingClientRect();
+            return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+          };
+          const nodes = Array.from(document.querySelectorAll('input, textarea, select, button, [role=button]')).filter(visible);
+          const relevant = nodes.filter(el => {
+            const t = ((el.getAttribute('aria-label') || '') + ' ' + (el.getAttribute('name') || '') + ' ' + (el.id || '') + ' ' + (el.innerText || '')).toLowerCase();
+            return /(temperature|max.?tokens?|top.?p|system.?prompt|parameter|reasoning|thinking|effort)/.test(t);
+          });
+          const keys = relevant.map(el => el.getAttribute('name') || el.id || el.getAttribute('aria-label') || el.tagName.toLowerCase()).filter(Boolean);
+          const labels = relevant.map(el => (el.getAttribute('aria-label') || el.innerText || el.getAttribute('name') || '').trim()).filter(Boolean);
+          const numberValue = (pattern) => {
+            const el = relevant.find(e => pattern.test(((e.getAttribute('name') || '') + ' ' + (e.getAttribute('aria-label') || '') + ' ' + (e.id || '')).toLowerCase()));
+            const value = el && (el.value || el.getAttribute('value'));
+            return value && value !== '' && !Number.isNaN(Number(value)) ? Number(value) : null;
+          };
+          return JSON.stringify({keys: Array.from(new Set(keys)), labels: Array.from(new Set(labels)), temperature: numberValue(/temperature/), maxTokens: numberValue(/max.?tokens?/), topP: numberValue(/top.?p/) });
+        })();
+        """
+        guard let raw = try? await bridge.evaluateJS(script) as? String,
+              let data = raw.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return WebModelParameterProfile()
+        }
+        let keys = object["keys"] as? [String] ?? []
+        let labels = object["labels"] as? [String] ?? []
+        let temperature = object["temperature"] as? Double
+        let maxTokens = (object["maxTokens"] as? NSNumber).map { $0.intValue }
+        let topP = object["topP"] as? Double
+        return WebModelParameterProfile(
+            availableKeys: keys,
+            labels: labels,
+            values: ModelCallParameters(temperature: temperature, maxTokens: maxTokens, topP: topP)
+        )
     }
 
     /// Discover the vendor's real effort/thinking levels from the web UI.

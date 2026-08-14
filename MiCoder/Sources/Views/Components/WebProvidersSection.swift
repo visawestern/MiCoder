@@ -15,6 +15,8 @@ struct WebProvidersSection: View {
     @EnvironmentObject var appState: AppState
     @State private var providers: [WebProviderConfig] = WebProviderStore.load()
     @State private var loginConfig: WebProviderConfig?
+    @State private var loginSessionID: String = WebSessionManager.defaultSessionID
+    @State private var loginSessionName: String = "Default login"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -50,7 +52,9 @@ struct WebProvidersSection: View {
             ForEach($providers) { $cfg in
                 WebProviderCard(config: $cfg,
                                 onSave: { save() },
-                                onLogin: { loginConfig = cfg },
+                                onLogin: { beginLogin(for: cfg, newSession: false) },
+                                onChangeLogin: { beginLogin(for: cfg, newSession: true) },
+                                onSelectSession: { sessionID in activateSession(sessionID, for: cfg) },
                                 onRemove: { remove(cfg) },
                                 onRefreshModels: { await refreshModels(for: cfg) },
                                 onRefreshEffort: { await refreshEffort(for: cfg) },
@@ -59,10 +63,27 @@ struct WebProvidersSection: View {
         }
         .sheet(item: $loginConfig) { cfg in
             WebProviderLoginView(config: cfg) { cookies in
-                persistCookies(cookies, for: cfg)
+                persistCookies(cookies, for: cfg, sessionID: loginSessionID, sessionName: loginSessionName)
                 loginConfig = nil
             }
         }
+    }
+
+    private func beginLogin(for cfg: WebProviderConfig, newSession: Bool) {
+        loginSessionID = newSession ? UUID().uuidString : (cfg.activeSessionID ?? WebSessionManager.defaultSessionID)
+        loginSessionName = newSession
+            ? "Login \(Date().formatted(date: .abbreviated, time: .shortened))"
+            : (cfg.activeSessionName ?? "Default login")
+        loginConfig = cfg
+    }
+
+    private func activateSession(_ sessionID: String, for cfg: WebProviderConfig) {
+        var updated = cfg
+        let sessions = WebSessionManager.list(providerId: cfg.id, homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+        updated.activeSessionID = sessionID
+        updated.activeSessionName = sessions.first(where: { $0.id == sessionID })?.name
+        providers = WebProviderStore.upsert(updated, in: providers)
+        save()
     }
 
     private func addVendor(_ vendor: WebChatVendor) {
@@ -85,10 +106,22 @@ struct WebProvidersSection: View {
         WebProviderStore.save(providers)
     }
 
-    private func persistCookies(_ cookies: [BrowserCookie], for cfg: WebProviderConfig) {
+    private func persistCookies(_ cookies: [BrowserCookie],
+                                for cfg: WebProviderConfig,
+                                sessionID: String,
+                                sessionName: String) {
         let store = WebSessionStore(cookies: cookies, localStorage: [:], savedAt: Date())
-        try? WebSessionManager.persist(store, providerId: cfg.id,
-                                       homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+        try? WebSessionManager.persist(store,
+                                       providerId: cfg.id,
+                                       homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
+                                       sessionID: sessionID,
+                                       sessionName: sessionName)
+        if var updated = WebProviderStore.load().first(where: { $0.id == cfg.id }) {
+            updated.activeSessionID = sessionID
+            updated.activeSessionName = sessionName
+            providers = WebProviderStore.upsert(updated, in: providers)
+            save()
+        }
         // Round 9 A: refresh the real model list now that the session is live,
         // so the picker isn't stuck showing hardcoded defaults until first send.
         Task { await refreshModels(for: cfg) }
@@ -122,6 +155,8 @@ struct WebProviderCard: View {
     @Binding var config: WebProviderConfig
     let onSave: () -> Void
     let onLogin: () -> Void
+    let onChangeLogin: () -> Void
+    let onSelectSession: (String) -> Void
     let onRemove: () -> Void
     let onRefreshModels: () async -> String?
     let onRefreshEffort: () async -> String?
@@ -133,6 +168,7 @@ struct WebProviderCard: View {
     @State private var showDiscoveredModels = false
     @State private var systemPromptHeight: CGFloat = 24
     @State private var showRemoveConfirmation = false
+    @State private var storedSessions: [WebStoredLoginSession] = []
 
     private var isConnected: Bool {
         WebProviderConnectivity.isConnected(config, homeDirectory: homeDirectory)
@@ -196,6 +232,36 @@ Use clear headings, code examples, and cross-references.
                         .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
                 } else {
                     HStack(spacing: 8) {
+                        if !storedSessions.isEmpty {
+                            Menu {
+                                ForEach(storedSessions) { session in
+                                    Button {
+                                        onSelectSession(session.id)
+                                    } label: {
+                                        HStack {
+                                            Text(session.name)
+                                            if session.id == config.activeSessionID { Image(systemName: "checkmark") }
+                                        }
+                                    }
+                                }
+                            } label: {
+                                Label(config.activeSessionName ?? "Login", systemImage: "person.crop.circle")
+                                    .interfaceFont(size: 10)
+                                    .foregroundColor(Color.mimo.textSecondary)
+                            }
+                            .menuStyle(.borderlessButton)
+                            .fixedSize()
+                            .help("Choose saved web login")
+                        }
+
+                        Button(action: onChangeLogin) {
+                            Image(systemName: "person.crop.circle.badge.arrow.forward")
+                                .interfaceFont(size: 12)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(Color.mimo.brand)
+                        .help("Change login / capture another web session")
+
                         // Compact model detection status
                         if !isRefreshing && lastRefreshCount > 0 {
                             Button(action: { showDiscoveredModels.toggle() }) {
@@ -406,7 +472,13 @@ Use clear headings, code examples, and cross-references.
         .background(Color.mimo.surface)
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.mimo.border, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .onChange(of: config) { _ in onSave() }
+        .onAppear {
+            storedSessions = WebSessionManager.list(providerId: config.id, homeDirectory: homeDirectory)
+        }
+        .onChange(of: config) { _ in
+            storedSessions = WebSessionManager.list(providerId: config.id, homeDirectory: homeDirectory)
+            onSave()
+        }
     }
 }
 
@@ -602,9 +674,12 @@ struct WebProviderLoginView: View {
             }
         }
         .frame(width: 900, height: 640)
-        .task(id: config.id) {
-            // Pre-load existing cookies to show real status
-            if let store = WebSessionManager.restore(providerId: config.id, homeDirectory: FileManager.default.homeDirectoryForCurrentUser) {
+        .task(id: "\(config.id)|\(config.activeSessionID ?? WebSessionManager.defaultSessionID)") {
+            // Pre-load the active named session to show its real status.
+            let sessionID = config.activeSessionID ?? WebSessionManager.defaultSessionID
+            if let store = WebSessionManager.restore(providerId: config.id,
+                                                      homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
+                                                      sessionID: sessionID) {
                 capturedCookies = store.cookies
             }
             // Model discovery is explicit: the user can choose fast DOM scraping

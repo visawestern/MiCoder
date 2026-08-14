@@ -1186,7 +1186,9 @@ class AppState: ObservableObject {
     /// page, waits for its composer, then opens and reads the model dropdown.
     /// It returns an actionable message instead of silently leaving 0 models.
     @MainActor
-    func refreshWebModels(for config: WebProviderConfig) async -> String {
+    func refreshWebModels(for config: WebProviderConfig,
+                          projectID: String? = nil,
+                          chatID: String? = nil) async -> String {
         // Prefer the user-picked selector but always retain catalog fallbacks.
         // A stale custom selector must not hide the live model menu.
         let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)
@@ -1197,8 +1199,10 @@ class AppState: ObservableObject {
         if selector.isEmpty {
             return L.t(AppLocalizationKey.locWebNoSelectorYet)
         }
+        let sessionID = config.activeSessionID ?? WebSessionManager.defaultSessionID
         guard let store = WebSessionManager.restore(providerId: config.id,
-                                                    homeDirectory: FileManager.default.homeDirectoryForCurrentUser),
+                                                    homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
+                                                    sessionID: sessionID),
               !store.cookies.isEmpty,
               !WebSessionManager.isExpired(store) else {
             return L.t(AppLocalizationKey.locWebLoginFirst)
@@ -1210,7 +1214,7 @@ class AppState: ObservableObject {
             responseContainer: "div[data-message-author-role='assistant'], div[class*='markdown'], div[class*='message']",
             stopButton: "button[aria-label*='stop'], button[data-testid='stop-button'], button[class*='stop']"
         )
-        let bridge = WKWebViewBrowserBridge(webView: webView(for: config), selectors: selectors)
+        let bridge = WKWebViewBrowserBridge(webView: webView(for: config, projectID: projectID, chatID: chatID), selectors: selectors)
         do {
             try await bridge.setCookies(store.cookies)
             try await bridge.navigate(to: config.chatURL)
@@ -1267,13 +1271,17 @@ class AppState: ObservableObject {
     /// the effort dropdown on the provider's web page.
     /// Returns a status message describing the result.
     @MainActor
-    func refreshWebEffort(for config: WebProviderConfig) async -> String {
+    func refreshWebEffort(for config: WebProviderConfig,
+                          projectID: String? = nil,
+                          chatID: String? = nil) async -> String {
         #if canImport(WebKit)
         guard let effortSelector = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)?.effortDropdown else {
             return L.t(AppLocalizationKey.locWebEffortNoSelector)
         }
+        let sessionID = config.activeSessionID ?? WebSessionManager.defaultSessionID
         guard let store = WebSessionManager.restore(providerId: config.id,
-                                                    homeDirectory: FileManager.default.homeDirectoryForCurrentUser),
+                                                    homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
+                                                    sessionID: sessionID),
               !store.cookies.isEmpty,
               !WebSessionManager.isExpired(store) else {
             return L.t(AppLocalizationKey.locWebEffortLoginFirst)
@@ -1285,7 +1293,7 @@ class AppState: ObservableObject {
             responseContainer: "div[data-message-author-role='assistant'], div[class*='markdown'], div[class*='message']",
             stopButton: "button[aria-label*='stop'], button[data-testid='stop-button'], button[class*='stop']"
         )
-        let bridge = WKWebViewBrowserBridge(webView: webView(for: config), selectors: selectors)
+        let bridge = WKWebViewBrowserBridge(webView: webView(for: config, projectID: projectID, chatID: chatID), selectors: selectors)
         do {
             try await bridge.setCookies(store.cookies)
             try await bridge.navigate(to: config.chatURL)
@@ -1325,9 +1333,12 @@ class AppState: ObservableObject {
 
     /// Refresh both models and effort levels for a web provider.
     @MainActor
-    func refreshWebModelsAndEffort(for config: WebProviderConfig) async -> (modelsMsg: String, effortMsg: String) {
-        let modelsMsg = await refreshWebModels(for: config)
-        let effortMsg = await refreshWebEffort(for: config)
+    func refreshWebModelsAndEffort(for config: WebProviderConfig,
+                                   projectID: String? = nil,
+                                   chatID: String? = nil) async -> (modelsMsg: String, effortMsg: String) {
+        let modelsMsg = await refreshWebModels(for: config, projectID: projectID, chatID: chatID)
+        let refreshedConfig = WebProviderStore.load().first(where: { $0.id == config.id }) ?? config
+        let effortMsg = await refreshWebEffort(for: refreshedConfig, projectID: projectID, chatID: chatID)
         return (modelsMsg, effortMsg)
     }
 

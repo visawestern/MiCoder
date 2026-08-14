@@ -9,7 +9,10 @@ enum WebProviderConnectivity {
     static func isConnected(_ config: WebProviderConfig,
                            homeDirectory: URL,
                            now: Date = Date()) -> Bool {
-        guard let store = WebSessionManager.restore(providerId: config.id, homeDirectory: homeDirectory) else {
+        let sessionID = config.activeSessionID ?? WebSessionManager.defaultSessionID
+        guard let store = WebSessionManager.restore(providerId: config.id,
+                                                    homeDirectory: homeDirectory,
+                                                    sessionID: sessionID) else {
             return false
         }
         guard !store.cookies.isEmpty else { return false }

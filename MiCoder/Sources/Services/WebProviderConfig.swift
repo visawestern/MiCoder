@@ -78,25 +78,28 @@ struct WebProviderModel: Codable, Equatable, Identifiable, Hashable {
     let description: String?
     var availableModes: [String]      // ["auto", "think", "fast", "image"]
     var availableEfforts: [WebEffort]
+    var parameterProfile: WebModelParameterProfile
     var supportsImageGeneration: Bool
     var supportsDeepResearch: Bool
     var supportsWebDev: Bool
 
     init(name: String, description: String? = nil, availableModes: [String] = [],
          availableEfforts: [WebEffort] = [],
+         parameterProfile: WebModelParameterProfile = WebModelParameterProfile(),
          supportsImageGeneration: Bool = false, supportsDeepResearch: Bool = false,
          supportsWebDev: Bool = false) {
         self.name = name
         self.description = description
         self.availableModes = availableModes
         self.availableEfforts = availableEfforts
+        self.parameterProfile = parameterProfile
         self.supportsImageGeneration = supportsImageGeneration
         self.supportsDeepResearch = supportsDeepResearch
         self.supportsWebDev = supportsWebDev
     }
 
     private enum CodingKeys: String, CodingKey {
-        case name, description, availableModes, availableEfforts
+        case name, description, availableModes, availableEfforts, parameterProfile
         case supportsImageGeneration, supportsDeepResearch, supportsWebDev
     }
 
@@ -106,6 +109,7 @@ struct WebProviderModel: Codable, Equatable, Identifiable, Hashable {
         description = try container.decodeIfPresent(String.self, forKey: .description)
         availableModes = try container.decodeIfPresent([String].self, forKey: .availableModes) ?? []
         availableEfforts = try container.decodeIfPresent([WebEffort].self, forKey: .availableEfforts) ?? []
+        parameterProfile = try container.decodeIfPresent(WebModelParameterProfile.self, forKey: .parameterProfile) ?? WebModelParameterProfile()
         supportsImageGeneration = try container.decodeIfPresent(Bool.self, forKey: .supportsImageGeneration) ?? false
         supportsDeepResearch = try container.decodeIfPresent(Bool.self, forKey: .supportsDeepResearch) ?? false
         supportsWebDev = try container.decodeIfPresent(Bool.self, forKey: .supportsWebDev) ?? false
@@ -163,6 +167,10 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
     /// User-picked CSS selector for the model dropdown (element picker).
     /// Overrides catalog selector when set.
     var customModelSelector: String?
+    /// Active named login session. The actual cookies are stored separately by
+    /// WebSessionManager under providerID/sessionID.
+    var activeSessionID: String?
+    var activeSessionName: String?
 
     init(id: String = UUID().uuidString,
          vendor: WebChatVendor,
@@ -184,7 +192,9 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
          discoveredEffortLevels: [WebEffort] = [],
          discoveredFeatureModes: [FeatureMode] = [],
          effortDropdown: String? = nil,
-         customModelSelector: String? = nil) {
+         customModelSelector: String? = nil,
+         activeSessionID: String? = nil,
+         activeSessionName: String? = nil) {
         self.id = id
         self.vendor = vendor
         self.displayName = displayName ?? vendor.displayName
@@ -206,6 +216,8 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
         self.discoveredFeatureModes = discoveredFeatureModes
         self.effortDropdown = effortDropdown
         self.customModelSelector = customModelSelector
+        self.activeSessionID = activeSessionID
+        self.activeSessionName = activeSessionName
     }
 
     /// A web provider's runtime readiness is determined by its captured session,
