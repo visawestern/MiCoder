@@ -157,7 +157,9 @@ struct WebProviderCatalogEnhancedTests {
         let catalog = try WebProviderCatalog.loadBundled()
         let kimi = try #require(catalog.selectors(for: "kimi"))
 
-        #expect(kimi.modelButton == ".current-model")
+        #expect(kimi.modelButton?.hasPrefix(".current-model") == true)
+        #expect(kimi.modelButton?.contains("model-selector") == true)
+        #expect(kimi.effortDropdown?.contains("thinking") == true)
     }
 
     @Test func newChatTextsForVendors() throws {

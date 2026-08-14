@@ -75,7 +75,10 @@ struct WebDriverSelectionGuardTests {
         func clickByText(selector: String, text: String) async throws -> Bool { acceptsOption }
         func readText(selector: String) async throws -> String { submitted ? "final answer" : "" }
         func responseFingerprint(selector: String) async throws -> String { submitted ? "submitted-1" : "" }
-        func exists(selector: String) async throws -> Bool { true }
+        func exists(selector: String) async throws -> Bool {
+            if selector.contains("stop") { return !submitted }
+            return true
+        }
         func pageText() async throws -> String { "chat ready" }
         func currentURL() async throws -> String { "https://kimi.com/chat" }
         func cookies() async throws -> [BrowserCookie] { [] }
@@ -95,8 +98,8 @@ struct WebDriverSelectionGuardTests {
         stopButton: "button.stop"
     )
 
-    @Test("A failed model injection blocks the send")
-    func failedModelInjectionBlocksSend() async {
+    @Test("A failed model or effort injection reports status but does not block the send")
+    func failedModelInjectionDoesNotBlockSend() async {
         let bridge = InjectionBridge(acceptsOption: false)
         let driver = WebChatDriver(
             bridge: bridge,
@@ -110,10 +113,18 @@ struct WebDriverSelectionGuardTests {
         )
         var events: [WebChatEvent] = []
         await driver.runTurn(userMessage: "hello", isFirstMessage: false) { events.append($0) }
-        #expect(bridge.typed.isEmpty)
-        #expect(bridge.sendClicks == 0)
+        #expect(bridge.typed.count == 1)
+        #expect(bridge.sendClicks == 1)
         #expect(events.contains { event in
-            if case .error(let message) = event { return message.contains("not found") }
+            if case .modelInjectionFailed = event { return true }
+            return false
+        })
+        #expect(events.contains { event in
+            if case .effortInjectionFailed = event { return true }
+            return false
+        })
+        #expect(!events.contains { event in
+            if case .error = event { return true }
             return false
         })
     }

@@ -650,9 +650,12 @@ struct WebProviderLoginView: View {
         Task {
             await MainActor.run { detectResult = .detecting }
             let bridge = WKWebViewBrowserBridge(webView: webView, selectors: WebVendorSelectors(input: "", sendButton: "", responseContainer: "", stopButton: ""))
-            let dropdownSelector = config.customModelSelector
-                ?? (try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id))?.modelDropdown
-                ?? ""
+            let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)
+            let catalogModelSelector = catalogEntry?.modelDropdown ?? ""
+            let customSelector = config.customModelSelector?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let dropdownSelector = [customSelector, catalogModelSelector]
+                .filter { !$0.isEmpty }
+                .joined(separator: ", ")
             if dropdownSelector.isEmpty {
                 await MainActor.run { detectResult = .failed("No selector found for this vendor.") }
                 return
@@ -664,8 +667,11 @@ struct WebProviderLoginView: View {
                 }
                 try? await Task.sleep(nanoseconds: 250_000_000)
             }
-            // Try to discover models from the dropdown
+            // Discover models and effort independently. Effort is optional and
+            // must never be inferred from model labels.
             let models = await WebModelDiscovery.discover(using: bridge, dropdownSelector: dropdownSelector, vendor: config.vendor) ?? []
+            let effortSelector = catalogEntry?.effortDropdown ?? ""
+            let efforts = effortSelector.isEmpty ? [] : (await WebModelDiscovery.discoverEffort(using: bridge, effortDropdownSelector: effortSelector, vendor: config.vendor) ?? [])
             await MainActor.run {
                 if models.isEmpty {
                     detectResult = .failed("No models found in dropdown.")
@@ -674,6 +680,7 @@ struct WebProviderLoginView: View {
                     // Save discovered models to store AND update local config
                     var updated = config
                     updated.discoveredModels = models
+                    updated.discoveredEffortLevels = efforts
                     WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
                     // Update local config so canCapture becomes true
                     config = updated

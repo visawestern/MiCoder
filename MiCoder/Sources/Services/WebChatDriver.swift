@@ -263,20 +263,28 @@ struct WebChatDriver {
             return
         }
 
-        // Inject model selection and require an explicit successful click.
+        // Model selection is best-effort. A provider can redesign or hide its
+        // model control while the page remains perfectly able to send using its
+        // current model. Never block the user's message on a stale selector.
         if !config.selectedModel.isEmpty {
-            guard let modelButton = catalogEntry.modelButton?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !modelButton.isEmpty else {
-                throw WebChatError.modelInjectionFailed(
-                    "No model control is configured for \(config.vendor.displayName). Refresh the provider catalog before sending."
-                )
+            let modelSelectors = (catalogEntry.modelButton?.split(separator: ",")
+                .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) } ?? [])
+                .filter { !$0.isEmpty }
+            var openedSelector: String?
+            for selector in modelSelectors {
+                guard (try? await bridge.exists(selector: selector)) == true else { continue }
+                do {
+                    try await bridge.click(selector: selector)
+                    openedSelector = selector
+                    break
+                } catch {
+                    continue
+                }
             }
-            let selector = modelButton
-            do {
-                try await bridge.click(selector: selector)
+
+            if let openedSelector {
                 try? await bridge.waitForSelector(selector: "div.model-item, [class*='model-item'], [role='option']", timeout: 5000)
                 await bridge.wait(ms: 500)
-
                 let modelText = config.selectedModel
                 let itemSelector = catalogEntry.modelItem ?? "[role='option'], [class*='option']"
                 let clicked = (try? await bridge.clickByText(selector: itemSelector, text: modelText)) ?? false
@@ -284,21 +292,22 @@ struct WebChatDriver {
                     selector: "li, div, span, button, [role='option']",
                     text: modelText
                 )) ?? false)
-                guard fallbackClicked else {
-                    throw WebChatError.modelInjectionFailed(
-                        "Model '\(modelText)' was not found in the web provider menu. Refresh models and try again."
-                    )
+                if fallbackClicked {
+                    // Let the model menu close and the provider commit its state
+                    // before touching the independent effort control.
+                    await bridge.wait(ms: 800)
+                } else {
+                    // Toggle the same control once to avoid leaving a menu overlay
+                    // in front of the composer, then continue with the page model.
+                    try? await bridge.click(selector: openedSelector)
+                    emit(.modelInjectionFailed(
+                        "Model '\(modelText)' was not found; sending with the model already active on the page."
+                    ))
                 }
-                // Let the model menu close and the provider commit its state
-                // before touching the independent effort control.
-                await bridge.wait(ms: 800)
-            } catch let error as WebChatError {
-                throw error
-            } catch {
-                throw WebChatError.modelInjectionFailed(
-                    L.t(AppLocalizationKey.locWebModelInjectionFailed)
-                        .replacingOccurrences(of: "{0}", with: error.localizedDescription)
-                )
+            } else {
+                emit(.modelInjectionFailed(
+                    "The page model control is unavailable; sending with the model already active on the page."
+                ))
             }
         }
 
@@ -337,10 +346,10 @@ struct WebChatDriver {
                 }
             }
             if foundControl && !anySuccess {
-                throw WebChatError.effortInjectionFailed(
+                emit(.effortInjectionFailed(
                     L.t(AppLocalizationKey.locWebEffortNote)
-                        .replacingOccurrences(of: "{0}", with: lastError.isEmpty ? "effort option not found" : lastError)
-                )
+                        .replacingOccurrences(of: "{0}", with: lastError.isEmpty ? "effort option not found; sending with the current page setting" : lastError)
+                ))
             }
         }
     }
