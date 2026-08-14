@@ -130,6 +130,9 @@ class AppState: ObservableObject {
     @Published private(set) var providerModelLoadMessages: [String: String] = [:]
     
     @Published var workspaces: [Workspace] = []
+    /// Lightweight registry snapshot used to reconcile sidebar visibility with
+    /// Storage archive actions without hiding an unknown legacy workspace.
+    @Published private(set) var projectRegistryEntries: [ProjectRegistryEntry] = []
     private var isNavigatingHistory = false
     /// Pending message from local API. ChatPanelView observes this to trigger sends.
     @Published var apiPendingMessage: String?
@@ -271,9 +274,24 @@ class AppState: ObservableObject {
     private var autoFreeSwitchObserver: NSObjectProtocol? = nil
     
     var displayedWorkspaces: [Workspace] {
-        let nameFiltered = SidebarWorkspaceLogic.filtered(workspaces, query: workspaceFilterQuery)
+        let visible = WorkspaceArchiveVisibilityLogic.visible(
+            workspaces,
+            registry: projectRegistryEntries,
+            selectedPath: selectedWorkspace?.path
+        )
+        let nameFiltered = SidebarWorkspaceLogic.filtered(visible, query: workspaceFilterQuery)
         let sessionFiltered = SidebarWorkspaceLogic.filteredBySessionCount(nameFiltered, sessions: sessions, preset: workspaceFilterPreset)
         return SidebarWorkspaceLogic.sorted(sessionFiltered, order: workspaceSortOrder, sessions: sessions)
+    }
+
+    /// Reload the global project registry after Storage/Archive mutations so
+    /// the sidebar reflects the action immediately instead of requiring a
+    /// relaunch. Unknown registry rows remain non-destructive to workspaces.
+    @MainActor
+    func refreshProjectRegistry() {
+        projectRegistryEntries = ProjectRegistryLogic.load(
+            homeDirectory: FileManager.default.homeDirectoryForCurrentUser
+        )
     }
     
     var userDisplayName: String { UserProfileDisplay.displayName() }

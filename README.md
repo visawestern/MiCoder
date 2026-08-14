@@ -33,9 +33,9 @@ in one native SwiftUI application.
 ## Status
 
 The current codebase has been audited screen-by-screen and tracked in the canonical feature
-spreadsheet (`docs/FEATURE_SPREADSHEET.csv`, 250 user stories):
+spreadsheet (`docs/FEATURE_SPREADSHEET.csv`, 253 user stories):
 
-- `225 PASS`
+- `228 PASS`
 - `15 PARTIAL`
 - `5 MISSING`
 - `5 FUTURE`

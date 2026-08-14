@@ -458,6 +458,7 @@ struct StorageSettingsView: View {
         }
         try? ProjectRegistryLogic.save(updated, homeDirectory: home)
         projectEntries = updated
+        appState.refreshProjectRegistry()
     }
 
     private func deleteProject(_ entry: ProjectRegistryEntry) {

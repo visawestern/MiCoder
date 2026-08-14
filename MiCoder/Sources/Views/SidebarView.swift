@@ -483,6 +483,7 @@ struct NotificationsSheet: View {
 
 struct NotificationRow: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
     let notification: AppNotification
     
     var body: some View {
@@ -567,17 +568,31 @@ struct NotificationRow: View {
     }
     
     private func handleAction(_ action: NotificationAction) {
+        // Child buttons do not reliably propagate the row tap gesture on every
+        // macOS SwiftUI host, so action routing explicitly marks the item read.
+        appState.notificationService.markAsRead(notification.id)
+        let sessionWasFound: Bool
         switch action {
         case .openSession(let sessionID):
-            if let session = appState.sessions.first(where: { $0.id == sessionID }) {
-                appState.selectSession(session)
+            guard let session = appState.sessions.first(where: { $0.id == sessionID }) else {
+                return
             }
+            appState.selectSession(session)
+            sessionWasFound = true
         case .openSettings:
             appState.openSettings()
+            sessionWasFound = false
         case .openGit:
             appState.showGoal = true
+            sessionWasFound = false
         case .custom:
-            break
+            sessionWasFound = false
+        }
+        if NotificationActionRoutingLogic.shouldDismissSheet(
+            after: action,
+            sessionWasFound: sessionWasFound
+        ) {
+            dismiss()
         }
     }
 }
@@ -728,8 +743,14 @@ struct WorkspaceSidebarSection: View {
                 
                 // Name + chevron
                 Button(action: {
+                    let alreadySelected = appState.selectedWorkspace?.id == workspace.id
                     appState.selectedWorkspace = workspace
-                    withAnimation(.easeInOut(duration: 0.2)) { isExpanded.toggle() }
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isExpanded = SidebarExpansionLogic.nextState(
+                            isAlreadySelected: alreadySelected,
+                            isExpanded: isExpanded
+                        )
+                    }
                 }) {
                     HStack(spacing: 4) {
                         Text(workspace.name)
@@ -773,7 +794,7 @@ struct WorkspaceSidebarSection: View {
                             .padding(.leading, 50)
                             .padding(.vertical, 4)
                     } else {
-                        ForEach(workspaceSessions.prefix(10)) { session in
+                        ForEach(SidebarSessionLimitLogic.visible(workspaceSessions)) { session in
                             SessionTaskRow(
                                 session: session,
                                 workspace: workspace,
@@ -791,6 +812,14 @@ struct WorkspaceSidebarSection: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: isExpanded)
+        .onChange(of: appState.selectedWorkspace?.id) { newSelectionID in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isExpanded = SidebarExpansionLogic.stateAfterSelection(
+                    workspaceID: workspace.id,
+                    selectedID: newSelectionID
+                )
+            }
+        }
     }
 }
 
@@ -1049,6 +1078,7 @@ struct ArchivedProjectsPopover: View {
         let all = ProjectRegistryLogic.load(homeDirectory: home)
         let updated = ProjectRegistryLogic.restore(id: entry.id, in: all)
         try? ProjectRegistryLogic.save(updated, homeDirectory: home)
+        appState.refreshProjectRegistry()
         archived = ProjectRegistryLogic.archived(updated)
     }
 }

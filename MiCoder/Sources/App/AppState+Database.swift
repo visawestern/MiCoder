@@ -42,6 +42,7 @@ extension AppState {
         }
         
         self.workspaces = workspacesList
+        self.refreshProjectRegistry()
         
         print("✅ Loaded \(projects.count) projects from database")
     }

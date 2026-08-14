@@ -467,3 +467,64 @@ canonical CSV for startup connection readiness.
 Round 49 is complete only after the documentation, source, regression tests and harness evidence
 are committed and pushed. The commit hash is recorded in the next audit inventory after the Git
 operation; no runtime claim is inferred from a clean source diff alone.
+
+
+## Round 50 (2026-08-14) — Sidebar adversarial audit and TDD fixes
+
+### Scope and evidence
+
+The audit continued from the second activity checklist and manually traced all 17 Sidebar
+controls/actions from trigger to handler, state mutation, persistence, and visible consumer. The
+review covered navigation boundaries, compact toolbar overflow, search/sort/filter, list/grid,
+workspace/session selection, task/project creation, native context actions, archive storage,
+notifications, settings, and profile footer. The Linux Foundation harness reached **85/85 tests
+passed** after the fixes. SwiftUI/AppKit popovers, sheets, Finder/NSOpenPanel, keyboard hit targets,
+and native visual state remain unavailable in Linux and are explicitly **UNVERIFIED**.
+
+### Confirmed defects
+
+| ID | Root cause | User-visible consequence | TDD fix | Result |
+|---|---|---|---|---|
+| SID-05 | Registry archive state and DB-backed `AppState.workspaces` were separate; Sidebar did not reconcile them or refresh after Restore | Archive/Restore could leave stale active rows and required relaunch-like reload behavior | `WorkspaceArchiveVisibilityLogic`; published registry snapshot; refresh hooks in Sidebar Restore, Storage Settings mutations and DB load; preserve selected archived context | 4/4 harness tests green |
+| SID-06 | `WorkspaceSidebarSection.@State isExpanded` was initialized from `startsExpanded` once and did not synchronize when selection changed | Selecting another workspace could leave its sessions collapsed and previous section expanded | `SidebarExpansionLogic`; click policy plus `onChange(of: selectedWorkspace.id)` synchronization | 3/3 harness tests green |
+| SID-07 | View used `workspaceSessions.prefix(10)` while canonical expected behavior promised up to 12, with no “more” affordance | Sessions 11 and 12 were silently inaccessible from the sidebar | `SidebarSessionLimitLogic.maximumVisible == 12`; view wired to explicit contract | 3/3 harness tests green |
+| SID-15 | Notification action handlers changed AppState but never dismissed the sheet; child button taps could bypass row-level mark-read gesture | “Open Session”, “Open Settings” and “View Changes” appeared ineffective until manual close; unread badge could remain | `NotificationActionRoutingLogic`; explicit mark-read; dismiss after successful supported action; retain sheet for missing/custom action | 3/3 harness tests green |
+
+### Chain verification highlights
+
+For archive, the trigger is the Sidebar archive icon or Storage action; the handler mutates
+`ProjectRegistryLogic`; the previous consumer was only the popover/Storage list, not the active
+Sidebar; the fix makes `AppState.projectRegistryEntries` the published consumer and filters
+`displayedWorkspaces` through the pure visibility contract. Unknown registry entries remain visible
+so older installations cannot lose projects, while the currently selected archived workspace stays
+visible to preserve the active task context.
+
+For workspace selection, the name/chevron button now distinguishes current-row toggle from a
+new-row selection. The new-row path always expands; `onChange` collapses non-selected sections and
+expands the selected one. The sessions list uses `AppState.sessions(for:)`, already sorted by
+updated time, and an explicit 12-row limit.
+
+For notifications, the action button explicitly marks read before routing. A valid Open Session
+selects the session and dismisses; Open Settings and View Changes update AppState and dismiss; a
+missing session returns without dismissing, and custom actions remain visible because they have no
+implemented handler. This is fail-closed UX rather than hiding a failed action.
+
+### Documentation and registry
+
+`docs/activity-checklists/02-sidebar.md` now contains all controls with full trigger→handler→state→
+consumer chains, code-quality/task-fit scores, and runtime status. `SID-24`, `SID-25`, and `SID-26`
+were added to the canonical CSV. The registry now has **253 rows: 228 PASS, 15 PARTIAL, 5 MISSING,
+5 FUTURE**. README totals were synchronized. The red test logs and Round 50 evidence remain under
+`.acceptance/` for auditability.
+
+### Adversarial scores
+
+| Dimension | Before Round 50 | After Round 50 | Evidence boundary |
+|---|---:|---:|---|
+| Sidebar implementation quality | 79/100 | 95/100 | Pure contracts, source tracing, 13 new green tests |
+| Sidebar task adherence | 78/100 | 100/100 | Every checklist action traced; confirmed defects fixed TDD-first |
+| Sidebar target-runtime confidence | 0/100 | 0/100 | macOS UI/native runtime unavailable; no false PASS |
+| Overall verifiable project quality | 88/100 | 92/100 | Code-level and harness evidence only; web runtime still pending |
+
+Round 50 is not complete until this report, checklist, registry, source and tests are committed and
+pushed. The published commit hash must be read from Git after the operation rather than guessed.
