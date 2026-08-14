@@ -4,20 +4,20 @@
 выборе provider/model, web discovery/effort и сохранении первой неудачной
 сессии.
 
-## Chain A: MiMo-Auto send
+## Chain A: MiCoder Auto Free send
 
 ```text
 ContentView.task
   -> AppState.loadCustomProviders
   -> AppState.validateAndReconcileSelections
-  -> AppState.selectProvider(mimo-auto)
-  -> MiMoAutoProviderStore.provider.selectedModel
+  -> AppState.selectProvider(micoder-auto-free)
+  -> MiCoderAutoFreeStore.provider.selectedModel
   -> AppState.effectiveSelectedModel
   -> SendReadinessLogic.sendValidationError
-  -> SendRouteResolver.route(.mimoAuto)
-  -> MiMoAutoProviderStore.selectModel
-  -> MiMoAutoProviderStore.streamChat
-  -> MiMoAutoClient.chatCompletion
+  -> SendRouteResolver.route(.autoFree)
+  -> MiCoderAutoFreeStore.selectModel
+  -> MiCoderAutoFreeStore.streamChat
+  -> MiCoderAutoFreeClient.chatCompletion
   -> MessageStore assistant deltas
   -> finished assistant message
 ```
@@ -64,24 +64,25 @@ WebProviderCard refresh effort
 ```text
 sendMessage
   -> readiness/connection validation
-  -> persistRejectedMessage on preflight failure
-  -> ensureLocalSession
-  -> AppState.upsertSession
-  -> DatabaseBridge.createSession
+  -> recordRejectedSend on preflight failure
+  -> AppState.prepareLocalSessionForSend when workspace exists
+  -> DatabaseBridge.createSession(project-scoped)
+  -> MessageStore.currentSessionID
   -> DatabaseBridge.saveMessage(user)
   -> DatabaseBridge.saveMessage(assistant error)
-  -> sidebar/session reload
+  -> delayed selection/sidebar context
 ```
 
 ```text
 sendDirectly
-  -> request/route error
-  -> persistUnsentMessage
-  -> ensureLocalSession
-  -> save user message + mark assistant error finished
+  -> route resolution
+  -> prepareSessionBeforeAppending
+  -> local/remote session identity before first append
+  -> save user message + assistant placeholder/error
+  -> update assistant failure visibly
 ```
 
-**Result:** PASS by `failedFirstSendIsPersisted` and full suite.
+**Result:** PASS by `SendPersistenceLogicTests`, ChatPanel source contract, and 88/88 Foundation harness tests. macOS DB relaunch and provider runtime remain UNVERIFIED.
 
 ## Chain E: Provider readiness
 

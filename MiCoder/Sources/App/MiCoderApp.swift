@@ -1915,6 +1915,42 @@ class AppState: ObservableObject {
         showGoal = false
         inputFocusRequest += 1
     }
+
+    /// Create the local project-scoped session required before the first user
+    /// or assistant message is appended. Serve used to create its remote
+    /// session later, which meant the earlier MessageStore.append calls saw a
+    /// nil currentSessionID and silently skipped local persistence.
+    @MainActor
+    func prepareLocalSessionForSend(title: String) -> String? {
+        if let selectedID = selectedSession?.id {
+            return selectedID
+        }
+        guard let workspace = selectedWorkspace else { return nil }
+        let sessionID = UUID().uuidString
+        let sessionTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "New Chat"
+            : String(title.prefix(80))
+        DatabaseBridge.shared.createSession(
+            id: sessionID,
+            projectId: workspace.path,
+            title: sessionTitle,
+            directory: workspace.path,
+            branch: workspace.branch,
+            agentMode: agentMode.rawValue,
+            modelId: selectedModel.isEmpty ? nil : selectedModel,
+            providerId: selectedProviderID.isEmpty ? nil : selectedProviderID
+        )
+        let session = ChatSession(
+            id: sessionID,
+            title: sessionTitle,
+            directory: workspace.path,
+            branch: workspace.branch
+        )
+        if !sessions.contains(where: { $0.id == sessionID }) {
+            sessions.insert(session, at: 0)
+        }
+        return sessionID
+    }
     
     func openSkillsSettings() {
         settingsTab = .skills
@@ -1940,14 +1976,18 @@ class AppState: ObservableObject {
         MiCoderAPIServer.appendLog("📝 upsertSession: id=\(session.id), sessions=\(sessions.count), selected=\(selectedSession?.id ?? "nil")")
     }
     
-    func registerSessionFromServer(id: String, title: String, directory: String) {
+    func registerSessionFromServer(id: String, title: String, directory: String, select: Bool = true) {
         let session = ChatSession(
             id: id,
             title: title,
             directory: directory,
             branch: selectedWorkspace?.branch
         )
-        upsertSession(session)
+        if select {
+            upsertSession(session)
+        } else if !sessions.contains(where: { $0.id == id }) {
+            sessions.insert(session, at: 0)
+        }
     }
     
     @discardableResult

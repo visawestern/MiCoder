@@ -3,22 +3,22 @@
 Статусы: `PASS` = функция проверена цепочкой и тестом; `PARTIAL` = внешний
 ресурс отсутствует; `FIXED` = найден разрыв и исправлен этим циклом.
 
-## MiMo-Auto
+## MiCoder Auto Free
 
 | Функция | Проверка | Качество |
 |---|---|---|
-| `MiMoAutoProvider.refreshModels` | fallback всегда содержит `mimo-auto` | PASS |
-| `MiMoAutoProvider.validateKey` | free tier valid, key uses API | PASS |
-| `MiMoAutoProviderStore.refreshModels` | store never empty | PASS |
-| `MiMoAutoProviderStore.setApiKey` | key validation then refresh | PASS |
-| `MiMoAutoProviderStore.selectModel` | rejects unknown model | PASS |
-| `MiMoAutoProviderStore.streamChat` | uses selected provider model | PASS |
-| `MiMoAutoClient.listModels` | decodes `/models` | PASS |
-| `MiMoAutoClient.chatCompletion` | sends stream and parses deltas | PASS |
-| `MiMoAutoClient.validateApiKey` | reports API validity | PASS |
-| `AppState.selectProvider` | auto provider selects free model | FIXED/PASS |
-| `AppState.effectiveSelectedModel` | resolves auto/web model | PASS |
-| `SendRouteResolver.route` | auto resolves `.mimoAuto` | PASS |
+| `MiCoderAutoFreeClient.listModels` | live catalog intersects eligible temporary free IDs | PASS |
+| `MiCoderAutoFreeClient.chatCompletion` | anonymous OpenCode Zen SSE request without API key | PASS by code; live network pending |
+| `MiCoderAutoFreeStore.refreshModels` | unavailable catalog fails closed; no synthetic paid fallback | PASS |
+| `MiCoderAutoFreeStore.selectModel` | selected live free model persists | PASS |
+| `MiCoderAutoFreeStore.streamChat` | selected model, failover and rate-limit status | PASS by code; live network pending |
+| `MiCoderAutoFree system prompt` | saved prompt precedes user content | PASS |
+| `AppState.selectProvider` | built-in provider selects only verified free model | FIXED/PASS |
+| `AppState.effectiveSelectedModel` | resolves Auto Free/web model | PASS |
+| `SendRouteResolver.route` | Auto Free resolves `.autoFree` | PASS |
+| `MiCoderAutoFreeNotificationLogic` | rate limit is visible error notification | PASS |
+| `MiCoderAutoFreeClient.shouldSwitch` | immediate rate/model fallback or five-failure switch | PASS |
+| `ChatPanelView` Auto Free attachments | text is sent; image/file parts are currently omitted | PARTIAL — next TDD target |
 
 ## Readiness and persistence
 
@@ -30,9 +30,9 @@
 | `SendReadinessReason.reason` | first actionable error | PASS |
 | `ChatPanelView.sendMessage` | preflight and dispatch | PASS |
 | `ChatPanelView.sendDirectly` | effective model and route | FIXED/PASS |
-| `ensureLocalSession` | creates project-owned session | PASS |
-| `persistRejectedMessage` | stores failed preflight turn | PASS |
-| `persistUnsentMessage` | stores failed request turn | PASS |
+| `AppState.prepareLocalSessionForSend` | creates project-owned session before first append without early selection | FIXED/PASS — Round 51 |
+| `ChatPanelView.recordRejectedSend` | stores user/error pair on preflight failure | FIXED/PASS — Round 51 |
+| `ChatPanelView.prepareSessionBeforeAppending` | binds local/remote session before first append | FIXED/PASS — Round 51 |
 | `DatabaseBridge.createSession` | owns correct project DB | PASS |
 | `DatabaseBridge.saveMessage` | persists user/error pair | PASS |
 

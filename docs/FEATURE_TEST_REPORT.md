@@ -528,3 +528,79 @@ were added to the canonical CSV. The registry now has **253 rows: 228 PASS, 15 P
 
 Round 50 is not complete until this report, checklist, registry, source and tests are committed and
 pushed. The published commit hash must be read from Git after the operation rather than guessed.
+
+
+## Round 51 (2026-08-14) — Chat first-send persistence audit and TDD fix
+
+### Scope and adversarial result
+
+The third activity checklist was traced from composer input through readiness, route resolution,
+session creation, MessageStore persistence, provider branches, streaming, stop, queue, retry, edit,
+copy, plan questions, and failure rendering. The canonical BUG-06 note claimed
+`persistRejectedMessage` and `persistUnsentMessage`, but a repository-wide source search found that
+neither helper existed. The actual first-send chain was therefore re-opened instead of accepting the
+historical PASS.
+
+The confirmed failure was causal and reproducible from source: a new workspace had no selected
+session; `sendDirectly` appended the user message and empty assistant placeholder while
+`MessageStore.currentSessionID == nil`; `MessageStore.append` explicitly skipped
+`DatabaseBridge.saveMessage`; the standard Serve branch created its remote session only afterward.
+Preflight validation appended only an assistant error, also without a session. A failed first request
+could therefore disappear from project history after relaunch even though it was visible in the
+current process.
+
+### TDD red → green fix
+
+Red tests were written first in `SendPersistenceLogicTests` for three edge cases: a new workspace
+must bootstrap before the first append, an existing session must be reused without a duplicate, and
+no workspace path must fail closed rather than writing to an unrelated database. The Foundation
+harness initially failed to compile because the contract did not exist; after implementation the
+three tests passed. A source-level contract test then verified that `prepareSessionBeforeAppending`
+occurs before `messageStore.append(userMessage)` and that rejected sends call the explicit helper.
+
+The fix adds `SendPersistenceLogic`, `AppState.prepareLocalSessionForSend(title:)`, and
+`ChatPanelView.prepareSessionBeforeAppending(route:title:)`. The helper creates a project-owned
+session through `DatabaseBridge.createSession`, registers it without early selection, and binds the
+MessageStore session ID before the first append. Serve creates its remote session at the same point
+and the standard branch reuses that ID instead of creating a duplicate. `recordRejectedSend`
+retains the user input and visible error on preflight failures. Selection is delayed until after the
+first user message is saved, preventing the selected-session SwiftUI reload callback from clearing
+freshly appended content.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| CHAT-18 pure persistence tests | 3/3 passed | Foundation only |
+| Full Foundation harness | **88/88 passed** | Linux-compatible logic and browser contracts only |
+| Swift parser-only check of modified AppState/ChatPanel/persistence files | passed | Syntax only; no macOS typecheck |
+| Full SwiftUI/AppKit target build | UNVERIFIED | macOS required |
+| Provider/network request capture | UNVERIFIED | live server/OpenCode/WebKit required |
+| macOS DB relaunch and visible sidebar/session QA | UNVERIFIED | macOS runtime required |
+
+### Newly exposed boundary, intentionally not marked PASS
+
+The same source trace found a separate attachment defect: `MiCoderAutoFreeClient.Message` has a
+string-only `content`, while `ChatPanelView` maps Auto Free message parts through a text-only
+`compactMap`. Images and files are retained in the local transcript but are not transmitted to the
+Auto Free model. Checklist 03 and quality-recheck now mark this behavior **PARTIAL** and define it
+as the next red-test target; no multimodal schema was changed without first adding a compatible
+request contract.
+
+Canonical docs were corrected: BUG-06 now names real functions/tests, `11-causal-chain.md` no
+longer describes nonexistent helpers, `12-quality-recheck.md` no longer claims them as PASS, and
+`03-chat.md` contains all 18 chat actions plus the Round 51 chain. Registry totals remain **253 rows:
+228 PASS, 15 PARTIAL, 5 MISSING, 5 FUTURE**.
+
+### Adversarial scores
+
+| Dimension | Before Round 51 | After Round 51 | Evidence |
+|---|---:|---:|---|
+| Chat implementation quality | 80/100 | 94/100 | First-send persistence fixed; attachment boundary remains PARTIAL |
+| Chat task adherence | 82/100 | 100/100 | Full chain traced; red tests preceded confirmed fix; no false attachment PASS |
+| Chat target-runtime confidence | 0/100 | 0/100 | macOS/WebKit/network not available |
+| Overall verifiable project quality | 92/100 | 93/100 | 88/88 harness; target runtime still pending |
+
+Round 51 is ready to publish only after source, tests, canonical docs, and this report pass diff
+checks and are committed/pushed. The next round must begin with a red test for Auto Free attachment
+transport rather than assuming the local preview proves model delivery.

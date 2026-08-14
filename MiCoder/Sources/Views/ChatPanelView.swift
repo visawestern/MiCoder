@@ -360,6 +360,75 @@ struct ChatPanelView: View {
         }
     }
     
+    @MainActor
+    private func recordRejectedSend(text: String,
+                                    files: [FileInfo],
+                                    images: [ClipboardImage],
+                                    error: String) {
+        let preparedSessionID: String?
+        if messageStore.currentSessionID == nil {
+            preparedSessionID = appState.prepareLocalSessionForSend(title: text)
+            messageStore.currentSessionID = preparedSessionID
+        } else {
+            preparedSessionID = messageStore.currentSessionID
+        }
+        let userMessage = Message(
+            role: .user,
+            content: text,
+            files: files.isEmpty ? nil : files,
+            parts: MessagePartsBuilder.displayParts(text: text, images: images)
+        )
+        messageStore.append(userMessage)
+        messageStore.append(Message(role: .assistant, content: error, isFinished: true))
+        if let preparedSessionID,
+           let preparedSession = appState.sessions.first(where: { $0.id == preparedSessionID }) {
+            appState.selectedSession = preparedSession
+        }
+    }
+
+    @MainActor
+    private func prepareSessionBeforeAppending(route: SendRoute, title: String) async -> String? {
+        if let existing = messageStore.currentSessionID {
+            return existing
+        }
+        if let selected = appState.selectedSession?.id {
+            messageStore.currentSessionID = selected
+            return selected
+        }
+
+        if case .mimoServe = route {
+            do {
+                let remote = try await appState.mimoClient.createSession(title: String(title.prefix(50)))
+                if let workspace = appState.selectedWorkspace {
+                    DatabaseBridge.shared.createSession(
+                        id: remote.id,
+                        projectId: workspace.path,
+                        title: remote.title,
+                        directory: workspace.path,
+                        branch: workspace.branch,
+                        agentMode: appState.agentMode.rawValue,
+                        modelId: appState.selectedModel.isEmpty ? nil : appState.selectedModel,
+                        providerId: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID
+                    )
+                }
+                appState.registerSessionFromServer(
+                    id: remote.id,
+                    title: remote.title,
+                    directory: appState.selectedWorkspace?.path ?? remote.directory,
+                    select: false
+                )
+                messageStore.currentSessionID = remote.id
+                return remote.id
+            } catch {
+                return nil
+            }
+        }
+
+        let localID = appState.prepareLocalSessionForSend(title: title)
+        messageStore.currentSessionID = localID
+        return localID
+    }
+
     func sendMessage() {
         guard MessageSendValidation.canSend(
             text: messageText,
@@ -433,18 +502,26 @@ struct ChatPanelView: View {
             localProviderIDs: appState.localProviderIDs,
             webProviderIDs: appState.webProviderIDs
         ) {
-            messageStore.append(
-                Message(role: .assistant, content: error, isFinished: true)
-            )
+            let rejectedText = messageText
+            let rejectedFiles = attachmentStore.attachedFiles
+            let rejectedImages = attachmentStore.attachedImages
+            recordRejectedSend(text: rejectedText, files: rejectedFiles, images: rejectedImages, error: error)
+            messageText = ""
+            clearDraft()
+            attachmentStore.clear()
             return
         }
         if let error = SendReadinessLogic.sendValidationError(
             modelID: appState.selectedModel,
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID
         ) {
-            messageStore.append(
-                Message(role: .assistant, content: error, isFinished: true)
-            )
+            let rejectedText = messageText
+            let rejectedFiles = attachmentStore.attachedFiles
+            let rejectedImages = attachmentStore.attachedImages
+            recordRejectedSend(text: rejectedText, files: rejectedFiles, images: rejectedImages, error: error)
+            messageText = ""
+            clearDraft()
+            attachmentStore.clear()
             return
         }
         
@@ -506,9 +583,7 @@ struct ChatPanelView: View {
             webProviderIDs: appState.webProviderIDs
         ) {
             await MainActor.run {
-                messageStore.append(
-                    Message(role: .assistant, content: error, isFinished: true)
-                )
+                self.recordRejectedSend(text: text, files: files, images: images, error: error)
             }
             return
         }
@@ -532,16 +607,24 @@ struct ChatPanelView: View {
             providerID: sendOptions.providerID
         ) {
             await MainActor.run {
+                self.recordRejectedSend(text: text, files: files, images: images, error: error)
                 appState.isLoading = false
                 appState.isStreaming = false
-                messageStore.update(id: assistantID) { msg in
-                    msg.content = error
-                    msg.isStreaming = false
-                    msg.isFinished = true
-                }
             }
             return
         }
+
+        let localProviders = LocalProviderLogic.load()
+        let route = SendRouteResolver.route(
+            selectedProviderID: appState.selectedProviderID,
+            selectedModel: appState.selectedModel,
+            serverConnected: appState.serverConnected,
+            isACP: appState.isSelectedACPProvider,
+            customProviders: appState.customProviders,
+            localProviders: localProviders,
+            webProviderIDs: appState.webProviderIDs
+        )
+        let preparedSessionID = await prepareSessionBeforeAppending(route: route, title: text)
 
         let userMessage = Message(
             role: .user,
@@ -549,7 +632,13 @@ struct ChatPanelView: View {
             files: files.isEmpty ? nil : files,
             parts: MessagePartsBuilder.displayParts(text: text, images: images)
         )
-        await MainActor.run { messageStore.append(userMessage) }
+        await MainActor.run {
+            messageStore.append(userMessage)
+            if let preparedSessionID,
+               let preparedSession = appState.sessions.first(where: { $0.id == preparedSessionID }) {
+                appState.selectedSession = preparedSession
+            }
+        }
 
         let parts = MessagePartsBuilder.build(text: text, files: files, images: images)
 
@@ -561,20 +650,8 @@ struct ChatPanelView: View {
             streamingText = ""
         }
         
-        // Resolve how this message is delivered based on the selected provider
-        // (web / local / custom OpenAI-compatible / ACP / serve) so sending
-        // adapts to the current model instead of only the serve path.
-        let localProviders = LocalProviderLogic.load()
-        let route = SendRouteResolver.route(
-            selectedProviderID: appState.selectedProviderID,
-            selectedModel: appState.selectedModel,
-            serverConnected: appState.serverConnected,
-            isACP: appState.isSelectedACPProvider,
-            customProviders: appState.customProviders,
-            localProviders: localProviders,
-            webProviderIDs: appState.webProviderIDs
-        )
-
+        // Route was resolved before the first append, so every branch uses
+        // the same stable local/remote session identity.
         // Round 8 P3: a `.none` route must never fall through into the serve
         // branch. Surface the reason and stop instead of a silent no-op.
         if let routeError = SendRouteGuard.errorMessage(for: route, serverConnected: appState.serverConnected) {
@@ -789,20 +866,10 @@ struct ChatPanelView: View {
                 }
                 self.startServeTimeout(assistantID: assistantID)
             }
-            let sessionID: String
-            if SessionSendLogic.shouldCreateNewSession(selectedSessionID: selectedID) {
-                let session = try await appState.mimoClient.createSession(title: String(text.prefix(50)))
-                sessionID = session.id
-                await MainActor.run {
-                    messageStore.currentSessionID = sessionID
-                    appState.registerSessionFromServer(
-                        id: session.id,
-                        title: session.title,
-                        directory: appState.selectedWorkspace?.path ?? session.directory
-                    )
-                }
-            } else {
-                sessionID = SessionSendLogic.resolvedSessionID(selectedSessionID: selectedID, newlyCreatedID: "")
+            guard let sessionID = messageStore.currentSessionID
+                    ?? appState.selectedSession?.id
+                    ?? selectedID else {
+                throw MimoServeError.httpError(statusCode: 0)
             }
 
             await MainActor.run { messageStore.currentSessionID = sessionID }
