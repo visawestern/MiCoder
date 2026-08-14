@@ -112,11 +112,23 @@ struct WebProvidersSection: View {
                                 sessionID: String,
                                 sessionName: String) {
         let store = WebSessionStore(cookies: cookies, localStorage: [:], savedAt: Date())
-        try? WebSessionManager.persist(store,
-                                       providerId: cfg.id,
-                                       homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
-                                       sessionID: sessionID,
-                                       sessionName: sessionName)
+        do {
+            try WebSessionManager.persist(store,
+                                          providerId: cfg.id,
+                                          homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
+                                          sessionID: sessionID,
+                                          sessionName: sessionName)
+        } catch {
+            appState.notificationService.error(
+                title: "Web session not saved",
+                message: "Could not save \(cfg.displayName) login: \(error.localizedDescription)"
+            )
+            return
+        }
+        guard WebLoginCaptureLogic.shouldActivateSession(
+            cookieCount: cookies.count,
+            persistenceSucceeded: true
+        ) else { return }
         var refreshConfig = cfg
         if var updated = WebProviderStore.load().first(where: { $0.id == cfg.id }) {
             updated.activeSessionID = sessionID
@@ -487,11 +499,9 @@ Use clear headings, code examples, and cross-references.
                     .foregroundColor(Color.mimo.textMuted)
                 HStack(spacing: 6) {
                     MiMoLogoMark(size: 16)
-                    Text(config.discoveredModels.isEmpty
-                         ? "MiCoder Auto Free will detect models after login"
-                         : "MiCoder Auto Free detected \(config.allModels.count) models")
+                    Text(WebDetectionStatusLogic.statusText(modelCount: config.allModels.count))
                         .interfaceFont(size: 10)
-                        .foregroundColor(config.discoveredModels.isEmpty ? Color.mimo.textMuted : Color.mimo.success)
+                        .foregroundColor(config.allModels.isEmpty ? Color.mimo.textMuted : Color.mimo.success)
                 }
                 HStack(spacing: 6) {
                     Image(systemName: "brain.head.profile")
@@ -678,7 +688,7 @@ struct WebProviderLoginView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "bolt.horizontal.circle")
                         .interfaceFont(size: 14)
-                    Text("Browser model detection")
+                    Text("Built-in browser detection")
                         .interfaceFont(size: 11)
                         .foregroundColor(Color.mimo.textSecondary)
                 }
@@ -707,7 +717,7 @@ struct WebProviderLoginView: View {
                 Button(action: findModelsWithAI) {
                     HStack(spacing: 4) {
                         MiMoLogoMark(size: 14)
-                        Text("Ask free AI")
+                        Text("Ask MiCoder Auto Free")
                             .interfaceFont(size: 11)
                     }
                     .foregroundColor(Color.mimo.brand)
@@ -949,6 +959,10 @@ struct WebProviderLoginView: View {
                 BrowserCookie(name: $0.name, value: $0.value, domain: $0.domain, path: $0.path,
                               expiresEpoch: $0.expiresDate?.timeIntervalSince1970,
                               httpOnly: $0.isHTTPOnly, secure: $0.isSecure)
+            }
+            guard WebLoginCaptureLogic.canPersist(cookieCount: mapped.count) else {
+                detectResult = .failed(WebLoginCaptureLogic.captureMessage(cookieCount: mapped.count))
+                return
             }
             capturedCookies = mapped  // Update UI immediately
             onCookies(mapped)

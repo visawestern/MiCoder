@@ -743,3 +743,84 @@ Canonical checklist 04, README, registry and this report were updated. The regis
 Round 53 is ready to publish after diff checks and commit/push. The next audit continues with the
 next activity checklist in sequence and will not treat the newly fixed settings controls as macOS
 runtime verified.
+
+
+## Round 54 (2026-08-14) — Web Login, named sessions and detector honesty
+
+### Scope
+Activity checklist 05 was re-audited from vendor addition through login, named-session selection,
+cookie capture, connectivity, built-in model detection, optional MiCoder Auto Free detection, model
+and effort refresh, provider removal, remote-chat cleanup and the isolated browser send route. Each
+visible control was traced to its handler, state mutation, persistence consumer and downstream
+consumer. macOS/WebKit behavior is explicitly separated from Foundation/source verification.
+
+### Confirmed defects and TDD fixes
+
+#### WEB-LOGIN-11 — empty capture could create a false login state
+
+`WebProviderLoginView.capture()` treated the existence of a page URL as sufficient and passed an
+empty cookie snapshot to the parent. The parent used `try?` for `WebSessionManager.persist`, then
+could update session metadata and start model discovery without proving that a usable cookie store
+had been written. The user received no actionable explanation.
+
+Red tests were written first in `WebLoginCaptureLogicTests`: empty snapshots are rejected, non-empty
+snapshots are accepted, the empty-capture message is actionable, and a persistence failure cannot
+activate the session. The fix adds `WebLoginCaptureLogic.canPersist` and
+`shouldActivateSession`, keeps the login sheet open for empty capture, surfaces write failure through
+the red NotificationService error, and updates active session metadata only after successful
+persistence. Targeted and integrated evidence: **4/4 targeted, 107/107 full harness**.
+
+#### WEB-LOGIN-12 — built-in detector was mislabeled as MiCoder Auto Free
+
+The normal provider card status said `MiCoder Auto Free will detect models` or `MiCoder Auto Free
+detected N models`, although that path is the built-in DOM detector. This contradicted the required
+separation between a local browser detector and the optional AI-assisted route.
+
+Red tests were written first in `WebDetectionStatusLogicTests` for empty and non-empty model counts,
+including the requirement that the status never contain `Auto Free`. The fix factors status text into
+`WebDetectionStatusLogic`, changes the primary action to `Built-in browser detection`, and labels the
+separate action `Ask MiCoder Auto Free`. AI-derived candidates remain non-selectable until built-in
+DOM verification. Targeted and integrated evidence: **2/2 targeted, 107/107 full harness**.
+
+### Source-traced controls with no additional confirmed defect
+
+The add-vendor path creates a config without guessing a model. Named sessions use independent
+provider/session directories and persist active ID/name. Connectivity requires non-empty,
+non-expired cookies for the active session. Model/effort refresh restores the active session before
+navigation and uses isolated project/chat/provider/session browser keys. Removal clears provider
+configuration, saved sessions, remote-chat mappings and stale selection. The ChatPanel web route
+restores cookies before navigation, binds a verified remote chat UUID per local project/chat/login,
+records model/effort/remote-chat metadata, and performs a bounded retry after typed injection
+failures.
+
+`WebSessionStore.localStorage` is persisted and round-trips in Foundation tests, but generic
+localStorage injection into WKWebView is not implemented. This remains a provider-specific WebKit
+runtime risk and is recorded as **UNVERIFIED/POTENTIAL**, not as a claimed defect or PASS. The Linux
+harness cannot prove cookie acceptance, DOM hydration, click/typing behavior, vendor login, live
+model discovery, effort injection, or response streaming.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| WEB-LOGIN-11 targeted harness | **4/4 passed** | Foundation pure capture contract |
+| WEB-LOGIN-12 targeted harness | **2/2 passed** | Foundation pure status contract |
+| Full Foundation harness | **107/107 passed** | Linux-compatible logic and prior web/send contracts |
+| Adversarial source checks | **12/12 passed** | Static source contracts |
+| Swift parser-only modified-file check | passed | Syntax only; no macOS typecheck |
+| `git diff --check` | passed | Repository hygiene |
+| Full macOS SwiftUI/AppKit/WebKit build | **UNVERIFIED** | macOS required |
+| Embedded WKWebView login/cookie/DOM/live-provider QA | **UNVERIFIED** | macOS, network and provider accounts required |
+
+### Adversarial scores
+
+| Dimension | Before Round 54 | After Round 54 | Evidence |
+|---|---:|---:|---|
+| Web Login implementation quality | 76/100 | 95/100 | Two confirmed chain breaks fixed; 107/107 harness |
+| Web Login task adherence | 78/100 | 100/100 | Full control inventory, explicit detector split, red tests before fixes |
+| Target-runtime confidence | 0/100 | 0/100 | No macOS/WebKit/live-provider execution available |
+| Overall verifiable project quality | 95/100 | 96/100 | 107/107 harness and 12/12 source checks |
+
+Canonical checklist 05, registry, README and this report were updated. The registry now contains
+**259 rows: 233 PASS, 16 PARTIAL, 5 MISSING, 5 FUTURE**. Round 54 is ready for diff validation and
+commit/push; the next sequential audit is activity checklist 06 (`06-web-chat.md`).
