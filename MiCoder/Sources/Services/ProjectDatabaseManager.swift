@@ -573,6 +573,7 @@ final class ProjectDatabaseManager {
         parentSessionId: String? = nil,
         sessionGoal: String? = nil
     ) throws {
+        let sessionGoalValue = sessionGoal
         touch()
         let now = Int64(Date().timeIntervalSince1970)
         try db.run(sessions.insert(
@@ -588,7 +589,7 @@ final class ProjectDatabaseManager {
             sessionProviderId <- providerId,
             sessionParentId <- parentSessionId,
             sessionIsArchived <- false,
-            sessionGoal <- sessionGoal
+            sessionGoal <- sessionGoalValue
         ))
     }
 

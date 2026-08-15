@@ -530,8 +530,8 @@ struct ChatPanelView: View {
         }
         if let error = SendReadinessLogic.sendValidationError(
             modelID: appState.selectedModel,
-            effectiveModelID: appState.effectiveSelectedModel(),
-            providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID
+            providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
+            effectiveModelID: appState.effectiveSelectedModel()
         ) {
             let rejectedText = messageText
             let rejectedFiles = attachmentStore.attachedFiles
@@ -627,8 +627,8 @@ struct ChatPanelView: View {
         )
         if let error = SendReadinessLogic.sendValidationError(
             modelID: appState.selectedModel,
-            effectiveModelID: appState.effectiveSelectedModel(),
-            providerID: sendOptions.providerID
+            providerID: sendOptions.providerID,
+            effectiveModelID: appState.effectiveSelectedModel()
         ) {
             await MainActor.run {
                 self.recordRejectedSend(text: text, files: files, images: images, error: error)
@@ -1607,7 +1607,7 @@ struct ChatPanelView: View {
         files: [FileInfo],
         images: [ClipboardImage]
     ) -> (parts: [MiCoderAutoFreeContentPart], warnings: [String]) {
-        var imageDataURLs = images.compactMap { image in
+        var imageDataURLs = images.compactMap { (image: ClipboardImage) -> String? in
             guard !image.base64.isEmpty else { return nil }
             return MessagePartsBuilder.dataURL(mimeType: image.mimeType, base64: image.base64)
         }

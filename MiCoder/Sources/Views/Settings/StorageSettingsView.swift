@@ -642,7 +642,7 @@ struct StorageSettingsView: View {
         }
     }
 
-    private static func executeProjectDeletion(
+    nonisolated private static func executeProjectDeletion(
         projectPath: String,
         homeDirectory: URL,
         cancellation: ProjectDeletionCancellation,
@@ -721,8 +721,8 @@ struct StorageSettingsView: View {
         projectEntries = updated
         appState.refreshProjectRegistry()
 
-        let selectedPath = appState.selectedWorkspace?.path.map {
-            URL(fileURLWithPath: $0).standardizedFileURL.path
+        let selectedPath = appState.selectedWorkspace.map { workspace in
+            URL(fileURLWithPath: workspace.path).standardizedFileURL.path
         }
         let deletedPath = URL(fileURLWithPath: projectPath).standardizedFileURL.path
         if selectedPath == deletedPath {

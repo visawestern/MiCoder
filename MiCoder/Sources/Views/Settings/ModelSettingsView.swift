@@ -664,7 +664,7 @@ struct ModelSettingsProviderColumns: View {
             }
         }
         .padding(8)
-        .background(Color.mimo.backgroundAlt.opacity(0.45))
+        .background(Color.mimo.backgroundAlt.opacity(Double(0.45)))
         .clipShape(RoundedRectangle(cornerRadius: 7))
     }
 

@@ -581,6 +581,7 @@ class AppState: ObservableObject {
         WebProviderStore.save(providers, defaults: defaults)
     }
 
+    @MainActor
     func selectWebEffort(_ effort: WebEffort) {
         guard let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
               availableWebEffortsForSelectedProvider.contains(effort) else { return }
@@ -725,6 +726,7 @@ class AppState: ObservableObject {
         }
     }
 
+    @MainActor
     func selectModel(_ modelID: String, persistPreference: Bool = true) {
         guard modelsForSelectedProvider.contains(modelID) else { return }
         selectedModel = modelID
@@ -1104,7 +1106,7 @@ class AppState: ObservableObject {
                     }
                     return
                 }
-                guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                guard (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) != nil else {
                     await MainActor.run {
                         self.providerModelLoadMessages[provider.id] = "The provider returned an invalid model-list response."
                     }

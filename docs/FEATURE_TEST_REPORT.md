@@ -3059,3 +3059,44 @@ No new production defect was confirmed in this tail. The audit challenged whethe
 | SHELL-01–03 | 99/100 | 100/100 | 0/100 |
 
 Round 101 completes the verifiable source-level audit loop. The remaining PARTIAL/FUTURE statuses are not silently promoted: they explicitly identify the native/runtime or intentionally deferred boundaries that require macOS/provider execution.
+
+## Round 102 — Repair the reported macOS build failure
+
+### Incident source
+
+The user supplied a real macOS `build-app.sh` log from `v2.119.0 (build 117)`. The build failed during Swift compilation, and the script repeated the same diagnostics during debug/test/production phases. The audit deduplicated those repetitions and traced every unique error to its source chain.
+
+### Unique compiler diagnostics repaired
+
+| File | Diagnostic class | Root cause | Repair |
+|---|---|---|---|
+| `ChatPanelView.swift` | `providerID` must precede `effectiveModelID` | Send readiness call labels were out of declaration order. | Reordered both call sites. |
+| `InputViews.swift` | Incorrect `SendReadinessReason.reason` labels | Both visible send-reason call sites used the same stale order. | Reordered both call sites. |
+| `ChatPanelView.swift` | `compactMap` result type inference | Swift 6.3 could not infer the closure result at the Auto Free image bridge. | Added explicit `(image: ClipboardImage) -> String?`. |
+| `StorageSettingsView.swift` | `String.Element` passed to `URL(fileURLWithPath:)` | Optional-chaining precedence mapped over characters in a `String` path. | Mapped the optional workspace and used `workspace.path`. |
+| `StorageSettingsView.swift` | Main-actor deletion helper from detached task | Filesystem worker was implicitly actor-isolated. | Marked the pure static worker `nonisolated`. |
+| `ProjectDatabaseManager.swift` | `String?` vs `Expression<String?>` | SQLite column expression and optional parameter shared `sessionGoal`. | Introduced `sessionGoalValue` for the insert value. |
+| `MiCoderApp.swift` | Actor-isolated journal calls | Web model/effort selection methods called a `@MainActor` journal synchronously. | Marked both selection methods `@MainActor`. |
+| `MiCoderApp.swift` | Unused `json` warning | Model-list validation bound an unused dictionary. | Converted binding to validation-only expression. |
+| `ModelSettingsView.swift` | Ambiguous `opacity` overload | SwiftUI `Color` and `ShapeStyle` overloads were both viable. | Used `opacity(Double(0.45))`. |
+| `ProjectFileIndexWatcher.swift` | Untyped FSEvents flags | CoreServices expected `FSEventStreamCreateFlags`, not an untyped array literal. | Used `FSEventStreamCreateFlags([.fileEvents, .noDefer])`. |
+
+### TDD and verification
+
+A persistent source regression was written before implementation in `.acceptance/test_build_regressions_round102.py`. It failed before the fixes on the stale send-readiness label ordering, then passed after all compiler-contract repairs. The regression also checks the explicit closure type, optional path mapping, SQLite disambiguation, MainActor boundaries, explicit SwiftUI opacity type, typed FSEvents flags, and warning cleanup.
+
+| Gate | Result |
+|---|---:|
+| Round 102 red source regression before fixes | **Failed as expected** |
+| Round 102 source regression after fixes | **PASS** |
+| Foundation harness | **360/360 passed** |
+| Round 100 acceptance | **PASS** |
+| Round 101 acceptance | **PASS** |
+| Registry integrity | **274 unique rows; 224 PASS, 45 PARTIAL, 0 MISSING, 5 FUTURE** |
+| Adversarial source checks | **12/12 passed** |
+| Swift parser over all affected files | **PASS** |
+| `git diff --check` | **PASS** |
+
+### Native boundary
+
+The Linux sandbox cannot execute the user’s macOS SwiftUI/AppKit/CoreServices production build. The fixes directly match the supplied macOS compiler diagnostics and pass source/parser gates, but the final confirmation still requires `git pull origin main` and `./build-app.sh` on macOS. Any new diagnostic from that build must be treated as new evidence rather than assumed resolved.
