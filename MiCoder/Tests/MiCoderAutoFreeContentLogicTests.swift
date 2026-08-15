@@ -30,6 +30,13 @@ struct MiCoderAutoFreeContentLogicTests {
         ])
     }
 
+    @Test("unsupported PDF and binary attachments are identified before text fallback")
+    func unsupportedBinaryClassification() {
+        #expect(MiCoderAutoFreeContentLogic.isUnsupportedForTextRoute(fileName: "report.pdf", mimeType: "application/pdf"))
+        #expect(MiCoderAutoFreeContentLogic.isUnsupportedForTextRoute(fileName: "archive.zip", mimeType: "application/octet-stream"))
+        #expect(!MiCoderAutoFreeContentLogic.isUnsupportedForTextRoute(fileName: "notes.txt", mimeType: "application/octet-stream"))
+    }
+
     @Test("empty input still produces a valid text part")
     func emptyInputIsValid() {
         #expect(MiCoderAutoFreeContentLogic.parts(text: "", imageDataURLs: [], textFiles: []) == [.text("")])

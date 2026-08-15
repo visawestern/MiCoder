@@ -57,6 +57,31 @@ struct MiCoderAutoFreeTextFile: Equatable {
 }
 
 enum MiCoderAutoFreeContentLogic {
+    /// Returns true when the anonymous OpenAI-compatible route must not attempt
+    /// UTF-8 text fallback for an attachment. Unknown text extensions remain
+    /// eligible for bounded decoding; the caller still validates UTF-8.
+    static func isUnsupportedForTextRoute(fileName: String, mimeType: String) -> Bool {
+        let ext = (fileName as NSString).pathExtension.lowercased()
+        let mime = mimeType.lowercased()
+        if mime == "application/pdf" || ext == "pdf" { return true }
+        let binaryExtensions: Set<String> = [
+            "7z", "avi", "bin", "bz2", "dmg", "doc", "docx", "elf", "exe",
+            "gz", "iso", "jar", "m4a", "mov", "mp3", "mp4", "ogg", "ppt",
+            "pptx", "rar", "sqlite", "sqlite3", "tar", "wasm", "webm", "xls",
+            "xlsx", "zip"
+        ]
+        if binaryExtensions.contains(ext) { return true }
+        if mime == "application/octet-stream" {
+            let knownTextExtensions: Set<String> = [
+                "", "bash", "c", "cfg", "conf", "cpp", "csv", "env", "h", "hpp",
+                "ini", "java", "js", "json", "log", "md", "php", "py", "rb", "rs",
+                "sh", "sql", "toml", "ts", "tsx", "txt", "xml", "yaml", "yml"
+            ]
+            return !knownTextExtensions.contains(ext)
+        }
+        return false
+    }
+
     static func parts(
         text: String,
         imageDataURLs: [String],

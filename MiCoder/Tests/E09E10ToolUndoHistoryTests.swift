@@ -73,6 +73,34 @@ struct E09E10ToolUndoHistoryTests {
                 "the file did not exist before the write, so undo must delete it")
     }
 
+    @Test("todo_write snapshots and records history so a new todo file can be undone")
+    func todoWriteRecordsUndoAndHistory() async throws {
+        let root = try makeTempProjectDir()
+        defer { try? FileManager.default.removeItem(atPath: root) }
+        ProjectDatabaseManager.evictProject(projectPath: root)
+        let undo = try ProjectUndoManager(projectPath: root)
+        try undo.db.insertSession(id: "s1", title: "Session", directory: root)
+        let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1")
+        let todos = #"[{"id":"t1","content":"Review","status":"pending"}]"#
+
+        let result = await exec.execute(WebToolCall(name: "todo_write", arguments: ["todos": todos]))
+        #expect(result.hasPrefix("ok"))
+
+        let todoPath = (root as NSString).appendingPathComponent(".micoder/todos.json")
+        #expect(FileManager.default.fileExists(atPath: todoPath))
+        let entries = try undo.history(sessionId: "s1")
+        #expect(entries.count == 1)
+        #expect(entries[0].actionType == "todo_write")
+        #expect(entries[0].targetPath == todoPath)
+        let history = try undo.db.getRequestHistory(sessionId: "s1")
+        #expect(history.count == 1)
+        #expect(history[0].type == "file_edit")
+        #expect(history[0].payload.contains("todos.json"))
+
+        #expect(try undo.undoMostRecent(sessionId: "s1"))
+        #expect(!FileManager.default.fileExists(atPath: todoPath))
+    }
+
     @Test("failed operation records no undo entry and no request_history row")
     func failedOperationLeavesNoTraces() async throws {
         let root = try makeTempProjectDir()

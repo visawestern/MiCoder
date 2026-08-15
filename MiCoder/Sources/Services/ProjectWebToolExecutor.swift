@@ -228,7 +228,9 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         do {
             try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             let outData = try JSONSerialization.data(withJSONObject: todos, options: [.prettyPrinted, .sortedKeys])
-            try outData.write(to: url)
+            try performFileOperation(operation: "todo_write", fileURL: url) {
+                try outData.write(to: url)
+            }
             return "ok: saved \(todos.count) todo\(todos.count == 1 ? "" : "s")"
         } catch {
             return "error: \(error.localizedDescription)"

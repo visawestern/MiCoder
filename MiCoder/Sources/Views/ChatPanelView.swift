@@ -1565,13 +1565,17 @@ struct ChatPanelView: View {
             }
             let url = URL(fileURLWithPath: path)
             let mime = MessagePartsBuilder.mimeType(for: file)
-            if MessagePartsBuilder.isImageMimeType(mime),
-               let data = try? Data(contentsOf: url),
-               !data.isEmpty {
-                imageDataURLs.append(MessagePartsBuilder.dataURL(
-                    mimeType: mime,
-                    base64: data.base64EncodedString()
-                ))
+            if MessagePartsBuilder.isImageMimeType(mime) {
+                if let data = try? Data(contentsOf: url), !data.isEmpty {
+                    imageDataURLs.append(MessagePartsBuilder.dataURL(
+                        mimeType: mime,
+                        base64: data.base64EncodedString()
+                    ))
+                } else {
+                    warnings.append("Attachment \(file.name) is an unreadable image and was not sent to MiCoder Auto Free.")
+                }
+            } else if MiCoderAutoFreeContentLogic.isUnsupportedForTextRoute(fileName: file.name, mimeType: mime) {
+                warnings.append("Attachment \(file.name) is not supported by the free route and was not sent to MiCoder Auto Free.")
             } else if let data = try? Data(contentsOf: url),
                       let content = String(data: data, encoding: .utf8) {
                 let bounded = String(content.prefix(250_000))

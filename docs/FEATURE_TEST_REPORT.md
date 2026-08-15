@@ -2448,3 +2448,52 @@ The six stories remain **PARTIAL** because Linux source/harness verification can
 | WEB-27 | 96/100 | 100/100 | 0/100 |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-22` through `WEB-27` remain PARTIAL solely for the explicit live-runtime boundaries and not because the confirmed source-level defects remain open.
+
+## Round 90 — Harden Auto Free attachments and web-agent mutation transactions
+
+### Scope and chain audit
+
+The audit covered `CHAT-19` and `WEB-CHAT-11` through `WEB-CHAT-15`: composer text/files/images, MIME and path classification, bounded UTF-8 payloads, image data URLs, visible unsupported-attachment warnings, Auto Free history reconstruction, access-level gates, approval interruption, native executor side effects, undo/request-history persistence, named-session cookie/localStorage restoration, custom model injection, and destructive-tool classification.
+
+Two logical defects were confirmed.
+
+### CHAT-19 — PDF/binary data could fall through to UTF-8 text
+
+The Auto Free attachment path checked image MIME and then attempted UTF-8 decoding for every remaining file. A PDF or binary file whose bytes happened to decode as UTF-8 could therefore enter the text payload instead of receiving the required unsupported-format warning. A red test was written first for PDF, common binary extension, and unknown text extension behavior. The fix adds `MiCoderAutoFreeContentLogic.isUnsupportedForTextRoute(fileName:mimeType:)`, checks it before text fallback, and emits a dedicated warning. Unreadable image files now also receive an explicit warning instead of falling through to text.
+
+### WEB-CHAT-11/15 — `todo_write` bypassed undo and request history
+
+`WebToolAccessGate` already classified `todo_write` as a mutation, but `ProjectWebToolExecutor.todoWrite` wrote `.micoder/todos.json` directly after approval. Unlike `write_file` and `edit_file`, it did not snapshot the prior file, record an undo entry, or append a `request_history` row. A red macOS-targeted E09/E10 regression was written first. It requires one `todo_write` undo entry, one `file_edit` history row, and removal of a newly created todo file after `undoMostRecent`. The fix routes the validated todo write through `performFileOperation(operation: "todo_write", ...)`.
+
+### Other story results
+
+The access gate, approval interruption, named-session restoration order, custom model injection, and destructive-tool classification passed existing source and Foundation tests. Native SwiftUI approval rendering, project database undo execution, WKWebView cookie/localStorage replay, custom vendor DOM option confirmation, and live Auto Free request capture remain unverified because they require macOS and authenticated runtime conditions.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red CHAT-19 unsupported PDF/binary classifier | **failed as expected** | Classifier absent before fix |
+| Green CHAT-19 content suite | **4/4 passed** | Data URL, text file, empty payload, binary classification |
+| Red WEB-CHAT todo undo/history regression | **red test added first** | Full executor test requires macOS project DB/runtime |
+| Swift parser validation | **passed** | Attachment logic, ChatPanel, executor, gate, protocol, driver, presenter, restoration, and tests |
+| Full Foundation harness | **296/296 passed** | Linux-safe suites; macOS-only E09 executor regression excluded from harness |
+| Adversarial source checks | **12/12 passed** | Injection, retry, AI isolation, compact catalog, and routing invariants |
+| `git diff --check` | **passed** | No trailing whitespace |
+| Live Auto Free request capture | **UNVERIFIED** | Requires authenticated/active provider and network |
+| Native undo/database, SwiftUI approval, WKWebView session, custom DOM | **UNVERIFIED** | Requires macOS runtime |
+
+### Status and scores
+
+`CHAT-19` and `WEB-CHAT-11` through `WEB-CHAT-15` remain **PARTIAL** because live provider requests, native filesystem/database undo, SwiftUI approval presentation, WKWebView origin restoration, and custom vendor DOM behavior cannot be verified in the Linux Foundation harness. The confirmed source-level attachment and todo-transaction defects are fixed or covered by a macOS-targeted red regression.
+
+| Story | Code quality | Task adherence | Target-runtime confidence |
+|---|---:|---:|---:|
+| CHAT-19 | 97/100 | 100/100 | 0/100 |
+| WEB-CHAT-11 | 97/100 | 100/100 | 0/100 |
+| WEB-CHAT-12 | 96/100 | 100/100 | 0/100 |
+| WEB-CHAT-13 | 96/100 | 100/100 | 0/100 |
+| WEB-CHAT-14 | 96/100 | 100/100 | 0/100 |
+| WEB-CHAT-15 | 97/100 | 100/100 | 0/100 |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. The audited stories remain PARTIAL solely for explicit live-runtime boundaries and not because the confirmed source-level defects remain open.
