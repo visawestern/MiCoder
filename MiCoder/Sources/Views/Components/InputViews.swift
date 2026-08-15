@@ -9,7 +9,7 @@ struct AttachedFilesStrip: View {
         VStack(spacing: 0) {
             if !attachedFiles.isEmpty {
                 HStack {
-                    Text("\(attachedFiles.count) file\(attachedFiles.count == 1 ? "" : "s")")
+                    Text(attachedFiles.count == 1 ? L.t(AppLocalizationKey.locFileAttached, attachedFiles.count) : L.t(AppLocalizationKey.locFilesAttached, attachedFiles.count))
                         .interfaceFont(size: 11, weight: .medium)
                         .foregroundColor(Color.mimo.textMuted)
                     Spacer()
@@ -114,7 +114,7 @@ struct ImagePreviewStrip: View {
         VStack(spacing: 0) {
             if !attachedImages.isEmpty {
                 HStack {
-                    Text("\(attachedImages.count) photo\(attachedImages.count == 1 ? "" : "s")")
+                    Text(attachedImages.count == 1 ? L.t(AppLocalizationKey.locPhotoAttached, attachedImages.count) : L.t(AppLocalizationKey.locPhotosAttached, attachedImages.count))
                         .interfaceFont(size: 11, weight: .medium)
                         .foregroundColor(Color.mimo.textMuted)
                     Spacer()

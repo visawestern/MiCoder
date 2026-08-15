@@ -13,13 +13,13 @@ struct WebCaptchaSolverView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Captcha verification")
+            Text(L.t(AppLocalizationKey.locCaptchaVerification))
                 .interfaceFont(size: 18, weight: .semibold)
                 .foregroundColor(Color.mimo.textPrimary)
             Text(context.note)
                 .interfaceFont(size: 13)
                 .foregroundColor(Color.mimo.textSecondary)
-            Text("Complete the challenge in this live browser page. The agent will resume automatically after the page becomes ready.")
+            Text(L.t(AppLocalizationKey.locCaptchaInstruction))
                 .interfaceFont(size: 12)
                 .foregroundColor(Color.mimo.textMuted)
             WebChatWebViewHost(webView: context.webView)

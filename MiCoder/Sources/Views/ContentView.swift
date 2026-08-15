@@ -87,7 +87,7 @@ struct ContentView: View {
         // E04 (Раздел 8 п.48): a corrupted project DB detected at open time
         // offers to restore the latest auto-backup.
         .alert(
-            "Project database may be corrupted",
+            L.t(AppLocalizationKey.locProjectDatabaseCorrupted),
             isPresented: Binding(
                 get: { appState.projectIntegrityAlert != nil },
                 set: { if !$0 { appState.projectIntegrityAlert = nil } }
@@ -100,10 +100,10 @@ struct ContentView: View {
                     do {
                         let restored = try ProjectOpenIntegrity.restoreLatestBackup(projectPath: path)
                         appState.gitStatusMessage = restored == nil
-                            ? "No backup found for this project — the database was not restored."
-                            : "Database restored from the latest backup."
+                            ? L.t(AppLocalizationKey.locNoBackupFound)
+                            : L.t(AppLocalizationKey.locDatabaseRestored)
                     } catch {
-                        appState.gitStatusMessage = "Restore failed: \(error.localizedDescription)"
+                        appState.gitStatusMessage = L.t(AppLocalizationKey.locRestoreFailed, error.localizedDescription)
                     }
                 }
             }
@@ -111,7 +111,7 @@ struct ContentView: View {
                 appState.projectIntegrityAlert = nil
             }
         } message: { alert in
-            Text("\(alert.message)\n\nOpening this project failed its database integrity check. The latest auto-backup can be restored.")
+            Text(L.t(AppLocalizationKey.locIntegrityCheckFailed, alert.message))
         }
     }
 

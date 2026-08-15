@@ -260,13 +260,13 @@ Use clear headings, code examples, and cross-references.
                                     }
                                 }
                             } label: {
-                                Label(config.activeSessionName ?? "Login", systemImage: "person.crop.circle")
+                                Label(config.activeSessionName ?? L.t(AppLocalizationKey.locLogin), systemImage: "person.crop.circle")
                                     .interfaceFont(size: 10)
                                     .foregroundColor(Color.mimo.textSecondary)
                             }
                             .menuStyle(.borderlessButton)
                             .fixedSize()
-                            .help("Choose saved web login")
+                            .help(L.t(AppLocalizationKey.locChooseSavedWebLogin))
                         }
 
                         Button(action: onChangeLogin) {
@@ -275,16 +275,16 @@ Use clear headings, code examples, and cross-references.
                         }
                         .buttonStyle(.plain)
                         .foregroundColor(Color.mimo.brand)
-                        .help("Change login / capture another web session")
+                        .help(L.t(AppLocalizationKey.locChangeLoginSession))
 
                         // The complete catalog is rendered below as a full-width
                         // accordion; the header only reports the current count.
                         if !isRefreshing && !config.discoveredModels.isEmpty {
-                            Text("\(config.discoveredModels.count) detected")
+                            Text(L.t(AppLocalizationKey.locDetectedCount, config.discoveredModels.count))
                                 .interfaceFont(size: 10)
                                 .foregroundColor(Color.mimo.success)
                         } else if !isRefreshing && lastRefreshError != nil {
-                            Label("Detection failed", systemImage: "exclamationmark.triangle")
+                            Label(L.t(AppLocalizationKey.locDetectionFailed), systemImage: "exclamationmark.triangle")
                                 .interfaceFont(size: 10).foregroundColor(Color.mimo.warning)
                         }
 
@@ -316,7 +316,7 @@ Use clear headings, code examples, and cross-references.
                         }
                         .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
                         .disabled(isRefreshing)
-                        .help(isRefreshing ? "Detecting models…" : "Detect models from web UI")
+                        .help(isRefreshing ? L.t(AppLocalizationKey.locDetecting) : L.t(AppLocalizationKey.locDetectModelsHelp))
 
                         Button(action: {
                             isRefreshing = true
@@ -338,7 +338,7 @@ Use clear headings, code examples, and cross-references.
                                 .interfaceFont(size: 12)
                         }
                         .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
-                        .help("Refresh per-model effort and parameter profiles from web UI")
+                        .help(L.t(AppLocalizationKey.locRefreshEffortHelp))
 
                         if let err = lastRefreshError {
                             Text(err).interfaceFont(size: 10).foregroundColor(Color.mimo.error)
@@ -350,12 +350,12 @@ Use clear headings, code examples, and cross-references.
                     Image(systemName: "trash").interfaceFont(size: 12).foregroundColor(Color.mimo.error)
                 }
                 .buttonStyle(.plain)
-                .help("Remove this web provider and its saved session")
-                .alert("Remove \(config.displayName)?", isPresented: $showRemoveConfirmation) {
-                    Button("Remove", role: .destructive, action: onRemove)
-                    Button("Cancel", role: .cancel) {}
+                .help(L.t(AppLocalizationKey.locRemoveWebProvider))
+                .alert(L.t(AppLocalizationKey.locRemoveWebProviderConfirm, config.displayName), isPresented: $showRemoveConfirmation) {
+                    Button(L.t(AppLocalizationKey.locRemove), role: .destructive, action: onRemove)
+                    Button(L.t(AppLocalizationKey.locCancel), role: .cancel) {}
                 } message: {
-                    Text("The saved browser session and provider settings will be deleted.")
+                    Text(L.t(AppLocalizationKey.locSavedSessionDeleted))
                 }
             }
 
@@ -372,11 +372,11 @@ Use clear headings, code examples, and cross-references.
                         Image(systemName: "cube.fill")
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.textMuted)
-                        Text("Detected models · \(config.discoveredModels.count)")
+                        Text(L.t(AppLocalizationKey.locDetectedModelsCount, config.discoveredModels.count))
                             .interfaceFont(size: 11, weight: .semibold)
                             .foregroundColor(Color.mimo.textSecondary)
                         Spacer()
-                        Text(showDiscoveredModels ? "Hide" : "Show")
+                        Text(showDiscoveredModels ? L.t(AppLocalizationKey.locHide) : L.t(AppLocalizationKey.locShow))
                             .interfaceFont(size: 10, weight: .medium)
                             .foregroundColor(Color.mimo.brand)
                     }
@@ -388,7 +388,7 @@ Use clear headings, code examples, and cross-references.
                     .clipShape(RoundedRectangle(cornerRadius: 7))
                 }
                 .buttonStyle(.plain)
-                .help(showDiscoveredModels ? "Hide all detected models" : "Show all detected models")
+                .help(showDiscoveredModels ? L.t(AppLocalizationKey.locHideDetectedModels) : L.t(AppLocalizationKey.locShowDetectedModels))
 
                 if showDiscoveredModels {
                     VStack(alignment: .leading, spacing: 3) {
@@ -402,20 +402,20 @@ Use clear headings, code examples, and cross-references.
                                     .foregroundColor(Color.mimo.textPrimary)
                                     .lineLimit(1)
                                 Spacer(minLength: 8)
-                                Text(model.discoveryStatus == .active ? "Active" : model.discoveryStatus.rawValue)
+                                Text(model.discoveryStatus == .active ? L.t(AppLocalizationKey.locActive) : L.t(model.discoveryStatus.rawValue))
                                     .interfaceFont(size: 9, weight: .medium)
                                     .foregroundColor(model.discoveryStatus == .active ? Color.mimo.success : Color.mimo.warning)
                                 if !model.availableEfforts.isEmpty {
-                                    Text("Effort")
+                                    Text(L.t(AppLocalizationKey.locEffort))
                                         .interfaceFont(size: 9)
                                         .foregroundColor(Color.mimo.violet)
                                 } else {
-                                    Text("No effort")
+                                    Text(L.t(AppLocalizationKey.locNoEffort))
                                         .interfaceFont(size: 9)
                                         .foregroundColor(Color.mimo.textMuted)
                                 }
                                 if !model.parameterProfile.isEmpty {
-                                    Text("Params")
+                                    Text(L.t(AppLocalizationKey.locParams))
                                         .interfaceFont(size: 9)
                                         .foregroundColor(Color.mimo.cyan)
                                 }
@@ -429,7 +429,7 @@ Use clear headings, code examples, and cross-references.
                                             .foregroundColor(Color.mimo.error)
                                     }
                                     .buttonStyle(.plain)
-                                    .help("Remove this unavailable detection result")
+                                    .help(L.t(AppLocalizationKey.locRemoveUnavailableDetection))
                                 }
                             }
                             .padding(.horizontal, 9)
@@ -465,9 +465,9 @@ Use clear headings, code examples, and cross-references.
                             }
                         }
                         Divider()
-                        Button("Clear") { config.systemPrompt = "" }
+                        Button(L.t(AppLocalizationKey.locClear)) { config.systemPrompt = "" }
                     } label: {
-                        Label("Templates", systemImage: "doc.on.doc")
+                        Label(L.t(AppLocalizationKey.locTemplates), systemImage: "doc.on.doc")
                             .interfaceFont(size: 10)
                             .foregroundColor(Color.mimo.brand)
                     }
@@ -479,7 +479,7 @@ Use clear headings, code examples, and cross-references.
                     HStack {
                         Text(L.t(AppLocalizationKey.locSystemPrompt)).interfaceFont(size: 11, weight: .medium).foregroundColor(Color.mimo.textMuted)
                         Spacer()
-                        Button("Clear") { config.systemPrompt = "" }
+                        Button(L.t(AppLocalizationKey.locClear)) { config.systemPrompt = "" }
                             .interfaceFont(size: 10).buttonStyle(.plain).foregroundColor(Color.mimo.error)
                     }
                     TextEditor(text: $config.systemPrompt)
@@ -506,11 +506,11 @@ Use clear headings, code examples, and cross-references.
                     Image(systemName: "brain.head.profile")
                         .interfaceFont(size: 11)
                     Text(config.discoveredEffortLevels.isEmpty
-                         ? "Effort: not detected"
-                         : "Effort: \(config.discoveredEffortLevels.map(\.displayName).joined(separator: ", "))")
+                         ? L.t(AppLocalizationKey.locEffortNotDetected)
+                         : L.t(AppLocalizationKey.locEffortValue, config.discoveredEffortLevels.map(\.displayName).joined(separator: ", ")))
                         .interfaceFont(size: 10)
                     if config.effortDropdown != nil {
-                        Text("· selector available")
+                        Text(L.t(AppLocalizationKey.locSelectorAvailable))
                             .interfaceFont(size: 10)
                             .foregroundColor(Color.mimo.success)
                     }
@@ -541,7 +541,7 @@ Use clear headings, code examples, and cross-references.
             HStack(spacing: 6) {
                 Image(systemName: "globe")
                     .foregroundColor(Color.mimo.brand)
-                Text("In-app browser")
+                Text(L.t(AppLocalizationKey.locInAppBrowser))
                     .interfaceFont(size: 11, weight: .medium)
                 Text(WebTransportRuntimeLogic.label(for: config.transport))
                     .interfaceFont(size: 10)
@@ -613,7 +613,7 @@ struct CustomModelEditor: View {
                     .onSubmit {
                         addModel()
                     }
-                Button("Add") {
+                Button(L.t(AppLocalizationKey.locAdd)) {
                     addModel()
                 }
                 .interfaceFont(size: 11)
@@ -677,7 +677,7 @@ struct WebProviderLoginView: View {
 
                 // Live status: cookies + detected models count
                 if !capturedCookies.isEmpty {
-                    Label("\(capturedCookies.count) cookies", systemImage: "lock.fill")
+                    Label(L.t(AppLocalizationKey.locCookiesCount, capturedCookies.count), systemImage: "lock.fill")
                         .interfaceFont(size: 10).foregroundColor(Color.mimo.success)
                 } else {
                     Label(L.t(AppLocalizationKey.locNotConfigured), systemImage: "exclamationmark.circle")
@@ -687,11 +687,11 @@ struct WebProviderLoginView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "bolt.horizontal.circle")
                         .interfaceFont(size: 14)
-                    Text("Built-in browser detection")
+                        Text(L.t(AppLocalizationKey.locBuiltInBrowserDetection))
                         .interfaceFont(size: 11)
                         .foregroundColor(Color.mimo.textSecondary)
                 }
-                .help("Choose how MiCoder reads model names from the authenticated web page")
+                .help(L.t(AppLocalizationKey.locBrowserDetectionHelp))
 
                 Button(action: findModelsBuiltIn) {
                     HStack(spacing: 4) {
@@ -701,7 +701,7 @@ struct WebProviderLoginView: View {
                             Image(systemName: "bolt.horizontal.circle")
                                 .interfaceFont(size: 14)
                         }
-                        Text("Detect models")
+                        Text(L.t(AppLocalizationKey.locDetectModels))
                             .interfaceFont(size: 11)
                     }
                     .foregroundColor(Color.mimo.brand)
@@ -711,12 +711,12 @@ struct WebProviderLoginView: View {
                     if case .detecting = detectResult { return true }
                     return false
                 }())
-                .help("Fast built-in DOM scraping; no AI request")
+                .help(L.t(AppLocalizationKey.locFastDOMDetectionHelp))
 
                 Button(action: findModelsWithAI) {
                     HStack(spacing: 4) {
                         MiMoLogoMark(size: 14)
-                        Text("Ask MiCoder Auto Free")
+                        Text(L.t(AppLocalizationKey.locAskMiCoderAutoFree))
                             .interfaceFont(size: 11)
                     }
                     .foregroundColor(Color.mimo.brand)
@@ -726,7 +726,7 @@ struct WebProviderLoginView: View {
                     if case .detecting = detectResult { return true }
                     return !MiCoderAutoFreeStore.shared.provider.isReady
                 }())
-                .help("Ask MiCoder Auto Free to read the visible page text and list model names")
+                .help(L.t(AppLocalizationKey.locAskMiCoderAutoFreeHelp))
 
                 // Capture only enabled when we have models OR user explicitly wants session
                 Button(action: capture) {
@@ -736,7 +736,7 @@ struct WebProviderLoginView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(!canCapture)
-                .help(canCapture ? "Save session & models" : "Detect models first")
+                .help(canCapture ? L.t(AppLocalizationKey.locSaveSessionModels) : L.t(AppLocalizationKey.locDetectModelsFirst))
 
                 // Close button (always available)
                 Button(action: { dismiss() }) {
@@ -784,7 +784,7 @@ struct WebProviderLoginView: View {
             case .found(let models):
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(Color.mimo.success)
-                Text("\(models.count) \(L.t(AppLocalizationKey.locWebModelsFound))")
+                    Text(L.t(AppLocalizationKey.locWebModelsFoundCount, models.count))
                     .interfaceFont(size: 10).foregroundColor(Color.mimo.textSecondary)
                 ForEach(models.prefix(3)) { m in
                     Text(m.name).interfaceFont(size: 9)
@@ -819,7 +819,7 @@ struct WebProviderLoginView: View {
                 .filter { !$0.isEmpty }
                 .joined(separator: ", ")
             if dropdownSelector.isEmpty {
-                await MainActor.run { detectResult = .failed("No selector found for this vendor.") }
+                await MainActor.run { detectResult = .failed(L.t(AppLocalizationKey.locNoSelectorFound)) }
                 return
             }
             // Wait for full page hydration (up to 10s)
@@ -853,7 +853,7 @@ struct WebProviderLoginView: View {
                 WebProviderStore.save(WebProviderStore.upsert(persisted, in: WebProviderStore.load()))
                 config = persisted
                 if resolvedModels.isEmpty {
-                    detectResult = .failed("No models found in the live model menu.")
+                    detectResult = .failed(L.t(AppLocalizationKey.locNoModelsFound))
                 } else {
                     detectResult = .found(resolvedModels)
                 }
@@ -869,7 +869,7 @@ struct WebProviderLoginView: View {
                 let pageText = try await bridge.pageText()
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !pageText.isEmpty else {
-                    await MainActor.run { detectResult = .failed("The authenticated page has no readable text.") }
+                    await MainActor.run { detectResult = .failed(L.t(AppLocalizationKey.locNoReadablePageText)) }
                     return
                 }
 
@@ -893,7 +893,7 @@ struct WebProviderLoginView: View {
                 let models = parseAIDetectedModels(answer)
                 saveDetectedModels(models)
             } catch {
-                await MainActor.run { detectResult = .failed("AI detection failed: \(error.localizedDescription)") }
+                await MainActor.run { detectResult = .failed(L.t(AppLocalizationKey.locAIDetectionFailed, error.localizedDescription)) }
             }
         }
     }
@@ -932,14 +932,14 @@ struct WebProviderLoginView: View {
                                     discoveryStatus: .notDetected,
                                     isLiveDiscovered: false,
                                     isSelectable: false,
-                                    discoveryMessage: "AI-assisted candidate; verify with built-in DOM detection before use.")
+                                    discoveryMessage: L.t(AppLocalizationKey.locAICandidateVerification))
         }
     }
 
     @MainActor
     private func saveDetectedModels(_ models: [WebProviderModel]) {
         guard !models.isEmpty else {
-            detectResult = .failed("No model names were returned by the free AI.")
+            detectResult = .failed(L.t(AppLocalizationKey.locNoModelNamesReturned))
             return
         }
         detectResult = .found(models)

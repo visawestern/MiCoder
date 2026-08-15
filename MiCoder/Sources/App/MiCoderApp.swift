@@ -27,17 +27,17 @@ struct MiCoderApp: App {
         .defaultSize(width: 1200, height: 750)
         .commands {
             CommandGroup(replacing: .pasteboard) {
-                Button("Cut") {
+                Button(L.t(AppLocalizationKey.locCut)) {
                     NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: nil)
                 }
                 .keyboardShortcut("x", modifiers: .command)
 
-                Button("Copy") {
+                Button(L.t(AppLocalizationKey.locCopy)) {
                     NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: nil)
                 }
                 .keyboardShortcut("c", modifiers: .command)
 
-                Button("Paste") {
+                Button(L.t(AppLocalizationKey.locPaste)) {
                     _ = ChatPasteCoordinator.shared.performPaste()
                 }
                 .keyboardShortcut("v", modifiers: .command)
@@ -46,25 +46,25 @@ struct MiCoderApp: App {
 
                 // Replacing .pasteboard removes the standard Select All item;
                 // re-add it or Cmd+A is dead in every text field.
-                Button("Select All") {
+                Button(L.t(AppLocalizationKey.locSelectAll)) {
                     NSApp.sendAction(#selector(NSResponder.selectAll(_:)), to: nil, from: nil)
                 }
                 .keyboardShortcut("a", modifiers: .command)
             }
             CommandGroup(replacing: .newItem) {
-                Button("New Task") {
+                Button(L.t(AppLocalizationKey.locNewTask)) {
                     appState.startNewTask(in: appState.selectedWorkspace)
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
-            CommandMenu("Find") {
-                Button("Search Tasks…") {
+            CommandMenu(L.t(AppLocalizationKey.locFind)) {
+                Button(L.t(AppLocalizationKey.locSearchTasks)) {
                     appState.showSearch = true
                 }
                 .keyboardShortcut("k", modifiers: .command)
             }
-            CommandMenu("Actions") {
-                Button("Undo Last File Change") {
+            CommandMenu(L.t(AppLocalizationKey.locActions)) {
+                Button(L.t(AppLocalizationKey.locUndoLastFileChange)) {
                     appState.undoLastAction()
                 }
                 .keyboardShortcut("z", modifiers: [.command, .option])

@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(Combine)
 import Combine
+#endif
 
 /// Runtime localization resolver. Returns the string in the current app
 /// language, falling back to English when no translation exists.
@@ -160,22 +162,29 @@ enum LocalizationRuntime {
     ]
 
     static func t(_ key: String) -> String {
-        switch currentLanguage {
-        case .russian:
-            return russian[key] ?? key
-        default:
-            return key
+        if let localizationKey = AppLocalizationKey(rawValue: key) {
+            return AppLocalization.string(localizationKey, language: currentLanguage)
         }
+        let localized = AppLocalization.string(forEnglish: key, language: currentLanguage)
+        if localized != key || currentLanguage != .russian {
+            return localized
+        }
+        return russian[key] ?? key
     }
 
     static func t(_ key: String, _ args: CVarArg...) -> String {
-        let format = russian[key] ?? key
-        switch currentLanguage {
-        case .russian:
-            return String(format: format, arguments: args)
-        default:
-            return String(format: key, arguments: args)
+        t(key, arguments: args)
+    }
+
+    static func t(_ key: String, arguments args: [CVarArg]) -> String {
+        let localizedFormat: String
+        if let localizationKey = AppLocalizationKey(rawValue: key) {
+            localizedFormat = AppLocalization.string(localizationKey, language: currentLanguage)
+        } else {
+            let localized = AppLocalization.string(forEnglish: key, language: currentLanguage)
+            localizedFormat = localized == key && currentLanguage == .russian ? (russian[key] ?? key) : localized
         }
+        return String(format: localizedFormat, arguments: args)
     }
 }
 
@@ -183,9 +192,12 @@ enum LocalizationRuntime {
 enum L {
     static func t(_ key: String) -> String { LocalizationRuntime.t(key) }
     static func t(_ key: String, _ args: CVarArg...) -> String {
-        LocalizationRuntime.t(key, args)
+        LocalizationRuntime.t(key, arguments: args)
     }
     static func t(_ key: AppLocalizationKey) -> String {
         AppLocalization.string(key, language: LocalizationRuntime.currentLanguage)
+    }
+    static func t(_ key: AppLocalizationKey, _ args: CVarArg...) -> String {
+        LocalizationRuntime.t(key.rawValue, arguments: args)
     }
 }

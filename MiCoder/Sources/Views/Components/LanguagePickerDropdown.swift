@@ -35,7 +35,7 @@ struct LanguagePickerDropdown: View {
     private var dropdownContent: some View {
         let rows = LanguagePickerLogic.filter(LanguagePickerLogic.rows(selected: selected), query: query)
         return VStack(alignment: .leading, spacing: 4) {
-            TextField("Search language", text: $query)
+            TextField(L.t(AppLocalizationKey.locSearchLanguage), text: $query)
                 .zcodeTextFieldStyle()
                 .interfaceFont(size: 12)
                 .padding(.bottom, 4)

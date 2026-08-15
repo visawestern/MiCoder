@@ -146,7 +146,7 @@ struct WorkspacesSectionHeader: View {
                     .foregroundColor(Color.mimo.textMuted)
             }
             .buttonStyle(.plain)
-            .help(appState.workspacesSectionExpanded ? "Collapse workspaces" : "Expand workspaces")
+            .help(appState.workspacesSectionExpanded ? L.t(AppLocalizationKey.locCollapseWorkspaces) : L.t(AppLocalizationKey.locExpandWorkspaces))
 
             Button(action: { appState.showWorkspacesOverview = true }) {
                 Image(systemName: SidebarLayout.workspacesExpandIcon)
@@ -154,7 +154,7 @@ struct WorkspacesSectionHeader: View {
                     .foregroundColor(Color.mimo.textMuted)
             }
             .buttonStyle(.plain)
-            .help("All workspaces")
+            .help(L.t(AppLocalizationKey.locAllWorkspaces))
 
             Spacer(minLength: 4)
             archiveButton
@@ -180,7 +180,7 @@ struct WorkspacesSectionHeader: View {
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
-            .help("Workspace actions")
+            .help(L.t(AppLocalizationKey.locWorkspaceActions))
         }
     }
 
@@ -189,16 +189,16 @@ struct WorkspacesSectionHeader: View {
         Button {
             withAnimation { appState.workspacesSectionExpanded.toggle() }
         } label: {
-            Label(appState.workspacesSectionExpanded ? "Collapse workspaces" : "Expand workspaces",
+            Label(appState.workspacesSectionExpanded ? L.t(AppLocalizationKey.locCollapseWorkspaces) : L.t(AppLocalizationKey.locExpandWorkspaces),
                   systemImage: appState.workspacesSectionExpanded ? "rectangle.compress.vertical" : "rectangle.expand.vertical")
         }
         Button { appState.showWorkspacesOverview = true } label: {
-            Label("All workspaces", systemImage: SidebarLayout.workspacesExpandIcon)
+            Label(L.t(AppLocalizationKey.locAllWorkspaces), systemImage: SidebarLayout.workspacesExpandIcon)
         }
         Button { appState.showArchivePopover.toggle() } label: {
-            Label("Archived projects", systemImage: "archivebox")
+            Label(L.t(AppLocalizationKey.locArchivedProjects), systemImage: "archivebox")
         }
-        Menu("Sort workspaces") {
+        Menu(L.t(AppLocalizationKey.locSortWorkspaces)) {
             ForEach(WorkspaceSortOrder.allCases) { order in
                 Button {
                     appState.workspaceSortOrder = order
@@ -207,7 +207,7 @@ struct WorkspacesSectionHeader: View {
                 }
             }
         }
-        Menu("Filter workspaces") {
+        Menu(L.t(AppLocalizationKey.locFilterWorkspaces)) {
             ForEach(WorkspaceFilterPreset.allCases, id: \.self) { preset in
                 Button {
                     appState.workspaceFilterPreset = preset
@@ -222,7 +222,7 @@ struct WorkspacesSectionHeader: View {
                 if !appState.showWorkspaceSearchField { appState.workspaceFilterQuery = "" }
             }
         } label: {
-            Label(appState.showWorkspaceSearchField ? "Hide workspace search" : "Search workspaces",
+            Label(appState.showWorkspaceSearchField ? L.t(AppLocalizationKey.locHideWorkspaceSearch) : L.t(AppLocalizationKey.locShowWorkspaceSearch),
                   systemImage: SidebarLayout.workspacesSearchIcon)
         }
         Button {
@@ -230,7 +230,7 @@ struct WorkspacesSectionHeader: View {
                 appState.workspaceViewMode = appState.workspaceViewMode == .list ? .grid : .list
             }
         } label: {
-            Label(appState.workspaceViewMode == .list ? "Show grid" : "Show list",
+            Label(appState.workspaceViewMode == .list ? L.t(AppLocalizationKey.locShowGrid) : L.t(AppLocalizationKey.locShowList),
                   systemImage: appState.workspaceViewMode == .list ? SidebarLayout.workspacesViewGridIcon : SidebarLayout.workspacesViewListIcon)
         }
     }
@@ -242,7 +242,7 @@ struct WorkspacesSectionHeader: View {
                 .foregroundColor(Color.mimo.textMuted)
         }
         .buttonStyle(.plain)
-        .help("Archived projects")
+        .help(L.t(AppLocalizationKey.locArchivedProjects))
         .popover(isPresented: $appState.showArchivePopover) {
             ArchivedProjectsPopover().environmentObject(appState)
         }
@@ -265,7 +265,7 @@ struct WorkspacesSectionHeader: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .help("Sort workspaces")
+        .help(L.t(AppLocalizationKey.locSortWorkspaces))
     }
 
     private var filterMenu: some View {
@@ -300,7 +300,7 @@ struct WorkspacesSectionHeader: View {
                 .foregroundColor(appState.showWorkspaceSearchField ? Color.mimo.brand : Color.mimo.textMuted)
         }
         .buttonStyle(.plain)
-        .help("Filter workspaces")
+        .help(L.t(AppLocalizationKey.locFilterWorkspaces))
     }
 
     private var viewModeButton: some View {
@@ -622,7 +622,7 @@ struct WorkspacesOverviewSheet: View {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
                     .foregroundColor(Color.mimo.textMuted)
-                TextField("Search workspaces", text: $query)
+                TextField(L.t(AppLocalizationKey.locSearchWorkspaces), text: $query)
                     .zcodeTextFieldStyle()
             }
             
@@ -779,7 +779,7 @@ struct WorkspaceSidebarSection: View {
                         .foregroundColor(Color.mimo.textMuted)
                 }
                 .buttonStyle(.plain)
-                .help("New task")
+                .help(L.t(AppLocalizationKey.locNewTask))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
@@ -948,7 +948,7 @@ struct SearchPaletteView: View {
                 .help("Close (Esc)")
             }
 
-            TextField("Search tasks…", text: $query)
+            TextField(L.t(AppLocalizationKey.locSearchTasks), text: $query)
                 .zcodeTextFieldStyle()
             
             ScrollView {
@@ -974,7 +974,7 @@ struct SearchPaletteView: View {
                     }
 
                     if !matchingFiles.isEmpty {
-                        Text("Project files")
+                        Text(L.t(AppLocalizationKey.locProjectFiles))
                             .interfaceFont(size: 11, weight: .semibold)
                             .foregroundColor(Color.mimo.textMuted)
                             .padding(.top, 8)

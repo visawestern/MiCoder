@@ -74,7 +74,7 @@ struct UsageSettingsView: View {
                                 .interfaceFont(size: 12, weight: .medium)
                                 .foregroundColor(Color.mimo.textPrimary)
                             Spacer()
-                            Text("\(agg.messageCount) msg")
+                            Text(L.t(AppLocalizationKey.locMessagesCount, agg.messageCount))
                                 .interfaceFont(size: 11).foregroundColor(Color.mimo.textMuted)
                             Text("\(formatTokens(agg.promptTokens))↑ \(formatTokens(agg.completionTokens))↓")
                                 .interfaceFont(size: 11, design: .monospaced).foregroundColor(Color.mimo.textSecondary)

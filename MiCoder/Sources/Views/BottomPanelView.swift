@@ -444,7 +444,7 @@ struct GitPanelView: View {
                 Button(L.t(AppLocalizationKey.locCreate)) { createBranch() }
                 Button(L.t(AppLocalizationKey.locCancel), role: .cancel) { newBranchName = "" }
             } message: {
-                Text("Enter a name for the new branch. Current branch: \(appState.gitBranch)")
+                Text(L.t(AppLocalizationKey.locNewBranchName, appState.gitBranch))
             }
 
             // File changes

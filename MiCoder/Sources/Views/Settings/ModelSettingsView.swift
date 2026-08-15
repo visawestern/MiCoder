@@ -9,10 +9,10 @@ enum ModelSortOrder: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .name: return "Name"
-        case .context: return "Context"
-        case .reasoning: return "Reasoning"
-        case .tools: return "Tools"
+        case .name: return L.t(AppLocalizationKey.locSortName)
+        case .context: return L.t(AppLocalizationKey.locSortContext)
+        case .reasoning: return L.t(AppLocalizationKey.locSortReasoning)
+        case .tools: return L.t(AppLocalizationKey.locSortTools)
         }
     }
 }
@@ -129,12 +129,12 @@ struct ModelSettingsProviderColumns: View {
                     .foregroundColor(Color.mimo.textPrimary)
                 Spacer()
                 Button(action: { appState.addOpenCodeZenProvider() }) {
-                    Label("OpenCode Zen", systemImage: "sparkles")
+                    Label(L.t(AppLocalizationKey.locOpenCodeZen), systemImage: "sparkles")
                         .interfaceFont(size: 13)
                         .foregroundColor(Color.mimo.violet)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Add or select OpenCode Zen")
+                .accessibilityLabel(L.t(AppLocalizationKey.locAddOrSelectOpenCodeZen))
 
                 Button(action: { showAddProvider = true }) {
                     HStack(spacing: 4) {
@@ -211,20 +211,30 @@ struct ModelSettingsProviderColumns: View {
     private func providerCategory(for option: ProviderOption) -> String {
         if let custom = appState.customProviders.first(where: { $0.id == option.id }),
            custom.type == .openCodeZen {
-            return "OpenCode Zen"
+            return "openCodeZen"
         }
-        if option.isCustom { return "Custom providers" }
-        if WebProviderConnectivity.configID(fromOptionID: option.id) != nil { return "Web providers" }
-        if LocalProviderLogic.load().contains(where: { $0.id == option.id }) { return "Local providers" }
-        return "Built-in providers"
+        if option.isCustom { return "custom" }
+        if WebProviderConnectivity.configID(fromOptionID: option.id) != nil { return "web" }
+        if LocalProviderLogic.load().contains(where: { $0.id == option.id }) { return "local" }
+        return "builtIn"
+    }
+
+    private func providerCategoryTitle(_ category: String) -> String {
+        switch category {
+        case "openCodeZen": return L.t(AppLocalizationKey.locOpenCodeZen)
+        case "custom": return L.t(AppLocalizationKey.locCustomProviders)
+        case "web": return L.t(AppLocalizationKey.locWebProvidersBrowser)
+        case "local": return L.t(AppLocalizationKey.locLocalProviders)
+        default: return L.t(AppLocalizationKey.locBuiltInProviders)
+        }
     }
 
     private func providerCategoryIcon(_ category: String) -> String {
         switch category {
-        case "OpenCode Zen": return "sparkles"
-        case "Custom providers": return "server.rack"
-        case "Web providers": return "globe"
-        case "Local providers": return "desktopcomputer"
+        case "openCodeZen": return "sparkles"
+        case "custom": return "server.rack"
+        case "web": return "globe"
+        case "local": return "desktopcomputer"
         default: return "sparkles"
         }
     }
@@ -267,14 +277,14 @@ struct ModelSettingsProviderColumns: View {
                                         Image(systemName: providerCategoryIcon(group.key))
                                             .interfaceFont(size: 11, weight: .semibold)
                                             .foregroundColor(Color.mimo.brand)
-                                        Text(group.key)
+                                        Text(providerCategoryTitle(group.key))
                                             .interfaceFont(size: 11, weight: .semibold)
                                             .foregroundColor(Color.mimo.textSecondary)
                                         Text("· \(group.options.count)")
                                             .interfaceFont(size: 10)
                                             .foregroundColor(Color.mimo.textMuted)
                                         Spacer()
-                                        Text(isCollapsed ? "Show" : "Hide")
+                                        Text(isCollapsed ? L.t(AppLocalizationKey.locShow) : L.t(AppLocalizationKey.locHide))
                                             .interfaceFont(size: 10, weight: .medium)
                                             .foregroundColor(Color.mimo.brand)
                                     }
@@ -286,7 +296,7 @@ struct ModelSettingsProviderColumns: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 7))
                                 }
                                 .buttonStyle(.plain)
-                                .help(isCollapsed ? "Show \(group.key)" : "Hide \(group.key)")
+                                .help(isCollapsed ? L.t(AppLocalizationKey.locShow) : L.t(AppLocalizationKey.locHide))
 
                                 if !isCollapsed {
                                     VStack(spacing: 4) {
@@ -547,10 +557,10 @@ struct ModelSettingsProviderColumns: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Model parameters")
+                    Text(L.t(AppLocalizationKey.locModelParameters))
                         .interfaceFont(size: 14, weight: .semibold)
                         .foregroundColor(Color.mimo.textPrimary)
-                    Text("\(parameterProviderID.isEmpty ? "Provider" : parameterProviderID) / \(parameterModelID)")
+                    Text("\(parameterProviderID.isEmpty ? L.t(AppLocalizationKey.locProvider) : parameterProviderID) / \(parameterModelID)")
                         .interfaceFont(size: 10, design: .monospaced)
                         .foregroundColor(Color.mimo.textMuted)
                 }
@@ -564,7 +574,7 @@ struct ModelSettingsProviderColumns: View {
                         .foregroundColor(Color.mimo.textMuted)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Close model parameters")
+                .accessibilityLabel(L.t(AppLocalizationKey.locCloseModelParameters))
             }
 
             if let webModel = selectedWebModel {
@@ -573,32 +583,32 @@ struct ModelSettingsProviderColumns: View {
 
             if let meta = selectedParameterMetadata {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("Provider metadata")
+                    Text(L.t(AppLocalizationKey.locProviderMetadata))
                         .interfaceFont(size: 11, weight: .semibold)
                         .foregroundColor(Color.mimo.textSecondary)
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 7) {
-                        metadataValue("Context", meta.limit?.context.map { "\($0 / 1000)k" } ?? "—")
-                        metadataValue("Output", meta.limit?.output.map { String($0) } ?? "—")
-                        metadataValue("Reasoning", meta.capabilities?.reasoning == true ? "Yes" : "No")
-                        metadataValue("Tools", meta.capabilities?.toolcall != false ? "Yes" : "No")
-                        metadataValue("Plan", meta.capabilities?.plan == true ? "Yes" : "No")
-                        metadataValue("Variants", meta.variants.map { String($0.count) } ?? "—")
+                        metadataValue(L.t(AppLocalizationKey.locParamContext), meta.limit?.context.map { "\($0 / 1000)k" } ?? "—")
+                        metadataValue(L.t(AppLocalizationKey.locParamOutput), meta.limit?.output.map { String($0) } ?? "—")
+                        metadataValue(L.t(AppLocalizationKey.locParamReasoning), meta.capabilities?.reasoning == true ? L.t(AppLocalizationKey.locYes) : L.t(AppLocalizationKey.locNo))
+                        metadataValue(L.t(AppLocalizationKey.locParamTools), meta.capabilities?.toolcall != false ? L.t(AppLocalizationKey.locYes) : L.t(AppLocalizationKey.locNo))
+                        metadataValue(L.t(AppLocalizationKey.locParamPlan), meta.capabilities?.plan == true ? L.t(AppLocalizationKey.locYes) : L.t(AppLocalizationKey.locNo))
+                        metadataValue(L.t(AppLocalizationKey.locParamVariants), meta.variants.map { String($0.count) } ?? "—")
                     }
                 }
             } else if selectedWebModel == nil {
-                Text("This provider did not return model metadata. You can still set request overrides below.")
+                Text(L.t(AppLocalizationKey.locNoModelMetadata))
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
             }
 
             HStack(spacing: 10) {
-                parameterField(title: "Temperature", placeholder: "default", text: $parameterTemperature)
-                parameterField(title: "Max tokens", placeholder: "default", text: $parameterMaxTokens)
-                parameterField(title: "Top P", placeholder: "default", text: $parameterTopP)
+                parameterField(title: L.t(AppLocalizationKey.locTemperature), placeholder: L.t(AppLocalizationKey.locDefault), text: $parameterTemperature)
+                parameterField(title: L.t(AppLocalizationKey.locMaxTokens), placeholder: L.t(AppLocalizationKey.locDefault), text: $parameterMaxTokens)
+                parameterField(title: L.t(AppLocalizationKey.locTopP), placeholder: L.t(AppLocalizationKey.locDefault), text: $parameterTopP)
             }
 
             VStack(alignment: .leading, spacing: 5) {
-                Text("System prompt override")
+                Text(L.t(AppLocalizationKey.locSystemPromptOverride))
                     .interfaceFont(size: 11, weight: .medium)
                     .foregroundColor(Color.mimo.textSecondary)
                 TextEditor(text: $parameterSystemPrompt)
@@ -617,15 +627,15 @@ struct ModelSettingsProviderColumns: View {
             }
 
             HStack {
-                Text("Blank values use provider defaults.")
+                Text(L.t(AppLocalizationKey.locBlankValuesProviderDefaults))
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
                 Spacer()
-                Button("Reset") { resetParameters() }
+                Button(L.t(AppLocalizationKey.locResetParameters)) { resetParameters() }
                     .buttonStyle(.plain)
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textSecondary)
-                Button("Save parameters") { saveParameters() }
+                Button(L.t(AppLocalizationKey.locSaveParameters)) { saveParameters() }
                     .buttonStyle(.borderedProminent)
                     .interfaceFont(size: 11)
             }
@@ -640,25 +650,25 @@ struct ModelSettingsProviderColumns: View {
     private func webProfilePanel(_ model: WebProviderModel) -> some View {
         let metadataBackground: Color = Color.mimo.backgroundAlt.opacity(0.45)
         return VStack(alignment: .leading, spacing: 7) {
-            Text("Live web profile")
+            Text(L.t(AppLocalizationKey.locLiveWebProfile))
                 .interfaceFont(size: 11, weight: .semibold)
                 .foregroundColor(Color.mimo.textSecondary)
             HStack(spacing: 6) {
-                Text(model.discoveryStatus == .active ? "Active" : model.discoveryStatus.rawValue)
+                Text(model.discoveryStatus == .active ? L.t(AppLocalizationKey.locActive) : L.t(model.discoveryStatus.rawValue))
                     .interfaceFont(size: 10, weight: .medium)
                     .foregroundColor(model.discoveryStatus == .active ? Color.mimo.success : Color.mimo.warning)
-                Text(model.parameterProfile.availableKeys.isEmpty ? "No parameter controls detected" : model.parameterProfile.availableKeys.joined(separator: ", "))
+                Text(model.parameterProfile.availableKeys.isEmpty ? L.t(AppLocalizationKey.locNoParameterControls) : model.parameterProfile.availableKeys.joined(separator: ", "))
                     .interfaceFont(size: 10, design: .monospaced)
                     .foregroundColor(Color.mimo.textMuted)
                     .lineLimit(2)
             }
             let detected = model.parameterProfile.values
-            Text("Detected defaults: temperature \(detected.temperature.map { String(describing: $0) } ?? "—") · max tokens \(detected.maxTokens.map { String(describing: $0) } ?? "—") · top P \(detected.topP.map { String(describing: $0) } ?? "—")")
+            Text(L.t(AppLocalizationKey.locDetectedDefaults, "temperature \(detected.temperature.map { String(describing: $0) } ?? "—") · max tokens \(detected.maxTokens.map { String(describing: $0) } ?? "—") · top P \(detected.topP.map { String(describing: $0) } ?? "—")"))
                 .interfaceFont(size: 10, design: .monospaced)
                 .foregroundColor(Color.mimo.textMuted)
                 .lineLimit(2)
             if !model.parameterProfile.labels.isEmpty {
-                Text("Detected labels: \(model.parameterProfile.labels.joined(separator: ", "))")
+                Text(L.t(AppLocalizationKey.locDetectedLabels, model.parameterProfile.labels.joined(separator: ", ")))
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
                     .lineLimit(2)
@@ -723,19 +733,19 @@ struct ModelSettingsProviderColumns: View {
         guard trimmedTemperature.isEmpty || temperature != nil,
               trimmedMaxTokens.isEmpty || maxTokens != nil,
               trimmedTopP.isEmpty || topP != nil else {
-            parameterError = "Use numeric values for temperature, max tokens and top P."
+            parameterError = L.t(AppLocalizationKey.locUseNumericParameters)
             return
         }
         if let temperature, !(0...2).contains(temperature) {
-            parameterError = "Temperature must be between 0 and 2."
+            parameterError = L.t(AppLocalizationKey.locTemperatureRange)
             return
         }
         if let maxTokens, maxTokens <= 0 {
-            parameterError = "Max tokens must be greater than 0."
+            parameterError = L.t(AppLocalizationKey.locMaxTokensRange)
             return
         }
         if let topP, !(0...1).contains(topP) {
-            parameterError = "Top P must be between 0 and 1."
+            parameterError = L.t(AppLocalizationKey.locTopPRange)
             return
         }
         ModelCallParametersStore.set(
@@ -767,7 +777,7 @@ struct ModelSettingsProviderColumns: View {
                 Image(systemName: "cpu")
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
-                Text(modelCount == 1 ? "1 model" : "\(modelCount) models")
+                Text(modelCount == 1 ? L.t(AppLocalizationKey.locModelCount, modelCount) : L.t(AppLocalizationKey.locModelsCount, modelCount))
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textSecondary)
             }
@@ -845,7 +855,7 @@ struct ModelSettingsProviderColumns: View {
                         }
                     }
                 } label: {
-                    Label("Sort: \(modelSortOrder.title)", systemImage: "arrow.up.arrow.down")
+                    Label(L.t(AppLocalizationKey.locSortModels, modelSortOrder.title), systemImage: "arrow.up.arrow.down")
                         .interfaceFont(size: 10, weight: .medium)
                         .foregroundColor(Color.mimo.brand)
                 }
@@ -860,7 +870,7 @@ struct ModelSettingsProviderColumns: View {
                 Image(systemName: "magnifyingglass")
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
-                TextField("Filter models", text: $modelSearchQuery)
+                TextField(L.t(AppLocalizationKey.locFilterModels), text: $modelSearchQuery)
                     .textFieldStyle(.plain)
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textPrimary)
@@ -890,12 +900,12 @@ struct ModelSettingsProviderColumns: View {
                         : L.t(AppLocalizationKey.locStartLocalAgentOrCheck)
                 )
             } else if filteredModels.isEmpty {
-                Text("No models match this filter.")
+                Text(L.t(AppLocalizationKey.locNoModelsMatchFilter))
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
                     .padding(.vertical, 8)
             } else {
-                Text("\(filteredModels.count) of \(allModels.count) models")
+                Text(L.t(AppLocalizationKey.locModelsCountOf, filteredModels.count, allModels.count))
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
 
@@ -923,14 +933,14 @@ struct ModelSettingsProviderColumns: View {
                                         Image(systemName: "cube.fill")
                                             .interfaceFont(size: 11)
                                             .foregroundColor(Color.mimo.textMuted)
-                                        Text(group.prefix ?? "All models")
+                                        Text(group.prefix ?? L.t(AppLocalizationKey.locAllModels))
                                             .interfaceFont(size: 11, weight: .semibold, design: .monospaced)
                                             .foregroundColor(Color.mimo.textSecondary)
-                                        Text("· \(group.models.count)")
+                                        Text(L.t(AppLocalizationKey.locModelsCount, group.models.count))
                                             .interfaceFont(size: 10)
                                             .foregroundColor(Color.mimo.textMuted)
                                         Spacer()
-                                        Text(isCollapsed ? "Show" : "Hide")
+                                        Text(isCollapsed ? L.t(AppLocalizationKey.locShow) : L.t(AppLocalizationKey.locHide))
                                             .interfaceFont(size: 10, weight: .medium)
                                             .foregroundColor(Color.mimo.brand)
                                     }
@@ -1263,7 +1273,7 @@ struct CustomProviderCard: View {
                         Text(L.t(AppLocalizationKey.locModels1))
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.textMuted)
-                        Text("\(provider.models.count) available")
+                        Text(L.t(AppLocalizationKey.locAvailableCount, provider.models.count))
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.textSecondary)
                     }
@@ -1324,7 +1334,7 @@ struct AddProviderSheet: View {
                             requiresAPIKey = ProviderEndpointLogic.defaultRequiresAPIKey(for: newType)
                             if newType == .openCodeZen,
                                name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                name = "OpenCode Zen"
+                                name = L.t(AppLocalizationKey.locOpenCodeZen)
                             }
                         }
                     }
@@ -1333,7 +1343,7 @@ struct AddProviderSheet: View {
                         Text(L.t(AppLocalizationKey.locName))
                             .interfaceFont(size: 13, weight: .medium)
                             .foregroundColor(Color.mimo.textPrimary)
-                        TextField("e.g., My OpenRouter", text: $name)
+                        TextField(L.t(AppLocalizationKey.locProviderNameExample), text: $name)
                             .zcodeTextFieldStyle()
                     }
                     
@@ -1341,12 +1351,12 @@ struct AddProviderSheet: View {
                         Text(L.t(AppLocalizationKey.locBaseUrl))
                             .interfaceFont(size: 13, weight: .medium)
                             .foregroundColor(Color.mimo.textPrimary)
-                        TextField("API endpoint URL", text: $url)
+                        TextField(L.t(AppLocalizationKey.locApiEndpointURL), text: $url)
                             .zcodeTextFieldStyle()
                             .interfaceFont(size: 12, design: .monospaced)
                         if !url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                            ProviderEndpointLogic.normalizedBaseURL(url) == nil {
-                            Text("Enter a valid http:// or https:// endpoint without a query string.")
+                            Text(L.t(AppLocalizationKey.locInvalidEndpoint))
                                 .interfaceFont(size: 10)
                                 .foregroundColor(Color.mimo.error)
                         }
@@ -1354,13 +1364,13 @@ struct AddProviderSheet: View {
                     
                     if type != .ollama && type != .acp && (requiresAPIKey || type == .openCodeZen) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(type == .openCodeZen ? "OpenCode Zen API key (optional)" : L.t(AppLocalizationKey.locApiKey))
+                            Text(type == .openCodeZen ? L.t(AppLocalizationKey.locOpenCodeZenApiKeyOptional) : L.t(AppLocalizationKey.locApiKey))
                                 .interfaceFont(size: 13, weight: .medium)
                                 .foregroundColor(Color.mimo.textPrimary)
-                            SecureField(type == .openModel ? "om-..." : "sk-...", text: $apiKey)
+                            SecureField(type == .openModel ? "om-..." : L.t(AppLocalizationKey.locSecretKeyPlaceholder), text: $apiKey)
                                 .zcodeTextFieldStyle()
                             if type == .openCodeZen {
-                                Text("No key: temporary free chat models only. A Zen key enables the curated paid chat-compatible catalog.")
+                                Text(L.t(AppLocalizationKey.locNoZenKeyDescription))
                                     .interfaceFont(size: 11)
                                     .foregroundColor(Color.mimo.textSecondary)
                             }

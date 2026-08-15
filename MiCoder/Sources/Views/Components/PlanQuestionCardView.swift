@@ -96,7 +96,7 @@ struct PlanQuestionCardView: View {
                 optionCard(option, for: question)
             }
 
-            TextField("Other answer", text: binding(for: question.id))
+            TextField(L.t(AppLocalizationKey.locOtherAnswer), text: binding(for: question.id))
                 .textFieldStyle(.plain)
                 .interfaceFont(size: 12, design: .monospaced)
                 .padding(.horizontal, 12)

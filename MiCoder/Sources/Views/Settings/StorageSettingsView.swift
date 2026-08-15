@@ -78,10 +78,10 @@ struct StorageSettingsView: View {
                                     .lineLimit(1)
                                     .foregroundColor(Color.mimo.textSecondary)
                                 Spacer()
-                                Text("\(item.active) active")
+                                Text(L.t(AppLocalizationKey.locActiveCount, item.active))
                                     .interfaceFont(size: 10)
                                     .foregroundColor(Color.mimo.success)
-                                Text("\(item.archived) archived")
+                                Text(L.t(AppLocalizationKey.locArchivedCount, item.archived))
                                     .interfaceFont(size: 10)
                                     .foregroundColor(Color.mimo.textMuted)
                             }
@@ -221,7 +221,7 @@ struct StorageSettingsView: View {
                 Text(resetAlertMessage)
             }
             .alert(
-                "Replace app configuration?",
+                L.t(AppLocalizationKey.locReplaceAppConfiguration),
                 isPresented: Binding(
                     get: { pendingAppConfigurationImportURL != nil },
                     set: { if !$0 { pendingAppConfigurationImportURL = nil } }
@@ -230,13 +230,13 @@ struct StorageSettingsView: View {
                 Button(L.t(AppLocalizationKey.locCancel), role: .cancel) {
                     pendingAppConfigurationImportURL = nil
                 }
-                Button("Import and replace", role: .destructive) {
+                Button(L.t(AppLocalizationKey.locStorageImportReplace), role: .destructive) {
                     guard let url = pendingAppConfigurationImportURL else { return }
                     pendingAppConfigurationImportURL = nil
                     performAppConfigurationImport(from: url)
                 }
             } message: {
-                Text("Importing will replace the current project registry and app settings. This action cannot be undone.")
+                Text(L.t(AppLocalizationKey.locStorageImportWarning))
             }
             .alert(
                 L.t(AppLocalizationKey.locAlertDeleteProject),
@@ -267,7 +267,7 @@ struct StorageSettingsView: View {
                     set: { if !$0 { appConfigurationNotice = nil } }
                 )
             ) {
-                Button("OK") {
+                Button(L.t(AppLocalizationKey.locOK)) {
                     appConfigurationNotice = nil
                 }
             } message: {
@@ -280,7 +280,7 @@ struct StorageSettingsView: View {
                     set: { if !$0 { deletionNotice = nil } }
                 )
             ) {
-                Button("OK") {
+                Button(L.t(AppLocalizationKey.locOK)) {
                     deletionNotice = nil
                 }
             } message: {
@@ -313,11 +313,11 @@ struct StorageSettingsView: View {
                     .interfaceFont(size: 16, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 Spacer()
-                Button("Export app configuration") {
+                Button(L.t(AppLocalizationKey.locStorageExportConfiguration)) {
                     exportAppConfiguration()
                 }
                 .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
-                Button("Import app configuration") {
+                Button(L.t(AppLocalizationKey.locStorageImportConfiguration)) {
                     importAppConfiguration()
                 }
                 .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
@@ -333,11 +333,11 @@ struct StorageSettingsView: View {
                     HStack(spacing: 8) {
                         ProgressView(value: deletionProgress)
                             .progressViewStyle(.linear)
-                        Text(deletionProgressLabel.isEmpty ? "Deleting project data…" : deletionProgressLabel)
+                        Text(deletionProgressLabel.isEmpty ? L.t(AppLocalizationKey.locDeletingProjectData) : deletionProgressLabel)
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.textSecondary)
                             .lineLimit(1)
-                        Button("Cancel deletion") {
+                        Button(L.t(AppLocalizationKey.locCancelDeletion)) {
                             deletionCancelRequested = true
                             deletionCancellation?.cancel()
                         }
@@ -345,7 +345,7 @@ struct StorageSettingsView: View {
                         .controlSize(.small)
                         .disabled(deletionCancelRequested)
                     }
-                    Text("The project stays in the registry until deletion completes successfully.")
+                    Text(L.t(AppLocalizationKey.locProjectRegistryDeletionWarning))
                         .interfaceFont(size: 10)
                         .foregroundColor(Color.mimo.textMuted)
                 }

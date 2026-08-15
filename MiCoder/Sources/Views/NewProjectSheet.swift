@@ -42,7 +42,7 @@ struct NewProjectSheet: View {
                     .foregroundColor(Color.mimo.textSecondary)
                 
                 HStack(spacing: 8) {
-                    TextField("/Path/to/project", text: $projectPath)
+                    TextField(L.t(AppLocalizationKey.locProjectPathPlaceholder), text: $projectPath)
                         .zcodeTextFieldStyle()
                         .interfaceFont(size: 13)
                     
@@ -97,8 +97,8 @@ struct NewProjectSheet: View {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = true
-        panel.message = "Choose project folder"
-        panel.prompt = "Select"
+        panel.message = L.t(AppLocalizationKey.locChooseProjectFolder)
+        panel.prompt = L.t(AppLocalizationKey.locSelect)
         
         guard panel.runModal() == .OK, let url = panel.url else { return }
         projectPath = url.path

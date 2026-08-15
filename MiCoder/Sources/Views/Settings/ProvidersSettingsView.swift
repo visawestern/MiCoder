@@ -49,15 +49,15 @@ struct MiCoderAutoFreeSection: View {
                 .font(.title2)
                 .foregroundColor(Color.mimo.brand)
             VStack(alignment: .leading, spacing: 3) {
-                Text("MiCoder Auto Free")
+                Text(L.t(AppLocalizationKey.locMiCoderAutoFree))
                     .interfaceFont(size: 18, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
-                Text("OpenCode Zen · live anonymous free-model workspace")
+                Text(L.t(AppLocalizationKey.locOpenCodeZenDescription))
                     .interfaceFont(size: 12)
                     .foregroundColor(Color.mimo.textSecondary)
             }
             Spacer()
-            Text("FREE")
+            Text(L.t(AppLocalizationKey.locFreeBadge))
                 .interfaceFont(size: 10, weight: .bold)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
@@ -73,17 +73,17 @@ struct MiCoderAutoFreeSection: View {
                 .fill(store.provider.isReady ? Color.mimo.success : Color.mimo.error)
                 .frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 2) {
-                Text(store.provider.isReady ? "ONLINE · \(store.provider.models.count) free models" : "OFFLINE · free catalog unavailable")
+                Text(store.provider.isReady ? L.t(AppLocalizationKey.locOnlineFreeModels, store.provider.models.count) : L.t(AppLocalizationKey.locOfflineCatalogUnavailable))
                     .interfaceFont(size: 12, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
-                Text(store.provider.statusMessage.isEmpty ? "Loading live OpenCode catalog…" : store.provider.statusMessage)
+                Text(store.provider.statusMessage.isEmpty ? L.t(AppLocalizationKey.locLoadingLiveCatalog) : store.provider.statusMessage)
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
                     .lineLimit(2)
             }
             Spacer()
             if let refreshed = store.provider.lastCatalogRefresh {
-                Text("Updated \(refreshed.formatted(date: .omitted, time: .shortened))")
+                Text(L.t(AppLocalizationKey.locUpdated, refreshed.formatted(date: .omitted, time: .shortened)))
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
             }
@@ -94,7 +94,7 @@ struct MiCoderAutoFreeSection: View {
                     } else {
                         Image(systemName: "arrow.clockwise")
                     }
-                    Text(isRefreshing ? "Refreshing…" : "Refresh catalog")
+                    Text(isRefreshing ? L.t(AppLocalizationKey.locRefreshing) : L.t(AppLocalizationKey.locRefreshCatalog))
                 }
                 .interfaceFont(size: 11, weight: .medium)
                 .foregroundColor(Color.mimo.brand)
@@ -110,14 +110,14 @@ struct MiCoderAutoFreeSection: View {
 
     private var protocolDetails: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Provider parameters")
+            Text(L.t(AppLocalizationKey.locProviderParameters))
                 .interfaceFont(size: 12, weight: .semibold)
                 .foregroundColor(Color.mimo.textPrimary)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading, spacing: 8) {
-                parameter(title: "Endpoint", value: "opencode.ai/zen/v1")
-                parameter(title: "Protocol", value: "OpenAI-compatible SSE")
-                parameter(title: "Access", value: "Anonymous · no key")
-                parameter(title: "Fallback", value: "Rate limit or 5 failures")
+                parameter(title: L.t(AppLocalizationKey.locEndpoint), value: "opencode.ai/zen/v1")
+                parameter(title: L.t(AppLocalizationKey.locProtocol), value: "OpenAI-compatible SSE")
+                parameter(title: L.t(AppLocalizationKey.locAccess), value: L.t(AppLocalizationKey.locAnonymousNoKey))
+                parameter(title: L.t(AppLocalizationKey.locFallback), value: L.t(AppLocalizationKey.locRateLimitOrFailures))
             }
         }
     }
@@ -138,17 +138,17 @@ struct MiCoderAutoFreeSection: View {
     private var modelCatalog: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Live free models")
+                Text(L.t(AppLocalizationKey.locLiveFreeModels))
                     .interfaceFont(size: 12, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 Spacer()
-                Text("Choose from list")
+                Text(L.t(AppLocalizationKey.locChooseFromList))
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
             }
 
             if store.provider.models.isEmpty {
-                Text("No eligible free models are currently returned by OpenCode. Refresh the catalog or choose another provider.")
+                Text(L.t(AppLocalizationKey.locNoEligibleFreeModels))
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
                     .padding(.vertical, 8)
@@ -202,7 +202,7 @@ struct MiCoderAutoFreeSection: View {
                         .clipShape(RoundedRectangle(cornerRadius: 7))
                     }
                     .menuStyle(.borderlessButton)
-                    .help("Switch free model")
+                    .help(L.t(AppLocalizationKey.locSwitchFreeModel))
 
                     Button(action: { toggleLock(for: selected.id) }) {
                         Image(systemName: store.provider.isModelLocked ? "lock.open" : "lock")
@@ -212,7 +212,7 @@ struct MiCoderAutoFreeSection: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help(store.provider.isModelLocked ? "Unlock selected model" : "Lock selected model")
+                    .help(store.provider.isModelLocked ? L.t(AppLocalizationKey.locUnlockSelectedModel) : L.t(AppLocalizationKey.locLockSelectedModel))
                 }
             }
         }
@@ -223,18 +223,18 @@ struct MiCoderAutoFreeSection: View {
             Image(systemName: store.provider.isModelLocked ? "lock.fill" : "arrow.triangle.2.circlepath")
                 .foregroundColor(store.provider.isModelLocked ? Color.mimo.brand : Color.mimo.textMuted)
             VStack(alignment: .leading, spacing: 2) {
-                Text(store.provider.isModelLocked ? "Model locked" : "Automatic fallback enabled")
+                Text(store.provider.isModelLocked ? L.t(AppLocalizationKey.locModelLocked) : L.t(AppLocalizationKey.locAutomaticFallbackEnabled))
                     .interfaceFont(size: 11, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 Text(store.provider.isModelLocked
-                     ? "The selected model will not be changed automatically. Unlock it to allow failover."
-                     : "Rate limits and repeated failures can move the request to another live free model.")
+                     ? L.t(AppLocalizationKey.locModelLockedDescription)
+                     : L.t(AppLocalizationKey.locAutomaticFallbackDescription))
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
                     .lineLimit(2)
             }
             Spacer()
-            Toggle("Lock selected model", isOn: Binding(
+            Toggle(L.t(AppLocalizationKey.locLockSelectedModel), isOn: Binding(
                 get: { store.provider.isModelLocked },
                 set: { store.setModelLocked($0) }
             ))
@@ -249,7 +249,7 @@ struct MiCoderAutoFreeSection: View {
 
     private var systemPromptEditor: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("System prompt")
+            Text(L.t(AppLocalizationKey.locSystemPrompt))
                 .interfaceFont(size: 12, weight: .semibold)
                 .foregroundColor(Color.mimo.textPrimary)
             TextEditor(text: $systemPromptInput)
@@ -260,11 +260,11 @@ struct MiCoderAutoFreeSection: View {
                 .background(Color.mimo.background)
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
             HStack {
-                Text("Sent before every free-model request.")
+                Text(L.t(AppLocalizationKey.locSystemPromptSentBeforeRequest))
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
                 Spacer()
-                Button("Save prompt") { store.setSystemPrompt(systemPromptInput) }
+                Button(L.t(AppLocalizationKey.locSavePrompt)) { store.setSystemPrompt(systemPromptInput) }
                     .buttonStyle(.plain)
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.brand)
@@ -273,7 +273,7 @@ struct MiCoderAutoFreeSection: View {
     }
 
     private var privacyNote: some View {
-        Text("Free models are temporary OpenCode routes. Availability, rate limits, model metadata and data-use terms can change. Do not send secrets.")
+        Text(L.t(AppLocalizationKey.locFreeModelsPrivacy))
             .interfaceFont(size: 10)
             .foregroundColor(Color.mimo.textMuted)
     }
@@ -356,7 +356,7 @@ struct AutoFreeCompactModelRow: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(isLocked ? "Unlock model" : "Lock selected model")
+                .help(isLocked ? L.t(AppLocalizationKey.locUnlockSelectedModel) : L.t(AppLocalizationKey.locLockSelectedModel))
             }
         }
         .padding(.horizontal, 8)
@@ -422,13 +422,13 @@ struct AutoFreeModelCard: View {
                 .lineLimit(1)
 
             HStack(spacing: 8) {
-                Text("Context: \(model.contextDescription)")
+                Text(L.t(AppLocalizationKey.locContextValue, model.contextDescription))
                     .interfaceFont(size: 9)
                     .foregroundColor(Color.mimo.textMuted)
                 Spacer()
                 Button(action: onToggleLock) {
                     Image(systemName: isLocked ? "lock.open" : "lock")
-                    Text(isLocked ? "Unlock" : "Lock")
+                    Text(isLocked ? L.t(AppLocalizationKey.locUnlock) : L.t(AppLocalizationKey.locLock))
                 }
                 .buttonStyle(.plain)
                 .interfaceFont(size: 10, weight: .medium)
@@ -941,7 +941,7 @@ struct ProviderRowView: View {
                         .truncationMode(.middle)
                     
                     HStack {
-                        Text("\(custom.models.count) models")
+                        Text(L.t(AppLocalizationKey.locModelsCount, custom.models.count))
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.textSecondary)
                         

@@ -3201,3 +3201,51 @@ The persistent red regression `.acceptance/test_build_regressions_round105.py` w
 | Native macOS `./build-app.sh` | **Pending user rerun** |
 
 Activity 59 records the full manual action/function checklist in `docs/activity-checklists/59-fsevents-callback-native-build-fix.md`. The implementation quality for this confirmed defect is **100/100**: the patch is minimal, signature-specific, and protected by a persistent regression. Task adherence is **100/100** for the round because every callback and lifecycle action was traced from declaration to final consumer before publication. Native build confidence remains **92/100** until the user reruns the macOS build and, preferably, observes a real file-index invalidation; Linux cannot compile or execute CoreServices, SwiftUI, AppKit, or Xcode runtime behavior.
+
+
+## Round 106 — Full selected-language localization call-chain audit
+
+The user reported that roughly half of the interface translations had disappeared. The audit confirmed a split localization architecture rather than a single missing dictionary row: typed `L.t(AppLocalizationKey...)` calls used the complete `AppLocalization` catalog, while legacy raw `L.t("...")` calls were effectively Russian-only with English fallback. Several additional user-visible strings bypassed `L.t` entirely in Settings, Sidebar, Web Providers, Storage, Chat attachment counters, AppKit command menus, project-integrity recovery, and notifications.
+
+### Root cause and repair
+
+| Chain | Confirmed issue | Repair | Status |
+|---|---|---|---|
+| Selected language → typed lookup | Typed keys were correct but did not cover every visible callsite. | Added complete 10-language rows for confirmed gaps and replaced raw UI labels with typed keys. | **FIXED** |
+| Selected language → legacy raw `L.t(...)` | Runtime resolved raw strings through a Russian-only dictionary and returned English for other languages. | Added `AppLocalization.string(forEnglish:language:)` reverse lookup and routed raw calls through the selected-language catalog. | **FIXED** |
+| Formatted localization | Dynamic count/error messages needed language-aware argument placement. | Added explicit array-based formatter and typed `L.t(AppLocalizationKey, ...)` overload. | **FIXED** |
+| Model Settings provider groups | Localizing stable grouping IDs directly would break collapse state and dynamic `switch` cases. | Kept stable category IDs and added a separate localized display-title helper. | **FIXED** |
+| Web/Auto Free controls | Detection, effort, model catalog, login, remove, lock, and system-prompt actions contained raw English labels/help. | Replaced application-owned labels, tooltips, badges, alerts, and status strings with typed keys. | **FIXED** |
+| Storage/Sidebar/AppKit/notifications | Import/delete alerts, workspace actions, command menus, rate-limit/server messages, and restore outcomes bypassed the selected language. | Routed each user-visible callsite through typed keys while preserving action handlers and dynamic data. | **FIXED** |
+
+### Scope of the manual chain audit
+
+Activity 60 (`docs/activity-checklists/60-localization-full-call-chain-audit.md`) records the manual declaration → runtime → view/action → final-consumer trace. The inspected controls include language search, plan-answer input, captcha presentation, Web Provider detection and login actions, model parameter editor, provider/model filtering and accordion controls, Auto Free lock/failover/catalog actions, Storage import/export/deletion, Sidebar workspace actions and search, chat attachment counters, Git branch creation, AppKit Edit/Find/Actions menus, project-integrity recovery, and system notifications. External provider/model names, URLs, browser page text, shell output, user-authored prompts, and error-provided data remain data and are intentionally not translated.
+
+### TDD and verification
+
+`.acceptance/test_localization_regressions_round106.py` was written before the production callsite changes and failed on the old raw language-search field. It now verifies the selected-language resolver, every confirmed affected callsite, all newly introduced translation keys, and the presence of `en`, `ru`, `es`, `fr`, `de`, `zh`, `ja`, `ko`, `pt`, and `ar` values for the new keys. The existing compact Auto Free adversarial check was updated only to recognize the canonical localized keys after the raw English markers were intentionally removed.
+
+| Gate | Result |
+|---|---:|
+| Round 106 red regression before fix | **Failed as expected** |
+| Round 106 source acceptance after fix | **PASS** |
+| Feature registry integrity | **PASS — 274 unique rows; 224 PASS, 45 PARTIAL, 0 MISSING, 5 FUTURE** |
+| Adversarial source checks | **PASS — 12/12** |
+| Rounds 102/103/104/105 build-regression acceptances | **PASS** |
+| Swift parser on all affected files | **PASS** |
+| `git diff --check` | **PASS** |
+| Foundation harness | **PASS — 360/360 with one worker** |
+| Native macOS SwiftUI/AppKit visual/runtime | **UNVERIFIED** |
+
+### Canonical registry update
+
+The L10-03 `Full New-UI Translation` row remains `PASS` and now records the Round 106 runtime-key audit, 800 typed keys with complete 10-language rows, affected callsite coverage, and the native macOS verification boundary. No feature status was artificially changed: source-level coverage is complete, while SwiftUI/AppKit redraw, native menus, notifications, and visual fit still require a macOS build and manual language switching.
+
+### Quality ratings
+
+**Implementation quality: 100/100 at the verifiable source level.** The selected-language resolver, format forwarding, catalog keys, stable provider grouping, and affected callsites are covered by source checks, parser validation, and the 360-test Foundation harness.
+
+**Task-following quality: 100/100 for the source-verifiable scope.** The defect was inventoried, red-tested before the production edits, manually traced through complete chains, documented in the checklist and canonical registry/report, and re-tested after implementation.
+
+**Native verification confidence: 90/100 pending macOS.** The remaining uncertainty is limited to native SwiftUI redraw, AppKit command-menu refresh, native folder-picker prompt rendering, notification presentation, and visual text fit across all supported languages. The user should run `git pull origin main && ./build-app.sh` from the repository root and manually switch languages through the controls listed in Activity 60.

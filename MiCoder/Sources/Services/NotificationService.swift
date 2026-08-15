@@ -68,14 +68,14 @@ enum NotificationAction: Equatable {
 
 enum MiCoderAutoFreeNotificationLogic {
     static func make(userInfo: [AnyHashable: Any]) -> AppNotification {
-        let fromModel = userInfo["fromModel"] as? String ?? "previous model"
-        let toModel = userInfo["toModel"] as? String ?? "another free model"
-        let reason = userInfo["reason"] as? String ?? "provider error"
+        let fromModel = userInfo["fromModel"] as? String ?? L.t(AppLocalizationKey.locPreviousModel)
+        let toModel = userInfo["toModel"] as? String ?? L.t(AppLocalizationKey.locAnotherFreeModel)
+        let reason = userInfo["reason"] as? String ?? L.t(AppLocalizationKey.locProviderError)
         let isRateLimit = reason == "rate limit"
-        let title = isRateLimit ? "Free model rate limited" : "Free model switched"
+        let title = isRateLimit ? L.t(AppLocalizationKey.locFreeModelRateLimited) : L.t(AppLocalizationKey.locFreeModelSwitched)
         let message = isRateLimit
-            ? "\(fromModel) reached its rate limit. MiCoder switched to \(toModel)."
-            : "\(fromModel) was unavailable (\(reason)). MiCoder switched to \(toModel)."
+            ? L.t(AppLocalizationKey.locFreeModelRateLimitMessage, fromModel, toModel)
+            : L.t(AppLocalizationKey.locFreeModelSwitchedMessage, fromModel, reason, toModel)
         return AppNotification(title: title,
                                message: message,
                                type: isRateLimit ? .error : .warning)
@@ -155,22 +155,22 @@ final class NotificationService: ObservableObject {
     
     func taskCompleted(sessionTitle: String, sessionID: String) {
         success(
-            title: "Task Complete",
-            message: "\"\(sessionTitle)\" has finished processing.",
+            title: L.t(AppLocalizationKey.locTaskComplete),
+            message: L.t(AppLocalizationKey.locTaskCompleteMessage, sessionTitle),
             action: .openSession(sessionID)
         )
     }
     
     func generationStopped() {
         info(
-            title: "Generation Stopped",
-            message: L.t("The AI response was stopped by the user.")
+            title: L.t(AppLocalizationKey.locGenerationStopped),
+            message: L.t(AppLocalizationKey.locResponseStopped)
         )
     }
     
     func gitOperationComplete(operation: String, details: String) {
         success(
-            title: "Git \(operation)",
+            title: L.t(AppLocalizationKey.locGitOperation, operation),
             message: details,
             action: .openGit
         )
@@ -178,22 +178,22 @@ final class NotificationService: ObservableObject {
     
     func serverDisconnected() {
         warning(
-            title: "Server Disconnected",
-            message: L.t("Connection to the local agent was lost.")
+            title: L.t(AppLocalizationKey.locServerDisconnected),
+            message: L.t(AppLocalizationKey.locLocalAgentConnectionLost)
         )
     }
     
     func serverConnected() {
         success(
-            title: "Server Connected",
-            message: L.t("Connected to the local agent successfully.")
+            title: L.t(AppLocalizationKey.locServerConnected),
+            message: L.t(AppLocalizationKey.locConnectedLocalAgent)
         )
     }
     
     func sessionBusy() {
         warning(
-            title: "Session Busy",
-            message: L.t("The session is processing another request. Please wait or stop current generation.")
+            title: L.t(AppLocalizationKey.locSessionBusy),
+            message: L.t(AppLocalizationKey.locSessionBusyMessage)
         )
     }
 }
