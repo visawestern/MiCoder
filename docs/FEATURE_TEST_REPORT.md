@@ -1600,3 +1600,43 @@ INP-10 remains **PARTIAL**. Linux cannot execute SwiftUI/AppKit rendering, keybo
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit keyboard, accessibility, picker, or provider runtime behavior. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `INP-10` remains PARTIAL because the source-level activation contract is fixed and tested, while native interaction and live provider cancellation remain unverified.
+
+## Round 70 — Validate model parameter dialog inputs
+
+### Scope and chain audit
+
+The sequential audit continued at `INP-14 Model Parameters Dialog`. The chain was traced from `MessageInputToolbar` and `ModelSelectionPresentationLogic` into `ModelParametersButton`, its temperature/max-tokens/Top-P/system fields, `ModelCallParametersStore`, request-fragment serialization, direct OpenAI-compatible sends, Serve/ACP request builders, and optional web parameter injection.
+
+The dialog already resolved the effective model and persisted values per model ID. The confirmed defect was unsafe numeric input handling: `save()` converted arbitrary text directly with `Double(...)`/`Int(...)`, accepted out-of-range values, and silently turned malformed entries into nil. The user could therefore receive no error while the saved state differed from what the dialog appeared to accept.
+
+### TDD defect confirmation and fix
+
+`ModelCallParametersValidationLogicTests` was written before the validation helper. The red run failed because the parser/bounds contract did not exist. The green `ModelCallParametersValidationLogic.parse` allows blank fields as provider defaults, requires finite temperature in `0–2`, Top P in `0–1`, and max tokens as a positive integer, and preserves meaningful system prompt text.
+
+`ModelParametersButton.save()` now calls the tested parser, leaves the popover open on invalid input, shows an inline actionable error, retains the user’s text for correction, and writes only validated values. Reset clears both the stored per-model override and the validation error.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red parameter-validation regressions | **failed as expected** | Missing parser/bounds contract |
+| Green parameter-validation regressions | **4/4 passed** | Valid, blank, float ranges, positive integer |
+| Full Foundation harness | **236/236 passed** | Existing contracts plus INP-14 validation tests |
+| Swift parser validation | **passed** | Validation helper, model store, parameter popover |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Native SwiftUI/AppKit popover | **UNVERIFIED** | Requires macOS runtime |
+| Live web parameter controls | **UNVERIFIED** | Requires authenticated vendor pages |
+
+### Remaining INP-14 limitations
+
+INP-14 remains **PARTIAL**. Linux cannot execute SwiftUI popovers, native text editors, accessibility, or live provider parameter controls. Direct/Serve/ACP request-fragment consumers remain covered by existing Foundation tests. Web parameter injection remains dependent on vendor DOM controls and is explicitly unverified at runtime.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 94/100 | Unsafe silent parameter handling is fixed with a pure parser and inline recovery state; localized copy, native interaction, and live vendor controls remain. |
+| Task adherence | 100/100 | Every parameter field/button/consumer was traced, red tests preceded the fix, and native/live behavior remains explicitly UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit popovers or authenticated provider parameter surfaces. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `INP-14` remains PARTIAL because validation and persistence contracts are fixed and tested, while native popover and live web-control behavior remain unverified.

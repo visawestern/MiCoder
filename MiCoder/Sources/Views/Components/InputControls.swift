@@ -295,6 +295,7 @@ struct ModelParametersButton: View {
     @State private var maxTokensText = ""
     @State private var topPText = ""
     @State private var systemText = ""
+    @State private var validationMessage: String?
 
     var body: some View {
         Button(action: { load(); isOpen.toggle() }) {
@@ -316,11 +317,20 @@ struct ModelParametersButton: View {
                 TextEditor(text: $systemText)
                     .frame(height: 60).font(.system(size: 12))
                     .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
+                if let validationMessage {
+                    Text(validationMessage)
+                        .interfaceFont(size: 10)
+                        .foregroundColor(Color.mimo.error)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 HStack {
                     Button(L.t(AppLocalizationKey.locResetButton)) { resetAll() }
                         .buttonStyle(.plain).foregroundColor(Color.mimo.error).interfaceFont(size: 11)
                     Spacer()
-                    Button(L.t(AppLocalizationKey.locSave)) { save(); isOpen = false }
+                    Button(L.t(AppLocalizationKey.locSave)) {
+                        guard save() else { return }
+                        isOpen = false
+                    }
                         .buttonStyle(.plain).foregroundColor(Color.mimo.brand).interfaceFont(size: 12, weight: .medium)
                 }
             }
@@ -336,6 +346,7 @@ struct ModelParametersButton: View {
     }
 
     private func load() {
+        validationMessage = nil
         params = ModelCallParametersStore.parameters(for: ModelSelectionPresentationLogic.parameterModelID(selectedModel: appState.selectedModel, effectiveModel: appState.effectiveSelectedModel()) ?? "")
         temperatureText = params.temperature.map { String($0) } ?? ""
         maxTokensText = params.maxTokens.map { String($0) } ?? ""
@@ -343,20 +354,30 @@ struct ModelParametersButton: View {
         systemText = params.systemPrompt ?? ""
     }
 
-    private func save() {
-        let p = ModelCallParameters(
-            temperature: Double(temperatureText),
-            maxTokens: Int(maxTokensText),
-            topP: Double(topPText),
-            systemPrompt: systemText.isEmpty ? nil : systemText
-        )
-        guard let modelID = ModelSelectionPresentationLogic.parameterModelID(selectedModel: appState.selectedModel, effectiveModel: appState.effectiveSelectedModel()) else { return }
+    @discardableResult
+    private func save() -> Bool {
+        guard let p = ModelCallParametersValidationLogic.parse(
+            temperature: temperatureText,
+            maxTokens: maxTokensText,
+            topP: topPText,
+            systemPrompt: systemText
+        ) else {
+            validationMessage = "Invalid values. Temperature must be 0–2, Top P must be 0–1, and Max tokens must be a positive integer."
+            return false
+        }
+        guard let modelID = ModelSelectionPresentationLogic.parameterModelID(selectedModel: appState.selectedModel, effectiveModel: appState.effectiveSelectedModel()) else {
+            validationMessage = "No model is selected."
+            return false
+        }
         ModelCallParametersStore.set(p, for: modelID)
         params = p
+        validationMessage = nil
+        return true
     }
 
     private func resetAll() {
         temperatureText = ""; maxTokensText = ""; topPText = ""; systemText = ""
+        validationMessage = nil
         guard let modelID = ModelSelectionPresentationLogic.parameterModelID(selectedModel: appState.selectedModel, effectiveModel: appState.effectiveSelectedModel()) else { return }
         ModelCallParametersStore.set(ModelCallParameters(), for: modelID)
         params = ModelCallParameters()
