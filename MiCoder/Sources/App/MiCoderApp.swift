@@ -1010,8 +1010,9 @@ class AppState: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         
         do {
-            let (_, response) = try await URLSession.shared.data(for: request)
-            return (response as? HTTPURLResponse)?.statusCode == 200
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else { return false }
+            return ProviderConnectionValidationLogic.isValidModelsResponse(statusCode: http.statusCode, body: data)
         } catch {
             return false
         }

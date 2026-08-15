@@ -1640,3 +1640,41 @@ INP-14 remains **PARTIAL**. Linux cannot execute SwiftUI popovers, native text e
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit popovers or authenticated provider parameter surfaces. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `INP-14` remains PARTIAL because validation and persistence contracts are fixed and tested, while native popover and live web-control behavior remain unverified.
+
+## Round 71 — Payload-aware provider connection validation
+
+### Scope and chain audit
+
+The sequential audit continued at `PROV-08 Connection Validation`. The chain was traced from provider settings fields and `ProviderEndpointLogic` through `MiCoderApp.testProvider`, Keychain-backed API-key retrieval, URLSession `/models` requests, response parsing, `loadModelsFromCustomProvider`, provider model persistence, readiness, selection, and send routing.
+
+The confirmed defect was that `testProvider` returned success for any HTTP 200 response. An HTML login page, malformed JSON, or valid JSON with an empty model list could therefore be reported as a successful connection even though no model could be selected or sent. The model loader had stronger validation, but the standalone Test Connection action did not share it.
+
+### TDD defect confirmation and fix
+
+`ProviderConnectionValidationLogicTests` was written before the validation helper. The red run failed because the payload-aware contract did not exist. The green `ProviderConnectionValidationLogic.isValidModelsResponse` requires a 2xx status and at least one non-empty model identifier from OpenAI-style `data` or named `models` payloads, while ignoring blank entries. `MiCoderApp.testProvider` now delegates to this contract and fails closed for malformed, empty, or non-success responses.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red payload-aware validation regressions | **failed as expected** | Missing validation contract |
+| Green provider-validation regressions | **4/4 passed** | Valid payload, invalid body, empty list, non-success status |
+| Full Foundation harness | **240/240 passed** | Existing contracts plus PROV-08 regressions |
+| Swift parser validation | **passed** | Validation helper and MiCoderApp wiring |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Real network/Keychain execution | **UNVERIFIED** | Requires macOS runtime and provider endpoints |
+| SwiftUI settings interaction | **UNVERIFIED** | Requires native UI runtime |
+
+### Remaining PROV-08 limitations
+
+PROV-08 remains **PARTIAL**. Linux cannot execute URLSession against real provider endpoints, Keychain behavior, SwiftUI settings controls, TLS/proxy/captive-login behavior, or provider-specific response variants. The pure validation contract prevents false positives at the response boundary; live network reachability and user-visible localized error presentation require macOS/runtime verification.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 94/100 | Connection validation now checks the actual model payload and fails closed; live network, Keychain, provider variants, and localized UI behavior remain. |
+| Task adherence | 100/100 | Every PROV-08 field/action/function was traced, the confirmed false-positive defect received red tests before the fix, and network/runtime boundaries are explicitly UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute URLSession, Keychain, SwiftUI settings, or real provider endpoints. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `PROV-08` remains PARTIAL because payload validation is fixed and contract-tested, while native settings, credentials, network, and endpoint runtime remain unverified.
