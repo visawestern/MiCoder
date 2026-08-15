@@ -56,7 +56,7 @@ struct WebChatDriver {
             if let interruption = try await checkInterruptions(emit: emit) {
                 if case .captchaDetected = interruption {
                     emit(interruption)
-                    guard await waitForCaptchaResolution(emit: emit) else { return }
+                    try await waitForCaptchaResolution(emit: emit)
                 } else {
                     emit(interruption)
                     return
@@ -71,7 +71,7 @@ struct WebChatDriver {
                 if let interruption = try await checkInterruptions(emit: emit) {
                     if case .captchaDetected = interruption {
                         emit(interruption)
-                        guard await waitForCaptchaResolution(emit: emit) else { return }
+                        try await waitForCaptchaResolution(emit: emit)
                     } else {
                         emit(interruption)
                         return
@@ -124,6 +124,13 @@ struct WebChatDriver {
                 responseBaseline = try await sendPossiblyChunked(resultsBlock, emit: emit)
                 iteration += 1
             }
+        } catch let error as WebChatError {
+            switch error {
+            case .captchaResolutionAborted, .sessionLoggedOut:
+                return
+            default:
+                emit(.error(error.localizedDescription))
+            }
         } catch {
             emit(.error("\(error)"))
         }
@@ -135,7 +142,7 @@ struct WebChatDriver {
     /// The chat turn remains in the driver; no duplicate prompt or new remote
     /// chat is created. A logout aborts the turn and a bounded timeout avoids a
     /// permanently suspended task.
-    private func waitForCaptchaResolution(emit: (WebChatEvent) -> Void) async -> Bool {
+    private func waitForCaptchaResolution(emit: (WebChatEvent) -> Void) async throws {
         let maxPolls = 600 // five minutes at 500 ms
         for _ in 0..<maxPolls {
             await bridge.wait(ms: 500)
@@ -149,16 +156,15 @@ struct WebChatDriver {
             )
             switch WebCaptchaResolutionLogic.action(for: state) {
             case .resume:
-                return true
+                return
             case .abort:
                 emit(.loggedOut)
-                return false
+                throw WebChatError.captchaResolutionAborted
             case .wait:
                 continue
             }
         }
-        emit(.error("Captcha was not solved before the browser wait timed out. Retry after completing it."))
-        return false
+        throw WebChatError.captchaResolutionTimedOut
     }
 
     /// Send a message, splitting a large PROMPT into several messages so we don't
@@ -232,6 +238,16 @@ struct WebChatDriver {
         let maxPolls = 600  // pollIntervalMs * 600 = up to 2 min at 200ms
         var polls = 0
         while polls < maxPolls {
+            if let interruption = try await checkInterruptions(emit: emit) {
+                if case .captchaDetected = interruption {
+                    emit(interruption)
+                    try await waitForCaptchaResolution(emit: emit)
+                } else {
+                    emit(interruption)
+                    throw WebChatError.sessionLoggedOut
+                }
+            }
+
             let generating = (try? await bridge.exists(selector: selectors.stopButton)) ?? false
             let text = (try? await readLatestResponse()) ?? lastText
             let fingerprint = (try? await bridge.responseFingerprint(selector: selectors.responseContainer)) ?? text
@@ -630,6 +646,9 @@ enum WebChatError: LocalizedError {
     case responseTimeout
     case noModelSelector
     case noSession
+    case captchaResolutionTimedOut
+    case captchaResolutionAborted
+    case sessionLoggedOut
     case remoteChatBindingFailed(String)
 
     var errorDescription: String? {
@@ -643,6 +662,9 @@ enum WebChatError: LocalizedError {
         case .responseTimeout: return "The browser did not confirm a new response after submit. The message may not have been sent; check the web page/session and retry."
         case .noModelSelector: return "No model selector configured for this vendor"
         case .noSession: return "No active web session"
+        case .captchaResolutionTimedOut: return "Captcha was not solved before the browser wait timed out. Retry after completing it."
+        case .captchaResolutionAborted: return "Captcha resolution was aborted because the browser session was logged out."
+        case .sessionLoggedOut: return "The browser session was logged out."
         case .remoteChatBindingFailed(let message): return message
         }
     }

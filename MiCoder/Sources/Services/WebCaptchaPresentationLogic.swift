@@ -11,7 +11,9 @@ enum WebCaptchaPresentationLogic {
         switch event {
         case .captchaDetected:
             return .showSolver
-        case .final, .error, .loggedOut:
+        case .final, .error, .loggedOut,
+             .iterationLimitReached, .approvalRequired,
+             .modelInjectionFailed, .effortInjectionFailed:
             return .dismissSolver
         default:
             return .none

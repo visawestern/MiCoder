@@ -16,6 +16,14 @@ struct WebCaptchaPresentationLogicTests {
         #expect(WebCaptchaPresentationLogic.action(for: WebChatEvent.loggedOut) == .dismissSolver)
     }
 
+    @Test("all terminal driver outcomes dismiss the solver")
+    func allTerminalEventsDismissSolver() {
+        #expect(WebCaptchaPresentationLogic.action(for: .iterationLimitReached) == .dismissSolver)
+        #expect(WebCaptchaPresentationLogic.action(for: .approvalRequired(tool: "run_command", message: "approval")) == .dismissSolver)
+        #expect(WebCaptchaPresentationLogic.action(for: .modelInjectionFailed("missing")) == .dismissSolver)
+        #expect(WebCaptchaPresentationLogic.action(for: .effortInjectionFailed("missing")) == .dismissSolver)
+    }
+
     @Test("ordinary progress does not change solver visibility")
     func progressDoesNothing() {
         #expect(WebCaptchaPresentationLogic.action(for: WebChatEvent.streaming("partial")) == .none)

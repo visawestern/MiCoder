@@ -17,6 +17,11 @@ struct WebChatDriverTests {
         var clicks = 0
         var cookiesValue: [BrowserCookie] = []
         var navigations = 0
+        var captchaAfterSubmit = false
+        var captchaWaitsUntilResolved = 1
+        private var captchaWaits = 0
+        private var pageTextReads = 0
+        private var captchaResolved = false
 
         init(responses: [String]) { self.responses = responses }
 
@@ -49,12 +54,28 @@ struct WebChatDriverTests {
             }
             return hasInput
         }
-        func pageText() async throws -> String { pageTextValue }
+        func pageText() async throws -> String {
+            pageTextReads += 1
+            if captchaAfterSubmit, !captchaResolved, pageTextReads >= 3 {
+                pageTextValue = "Please verify you are human"
+            }
+            return pageTextValue
+        }
         func currentURL() async throws -> String { url }
         func cookies() async throws -> [BrowserCookie] { cookiesValue }
         func setCookies(_ cookies: [BrowserCookie]) async throws { cookiesValue = cookies }
         func screenshot(selector: String?) async throws -> Data { Data("png".utf8) }
-        func wait(ms: Int) async {}
+        func wait(ms: Int) async {
+            guard captchaAfterSubmit,
+                  pageTextValue.localizedCaseInsensitiveContains("verify") else { return }
+            captchaWaits += 1
+            if captchaWaits >= captchaWaitsUntilResolved {
+                captchaResolved = true
+                pageTextValue = "chat ready"
+                responses = ["done"]
+                responseIndex = 0
+            }
+        }
     }
 
     final class RecordingExecutor: WebToolExecutor, @unchecked Sendable {
@@ -140,6 +161,21 @@ struct WebChatDriverTests {
         let hasCaptcha = events.contains { if case .captchaDetected = $0 { return true }; return false }
         #expect(hasCaptcha)
         #expect(exec.executed.isEmpty)   // stopped before executing anything
+    }
+
+    @Test func captchaDuringResponsePollingPausesAndResumes() async {
+        let bridge = FakeBridge(responses: [""])
+        bridge.captchaAfterSubmit = true
+        bridge.captchaWaitsUntilResolved = 1
+        let driver = makeDriver(bridge: bridge, executor: RecordingExecutor())
+
+        var events: [WebChatEvent] = []
+        await driver.runTurn(userMessage: "hi", isFirstMessage: false) { events.append($0) }
+
+        #expect(events.contains { if case .captchaDetected = $0 { return true }; return false })
+        #expect(events.contains(.final("done")))
+        #expect(bridge.typed.count == 1)
+        #expect(bridge.clicks == 1)
     }
 
     @Test func loggedOutInterrupts() async {

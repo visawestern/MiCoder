@@ -2042,3 +2042,43 @@ A red regression was added to `WebProviderSelectionLogicTests` before implementa
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or authenticated vendor pages. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-06` remains PARTIAL because provider eligibility and provider-specific model selection are hardened and contract-tested, while live vendor discovery and native runtime remain unverified.
+
+## Round 81 — Recover captcha interruptions during response polling and close terminal solver state
+
+### Scope and chain audit
+
+The sequential audit continued at `WEB-07 Captcha Display in Chat`. The chain was traced from `WebSessionLogic` captcha detection and state inference through screenshot capture, `WebChatEventPresenter`, `WebChatTurnMutation`, the same-WKWebView `WebCaptchaSolverView`, `WebCaptchaResolutionLogic`, `WebChatDriver.runTurn`, pre-send interruption checks, post-submit response polling, timeout/logout handling, final answer delivery, and solver visibility cleanup.
+
+Round 67 had already replaced the misleading screenshot-only/automatic-resume behavior with an interactive solver backed by the exact same live WKWebView. The fresh audit found two additional lifecycle defects. `awaitResponse` could poll for up to two minutes without checking page state, so a captcha appearing after submit produced only `responseTimeout`. Separately, `WebCaptchaPresentationLogic` dismissed the solver only for final/error/logout events, leaving it visible after iteration-limit, approval-required, or model/effort-injection terminal events.
+
+### TDD defect confirmation and fix
+
+A red behavioral regression was added to `WebChatDriverTests` with a scripted bridge that changes to a captcha only during response polling. Before implementation, the driver emitted only `responseTimeout` and no captcha/final event. The green driver now calls `checkInterruptions` at the start of every response poll, waits through `WebCaptchaResolutionLogic` on the same bridge, and resumes the existing response baseline without retyping or clicking Send. Logout and captcha timeout use typed errors so terminal events are not duplicated or misclassified.
+
+Red presentation regressions were added to `WebCaptchaPresentationLogicTests` before implementation. They failed for iteration-limit, approval-required, model-injection-failure, and effort-injection-failure events. The green policy dismisses for every driver outcome that terminates the active turn while preserving no-op behavior for ordinary streaming/tool progress and session-restart events.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red mid-response captcha regression | **failed as expected** | Current driver returned response timeout without captcha event |
+| Green focused driver/presentation suites | **19/19 passed** | Mid-response resume, pre-send interruption, terminal cleanup |
+| Full Foundation harness | **263/263 passed** | Existing contracts plus WEB-07 regressions |
+| Swift parser validation | **passed** | WebChatDriver and captcha presentation logic |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Native SwiftUI/WebKit interaction | **UNVERIFIED** | Requires macOS runtime and real challenge page |
+| Third-party iframe compatibility | **UNVERIFIED** | Depends on vendor/WebKit challenge behavior |
+
+### Remaining WEB-07 limitations
+
+`WEB-07` remains **PARTIAL**. Detection, screenshot/event presentation, same-WKWebView interaction, bounded resolution, mid-response resume, typed abort, and terminal solver cleanup are contract-tested. Real vendor captcha pages, iframe permissions, cookies, native sheet interaction, and external challenge compatibility remain unverified.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 94/100 | The missing mid-response interruption and terminal visibility defects are fixed with bounded, identity-preserving logic; native WebKit and third-party compatibility remain. |
+| Task adherence | 100/100 | Every captcha function, UI event, browser action, polling branch, timeout, logout, resume, and terminal state was traced; red tests preceded both confirmed fixes; canonical documentation was updated; macOS/WebKit boundaries remain explicitly UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or real captcha pages. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-07` remains PARTIAL because the interaction/resume chain is hardened and contract-tested, while native WebKit and third-party captcha behavior remain unverified.
