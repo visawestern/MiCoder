@@ -2674,3 +2674,51 @@ The confirmed input/provider defects are fixed. The stories remain **PARTIAL** w
 | PROV-08 | 99/100 | 100/100 | 0/100 |
 
 No new registry rows were added in Round 93. The canonical registry remains **274 rows**, with the existing status distribution **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**.
+
+## Round 94 — Harden file-index metadata and audit watcher/migration boundaries
+
+### Scope and chain audit
+
+The canonical audit covered **STO-06**, **STO-07**, and **STO-11**. The full chains were traced from project scanning and file metadata through exclusion/size gates, hash and modification-time deltas, duplicate-path recovery, snapshot persistence, `@` file suggestions, workspace watcher lifecycle, FSEvents filtering/debounce/generation guards, and the product’s explicit legacy-migration policy.
+
+One source-level defect was confirmed.
+
+### STO-06 — negative file metadata was accepted by the index gate
+
+`ProjectFileIndexLogic.shouldIndex` rejected only sizes above the maximum. A malformed negative file size therefore passed the gate and could enter a persisted index snapshot. A red regression was written first. The gate now rejects `size < 0` as well as oversized files; `ProjectFileScanner` already routes every scanned record through this boundary.
+
+Existing delta and persistence behavior was re-traced: new and changed files are upserted by hash/mtime, removed paths are reported, duplicate paths use last-record-wins semantics, and snapshot output is sorted. The remaining persistent SQLite/FTS capability is not claimed as verified.
+
+### STO-07 — no additional source defect confirmed
+
+The audit specifically investigated the apparent mismatch between disabled “automatic indexing” settings and the active `ProjectFileIndexWatcher`. The watcher does not claim full automatic repository/FTS indexing. It invalidates the project file cache after relevant FSEvents, and the next `@` suggestion request rescans on demand. The settings boundary is therefore consistent with the narrower implemented capability. CoreServices event delivery, permissions, shutdown, and native SwiftUI cache refresh remain UNVERIFIED.
+
+### STO-11 — intentionally deferred by product directive
+
+STO-11 remains **FUTURE**, not an unfixed defect. The active product directive removed legacy single-DB migration in favor of a clean per-project, HTTP-only start. No migration implementation or red test was added because implementing it would contradict the recorded requirement.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| STO-06 negative-size red test | **failed as expected → 15/15 passed** | Foundation index logic |
+| STO-06 persistence/delta suites | **existing tests pass** | Foundation snapshot logic |
+| STO-07 watcher logic | **existing tests pass** | Foundation path/generation/debounce logic |
+| STO-07 watcher lifecycle | **existing tests pass** | Foundation lifecycle logic |
+| STO-11 migration | **intentionally FUTURE** | Explicit product directive |
+| Full Foundation harness | **332/332 passed** | Linux-safe suites |
+| Adversarial source checks | **12/12 passed** | Existing web/model safety invariants |
+| Swift parser validation | **passed** | Changed indexing, watcher, AppState, settings, and test files |
+| `git diff --check` | **passed** | No trailing whitespace |
+
+### Status and scores
+
+The confirmed STO-06 source-level defect is fixed. STO-07 remains **PARTIAL** because CoreServices/FSEvents, native filesystem permissions, and SwiftUI cache refresh cannot be verified in the Linux harness. STO-11 remains **FUTURE** by explicit product policy. No Linux result is represented as native runtime proof.
+
+| Story | Code quality | Task adherence | Target-runtime confidence |
+|---|---:|---:|---:|
+| STO-06 | 99/100 | 100/100 | 0/100 |
+| STO-07 | 98/100 | 100/100 | 0/100 |
+| STO-11 | 100/100 | 100/100 | 0/100 |
+
+No new registry rows were added in Round 94. The canonical registry remains **274 rows**, with the existing status distribution **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**.

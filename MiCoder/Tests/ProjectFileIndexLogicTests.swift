@@ -50,6 +50,10 @@ struct ProjectFileIndexLogicTests {
         #expect(!ProjectFileIndexLogic.shouldIndex(relativePath: "logs/x.log", size: 10, gitignorePatterns: ["*.log"]))
     }
 
+    @Test func negativeFileSizeFailsClosed() {
+        #expect(!ProjectFileIndexLogic.shouldIndex(relativePath: "src/a.swift", size: -1))
+    }
+
     // MARK: - Delta
 
     private func rec(_ path: String, hash: String, mtime: TimeInterval = 1) -> FileIndexRecord {

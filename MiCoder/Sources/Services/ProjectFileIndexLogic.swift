@@ -74,7 +74,7 @@ enum ProjectFileIndexLogic {
                            excludes: [String] = defaultExcludes,
                            gitignorePatterns: [String] = [],
                            maxFileSize: Int = defaultMaxFileSize) -> Bool {
-        if size > maxFileSize { return false }
+        if size < 0 || size > maxFileSize { return false }
         if shouldExclude(relativePath: relativePath, excludes: excludes, gitignorePatterns: gitignorePatterns) {
             return false
         }
