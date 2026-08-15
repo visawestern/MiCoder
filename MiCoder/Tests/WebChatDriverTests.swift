@@ -12,6 +12,7 @@ struct WebChatDriverTests {
         var url = "https://kimi.com/chat"
         var pageTextValue = "chat ready"
         var hasInput = true
+        var hasSendButton = true
         var stopButtonVisible = false
         var typed: [String] = []
         var clicks = 0
@@ -44,6 +45,7 @@ struct WebChatDriverTests {
         }
         func exists(selector: String) async throws -> Bool {
             if selector.contains("stop") || selector.contains("top") { return stopButtonVisible }
+            if selector.contains("send") { return hasSendButton }
             // Option selectors (model/effort dropdown items) only "exist" if they
             // reference a model/effort that is in the scripted responses. This
             // prevents injection from advancing the response index in tests.
@@ -187,6 +189,53 @@ struct WebChatDriverTests {
         var events: [WebChatEvent] = []
         await driver.runTurn(userMessage: "hi", isFirstMessage: false) { events.append($0) }
         #expect(events.contains(.loggedOut))
+    }
+
+    @Test("missing send button is detected before typing")
+    func missingSendButtonFailsBeforeTyping() async {
+        let bridge = FakeBridge(responses: ["x"])
+        bridge.hasSendButton = false
+        let driver = makeDriver(bridge: bridge, executor: RecordingExecutor())
+
+        var events: [WebChatEvent] = []
+        await driver.runTurn(userMessage: "hi", isFirstMessage: false) { events.append($0) }
+        #expect(bridge.typed.isEmpty)
+        #expect(events.contains { event in
+            if case .error(let message) = event {
+                return message.contains("button.send")
+            }
+            return false
+        })
+    }
+
+    @Test("logged-out state is checked before model injection")
+    func loggedOutPreflightBeatsInjectionFailure() async {
+        let bridge = FakeBridge(responses: ["x"])
+        bridge.url = "https://chatgpt.com/auth/login"
+        bridge.hasInput = false
+        let driver = WebChatDriver(
+            bridge: bridge,
+            executor: RecordingExecutor(),
+            selectors: selectors,
+            config: WebProviderConfig(
+                vendor: .kimi,
+                selectedModel: "k2",
+                acknowledgedToS: true
+            ),
+            projectRoot: "/proj",
+            accessLevel: .askBeforeChanges,
+            pollIntervalMs: 0,
+            stabilityChecks: 1
+        )
+
+        var events: [WebChatEvent] = []
+        await driver.runTurn(userMessage: "hi", isFirstMessage: false) { events.append($0) }
+        #expect(events.contains(.loggedOut))
+        #expect(!events.contains { event in
+            if case .modelInjectionFailed = event { return true }
+            return false
+        })
+        #expect(bridge.typed.isEmpty)
     }
 
     @Test func iterationLimitStopsRunawayLoop() async {

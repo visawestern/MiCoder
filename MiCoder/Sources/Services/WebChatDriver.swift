@@ -31,6 +31,19 @@ struct WebChatDriver {
     /// (streaming/toolCall/toolResult/captcha/final) via `emit`.
     func runTurn(userMessage: String, isFirstMessage: Bool, emit: (WebChatEvent) -> Void) async {
         do {
+            // Check session state before touching any model/effort controls. A
+            // logged-out or captcha page must produce its actionable interruption
+            // event rather than a misleading injection failure.
+            if let interruption = try await checkInterruptions(emit: emit) {
+                if case .captchaDetected = interruption {
+                    emit(interruption)
+                    try await waitForCaptchaResolution(emit: emit)
+                } else {
+                    emit(interruption)
+                    return
+                }
+            }
+
             // Inject the selected model and effort before sending, so the web
             // UI reflects the user's current selection (plan Раздел 13 п.5).
             if injectModelAndEffortEnabled {
@@ -48,19 +61,6 @@ struct WebChatDriver {
             if isFirstMessage {
                 let preamble = WebToolProtocolEmulator.systemPreamble(userSystemPrompt: config.systemPrompt)
                 message = preamble + "\n\n---\n\n" + userMessage
-            }
-
-            // Check session state before touching the composer. A logged-out or
-            // captcha page must produce its actionable interruption event rather
-            // than a misleading missing-input/send-selector error.
-            if let interruption = try await checkInterruptions(emit: emit) {
-                if case .captchaDetected = interruption {
-                    emit(interruption)
-                    try await waitForCaptchaResolution(emit: emit)
-                } else {
-                    emit(interruption)
-                    return
-                }
             }
 
             var responseBaseline = try await sendPossiblyChunked(message, emit: emit)
@@ -194,13 +194,13 @@ struct WebChatDriver {
         guard (try? await bridge.exists(selector: selectors.input)) == true else {
             throw WebChatError.selectorNotFound(selectors.input)
         }
+        guard (try? await bridge.exists(selector: selectors.sendButton)) == true else {
+            throw WebChatError.selectorNotFound(selectors.sendButton)
+        }
         let baselineText = (try? await readLatestResponse()) ?? ""
         let baselineFingerprint = (try? await bridge.responseFingerprint(selector: selectors.responseContainer)) ?? baselineText
         await antiBanDelay()
         try await bridge.typeText(text, into: selectors.input, humanized: config.toolCallDelayMs > 0)
-        guard (try? await bridge.exists(selector: selectors.sendButton)) == true else {
-            throw WebChatError.selectorNotFound(selectors.sendButton)
-        }
         await antiBanDelay()
         try await bridge.click(selector: selectors.sendButton)
         return ResponseBaseline(text: baselineText, fingerprint: baselineFingerprint)

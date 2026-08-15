@@ -2260,3 +2260,48 @@ The browser endpoint remains fail-closed: `WebChatDriver` requires exact model c
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or authenticated vendor pages. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-09` remains PARTIAL because selection coherence is hardened and tested while native UI, live WebKit, and vendor DOM behavior remain unverified.
+
+## Round 86 — Fail closed before unverified browser sends
+
+### Scope and chain audit
+
+The sequential audit continued at `WEB-10 Verified Browser Send`. The complete chain was traced from the send button readiness reason and route selection through web config lookup, named-session cookie/localStorage restoration, `WebChatDriver.runTurn`, session/captcha preflight, model and effort injection, input and send selector checks, response baseline/fingerprint capture, prompt chunking, anti-ban delay, browser typing/click, response polling, tool-call execution, approval, session-limit restart, captcha/logout interruptions, final-answer validation, assistant-bubble mutation, retry, and `send_completed` journaling.
+
+Previous rounds already required exact model/effort confirmation, rejected blank/unchanged responses, surfaced browser events, and gated completion journaling on a visible final answer. The devil’s-advocate pass found two remaining ordering defects. The driver attempted model/effort injection before checking whether the page was logged out or showing a captcha. Separately, `sendMessage` typed the prompt before checking whether the send button existed. The first defect could misclassify an expired session as a missing model control; the second could leave an unsent prompt in the browser composer after a readiness failure.
+
+### TDD defect confirmation and fix
+
+A red `WebChatDriverTests` regression configured a login URL, missing input, and injection enabled. Before the fix the driver emitted only `modelInjectionFailed`; it now performs session/captcha preflight first, emits `.loggedOut`, and never touches model injection or types. Captcha still enters the bounded same-page solver path before injection.
+
+A second red fake-bridge regression set `hasSendButton = false` and asserted that no prompt was typed. The old `sendMessage` typed first and then threw `selectorNotFound`. It now verifies both input and send controls before baseline capture, anti-ban delay, typing, or clicking. A control that disappears after preflight still fails through the actual bridge operation and cannot become completion.
+
+The final-answer contract remains unchanged and verified: only a visible nonblank `.final` event can set the completion signal. Errors, logout, captcha, iteration limits, approval, model/effort injection failures, timeout, and blank final text cannot produce `send_completed`.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red logout-before-injection regression | **failed as expected** | Injection ran before session preflight |
+| Red send-button-before-typing regression | **failed as expected** | Prompt was typed before send-control check |
+| Green WebChatDriver suite | **17/17 passed** | Preflight, selector order, captcha, logout, send, tools, retries, limits |
+| Full Foundation harness | **289/289 passed** | All previous rounds plus WEB-10 regressions |
+| Swift parser validation | **passed** | WebChatDriver, WKWebView bridge, ChatPanel, tests |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| `git diff --check` | **passed** | No trailing whitespace |
+| Native WKWebView navigation and DOM | **UNVERIFIED** | Requires macOS runtime and authenticated vendor page |
+| Real captcha/logout transitions | **UNVERIFIED** | Requires live third-party sessions |
+| Actual remote send/completion journal | **UNVERIFIED** | Linux harness cannot execute native WebKit/UI chain |
+
+### Remaining WEB-10 limitations
+
+`WEB-10` remains **PARTIAL**. Readiness messaging, session preflight, model/effort guards, selector ordering, baseline/fingerprint response validation, interruption handling, tool/approval limits, retry identity, visible errors, and completion-journal gating are source-verified and contract-tested. Native WebKit execution, live vendor controls, real send results, and authenticated challenge transitions remain unverified.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 97/100 | Fail-closed ordering now prevents misleading login classification and unsent typed prompts; all pure/driver contracts pass; native/live behavior remains. |
+| Task adherence | 100/100 | Every readiness, session, selector, injection, typing, click, polling, interruption, retry, completion, and journal path was traced; red tests preceded both confirmed fixes; runtime limits are explicit. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or authenticated vendor pages. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-10` remains PARTIAL because fail-closed send orchestration is hardened and tested while native WebKit, live vendor controls, and real authenticated sends remain unverified.
