@@ -1131,3 +1131,58 @@ Cmd+N clears selection and execution state; the first send then establishes `Mes
 | Overall verifiable project quality | 98/100 | 99/100 | 176/176 harness, parser, 12/12 source checks; macOS runtime still required |
 
 Canonical checklist 09, the 274-row registry, and README totals are updated for Round 58. The next sequential audit remains Activity 14 (`send-providers.md`), beginning with provider/model selection through readiness, route resolution, browser/direct client execution, session UUID routing, persistence, retry/failover, and user-visible error handling.
+
+
+## Round 59 — Activity 14 provider-send adversarial audit
+
+### Scope and method
+
+Round 59 traced the complete send chain for MiCoder Auto Free, MiMo Serve, custom OpenAI-compatible providers, Ollama, OpenCode local, Local Agent, ACP, and web Kimi/Qwen/ChatGPT. The chain began at provider/model/effort controls and continued through composer readiness, effective-model resolution, route identity, transport request construction, session and remote-chat mapping, response validation, retries/failover, persistence, and user-visible completion or error state. Both centered and bottom composers, the local HTTP API bridge, attachments, Stop, and web approval gates were included.
+
+The devil’s-advocate pass deliberately tested the assumptions that Serve health describes every route, `selectedModel` is always authoritative, HTTP 200 implies usable content, a driver returning implies success, and a retry can safely repeat a browser prompt. Each assumption produced a confirmed defect or a documented verified invariant.
+
+### Confirmed defect — Serve health bypassed selected-route readiness
+
+`SendReadinessLogic.connectionValidationError` returned `nil` immediately when Serve was connected. The selected route was evaluated only afterward, so an expired web session, unavailable direct provider, or unknown provider could pass preflight while the actual route remained unusable. The fix adds `SendProviderReadinessLogic`, which checks Auto Free, web, local, custom, and known Serve IDs independently. `AppState.refreshProviderConnectivity` now short-circuits only for provider IDs belonging to the Serve catalog and probes other routes separately. Evidence: **3/3 new readiness tests passed** and the full harness passed.
+
+### Confirmed defect — effective model was lost across send and UI consumers
+
+Web and Auto Free store the routed model in provider-specific configuration while legacy `AppState.selectedModel` may be empty or stale. The old field affected send validation, the centered and bottom composer disabled states, model menu label/checkmark, parameter popover key/title/save/reset, capability gates, direct route construction, ACP/Serve parameter lookup, web injection reconciliation, and HTTP API metadata. The fix consistently uses `effectiveSelectedModel()` and the new `ModelSelectionPresentationLogic` where presentation or parameter keying is required. Evidence: **3/3 model-presentation tests** and **2/2 API metadata tests** passed.
+
+### Confirmed defect — blank direct and ACP responses became successful empty bubbles
+
+`DirectChatClient.parseResponse` accepted whitespace-only content, and the ACP branch used an empty fallback string before marking the assistant message finished. `ProviderResponseValidationLogic` now rejects missing or blank content. Direct sends expose `DirectChatError.emptyResponse`; ACP exposes `ACPError.emptyResponse`; ChatPanel fails visibly before marking the response complete. Auto Free already had an explicit empty-response check, and the web response wait already rejects an unchanged empty DOM. Evidence: **2/2 response-validation tests passed**.
+
+### Confirmed defect — web failures were journaled as successful sends
+
+`runWebChatTurn` recorded `send_completed` after `WebChatDriver.runTurn` returned, even when the driver had emitted error, logout, captcha, iteration-limit, injection-failure, or no-final-response events. The fix adds `WebSendCompletionLogic` and a thread-safe `WebChatCompletionSignal`. Only a visible `.final` event can authorize completion journaling; the signal also covers the bounded catalog-refresh retry. Evidence: **3/3 web-completion tests passed**, including visible final, failure/interruption, and blank final cases.
+
+### Source-traced provider chains with no additional confirmed deterministic defect
+
+MiCoder Auto Free carries effective model, history, system prompt, attachments, model parameters, live catalog refresh, locked-model behavior, and rate-limit/model-unavailable failover with visible switch notifications. Direct routes carry history, multimodal parts, parameters, normalized API keys, and typed transport/HTTP/decode/empty-response errors. ACP preserves agent, variant, parameters and its own endpoint. Serve retains stable local session identity, SSE handling, busy retry and timeout. Web routes restore browser sessions, verify project/provider/chat remote UUID mappings, inject exact model and supported effort before typing, refresh and retry once without duplicating the prompt, and stop mutating tools at the approval gate.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Full Foundation harness | **189/189 passed** | Linux-compatible logic and fake browser contracts |
+| Activity 14 readiness regressions | **3/3 passed** | Pure route-specific readiness/effective-model contract |
+| Model presentation regressions | **3/3 passed** | Pure UI-selection/parameter-key contract |
+| API response metadata regressions | **2/2 passed** | Pure effective-model response contract |
+| Provider response validation regressions | **2/2 passed** | Pure blank-output contract |
+| Web completion journal regressions | **3/3 passed** | Pure event-success contract |
+| Swift parser validation | **passed** | Syntax only; no macOS framework typecheck |
+| Adversarial source checks | **12/12 passed** | Static send/browser/model invariants |
+| `git diff --check` | **passed** | Repository hygiene |
+| macOS SwiftUI/AppKit/WebKit/provider/SQLite runtime | **UNVERIFIED** | Requires a macOS build with disposable live prompts |
+
+### Adversarial scores
+
+| Dimension | Before Round 59 | After Round 59 | Evidence |
+|---|---:|---:|---|
+| Provider-send implementation quality | 83/100 | 98/100 | Route readiness, effective model, blank response, and false completion defects fixed |
+| Provider-send task adherence | 86/100 | 100/100 | Every provider chain and control traced; red tests first; canonical docs and honest status labels updated |
+| Target-runtime confidence | 0/100 | 0/100 | Linux sandbox cannot run SwiftUI, AppKit, WebKit, live providers, or macOS SQLite |
+| Overall verifiable project quality | 99/100 | 99/100 | 189/189 harness, parser, 12/12 source checks; live target remains required |
+
+The canonical registry remains **274 rows** and now reports **224 PASS, 40 PARTIAL, 5 MISSING, and 5 FUTURE**. Activity 14 is documented in full; the next audit must continue sequentially from the following activity checklist and must preserve the same TDD, chain-trace, source-verification, documentation, and commit/push discipline.

@@ -585,7 +585,7 @@ class AppState: ObservableObject {
 
     var supportsToolcallForSelection: Bool {
         ProviderCapabilityGates.canUseTools(
-            modelID: selectedModel,
+            modelID: effectiveSelectedModel(),
             providerID: selectedProviderID.isEmpty ? nil : selectedProviderID,
             providers: serverProviders,
             customProviders: customProviders
@@ -656,7 +656,7 @@ class AppState: ObservableObject {
 
         if agentMode == .plan,
            !ProviderCapabilityGates.canSelectPlanAgent(
-               modelID: selectedModel,
+               modelID: effectiveSelectedModel(),
                providerID: providerID,
                providers: serverProviders,
                customProviders: customProviders
@@ -674,12 +674,12 @@ class AppState: ObservableObject {
     @MainActor
     private func refreshProviderConnectivity(_ providerID: String) async {
         guard !providerID.isEmpty else { return }
-        if serverConnected {
+        if serverConnected && serverProviders.contains(where: { $0.id == providerID }) {
             providerConnectivity[providerID] = true
             return
         }
         if let webID = WebProviderConnectivity.configID(fromOptionID: providerID),
-           let config = WebProviderStore.load().first(where: { $0.id == webID }) {
+           let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID }) {
             providerConnectivity[providerID] = WebProviderConnectivity.isConnected(
                 config,
                 homeDirectory: FileManager.default.homeDirectoryForCurrentUser
@@ -1459,7 +1459,7 @@ class AppState: ObservableObject {
     var selectedProviderConnected: Bool {
         let webConnected: Bool?
         if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
-           let config = WebProviderStore.load().first(where: { $0.id == webID }) {
+           let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID }) {
             webConnected = WebProviderConnectivity.isConnected(
                 config,
                 homeDirectory: FileManager.default.homeDirectoryForCurrentUser
@@ -1473,7 +1473,7 @@ class AppState: ObservableObject {
         let customReady = customProviders.contains {
             $0.id == selectedProviderID
                 && $0.isEnabled
-                && (!$0.requiresAPIKey || !$0.apiKey.isEmpty)
+                && (!$0.requiresAPIKey || !$0.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         let autoFreeReady = selectedProviderID == MiCoderAutoFreeProvider.builtInID
             ? MiCoderAutoFreeStore.shared.provider.isReady

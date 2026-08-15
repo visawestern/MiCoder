@@ -315,6 +315,7 @@ enum ACPError: Error, LocalizedError {
     case connectionFailed
     case invalidURL
     case decodingError(Error)
+    case emptyResponse
     
     var errorDescription: String? {
         switch self {
@@ -326,6 +327,8 @@ enum ACPError: Error, LocalizedError {
             return "Invalid ACP server URL"
         case .decodingError(let error):
             return "ACP decoding error: \(error.localizedDescription)"
+        case .emptyResponse:
+            return "The ACP provider returned an empty response. Check the selected model and retry."
         }
     }
 }

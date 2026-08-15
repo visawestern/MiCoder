@@ -311,13 +311,17 @@ struct CenteredInputCard: View {
             text: messageText,
             images: attachmentStore.attachedImages,
             files: attachmentStore.attachedFiles,
-            modelID: appState.selectedModel,
+            modelID: appState.effectiveSelectedModel(),
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
             serverConnected: appState.serverConnected,
             autoFreeReady: MiCoderAutoFreeStore.shared.provider.isReady,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
-            webProviderIDs: appState.webProviderIDs
+            webProviderIDs: appState.webProviderIDs,
+            serverProviderIDs: appState.serverProviders.map(\.id),
+            webConnected: WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID) == nil
+                ? nil
+                : appState.selectedProviderConnected
         )
     }
 
@@ -329,12 +333,17 @@ struct CenteredInputCard: View {
             images: attachmentStore.attachedImages,
             files: attachmentStore.attachedFiles,
             modelID: appState.selectedModel,
+            effectiveModelID: appState.effectiveSelectedModel(),
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
             serverConnected: appState.serverConnected,
             autoFreeReady: MiCoderAutoFreeStore.shared.provider.isReady,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
-            webProviderIDs: appState.webProviderIDs
+            webProviderIDs: appState.webProviderIDs,
+            serverProviderIDs: appState.serverProviders.map(\.id),
+            webConnected: WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID) == nil
+                ? nil
+                : appState.selectedProviderConnected
         )
     }
 
@@ -533,13 +542,17 @@ struct BottomInputBar: View {
             text: messageText,
             images: attachmentStore.attachedImages,
             files: attachmentStore.attachedFiles,
-            modelID: appState.selectedModel,
+            modelID: appState.effectiveSelectedModel(),
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
             serverConnected: appState.serverConnected,
             autoFreeReady: MiCoderAutoFreeStore.shared.provider.isReady,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
-            webProviderIDs: appState.webProviderIDs
+            webProviderIDs: appState.webProviderIDs,
+            serverProviderIDs: appState.serverProviders.map(\.id),
+            webConnected: WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID) == nil
+                ? nil
+                : appState.selectedProviderConnected
         )
     }
 
@@ -550,12 +563,17 @@ struct BottomInputBar: View {
             images: attachmentStore.attachedImages,
             files: attachmentStore.attachedFiles,
             modelID: appState.selectedModel,
+            effectiveModelID: appState.effectiveSelectedModel(),
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
             serverConnected: appState.serverConnected,
             autoFreeReady: MiCoderAutoFreeStore.shared.provider.isReady,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
-            webProviderIDs: appState.webProviderIDs
+            webProviderIDs: appState.webProviderIDs,
+            serverProviderIDs: appState.serverProviders.map(\.id),
+            webConnected: WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID) == nil
+                ? nil
+                : appState.selectedProviderConnected
         )
     }
 

@@ -5,7 +5,7 @@ struct AccessLevelMenu: View {
 
     private var canSelectPlan: Bool {
         ProviderCapabilityGates.canSelectPlanAgent(
-            modelID: appState.selectedModel,
+            modelID: appState.effectiveSelectedModel(),
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
             providers: appState.serverProviders,
             customProviders: appState.customProviders
@@ -69,7 +69,7 @@ struct AgentModeMenu: View {
 
     private var canSelectPlan: Bool {
         ProviderCapabilityGates.canSelectPlanAgent(
-            modelID: appState.selectedModel,
+            modelID: appState.effectiveSelectedModel(),
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
             providers: appState.serverProviders,
             customProviders: appState.customProviders
@@ -103,7 +103,7 @@ struct AgentModeMenu: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .help(canSelectPlan ? "" : (ProviderCapabilityGates.planAgentDisabledReason(
-            modelID: appState.selectedModel,
+            modelID: appState.effectiveSelectedModel(),
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
             providers: appState.serverProviders,
             customProviders: appState.customProviders
@@ -250,7 +250,11 @@ struct ModelSelectorMenu: View {
                     Button(action: { appState.selectModel(model) }) {
                         HStack {
                             Text(model)
-                            if appState.selectedModel == model {
+                            if ModelSelectionPresentationLogic.isSelected(
+                                candidate: model,
+                                selectedModel: appState.selectedModel,
+                                effectiveModel: appState.effectiveSelectedModel()
+                            ) {
                                 Image(systemName: "checkmark")
                             }
                         }
@@ -264,11 +268,17 @@ struct ModelSelectorMenu: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Text(appState.selectedModel.isEmpty ? L.t(AppLocalizationKey.locModelPlaceholder) : appState.selectedModel)
+                Text(ModelSelectionPresentationLogic.displayModel(
+                    selectedModel: appState.selectedModel,
+                    effectiveModel: appState.effectiveSelectedModel()
+                ) ?? L.t(AppLocalizationKey.locModelPlaceholder))
                     .interfaceFont(size: 11)
                     .lineLimit(1)
             }
-            .foregroundColor(appState.selectedModel.isEmpty ? Color.mimo.textMuted : Color.mimo.textSecondary)
+            .foregroundColor(ModelSelectionPresentationLogic.displayModel(
+                selectedModel: appState.selectedModel,
+                effectiveModel: appState.effectiveSelectedModel()
+            ) == nil ? Color.mimo.textMuted : Color.mimo.textSecondary)
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
@@ -296,7 +306,7 @@ struct ModelParametersButton: View {
         .help(L.t(AppLocalizationKey.locModelParameters))
         .popover(isPresented: $isOpen) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("\(L.t(AppLocalizationKey.locParametersFor)) — \(appState.selectedModel)")
+                Text("\(L.t(AppLocalizationKey.locParametersFor)) — \(ModelSelectionPresentationLogic.displayModel(selectedModel: appState.selectedModel, effectiveModel: appState.effectiveSelectedModel()) ?? L.t(AppLocalizationKey.locModelPlaceholder))")
                     .interfaceFont(size: 12, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 field("Temperature (0–2)", text: $temperatureText, placeholder: L.t(AppLocalizationKey.locDefault))
@@ -326,7 +336,7 @@ struct ModelParametersButton: View {
     }
 
     private func load() {
-        params = ModelCallParametersStore.parameters(for: appState.selectedModel)
+        params = ModelCallParametersStore.parameters(for: ModelSelectionPresentationLogic.parameterModelID(selectedModel: appState.selectedModel, effectiveModel: appState.effectiveSelectedModel()) ?? "")
         temperatureText = params.temperature.map { String($0) } ?? ""
         maxTokensText = params.maxTokens.map { String($0) } ?? ""
         topPText = params.topP.map { String($0) } ?? ""
@@ -340,13 +350,15 @@ struct ModelParametersButton: View {
             topP: Double(topPText),
             systemPrompt: systemText.isEmpty ? nil : systemText
         )
-        ModelCallParametersStore.set(p, for: appState.selectedModel)
+        guard let modelID = ModelSelectionPresentationLogic.parameterModelID(selectedModel: appState.selectedModel, effectiveModel: appState.effectiveSelectedModel()) else { return }
+        ModelCallParametersStore.set(p, for: modelID)
         params = p
     }
 
     private func resetAll() {
         temperatureText = ""; maxTokensText = ""; topPText = ""; systemText = ""
-        ModelCallParametersStore.set(ModelCallParameters(), for: appState.selectedModel)
+        guard let modelID = ModelSelectionPresentationLogic.parameterModelID(selectedModel: appState.selectedModel, effectiveModel: appState.effectiveSelectedModel()) else { return }
+        ModelCallParametersStore.set(ModelCallParameters(), for: modelID)
         params = ModelCallParameters()
     }
 }
@@ -395,7 +407,7 @@ struct VariantMenu: View {
 
     private var disabledReason: String? {
         ProviderCapabilityGates.variantMenuDisabledReason(
-            modelID: appState.selectedModel,
+            modelID: appState.effectiveSelectedModel(),
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
             providers: appState.serverProviders,
             customProviders: appState.customProviders
@@ -508,7 +520,10 @@ struct MessageInputToolbar: View {
             ProviderSelectorMenu()
             ModelSelectorMenu()
             // Model call-parameters popover (plan Раздел 13 п.14).
-            if !appState.selectedModel.isEmpty {
+            if ModelSelectionPresentationLogic.shouldShowParameters(
+                selectedModel: appState.selectedModel,
+                effectiveModel: appState.effectiveSelectedModel()
+            ) {
                 ModelParametersButton()
             }
             // Browser providers own their effort state in WebProviderConfig;

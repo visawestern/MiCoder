@@ -57,8 +57,9 @@ enum SendRouteResolver {
         // 4) Custom cloud provider (OpenAI-compatible) selected while serve is off
         //    or the provider has its own endpoint/key.
         if let custom = customProviders.first(where: { $0.id == selectedProviderID && $0.isEnabled }) {
+            let normalizedKey = custom.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
             return .openAICompatible(baseURL: custom.baseURL,
-                                     apiKey: custom.apiKey.isEmpty ? nil : custom.apiKey,
+                                     apiKey: normalizedKey.isEmpty ? nil : normalizedKey,
                                      model: selectedModel)
         }
         // 5) MiMo Serve when connected (server-provided providers).

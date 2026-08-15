@@ -500,7 +500,11 @@ struct ChatPanelView: View {
             autoFreeReady: MiCoderAutoFreeStore.shared.provider.isReady,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
-            webProviderIDs: appState.webProviderIDs
+            webProviderIDs: appState.webProviderIDs,
+            serverProviderIDs: appState.serverProviders.map(\.id),
+            webConnected: WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID) == nil
+                ? nil
+                : appState.selectedProviderConnected
         ) {
             let rejectedText = messageText
             let rejectedFiles = attachmentStore.attachedFiles
@@ -513,6 +517,7 @@ struct ChatPanelView: View {
         }
         if let error = SendReadinessLogic.sendValidationError(
             modelID: appState.selectedModel,
+            effectiveModelID: appState.effectiveSelectedModel(),
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID
         ) {
             let rejectedText = messageText
@@ -580,7 +585,11 @@ struct ChatPanelView: View {
             autoFreeReady: MiCoderAutoFreeStore.shared.provider.isReady,
             customProviders: appState.customProviders,
             localProviderIDs: appState.localProviderIDs,
-            webProviderIDs: appState.webProviderIDs
+            webProviderIDs: appState.webProviderIDs,
+            serverProviderIDs: appState.serverProviders.map(\.id),
+            webConnected: WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID) == nil
+                ? nil
+                : appState.selectedProviderConnected
         ) {
             await MainActor.run {
                 self.recordRejectedSend(text: text, files: files, images: images, error: error)
@@ -595,7 +604,7 @@ struct ChatPanelView: View {
         let sendOptions = SessionSendLogic.buildSendOptions(
             agentMode: agentMode,
             selectedVariant: appState.selectedVariant.isEmpty ? nil : appState.selectedVariant,
-            modelID: appState.selectedModel,
+            modelID: appState.effectiveSelectedModel(),
             selectedProviderID: appState.selectedProviderID,
             providers: appState.serverProviders,
             customProviders: appState.customProviders,
@@ -604,6 +613,7 @@ struct ChatPanelView: View {
         )
         if let error = SendReadinessLogic.sendValidationError(
             modelID: appState.selectedModel,
+            effectiveModelID: appState.effectiveSelectedModel(),
             providerID: sendOptions.providerID
         ) {
             await MainActor.run {
@@ -617,7 +627,7 @@ struct ChatPanelView: View {
         let localProviders = LocalProviderLogic.load()
         let route = SendRouteResolver.route(
             selectedProviderID: appState.selectedProviderID,
-            selectedModel: appState.selectedModel,
+            selectedModel: appState.effectiveSelectedModel(),
             serverConnected: appState.serverConnected,
             isACP: appState.isSelectedACPProvider,
             customProviders: appState.customProviders,
@@ -843,12 +853,15 @@ struct ChatPanelView: View {
                     model: appState.selectedModel,
                     agent: acpAgent,
                     variant: acpVariant,
-                    parameters: ModelCallParametersStore.parameters(for: appState.selectedModel),
+                    parameters: ModelCallParametersStore.parameters(for: appState.effectiveSelectedModel()),
                     stream: false
                 )
 
-                // Convert ACP response to message text
+                // Convert ACP response to message text and reject a blank completion.
                 let responseText = response.choices.first?.message.content ?? ""
+                guard ProviderResponseValidationLogic.hasVisibleContent(responseText) else {
+                    throw ACPError.emptyResponse
+                }
                 let reasoningText = response.choices.first?.message.reasoning
                 let acpUsage = response.usage.map {
                     UsageCapture(acpUsage: $0, modelID: response.model,
@@ -879,7 +892,7 @@ struct ChatPanelView: View {
             // ── Standard MiMo Serve branch ───────────────────────
             await MainActor.run {
                 self.messageStore.update(id: assistantID) { msg in
-                    msg.content = SendStatusText.thinkingPlaceholder(modelID: self.appState.selectedModel)
+                    msg.content = SendStatusText.thinkingPlaceholder(modelID: self.appState.effectiveSelectedModel())
                 }
                 self.startServeTimeout(assistantID: assistantID)
             }
@@ -907,7 +920,7 @@ struct ChatPanelView: View {
                 sessionID: sessionID,
                 parts: parts,
                 options: sendOptions,
-                parameters: ModelCallParametersStore.parameters(for: appState.selectedModel)
+                parameters: ModelCallParametersStore.parameters(for: appState.effectiveSelectedModel())
             )
             appState.scheduleGitRefresh(sessionID: sessionID)
             
@@ -1135,8 +1148,9 @@ struct ChatPanelView: View {
         // shows, even for an old config saved by a previous build.
         var effectiveConfig = config
         let availableModels = WebProviderConnectivity.models(for: config)
-        if availableModels.contains(appState.selectedModel) {
-            effectiveConfig.selectedModel = appState.selectedModel
+        let routedWebModel = appState.effectiveSelectedModel()
+        if availableModels.contains(routedWebModel) {
+            effectiveConfig.selectedModel = routedWebModel
         }
         if let selectedEffort = appState.selectedWebEffort {
             effectiveConfig.effort = selectedEffort
@@ -1283,7 +1297,9 @@ struct ChatPanelView: View {
         appState.markWebSessionStarted(remoteMapping.key)
         let retrySignal = WebChatRetrySignal()
         let approvalSignal = WebChatApprovalSignal()
+        let completionSignal = WebChatCompletionSignal()
         let presentEvent: (WebChatEvent) -> Void = { event in
+            completionSignal.recordIfCompleted(event)
             if case .approvalRequired(_, let message) = event {
                 approvalSignal.record(message)
             }
@@ -1349,6 +1365,11 @@ struct ChatPanelView: View {
             } else {
                 appendWebStatus(to: assistantID, line: "Model catalog refresh returned no selectable models; retry stopped.")
             }
+        }
+        guard completionSignal.take() else {
+            appendWebStatus(to: assistantID, line: "Web chat did not produce a verified final answer; the send was not marked complete. Check the browser session and retry.")
+            finishWebTurn()
+            return
         }
         appState.recordWebBrowserAction(action: "send_completed",
                                         config: finalConfig,

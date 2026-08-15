@@ -115,7 +115,8 @@ enum DirectChatClient {
            let c = message["content"] as? String {
             content = c
         }
-        guard let content else { return nil }
+        guard let content,
+              ProviderResponseValidationLogic.hasVisibleContent(content) else { return nil }
 
         let usage = Self.extractUsage(from: json)
         return DirectChatResult(content: content, usage: usage)
@@ -123,6 +124,20 @@ enum DirectChatClient {
 
     /// Read the top-level `usage` block. Tolerant of missing/partial fields and
     /// string-encoded numbers some gateways emit.
+    private static func responseContainsBlankAssistantContent(_ data: Data) -> Bool {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+        if let choices = json["choices"] as? [[String: Any]],
+           let message = choices.first?["message"] as? [String: Any],
+           let content = message["content"] as? String {
+            return !ProviderResponseValidationLogic.hasVisibleContent(content)
+        }
+        if let message = json["message"] as? [String: Any],
+           let content = message["content"] as? String {
+            return !ProviderResponseValidationLogic.hasVisibleContent(content)
+        }
+        return false
+    }
+
     private static func extractUsage(from json: [String: Any]) -> UsageCapture? {
         guard let usage = json["usage"] as? [String: Any] else { return nil }
         let prompt = intValue(usage["prompt_tokens"])
@@ -187,6 +202,9 @@ enum DirectChatClient {
             throw DirectChatError.http(status: status, body: text)
         }
         guard let result = parseResponse(respData) else {
+            if Self.responseContainsBlankAssistantContent(respData) {
+                throw DirectChatError.emptyResponse
+            }
             throw DirectChatError.decode
         }
         return result
@@ -197,6 +215,7 @@ enum DirectChatError: Error, Equatable, LocalizedError {
     case transport(String)
     case http(status: Int, body: String)
     case decode
+    case emptyResponse
 
     /// User-facing message shown in the chat when a direct send fails
     /// (audit P5 — generic localizedDescription was useless).
@@ -209,6 +228,8 @@ enum DirectChatError: Error, Equatable, LocalizedError {
             return "Provider returned HTTP \(status)\(detail)"
         case .decode:
             return "The provider's response could not be parsed (unexpected format)."
+        case .emptyResponse:
+            return "The provider returned an empty response. Check the selected model and retry."
         }
     }
 }

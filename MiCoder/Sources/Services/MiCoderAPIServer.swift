@@ -151,7 +151,10 @@ final class MiCoderAPIServer {
             "sessions": sessions,
             "selectedSessionId": appState.selectedSession?.id ?? "",
             "selectedProviderId": appState.selectedProviderID,
-            "selectedModel": appState.selectedModel
+            "selectedModel": SendAPIResponseLogic.modelID(
+                selectedModel: appState.selectedModel,
+                effectiveModel: appState.effectiveSelectedModel()
+            )
         ]
     }
     
@@ -215,7 +218,11 @@ final class MiCoderAPIServer {
         }
         
         // Trigger send via notification
-        let logMsg = "📤 API Send: message='\(message)', chatId=\(appState.selectedSession?.id ?? "nil"), provider=\(appState.selectedProviderID), model=\(appState.selectedModel)"
+        let responseModelID = SendAPIResponseLogic.modelID(
+            selectedModel: appState.selectedModel,
+            effectiveModel: appState.effectiveSelectedModel()
+        )
+        let logMsg = "📤 API Send: message='\(message)', chatId=\(appState.selectedSession?.id ?? "nil"), provider=\(appState.selectedProviderID), model=\(responseModelID)"
         os_log("%{public}@", log: apiLog, type: .info, logMsg)
         Self.appendLog(logMsg)
         DispatchQueue.main.async {
@@ -231,7 +238,7 @@ final class MiCoderAPIServer {
             "message": message,
             "chatId": appState.selectedSession?.id ?? "",
             "providerId": appState.selectedProviderID,
-            "modelId": appState.selectedModel
+            "modelId": responseModelID
         ])
     }
     

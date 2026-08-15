@@ -9,41 +9,39 @@ enum SendReadinessLogic {
         autoFreeReady: Bool = true,
         customProviders: [CustomProvider] = [],
         localProviderIDs: [String] = [],
-        webProviderIDs: [String] = []
+        webProviderIDs: [String] = [],
+        serverProviderIDs: [String] = [],
+        webConnected: Bool? = nil
     ) -> String? {
-        // MiCoder Auto Free is a direct route and must be checked independently from
-        // the local MiMo Serve connection.
-        if selectedProviderID == MiCoderAutoFreeProvider.builtInID && !autoFreeReady {
-            return "MiCoder Auto Free is unavailable. Refresh the anonymous OpenCode free catalog or choose another provider."
-        }
-
-        // For all other routes, a connected local server is sufficient.
-        if serverConnected { return nil }
-
-        if !selectedProviderID.isEmpty {
-            if selectedProviderID == MiCoderAutoFreeProvider.builtInID {
-                return nil
-            }
-            // Web provider (option id "web:<id>") — driven via the browser, no serve.
-            if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
-               webProviderIDs.contains(webID) { return nil }
-            // Local provider (Ollama/OpenCode/MiCoder CLI) — own HTTP endpoint, no serve.
-            if localProviderIDs.contains(selectedProviderID) { return nil }
-            // Custom provider — its own endpoint; serve not required, unless it
-            // requires an API key that hasn't been provided.
-            if let custom = customProviders.first(where: { $0.id == selectedProviderID && $0.isEnabled }) {
-                if custom.requiresAPIKey && custom.apiKey.isEmpty {
-                    return "This provider requires an API key. Add it in Settings."
-                }
-                return nil
-            }
-        }
-
-        return "No provider is ready. Connect the local agent, add a custom provider, configure a local model, or connect a web provider."
+        SendProviderReadinessLogic.connectionValidationError(
+            serverConnected: serverConnected,
+            selectedProviderID: selectedProviderID,
+            autoFreeID: MiCoderAutoFreeProvider.builtInID,
+            autoFreeReady: autoFreeReady,
+            customProviders: customProviders.map {
+                SendProviderReadinessLogic.CustomProviderState(
+                    id: $0.id,
+                    isEnabled: $0.isEnabled,
+                    requiresAPIKey: $0.requiresAPIKey,
+                    hasAPIKey: !$0.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
+            },
+            localProviderIDs: localProviderIDs,
+            webProviderIDs: webProviderIDs,
+            serverProviderIDs: serverProviderIDs,
+            webConnected: webConnected
+        )
     }
 
-    static func sendValidationError(modelID: String, providerID: String?) -> String? {
-        let trimmedModel = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
+    static func sendValidationError(
+        modelID: String,
+        providerID: String?,
+        effectiveModelID: String? = nil
+    ) -> String? {
+        let trimmedModel = SendProviderReadinessLogic.modelValidationID(
+            selectedModel: modelID,
+            effectiveModel: effectiveModelID ?? ""
+        )
         guard !trimmedModel.isEmpty else {
             return "Select a model before sending."
         }
@@ -63,7 +61,9 @@ enum SendReadinessLogic {
         autoFreeReady: Bool = true,
         customProviders: [CustomProvider] = [],
         localProviderIDs: [String] = [],
-        webProviderIDs: [String] = []
+        webProviderIDs: [String] = [],
+        serverProviderIDs: [String] = [],
+        webConnected: Bool? = nil
     ) -> Bool {
         MessageSendValidation.canSend(text: text, images: images, files: files)
             && sendValidationError(modelID: modelID, providerID: providerID) == nil
@@ -73,7 +73,9 @@ enum SendReadinessLogic {
                 autoFreeReady: autoFreeReady,
                 customProviders: customProviders,
                 localProviderIDs: localProviderIDs,
-                webProviderIDs: webProviderIDs
+                webProviderIDs: webProviderIDs,
+                serverProviderIDs: serverProviderIDs,
+                webConnected: webConnected
             ) == nil
     }
 }
@@ -93,7 +95,10 @@ enum SendReadinessReason {
         autoFreeReady: Bool = true,
         customProviders: [CustomProvider],
         localProviderIDs: [String],
-        webProviderIDs: [String]
+        webProviderIDs: [String],
+        serverProviderIDs: [String] = [],
+        webConnected: Bool? = nil,
+        effectiveModelID: String? = nil
     ) -> String? {
         // Empty input blocks send with an actionable message (Round 8 P1: the
         // disabled button must explain WHY). Visibility is gated by the UI
@@ -101,7 +106,11 @@ enum SendReadinessReason {
         if !MessageSendValidation.canSend(text: text, images: images, files: files) {
             return "Type a message or attach a file to send."
         }
-        if let error = SendReadinessLogic.sendValidationError(modelID: modelID, providerID: providerID) {
+        if let error = SendReadinessLogic.sendValidationError(
+            modelID: modelID,
+            providerID: providerID,
+            effectiveModelID: effectiveModelID
+        ) {
             return error
         }
         return SendReadinessLogic.connectionValidationError(
@@ -110,7 +119,9 @@ enum SendReadinessReason {
             autoFreeReady: autoFreeReady,
             customProviders: customProviders,
             localProviderIDs: localProviderIDs,
-            webProviderIDs: webProviderIDs
+            webProviderIDs: webProviderIDs,
+            serverProviderIDs: serverProviderIDs,
+            webConnected: webConnected
         )
     }
 }
