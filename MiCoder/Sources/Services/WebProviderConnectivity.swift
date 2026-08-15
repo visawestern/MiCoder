@@ -50,6 +50,7 @@ enum WebProviderConnectivity {
     static func connectionSummary(_ config: WebProviderConfig, connected: Bool) -> String {
         guard connected else { return "Not connected — log in to capture a session." }
         let modelCount = models(for: config).count
-        return "\(config.transport == .cdpCookies ? "Existing Chrome" : "Managed browser") · \(modelCount) models · delay \(config.toolCallDelayMs)ms"
+        let runtime = WebTransportRuntimeLogic.label(for: config.transport)
+        return "\(runtime) · \(modelCount) models · delay \(config.toolCallDelayMs)ms"
     }
 }

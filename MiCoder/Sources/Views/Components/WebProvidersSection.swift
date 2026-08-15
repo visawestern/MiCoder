@@ -543,7 +543,7 @@ Use clear headings, code examples, and cross-references.
                     .foregroundColor(Color.mimo.brand)
                 Text("In-app browser")
                     .interfaceFont(size: 11, weight: .medium)
-                Text("WKWebView")
+                Text(WebTransportRuntimeLogic.label(for: config.transport))
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
                 Spacer()

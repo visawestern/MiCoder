@@ -1437,3 +1437,43 @@ SET-05 remains **PARTIAL**. There is no editable MCP configuration form, install
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit, live MCP network/stdio probes, or bundled macOS runtime behavior. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `SET-05` remains PARTIAL because the core install/update/health/enable/disable/remove paths exist and silent mutation failure is fixed, while edit, install-set/bulk, rollback, dedicated library confirmation, and native runtime verification remain incomplete.
+
+## Round 66 — Honest browser transport labeling
+
+### Scope and chain audit
+
+The sequential audit continued at `WEB-05 Browser Transport (WKWebView)`. The chain was traced from the Web Providers settings card and persisted `WebTransport` enum through `WebProviderConnectivity.connectionSummary`, `ChatPanelView.runWebChatTurn`, isolated per-project/per-chat `WKWebView` creation, `WKWebViewBrowserBridge`, `WebChatDriver`, model/effort injection, session restoration, browser submission, agentic tool loop, and response completion.
+
+The source audit confirmed that production browser sends run through an isolated in-app `WKWebView`. No Playwright MCP client or Chrome CDP socket/bridge exists in the traced app. A legacy `.cdpCookies` value remained decodable but `WebProviderConnectivity.connectionSummary` labeled it “Existing Chrome”, even though the send path could not attach to Chrome. The Settings card already displayed WKWebView and normalized the value, so the status label and runtime were inconsistent.
+
+### TDD defect confirmation and fix
+
+`WebTransportRuntimeLogicTests` was written before the helper. The red run failed because `WebTransportRuntimeLogic` did not exist. The green helper maps both the current managed value and the legacy CDP value to the only real runtime, labels managed transport as `In-app WKWebView`, and labels the legacy value as `In-app WKWebView (Chrome CDP unavailable)`. `WebProviderConnectivity.connectionSummary` and the Settings card now use the tested runtime label, preventing the user-facing claim that external Chrome is attached.
+
+This is an honesty hardening fix, not a claim that external transports were implemented. Playwright MCP and Chrome CDP remain absent and the story remains PARTIAL.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red transport-honesty regression | **failed as expected** | Missing runtime-label contract |
+| Green transport regressions | **3/3 passed** | Managed label, legacy fallback, connection-summary consumer |
+| Full Foundation harness | **212/212 passed** | Existing contracts plus WEB-05 regressions |
+| Swift parser validation | **passed** | Runtime helper, connectivity summary, WebProvidersSection |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Live WKWebView send/navigation | **UNVERIFIED** | Requires macOS/WebKit and live vendor pages |
+| Playwright MCP/CDP transport | **MISSING** | No production implementation to execute or verify |
+
+### Remaining WEB-05 limitations
+
+WEB-05 remains **PARTIAL**. The supported implementation is an isolated `WKWebView` path, not Playwright MCP or Chrome CDP. Users cannot choose an external browser transport or attach to an existing Chrome context. Live WebKit navigation, cookies/localStorage, vendor DOM selectors, cancellation, and provider behavior require macOS runtime verification.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 95/100 | The false external-Chrome claim is removed with a small backward-compatible contract and consumer regression; external transports remain absent by design and live runtime remains unavailable. |
+| Task adherence | 100/100 | Every browser transport and send-chain action was traced, red tests preceded the fix, the canonical registry/checklist/report were updated, and unsupported macOS/WebKit behavior remains UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or live vendor pages. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-05` remains PARTIAL because the WKWebView implementation is honest and contract-tested, while Playwright MCP/CDP transports and native WebKit verification remain incomplete.
