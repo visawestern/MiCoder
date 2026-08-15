@@ -638,7 +638,8 @@ struct ModelSettingsProviderColumns: View {
     }
 
     private func webProfilePanel(_ model: WebProviderModel) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
+        let metadataBackground: Color = Color.mimo.backgroundAlt.opacity(0.45)
+        return VStack(alignment: .leading, spacing: 7) {
             Text("Live web profile")
                 .interfaceFont(size: 11, weight: .semibold)
                 .foregroundColor(Color.mimo.textSecondary)
@@ -664,7 +665,7 @@ struct ModelSettingsProviderColumns: View {
             }
         }
         .padding(8)
-        .background(Color.mimo.backgroundAlt.opacity(Double(0.45)))
+        .background(metadataBackground)
         .clipShape(RoundedRectangle(cornerRadius: 7))
     }
 

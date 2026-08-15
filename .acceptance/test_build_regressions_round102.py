@@ -30,13 +30,17 @@ assert "workspace.path" in storage
 # SQLite column expression must be disambiguated from the optional parameter.
 assert "sessionGoal <- sessionGoalValue" in db
 
-# Synchronous AppState selection methods must be MainActor-isolated before calling the journal.
-assert "@MainActor\n    func selectWebEffort" in app
-assert "@MainActor\n    func selectModel" in app
+# Synchronous AppState selection methods remain callable by restore/API paths;
+# only the journal mutation hops to MainActor.
+assert "@MainActor\n    func selectWebEffort" not in app
+assert "@MainActor\n    func selectModel" not in app
+assert app.count("Task { @MainActor in") >= 2
 
 # SwiftUI and CoreServices APIs need explicit static types on the macOS toolchain.
-assert "backgroundAlt.opacity(Double(0.45))" in model_settings
-assert "FSEventStreamCreateFlags([.fileEvents, .noDefer])" in watcher
+assert "let metadataBackground: Color = Color.mimo.backgroundAlt.opacity(0.45)" in model_settings
+assert ".background(metadataBackground)" in model_settings
+assert "kFSEventStreamCreateFlagFileEvents" in watcher
+assert "kFSEventStreamCreateFlagNoDefer" in watcher
 assert "guard let json = try JSONSerialization.jsonObject" not in app
 
 print("Round 102 build-regression source acceptance: PASS")

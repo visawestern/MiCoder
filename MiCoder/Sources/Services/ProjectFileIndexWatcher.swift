@@ -49,7 +49,7 @@ final class ProjectFileIndexWatcher {
             paths,
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
             0.3,
-            FSEventStreamCreateFlags([.fileEvents, .noDefer])
+            kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer
         )
         guard let stream else { return }
         FSEventStreamSetDispatchQueue(stream, callbackQueue)

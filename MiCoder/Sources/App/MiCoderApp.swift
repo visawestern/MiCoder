@@ -581,17 +581,18 @@ class AppState: ObservableObject {
         WebProviderStore.save(providers, defaults: defaults)
     }
 
-    @MainActor
     func selectWebEffort(_ effort: WebEffort) {
         guard let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
               availableWebEffortsForSelectedProvider.contains(effort) else { return }
         updateWebProvider(webID, effort: effort)
         if let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID }) {
-            recordWebBrowserAction(action: "effort_selected",
-                                   config: config,
-                                   modelID: config.selectedModel,
-                                   effort: effort,
-                                   detail: "Composer effort selection")
+            Task { @MainActor in
+                self.recordWebBrowserAction(action: "effort_selected",
+                                            config: config,
+                                            modelID: config.selectedModel,
+                                            effort: effort,
+                                            detail: "Composer effort selection")
+            }
         }
         objectWillChange.send()
     }
@@ -726,7 +727,6 @@ class AppState: ObservableObject {
         }
     }
 
-    @MainActor
     func selectModel(_ modelID: String, persistPreference: Bool = true) {
         guard modelsForSelectedProvider.contains(modelID) else { return }
         selectedModel = modelID
@@ -737,11 +737,13 @@ class AppState: ObservableObject {
         if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID) {
             updateWebProvider(webID, modelID: modelID)
             if let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID }) {
-                recordWebBrowserAction(action: "model_selected",
-                                       config: config,
-                                       modelID: modelID,
-                                       effort: selectedWebEffort,
-                                       detail: "Composer model selection")
+                Task { @MainActor in
+                    self.recordWebBrowserAction(action: "model_selected",
+                                                config: config,
+                                                modelID: modelID,
+                                                effort: self.selectedWebEffort,
+                                                detail: "Composer model selection")
+                }
             }
             selectedVariant = ""
             return

@@ -321,7 +321,8 @@ struct CenteredInputCard: View {
             serverProviderIDs: appState.serverProviders.map(\.id),
             webConnected: WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID) == nil
                 ? nil
-                : appState.selectedProviderConnected
+                : appState.selectedProviderConnected,
+            effectiveModelID: appState.effectiveSelectedModel()
         )
     }
 
@@ -334,7 +335,6 @@ struct CenteredInputCard: View {
             files: attachmentStore.attachedFiles,
             modelID: appState.selectedModel,
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
-            effectiveModelID: appState.effectiveSelectedModel(),
             serverConnected: appState.serverConnected,
             autoFreeReady: MiCoderAutoFreeStore.shared.provider.isReady,
             customProviders: appState.customProviders,
@@ -343,7 +343,8 @@ struct CenteredInputCard: View {
             serverProviderIDs: appState.serverProviders.map(\.id),
             webConnected: WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID) == nil
                 ? nil
-                : appState.selectedProviderConnected
+                : appState.selectedProviderConnected,
+            effectiveModelID: appState.effectiveSelectedModel()
         )
     }
 
@@ -556,7 +557,8 @@ struct BottomInputBar: View {
             serverProviderIDs: appState.serverProviders.map(\.id),
             webConnected: WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID) == nil
                 ? nil
-                : appState.selectedProviderConnected
+                : appState.selectedProviderConnected,
+            effectiveModelID: appState.effectiveSelectedModel()
         )
     }
 
@@ -568,7 +570,6 @@ struct BottomInputBar: View {
             files: attachmentStore.attachedFiles,
             modelID: appState.selectedModel,
             providerID: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID,
-            effectiveModelID: appState.effectiveSelectedModel(),
             serverConnected: appState.serverConnected,
             autoFreeReady: MiCoderAutoFreeStore.shared.provider.isReady,
             customProviders: appState.customProviders,
@@ -577,7 +578,8 @@ struct BottomInputBar: View {
             serverProviderIDs: appState.serverProviders.map(\.id),
             webConnected: WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID) == nil
                 ? nil
-                : appState.selectedProviderConnected
+                : appState.selectedProviderConnected,
+            effectiveModelID: appState.effectiveSelectedModel()
         )
     }
 

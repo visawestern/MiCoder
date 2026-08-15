@@ -3100,3 +3100,38 @@ A persistent source regression was written before implementation in `.acceptance
 ### Native boundary
 
 The Linux sandbox cannot execute the user’s macOS SwiftUI/AppKit/CoreServices production build. The fixes directly match the supplied macOS compiler diagnostics and pass source/parser gates, but the final confirmation still requires `git pull origin main` and `./build-app.sh` on macOS. Any new diagnostic from that build must be treated as new evidence rather than assumed resolved.
+
+## Round 103 — Repair the second macOS build diagnostic layer
+
+### Incident
+
+After the user pulled `7e12baf`, the native macOS compiler exposed a second layer of failures. The new log proved that several Round 102 intermediate fixes were not sufficient for the user’s Swift 6.3/Xcode toolchain. The failures were deduplicated across the two supplied attachments and re-traced before a follow-up implementation.
+
+### Final repairs
+
+| File | New failure | Final correction |
+|---|---|---|
+| `ModelSettingsView.swift` | `Double(0.45)` still left `Color.opacity` and `ShapeStyle.opacity` ambiguous. | Create a typed `let metadataBackground: Color = Color.mimo.backgroundAlt.opacity(0.45)` and pass it to `.background`. |
+| `InputViews.swift` | `effectiveModelID` remained before `serverConnected`, although the API declares it after `webConnected`. | Move `effectiveModelID` to the final argument position in both `SendReadinessReason.reason` calls. |
+| `ProjectDatabaseManager.swift` | Renaming only the RHS still left the SQLite expression collision. | Qualify the column expression: `self.sessionGoal <- sessionGoalValue`. |
+| `ProjectFileIndexWatcher.swift` | Swift OptionSet construction was unavailable for the CoreServices type exposed by the macOS SDK. | Use `kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer`. |
+| `MiCoderApp.swift` | Adding `@MainActor` to `selectModel` caused new errors at restore/API callers. | Keep selection methods synchronous and hop only `recordWebBrowserAction` through `Task { @MainActor in … }`. |
+
+### TDD and evidence
+
+Round 103 red/source acceptance was written before the final corrections in `.acceptance/test_build_regressions_round103.py`. It failed on the stale send-readiness contract before implementation, then passed after the final typed Color context, exact argument order, SQLite qualification, CoreServices constants, and actor-safe journal hops were in place. Round 102 acceptance was updated to assert the final stable design rather than an intermediate fix that introduced new actor errors.
+
+| Gate | Result |
+|---|---:|
+| Round 103 red regression before fixes | **Failed as expected** |
+| Round 103 source regression after fixes | **PASS** |
+| Round 102 compatibility acceptance | **PASS** |
+| Foundation harness | **360/360 passed** |
+| Registry integrity | **274 unique rows; 224 PASS, 45 PARTIAL, 0 MISSING, 5 FUTURE** |
+| Adversarial source checks | **12/12 passed** |
+| Swift parser on affected files | **PASS** |
+| `git diff --check` | **PASS** |
+
+### Native boundary
+
+The sandbox cannot execute the user’s native macOS SwiftUI/AppKit/CoreServices/Xcode build. The final code now corresponds to the second supplied diagnostic layer and passes all available source/parser tests, but the only definitive confirmation remains a fresh `git pull origin main && ./build-app.sh` on macOS. Any new compiler diagnostic after this round is new evidence and must be handled separately.

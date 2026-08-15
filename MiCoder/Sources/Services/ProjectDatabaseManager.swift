@@ -589,7 +589,7 @@ final class ProjectDatabaseManager {
             sessionProviderId <- providerId,
             sessionParentId <- parentSessionId,
             sessionIsArchived <- false,
-            sessionGoal <- sessionGoalValue
+            self.sessionGoal <- sessionGoalValue
         ))
     }
 
