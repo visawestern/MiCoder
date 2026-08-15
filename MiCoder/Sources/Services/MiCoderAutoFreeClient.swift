@@ -181,7 +181,7 @@ final class MiCoderAutoFreeClient {
     }
 
     static func isEligibleFreeModel(_ modelID: String) -> Bool {
-        modelID == defaultModelID || modelID.hasSuffix("-free")
+        freeModelIDs.contains(modelID)
     }
 
     /// Stream a completion without an API key. The selected model must be in

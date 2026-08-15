@@ -2347,3 +2347,45 @@ The direct Serve branch now derives reasoning and tool activity from `MimoMessag
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit or a live MiMo Serve/SSE runtime. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `APP-06` remains PARTIAL because direct/SSE feedback is hardened and tested while native UI and live Serve/SSE execution remain unverified.
+
+## Round 88 — Keep the compact Auto Free catalog trusted and refreshable
+
+### Scope and chain audit
+
+The sequential audit continued at `MODEL-19 Compact Free Model Catalog`. The full chain was traced from `UnifiedProvidersView` and `MiCoderAutoFreeSection` through the Refresh Catalog button, anonymous OpenCode `/models` request, HTTP/JSON validation, trusted-ID filtering, deterministic ordering, duplicate removal, metadata/profile construction, empty-catalog readiness, `MiCoderAutoFreeStore.applyCatalog`, selected-model persistence, lock/unlock, per-model status, automatic failover, notification, system-prompt insertion, Auto Free send-route resolution, and the active compact selected-model Menu.
+
+Round 48 already implemented the expected compact layout: one selected-model summary row and a dense Menu containing all current selectable models, with status and selected-only lock control. The adversarial pass confirmed that the declarations `AutoFreeCompactModelRow` and `AutoFreeModelCard` are not mounted; the active user-visible path is `MiCoderAutoFreeSection.modelCatalog` and its Menu. Native visual density remains unverified.
+
+### TDD defect confirmation and fix
+
+The provider documentation stated that only official temporary free-model IDs may be selected automatically, but `isEligibleFreeModel` accepted any identifier ending in `-free`. Because `listModels` used that predicate to construct `liveFreeIDs`, an arbitrary catalog ID with a misleading suffix could enter the selectable list, be persisted, and reach `chatCompletion`.
+
+`MiCoderAutoFreeEligibilityTests.swift` was written first. The red test required `untrusted-random-free` to be rejected while retaining `big-pickle` and `mimo-v2.5-free`; it failed because the suffix heuristic returned true. The implementation now uses `freeModelIDs.contains(modelID)`, aligning catalog filtering with the documented official temporary allow-list. The live catalog remains refreshable for metadata and availability of those trusted IDs; no paid or synthetic fallback is introduced.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red untrusted `-free` regression | **failed as expected** | Suffix heuristic admitted arbitrary ID |
+| Green MODEL-19 eligibility test | **1/1 passed** | Official IDs accepted; arbitrary suffix rejected |
+| Full Foundation harness | **292/292 passed** | All previous rounds plus MODEL-19 regression |
+| Swift parser validation | **passed** | Auto Free client/provider/UI and tests |
+| Adversarial source checks | **12/12 passed** | Catalog/model/browser invariants remained green |
+| `git diff --check` | **passed** | No trailing whitespace |
+| Live OpenCode `/models` payload | **UNVERIFIED** | Endpoint returned HTTP 403 in sandbox; no live catalog claim made |
+| Native compact Menu/Toggle layout | **UNVERIFIED** | Requires macOS SwiftUI runtime |
+| Live anonymous Auto Free send/failover | **UNVERIFIED** | Requires live provider endpoint and SSE response |
+
+### Remaining MODEL-19 limitations
+
+`MODEL-19` remains **PARTIAL**. Trusted free-ID filtering, live metadata refresh, deterministic ordering, compact selected summary, dense switch list, per-model status, selected-only lock, persistence, failover, send routing, and readiness are source-verified and contract-tested. Live catalog contents, real provider availability, native visual density, and macOS interaction remain unverified.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 96/100 | The trust boundary now matches the documented official allow-list and the compact active Menu path remains unchanged; live catalog/native UI remain. |
+| Task adherence | 100/100 | Provider discovery, filtering, ordering, selection, lock, refresh, failover, status, prompt, route, and active UI were traced; red test preceded the fix; runtime limits are explicit. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI or verify a live OpenCode anonymous catalog/send. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `MODEL-19` remains PARTIAL because the compact catalog and trust boundary are hardened and tested while live OpenCode contents and native visual behavior remain unverified.
