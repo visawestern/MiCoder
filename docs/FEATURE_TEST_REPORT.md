@@ -1355,3 +1355,45 @@ The fix deliberately does not invent provider pricing. Direct gateways may contr
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit or validate live provider/browser usage metadata. |
 
 The canonical registry now contains **274 rows** and reports **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `USG-03` moved from MISSING to PARTIAL because per-project usage/cost data now reaches aggregation, while provider-specific pricing and native runtime verification remain explicitly incomplete. `USG-02` remains PARTIAL with its global-only source note corrected.
+
+## Round 64 — Skills management state and uninstall safety
+
+### Scope and chain audit
+
+The sequential audit continued at `SET-04 Skills Management Tab`. The chain was traced from the Settings tab selector into `SkillsSettingsView`, its search field, installed-skill loader, `AgentResourceLibraryView` catalog cards, install/update/uninstall tasks, dependency resolution, bundled catalog loading, filesystem paths under `~/.micoder/skills`, `SkillRegistryManager`, and the installed-row controls. Every visible button and action was manually mapped to its state mutation, refresh callback, and error behavior.
+
+The existing registry note was stale. The library already had an Update button, dependency-aware installation, and dependency hints. Two current defects were confirmed instead: an update silently re-enabled a skill that the user had disabled, and the library’s destructive Uninstall button bypassed the confirmation that the installed-row trash action already used.
+
+### TDD defect confirmation and fixes
+
+`SkillUpdateStateTests` was written first. Its disabled-state test failed before the fix because `installSkill` always upserted `isEnabled: true`; the enabled-state test provided the opposite edge case. The green implementation reads the prior registry record and preserves its enabled state, while new installs still default to enabled. Both state regressions pass.
+
+`SkillUninstallPolicyTests` was then written first for item-specific destructive confirmation copy. The red run failed because no policy existed. `SkillUninstallPolicy` now supplies an explicit title and irreversible-action message, and `AgentResourceLibraryView` stores an uninstall candidate and presents a cancel/destructive-confirmation alert before invoking the removal task. The installed-row trash confirmation remains in place.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red update-state regression | **1 expected failure** | Disabled state was reset by update |
+| Green update-state regressions | **2/2 passed** | Disabled and enabled preferences survive update |
+| Red uninstall-policy regression | **failed as expected** | Missing confirmation policy before implementation |
+| Green uninstall-policy regression | **1/1 passed** | Item-specific destructive confirmation copy |
+| Full Foundation harness | **206/206 passed** | All Linux-compatible logic plus Round 64 tests |
+| Swift parser validation | **passed** | Installer, uninstall policy, and SwiftUI library source |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Native SwiftUI/AppKit interaction | **UNVERIFIED** | Requires macOS runtime |
+| Bundled catalog/resource packaging | **UNVERIFIED** | Requires packaged macOS app runtime |
+
+### Remaining SET-04 limitations
+
+SET-04 remains **PARTIAL**. There are no bulk enable/disable/update/remove controls, skill export/import, or dedicated interactive dependency-resolution dialog. Dependency installation is not transactional if a dependency succeeds and a later skill write fails. The installed-row enable/disable and direct trash handlers still suppress filesystem/registry errors with `try?`, so failures can leave an inconsistent file/registry state without user feedback. These are separate candidates for future rounds rather than silently marked complete.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 94/100 | Update-state preservation and destructive confirmation are explicit and tested; error suppression, non-transactional dependency installation, and absent bulk/export/import remain. |
+| Task adherence | 100/100 | Every visible Skills action was traced, both confirmed defects received red tests before fixes, the canonical row and activity checklist were updated, and absent capabilities remain PARTIAL. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit alerts, Settings presentation, bundled-resource packaging, or native filesystem integration. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `SET-04` remains PARTIAL because the core install/update/dependency-hint path is implemented and the two confirmed defects are fixed, while bulk actions, export/import, transactional failure handling, and native runtime verification remain incomplete.

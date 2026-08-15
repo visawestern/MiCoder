@@ -16,6 +16,7 @@ struct AgentResourceLibraryView: View {
     @State private var installNotes: [String: String] = [:]
     @State private var loadError: String?
     @State private var installedRevision = 0
+    @State private var uninstallCandidate: LibraryItem?
 
     private let installer = AgentResourceInstaller()
 
@@ -39,6 +40,16 @@ struct AgentResourceLibraryView: View {
             }
         }
         .onAppear(perform: loadCatalog)
+        .alert(item: $uninstallCandidate) { item in
+            Alert(
+                title: Text(SkillUninstallPolicy.confirmationTitle(for: item.name)),
+                message: Text(SkillUninstallPolicy.confirmationMessage(for: item.name)),
+                primaryButton: .destructive(Text(L.t(AppLocalizationKey.locUninstall))) {
+                    Task { await uninstall(item) }
+                },
+                secondaryButton: .cancel(Text(L.t(AppLocalizationKey.locCancel)))
+            )
+        }
     }
 
     private var visibleItems: [LibraryItem] {
@@ -175,7 +186,7 @@ struct AgentResourceLibraryView: View {
                 .tint(Color.mimo.warning)
             } else {
                 Button(L.t(AppLocalizationKey.locUninstall)) {
-                    Task { await uninstall(item) }
+                    uninstallCandidate = item
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)

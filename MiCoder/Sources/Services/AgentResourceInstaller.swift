@@ -97,6 +97,10 @@ struct AgentResourceInstaller {
         bundle: Bundle = AgentResourceCatalog.catalogBundle,
         homeDirectory: URL
     ) throws {
+        let previousEnabled = SkillRegistryManager.load(
+            homeDirectory: homeDirectory,
+            fileManager: fileManager
+        ).first { $0.id == item.id }?.isEnabled ?? true
         let markdown = try resolveSkillMarkdown(item, bundle: bundle)
         let skillDir = homeDirectory
             .appendingPathComponent(".micoder/skills/\(item.id)", isDirectory: true)
@@ -111,7 +115,7 @@ struct AgentResourceInstaller {
             version: item.version ?? "1.0.0",
             installedAt: Date(),
             source: "mimo",
-            isEnabled: true,
+            isEnabled: previousEnabled,
             path: skillFile.path
         )
         try SkillRegistryManager.upsert(record, homeDirectory: homeDirectory, fileManager: fileManager)
