@@ -205,9 +205,15 @@ struct InstalledMCPRow: View {
         do {
             let data = try Data(contentsOf: configURL)
             let output = try MCPConfigMutationLogic.setDisabled(data: data, id: server.id, disabled: disabled)
-            try output.write(to: configURL, options: .atomic)
-            guard try MCPRegistryManager.setEnabled(id: server.id, enabled: !disabled, homeDirectory: home) else {
-                throw MCPConfigMutationError.targetMissing(server.id)
+            let originalData = data
+            do {
+                try output.write(to: configURL, options: .atomic)
+                guard try MCPRegistryManager.setEnabled(id: server.id, enabled: !disabled, homeDirectory: home) else {
+                    throw MCPConfigMutationError.targetMissing(server.id)
+                }
+            } catch {
+                try? originalData.write(to: configURL, options: .atomic)
+                throw error
             }
             onChanged()
         } catch {
@@ -220,9 +226,15 @@ struct InstalledMCPRow: View {
         do {
             let data = try Data(contentsOf: configURL)
             let output = try MCPConfigMutationLogic.remove(data: data, id: server.id)
-            try output.write(to: configURL, options: .atomic)
-            guard try MCPRegistryManager.remove(id: server.id, homeDirectory: home) else {
-                throw MCPConfigMutationError.targetMissing(server.id)
+            let originalData = data
+            do {
+                try output.write(to: configURL, options: .atomic)
+                guard try MCPRegistryManager.remove(id: server.id, homeDirectory: home) else {
+                    throw MCPConfigMutationError.targetMissing(server.id)
+                }
+            } catch {
+                try? originalData.write(to: configURL, options: .atomic)
+                throw error
             }
             onChanged()
         } catch {

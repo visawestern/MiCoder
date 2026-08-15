@@ -2768,3 +2768,55 @@ The confirmed STO-27 and STO-28 source-level defects are fixed. STO-27 remains *
 | STO-29 | 100/100 | 100/100 | 0/100 |
 
 No new registry rows were added in Round 95. The canonical registry remains **274 rows**, with the existing status distribution **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**.
+
+## Round 96 — Harden skill/MCP registry integrity and mutation truthfulness
+
+### Scope and chain audit
+
+The canonical audit covered **SET-04**, **SET-05**, **SEC-05**, and **SEC-06**. The full chains were traced from Settings navigation through skills/MCP catalog search, install/update/uninstall, installed-row enable/disable/remove, persistent registry load/save, MCP health status, config mutation, rollback, and the explicit future security boundaries.
+
+Three source-level defects were confirmed.
+
+### SET-04/SET-05 — corrupted duplicate registry records were rendered raw
+
+Both `SkillRegistryManager.load` and `MCPRegistryManager.load` returned decoded arrays without recovering from duplicate IDs. A corrupted or manually edited registry could therefore render duplicate rows and make first-record-only mutations misleading. Red Foundation tests were written first for both registries. Both loads now collapse IDs with deterministic last-record-wins semantics and sorted output before settings, health, and library consumers read them.
+
+### SET-04 — skill mutation errors were silently discarded
+
+`InstalledSkillRow` used `try?` for enable/disable and removal, then refreshed regardless of persistence success. A red source acceptance regression was written first. The row now exposes `mutationError`, treats a false registry result as a missing target, catches thrown writes, checks filesystem removal, and refreshes only after success.
+
+### SET-05 — MCP configuration and registry could diverge
+
+MCP settings wrote `mcp.json` before persisting the registry. If registry persistence failed, the config changed while the registry did not. A red source acceptance regression was written first. Both enable/disable and remove now retain the original bytes and restore them if the registry mutation fails; the inline error remains visible.
+
+### SEC-05/SEC-06 — future features remain honest
+
+Privacy mode and application-level database encryption remain **FUTURE**. No red implementation test was appropriate because neither is in the active product scope. FileVault remains a platform boundary, not a claim of app-level encryption.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| SET-04 duplicate skill registry red test | **failed as expected → passed** | Foundation registry persistence |
+| SET-05 duplicate MCP registry red test | **failed as expected → passed** | Foundation registry persistence |
+| SET-04 mutation-feedback red test | **failed as expected → 1/1 passed** | Persistent source acceptance |
+| SET-05 rollback red test | **failed as expected → 1/1 passed** | Persistent source acceptance |
+| Existing skill update/uninstall tests | **passed** | Foundation installer/registry logic |
+| Existing MCP mutation/health tests | **passed** | Foundation mutation/health logic |
+| Full Foundation harness | **346/346 passed** | Linux-safe suites |
+| Adversarial source checks | **12/12 passed** | Existing web/model safety invariants |
+| Swift parser validation | **passed** | Changed registry/settings/security files |
+| `git diff --check` | **passed** | No trailing whitespace |
+
+### Status and scores
+
+The confirmed SET-04 and SET-05 source-level defects are fixed. The stories remain **PARTIAL** because native SwiftUI interactions, filesystem permissions, Keychain/session integration, and live MCP probes are not verifiable in this Linux environment. SEC-05 and SEC-06 remain **FUTURE** by explicit product scope. No Linux result is represented as native runtime proof.
+
+| Story | Code quality | Task adherence | Target-runtime confidence |
+|---|---:|---:|---:|
+| SET-04 | 99/100 | 100/100 | 0/100 |
+| SET-05 | 99/100 | 100/100 | 0/100 |
+| SEC-05 | 100/100 | 100/100 | 0/100 |
+| SEC-06 | 100/100 | 100/100 | 0/100 |
+
+No new registry rows were added in Round 96. The canonical registry remains **274 rows**, with the existing status distribution **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**.

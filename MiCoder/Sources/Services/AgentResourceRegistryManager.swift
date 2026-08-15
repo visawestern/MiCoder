@@ -31,7 +31,11 @@ enum SkillRegistryManager {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         guard let doc = try? decoder.decode(SkillsRegistryDocument.self, from: data) else { return [] }
-        return doc.skills
+        var unique: [String: InstalledSkillRecord] = [:]
+        for record in doc.skills {
+            unique[record.id] = record
+        }
+        return unique.values.sorted { $0.id < $1.id }
     }
 
     // MARK: - Write
@@ -121,7 +125,11 @@ enum MCPRegistryManager {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         guard let doc = try? decoder.decode(MCPRegistryDocument.self, from: data) else { return [] }
-        return doc.servers
+        var unique: [String: InstalledMCPRecord] = [:]
+        for record in doc.servers {
+            unique[record.id] = record
+        }
+        return unique.values.sorted { $0.id < $1.id }
     }
 
     static func save(_ records: [InstalledMCPRecord], homeDirectory: URL, fileManager: FileManager = .default) throws {

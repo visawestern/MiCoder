@@ -69,6 +69,7 @@ struct InstalledSkillRow: View {
     let onChanged: () -> Void
 
     @State private var showRemoveConfirmation = false
+    @State private var mutationError: String?
 
     private var home: URL { FileManager.default.homeDirectoryForCurrentUser }
 
@@ -87,12 +88,30 @@ struct InstalledSkillRow: View {
                     .interfaceFont(size: 11, design: .monospaced)
                     .foregroundColor(Color.mimo.textMuted)
                     .lineLimit(1)
+                if let mutationError {
+                    Text(mutationError)
+                        .interfaceFont(size: 10)
+                        .foregroundColor(Color.mimo.error)
+                        .lineLimit(2)
+                }
             }
             Spacer()
             if let r = record {
                 Button(r.isEnabled ? L.t(AppLocalizationKey.locDisable) : L.t(AppLocalizationKey.locEnable)) {
-                    _ = try? SkillRegistryManager.setEnabled(id: skill.id, enabled: !r.isEnabled, homeDirectory: home)
-                    onChanged()
+                    mutationError = nil
+                    do {
+                        guard try SkillRegistryManager.setEnabled(
+                            id: skill.id,
+                            enabled: !r.isEnabled,
+                            homeDirectory: home
+                        ) else {
+                            mutationError = "The skill registry entry is missing."
+                            return
+                        }
+                        onChanged()
+                    } catch {
+                        mutationError = error.localizedDescription
+                    }
                 }
                 .interfaceFont(size: 11)
                 .buttonStyle(.plain)
@@ -127,12 +146,19 @@ struct InstalledSkillRow: View {
     }
 
     private func remove() {
-        // Remove the skill directory + registry record.
-        for base in [".micoder/skills"] {
-            let dir = home.appendingPathComponent("\(base)/\(skill.id)")
-            try? FileManager.default.removeItem(at: dir)
+        mutationError = nil
+        do {
+            let dir = home.appendingPathComponent(".micoder/skills/\(skill.id)")
+            if FileManager.default.fileExists(atPath: dir.path) {
+                try FileManager.default.removeItem(at: dir)
+            }
+            guard try SkillRegistryManager.remove(id: skill.id, homeDirectory: home) else {
+                mutationError = "The skill registry entry is missing."
+                return
+            }
+            onChanged()
+        } catch {
+            mutationError = error.localizedDescription
         }
-        _ = try? SkillRegistryManager.remove(id: skill.id, homeDirectory: home)
-        onChanged()
     }
 }

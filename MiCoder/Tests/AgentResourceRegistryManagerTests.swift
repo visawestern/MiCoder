@@ -35,6 +35,21 @@ struct AgentResourceRegistryManagerTests {
         #expect(loaded.first?.version == "1.1.0")
     }
 
+    @Test func skillRegistryDeduplicatesCorruptedDuplicateIDs() throws {
+        let home = try makeTempHome()
+        let first = InstalledSkillRecord(id: "duplicate", version: "1.0.0",
+                                         installedAt: Date(timeIntervalSince1970: 1), source: "mimo",
+                                         isEnabled: true, path: "/old")
+        let last = InstalledSkillRecord(id: "duplicate", version: "2.0.0",
+                                        installedAt: Date(timeIntervalSince1970: 2), source: "cursor",
+                                        isEnabled: false, path: "/new")
+        try SkillRegistryManager.save([first, last], homeDirectory: home)
+        let loaded = SkillRegistryManager.load(homeDirectory: home)
+        #expect(loaded.count == 1)
+        #expect(loaded.first?.version == "2.0.0")
+        #expect(loaded.first?.path == "/new")
+    }
+
     @Test func skillSetEnabledTogglesFlag() throws {
         let home = try makeTempHome()
         let record = InstalledSkillRecord(id: "canvas", version: "1.0.0",
@@ -100,6 +115,23 @@ struct AgentResourceRegistryManagerTests {
         updated.isEnabled = false
         try MCPRegistryManager.upsert(updated, homeDirectory: home)
         #expect(MCPRegistryManager.load(homeDirectory: home).first?.isEnabled == false)
+    }
+
+    @Test func mcpRegistryDeduplicatesCorruptedDuplicateIDs() throws {
+        let home = try makeTempHome()
+        let first = InstalledMCPRecord(id: "duplicate", version: "1.0.0",
+                                       installedAt: Date(timeIntervalSince1970: 1), source: .mimo,
+                                       isEnabled: true, transport: .stdio,
+                                       lastHealthCheck: nil, lastHealthStatus: nil)
+        let last = InstalledMCPRecord(id: "duplicate", version: "2.0.0",
+                                      installedAt: Date(timeIntervalSince1970: 2), source: .cursor,
+                                      isEnabled: false, transport: .http,
+                                      lastHealthCheck: nil, lastHealthStatus: false)
+        try MCPRegistryManager.save([first, last], homeDirectory: home)
+        let loaded = MCPRegistryManager.load(homeDirectory: home)
+        #expect(loaded.count == 1)
+        #expect(loaded.first?.version == "2.0.0")
+        #expect(loaded.first?.transport == .http)
     }
 
     @Test func mcpSetEnabledTogglesFlag() throws {
