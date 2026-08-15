@@ -1922,3 +1922,43 @@ The message flows through `SendReadinessReason` into both composer layouts and `
 | Target-runtime confidence | 0/100 | Linux cannot execute native SwiftUI/AppKit composer rendering or a live Serve health transition. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `ERR-02` remains PARTIAL because route-specific guidance is fixed and contract-tested, while native presentation and live endpoint behavior remain outside the verifiable scope.
+
+## Round 78 — Surface blank Serve completions as validation errors
+
+### Scope and chain audit
+
+The sequential audit continued at `ERR-03 Send Validation Errors`. The chain was traced from model/provider/effective-model validation through empty-input handling, centered and bottom composer gates, `SendStopButton`, keyboard Enter, rejected-send persistence, direct-send preflight, Serve response extraction, SSE text/reasoning/tool events, `session.idle`/status-idle completion, assistant-message finalization, and loading/streaming cleanup.
+
+Round 59 had already fixed stale web/Auto Free model gating and blank web/provider response handling. The current adversarial audit found a remaining Serve-specific defect. `finishStreaming` previously marked the assistant complete and inserted the localized task-completed fallback whenever `streamingText` was empty. A completed Serve turn with no text, reasoning, or tool activity could therefore appear successful, or retain a synthetic “Thinking…” bubble, instead of telling the user that the provider returned no answer.
+
+### TDD defect confirmation and fix
+
+Red regressions were added to `ProviderResponseValidationLogicTests` before implementation. The first red run failed because the completion-specific contract and retry guidance did not exist. The green implementation adds `shouldReportEmptyCompletion(text:reasoning:hasToolActivity:)` and a stable actionable message.
+
+`ChatPanelView.finishStreaming` now inspects the current assistant message, ignores the synthetic Thinking placeholder, preserves reasoning/tool/step activity as valid completion context, and replaces a truly blank completed turn with the empty-response error before clearing the stream. Valid non-empty responses and tool/reasoning-only completions retain their existing behavior.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red empty-completion regressions | **failed as expected** | Completion contract absent before implementation |
+| Green response-validation regressions | **4/4 passed** | Blank, visible text, reasoning, tool activity, and guidance |
+| Full Foundation harness | **257/257 passed** | Existing contracts plus ERR-03 regressions |
+| Swift parser validation | **passed** | Response validation and ChatPanelView |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Native composer/message rendering | **UNVERIFIED** | Requires SwiftUI/AppKit runtime |
+| Live Serve/SSE completion behavior | **UNVERIFIED** | Requires macOS runtime and a real Serve endpoint |
+
+### Remaining ERR-03 limitations
+
+`ERR-03` remains **PARTIAL**. Effective model/provider/empty-input gates and empty completed-response handling are hardened and contract-tested. Native rendering, live Serve/SSE timing, localized text presentation, and database persistence remain unverified.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 96/100 | The confirmed false-success/blank-bubble path is fixed with a narrow content-aware finalization rule; live runtime and native verification remain. |
+| Task adherence | 100/100 | Every validation function, button, keyboard path, provider branch, SSE completion path, and persistence action was traced; red tests preceded the confirmed fix; documentation was updated; runtime-only behavior remains explicitly UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute native SwiftUI/AppKit message rendering or live Serve/SSE timing. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `ERR-03` remains PARTIAL because validation and blank-completion handling are fixed and contract-tested, while native rendering and live Serve/SSE behavior remain outside the verifiable scope.

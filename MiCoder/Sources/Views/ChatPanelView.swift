@@ -1805,11 +1805,37 @@ struct ChatPanelView: View {
         appState.isLoading = false
         appState.isStreaming = false
         sseClient.disconnect()
-        
-        messageStore.setFinished(id: currentAssistantMessageID ?? "")
-        
-        if streamingText.isEmpty {
-            messageStore.update(id: currentAssistantMessageID ?? "") { msg in
+
+        let assistantID = currentAssistantMessageID ?? ""
+        let currentMessage = messageStore.messages.first(where: { $0.id == assistantID })
+        let hasToolActivity = currentMessage?.parts.contains { part in
+            switch part {
+            case .toolCall, .stepStart, .stepFinish:
+                return true
+            case .text, .reasoning, .image:
+                return false
+            }
+        } ?? false
+        let storedContent = currentMessage?.content
+        let isThinkingPlaceholder = storedContent?.hasPrefix("Thinking…") == true
+        let completedText: String? = streamingText.isEmpty
+            ? (isThinkingPlaceholder ? nil : storedContent)
+            : streamingText
+        let isEmptyCompletion = ProviderResponseValidationLogic.shouldReportEmptyCompletion(
+            text: completedText,
+            reasoning: currentMessage?.reasoning,
+            hasToolActivity: hasToolActivity
+        )
+
+        messageStore.setFinished(id: assistantID)
+        if isEmptyCompletion {
+            messageStore.update(id: assistantID) { msg in
+                msg.content = ProviderResponseValidationLogic.emptyCompletionMessage
+                msg.isFinished = true
+                msg.isStreaming = false
+            }
+        } else if streamingText.isEmpty {
+            messageStore.update(id: assistantID) { msg in
                 if msg.content.isEmpty {
                     msg.content = L.t(AppLocalizationKey.locTaskCompletedMessage)
                 }
