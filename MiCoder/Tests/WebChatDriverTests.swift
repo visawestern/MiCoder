@@ -11,6 +11,7 @@ struct WebChatDriverTests {
         var responseIndex = -1            // advances to 0 on the first send
         var url = "https://kimi.com/chat"
         var pageTextValue = "chat ready"
+        var evaluateValue: Any?
         var hasInput = true
         var hasSendButton = true
         var stopButtonVisible = false
@@ -64,6 +65,7 @@ struct WebChatDriverTests {
             return pageTextValue
         }
         func currentURL() async throws -> String { url }
+        func evaluateJS(_ script: String) async throws -> Any? { evaluateValue }
         func cookies() async throws -> [BrowserCookie] { cookiesValue }
         func setCookies(_ cookies: [BrowserCookie]) async throws { cookiesValue = cookies }
         func screenshot(selector: String?) async throws -> Data { Data("png".utf8) }
@@ -109,6 +111,16 @@ struct WebChatDriverTests {
         driver.pollIntervalMs = 0
         driver.stabilityChecks = 1
         return driver
+    }
+
+    @Test("Kimi resolves active chat identity from DOM when URL has no /chat/ UUID")
+    func kimiResolvesDomChatIdentityWithoutRouteUUID() async throws {
+        let bridge = FakeBridge(responses: ["done"])
+        bridge.url = "https://www.kimi.com/"
+        bridge.evaluateValue = ["kimi-chat-uuid-1234"]
+        let driver = makeDriver(bridge: bridge, executor: RecordingExecutor())
+
+        #expect(try await driver.getCurrentChatID() == "kimi-chat-uuid-1234")
     }
 
     @Test func finalAnswerWithNoToolCallEmitsFinal() async {

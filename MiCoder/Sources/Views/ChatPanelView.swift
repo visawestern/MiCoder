@@ -1535,14 +1535,18 @@ struct ChatPanelView: View {
 
         guard let newURL = try await driver.startNewSession(),
               let remoteID = try await driver.getCurrentChatID(),
-              !remoteID.isEmpty,
-              let remoteHost = URL(string: newURL)?.host,
+              let remoteURL = WebRemoteChatIdentityLogic.canonicalURL(
+                baseURL: newURL,
+                vendor: config.vendor,
+                chatID: remoteID
+              ),
+              let remoteHost = URL(string: remoteURL)?.host,
               remoteHost == providerHost else {
             throw WebChatError.remoteChatBindingFailed("The provider did not expose a verified remote chat UUID for this local project/chat. Sending was blocked to prevent context mixing.")
         }
         let mapping = WebRemoteChatMapping(key: key,
                                             remoteChatID: remoteID,
-                                            remoteURL: newURL,
+                                            remoteURL: remoteURL,
                                             verifiedTitle: appState.selectedSession?.title)
         appState.saveWebRemoteChatMapping(mapping)
         try? await bridge.waitForSelector(selector: driver.selectors.input, timeout: 10_000)

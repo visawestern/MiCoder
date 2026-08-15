@@ -200,6 +200,10 @@ enum WebModelDiscovery {
             for selector in candidateSelectors {
                 candidates.append(contentsOf: (try? await bridge.readModelCandidates(modelItemSelector: selector)) ?? [])
             }
+            // Some vendors render secondary model columns without the vendor's
+            // model-item class/role. Scan only visible menu surfaces as a bounded
+            // fallback; strict vendor validation still rejects headings/efforts.
+            candidates.append(contentsOf: (try? await bridge.readVisibleModelCandidates()) ?? [])
             let validNames = validatedNames(candidates, vendor: vendor)
             if !validNames.isEmpty {
                 let limited = vendor == .chatgpt && !includeAllModels ? Array(validNames.prefix(1)) : validNames
@@ -253,8 +257,9 @@ enum WebModelDiscovery {
         var names = initial.map(\.name)
         var seen = Set(names.map { $0.lowercased() })
         let expandLabels = [
-            "Expand more models", "Expand more", "More models", "Show more models",
-            "Ещё модели", "Показать ещё", "更多模型", "展开更多模型"
+            "Expand more models", "Expand models", "Expand more", "More models",
+            "Show more models", "Show all models", "View all models",
+            "Ещё модели", "Показать ещё", "Больше моделей", "更多模型", "展开更多模型", "展开更多"
         ]
         let expansionSelector = "button, a, [role='button'], [role='menuitem']"
         let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: vendor.id)
@@ -275,6 +280,7 @@ enum WebModelDiscovery {
                 for selector in candidateSelectors {
                     candidates.append(contentsOf: (try? await bridge.readModelCandidates(modelItemSelector: selector)) ?? [])
                 }
+                candidates.append(contentsOf: (try? await bridge.readVisibleModelCandidates()) ?? [])
                 let discovered = validatedNames(candidates, vendor: vendor)
                 var added = false
                 for name in discovered where seen.insert(name.lowercased()).inserted {
@@ -441,7 +447,8 @@ enum WebModelDiscovery {
                     }
                     await bridge.wait(ms: 500)
                 }
-                guard dropdownReady else { continue }
+                let triggerTexts = (try? await readVisibleTexts(using: bridge, selector: selector)) ?? []
+                guard dropdownReady, !triggerTexts.isEmpty else { continue }
                 try await bridge.click(selector: selector)
                 await bridge.wait(ms: 500)
                 let triggerText = (try? await bridge.readText(selector: selector)) ?? ""

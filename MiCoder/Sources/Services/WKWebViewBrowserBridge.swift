@@ -381,6 +381,60 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         return (try? JSONDecoder().decode([WebModelDOMItem].self, from: data)) ?? []
     }
 
+    func readVisibleModelCandidates() async throws -> [WebModelDOMItem] {
+        let js = """
+        (function(){
+          const visible = el => {
+            const style = window.getComputedStyle(el), rect = el.getBoundingClientRect();
+            return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+          };
+          const roots = Array.from(document.querySelectorAll(
+            '[role="listbox"], [role="menu"], [class*="model"], [class*="dropdown"], [class*="popover"], [class*="menu"]'
+          )).filter(visible);
+          const nodes = [];
+          roots.forEach(root => {
+            if (visible(root)) nodes.push(root);
+            root.querySelectorAll('*').forEach(el => { if (visible(el)) nodes.push(el); });
+          });
+          const result = [];
+          const seen = new Set();
+          nodes.forEach(el => {
+            const role = String(el.getAttribute('role') || '').toLowerCase();
+            const cls = String((el.className && el.className.toString()) || '');
+            const selectable = role === 'option' || role === 'menuitem' ||
+              el.tagName.toLowerCase() === 'button' || el.tagName.toLowerCase() === 'a' ||
+              /model|option|menu-item|select/i.test(cls) ||
+              el.hasAttribute('data-model-id') || el.hasAttribute('data-conversation-id');
+            if (!selectable) return;
+            const raw = String(el.getAttribute('aria-label') || el.innerText || el.textContent || '');
+            const label = raw.split(/\\n/).map(s => s.trim()).filter(Boolean)[0] || '';
+            if (!label || label.length > 100) return;
+            const nested = el.querySelector('[role="option"], [role="menuitem"], [class*="model-item"], [class*="model-option"]');
+            const parent = el.closest('[role="option"], [role="menuitem"], button, a, li');
+            const identity = el.getAttribute('data-model-id') || el.getAttribute('data-id') ||
+              el.getAttribute('data-conversation-id') || el.getAttribute('aria-label') ||
+              label + '|' + cls;
+            const key = String(identity) + '|' + label;
+            if (seen.has(key)) return;
+            seen.add(key);
+            result.push({
+              label: label,
+              identity: String(identity),
+              isVisible: true,
+              isSelectable: selectable || !!parent,
+              isDisabled: el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true',
+              isLeaf: !nested,
+              sourceSelector: 'visible-model-scan'
+            });
+          });
+          return JSON.stringify(result);
+        })();
+        """
+        guard let json = (try? await eval(js)) as? String,
+              let data = json.data(using: .utf8) else { return [] }
+        return (try? JSONDecoder().decode([WebModelDOMItem].self, from: data)) ?? []
+    }
+
     func evaluateJS(_ script: String) async throws -> Any? {
         try await eval(script)
     }

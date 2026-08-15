@@ -214,3 +214,23 @@ struct WebProviderCatalogTests {
         #expect(qwen.newChatTexts?.contains("Начать") == true)
     }
 }
+
+
+@Suite("Round 107 — strict effort and malformed-candidate regressions")
+struct Round107WebModelDiscoveryRegressionTests {
+    @Test("arbitrary model/page text never becomes a medium effort")
+    func arbitraryTextIsNotAnEffort() {
+        let raw = "Qwen3.8-Max\nThe flagship model delivering state-of-the-art performance\nModel comparison"
+        #expect(WebModelListParser.parseEffortLevels(dropdownText: raw, vendor: .qwen).isEmpty)
+        #expect(WebModelListParser.normalizeEffort("Qwen3.8-Max", vendor: .qwen) == nil)
+    }
+
+    @Test("known Qwen effort labels remain discoverable")
+    func knownEffortLabelsRemainDiscoverable() {
+        let efforts = WebModelListParser.parseEffortLevels(
+            dropdownText: "Fast\nAuto\nDeep thinking",
+            vendor: .qwen
+        )
+        #expect(efforts == [.low, .medium, .high])
+    }
+}

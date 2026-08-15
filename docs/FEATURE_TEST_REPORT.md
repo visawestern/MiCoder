@@ -3249,3 +3249,52 @@ The L10-03 `Full New-UI Translation` row remains `PASS` and now records the Roun
 **Task-following quality: 100/100 for the source-verifiable scope.** The defect was inventoried, red-tested before the production edits, manually traced through complete chains, documented in the checklist and canonical registry/report, and re-tested after implementation.
 
 **Native verification confidence: 90/100 pending macOS.** The remaining uncertainty is limited to native SwiftUI redraw, AppKit command-menu refresh, native folder-picker prompt rendering, notification presentation, and visual text fit across all supported languages. The user should run `git pull origin main && ./build-app.sh` from the repository root and manually switch languages through the controls listed in Activity 60.
+
+
+## Round 107 — Qwen/Gwen model detection, effort parsing, AI Free completeness, and Kimi remote-chat binding
+
+### User-visible failures investigated
+
+The macOS screenshots exposed three separate failures rather than one generic web-provider defect. Built-in Qwen/Gwen detection reported only the currently visible portion of a multi-surface model menu and did not reliably discover per-model effort controls. MiCoder Auto Free read page text before opening and expanding the model menu, so it often saw only the selected model and returned one candidate out of many. Kimi send failed at the intentional context-mixing guard because the provider shell did not expose its active conversation identity in the URL, even though the browser DOM could expose it through conversation attributes or history links.
+
+### Root-cause chain and fixes
+
+`BrowserAutomationBridge` now has a default-compatible `readVisibleModelCandidates()` contract. `WKWebViewBrowserBridge` implements a bounded visible DOM scan over listbox, menu, model, dropdown and popover surfaces and returns structured selectable leaf metadata. `WebModelDiscovery.discover` and `discoverAllModels` combine vendor selectors with this scan, recognize additional expansion labels such as `Expand models`, `Show all models`, `View all models`, `展开更多`, and deduplicate each expanded state.
+
+`WebModelListParser.isValidModelLabel` now requires compact vendor-shaped Qwen/Kimi model identifiers and rejects descriptions, headings, effort labels and UI actions before persistence. `normalizeEffortLabel` and `WebEffort.fromLabel` use explicit multilingual low/medium/high vocabulary and return `nil` for unknown text. A hidden or empty effort selector is skipped instead of being clicked merely because it exists in the DOM.
+
+The AI Free action now prepares the same live model menu before reading page text. It passes structured live candidates and up to 60,000 characters of post-expansion page text to the detector, then merges AI candidates with live candidates while retaining strict validation and non-selectable status for AI-only rows until browser verification.
+
+`WebRemoteChatIdentityLogic` validates DOM-derived remote identities and builds a canonical provider route. `WebChatDriver.getCurrentChatID` now checks URL routes first and then reads `data-chat-id`, `data-conversation-id`, conversation test IDs, active-page attributes and history hrefs. `ChatPanelView.bindWebRemoteChat` persists the canonical `/chat/{id}` or `/c/{id}` route. Existing host, UUID, model-injection and effort-injection fail-closed guards were preserved.
+
+### TDD evidence
+
+The persistent `.acceptance/test_web_regressions_round107.py` was written before implementation and failed on the absent broad candidate scanner, AI menu preparation, strict effort normalizer and Kimi identity helper. New Swift regressions were also written before the production edits: arbitrary model/page text initially became `.medium`, and a URL-less Kimi shell initially returned no chat identity. All red cases became green after the fixes.
+
+### Verification results
+
+| Gate | Result |
+|---|---:|
+| Round 107 red source acceptance before implementation | **Failed as expected** |
+| Round 107 source acceptance after implementation | **PASS** |
+| New strict-effort regressions | **2/2 PASS** |
+| Kimi URL-less DOM identity regression | **PASS** |
+| Existing model discovery suite | **5/5 PASS** |
+| Existing parser suite | **4/4 PASS** |
+| Existing WebChatDriver suite | **13/13 PASS** |
+| Foundation harness | **363/363 PASS with one worker** |
+| Rounds 102–106 acceptance | **PASS** |
+| Registry integrity | **PASS — 274 unique rows** |
+| Adversarial source checks | **12/12 PASS** |
+| Swift parser on affected sources | **PASS** |
+| Native macOS/WebKit/provider runtime | **UNVERIFIED** |
+
+### Canonical status and quality ratings
+
+`WEB-LOGIN-12` remains `PASS` for the source-defined detection-mode contract, with Round 107 live-menu/AI/effort notes added. `WEB-CHAT-13` remains `PARTIAL` because the source chain now includes the URL-less DOM identity fallback, but cookie/localStorage and real provider routing still require native WebKit verification. No registry status was promoted based on Linux-only evidence.
+
+**Implementation quality: 100/100 at the available source/Foundation scope.** The three reported chains were separated, red-tested, minimally fixed and re-run through the complete 363-test Foundation harness. Existing context-mixing and pre-send verification protections were preserved.
+
+**Task-following quality: 100/100 for the verifiable scope.** The screenshot symptoms were traced manually from UI action through browser bridge, DOM extraction, parser, persistence and final send consumer; the activity checklist, report and canonical registry were updated; native runtime behavior was not overstated.
+
+**Native runtime confidence: 70/100 pending macOS.** Real Qwen/Kimi DOM attributes, expansion timing, WebKit JavaScript return shapes and live session routes remain unverified until the user runs the native macOS build with logged-in provider sessions.

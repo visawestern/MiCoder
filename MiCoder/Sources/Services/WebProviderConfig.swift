@@ -54,9 +54,9 @@ enum WebEffort: String, Codable, CaseIterable, Identifiable, Equatable {
     /// Map a label string to a WebEffort.
     static func fromLabel(_ label: String) -> WebEffort? {
         let lower = label.lowercased()
-        if lower.contains("low") || lower.contains("низк") || lower.contains("快") || lower == "fast" { return .low }
-        if lower.contains("medium") || lower.contains("средн") || lower.contains("自动") || lower.contains("auto") { return .medium }
-        if lower.contains("high") || lower.contains("высок") || lower.contains("深度") || lower.contains("thinking") || lower.contains("深思") { return .high }
+        if lower.contains("low") || lower.contains("fast") || lower.contains("quick") || lower.contains("низк") || lower.contains("быстр") || lower.contains("快") || lower.contains("快速") || lower.contains("低") { return .low }
+        if lower.contains("medium") || lower.contains("standard") || lower.contains("balanced") || lower.contains("default") || lower.contains("средн") || lower.contains("авто") || lower.contains("自动") || lower.contains("auto") || lower.contains("标准") || lower.contains("中") { return .medium }
+        if lower.contains("high") || lower.contains("deep") || lower.contains("reasoning") || lower.contains("thinking") || lower.contains("высок") || lower.contains("глубок") || lower.contains("мышлен") || lower.contains("深度") || lower.contains("推理") || lower.contains("高") || lower.contains("深思") { return .high }
         return nil
     }
 }

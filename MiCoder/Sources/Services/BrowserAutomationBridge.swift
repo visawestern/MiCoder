@@ -46,6 +46,9 @@ protocol BrowserAutomationBridge {
     func readModelCandidates(modelItemSelector: String) async throws -> [WebModelDOMItem]
     /// Click a visible element whose normalized text exactly matches the label.
     @discardableResult func clickVisibleTextExact(selector: String, text: String) async throws -> Bool
+    /// Read selectable model labels from the currently open model surface,
+    /// including vendors whose menu items have no stable model class/role.
+    func readVisibleModelCandidates() async throws -> [WebModelDOMItem]
     /// Evaluate JavaScript in the web view and return the result.
     func evaluateJS(_ script: String) async throws -> Any?
 }
@@ -94,6 +97,16 @@ extension BrowserAutomationBridge {
 
     @discardableResult func clickVisibleTextExact(selector: String, text: String) async throws -> Bool {
         try await clickByText(selector: selector, text: text)
+    }
+
+    /// Default: reuse the structured selector fallback so existing test fakes
+    /// remain source-compatible while WKWebView supplies the broad DOM scan.
+    func readVisibleModelCandidates() async throws -> [WebModelDOMItem] {
+        var result: [WebModelDOMItem] = []
+        for selector in ["[role='option']", "[role='menuitem']", "[class*='model-item']", "[class*='model-option']"] {
+            result.append(contentsOf: try await readModelCandidates(modelItemSelector: selector))
+        }
+        return result
     }
 
     /// Default: no-op for test doubles without a real browser.

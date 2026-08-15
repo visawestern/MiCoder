@@ -71,14 +71,20 @@ enum WebModelListParser {
 
         switch vendor {
         case .qwen:
-            // Qwen's selectable labels are Qwen/Qwen-Coder family names. This
-            // rejects page headings while retaining Qwen3.x and coder branches.
-            return lower.contains("qwen") || lower.contains("qwencoder")
+            // Qwen's selectable labels are compact family IDs. Descriptions can
+            // mention Qwen3 too, so require a model-shaped token and reject
+            // sentence-like labels from broad DOM scans.
+            let words = normalized.split(separator: " ").count
+            let modelShape = lower.range(of: "\\bqwen(?:coder)?[ -]?[0-9]", options: .regularExpression) != nil
+                || lower.range(of: "\\bqwen[ -]?(?:max|plus|turbo|long|coder|vl)\\b", options: .regularExpression) != nil
+            return words <= 4 && modelShape && !lower.contains(". ") && !lower.contains(",")
         case .kimi:
-            // Kimi exposes K2/K3/Kimi/Moonshot families; effort labels have no
-            // model-family marker and are rejected above.
-            return lower.contains("kimi") || lower.contains("moonshot")
+            // Kimi exposes compact K2/K3/Kimi/Moonshot family labels; effort
+            // labels and prose are rejected before persistence.
+            let words = normalized.split(separator: " ").count
+            let modelShape = lower.contains("kimi") || lower.contains("moonshot")
                 || lower.range(of: "\\bk[0-9]", options: .regularExpression) != nil
+            return words <= 4 && modelShape && !lower.contains(". ") && !lower.contains(",")
         case .chatgpt:
             return isChatGPTModelLabel(normalized)
         case .custom:
@@ -127,55 +133,33 @@ enum WebModelListParser {
 
     /// Normalize a single dropdown label into an effort level, or nil if it's UI chrome.
     static func normalizeEffort(_ raw: String, vendor: WebChatVendor) -> WebEffort? {
+        normalizeEffortLabel(raw, vendor: vendor)
+    }
+
+    /// Explicit effort vocabulary. Unknown labels are rejected rather than
+    /// silently mapped to `.medium`; this prevents model names and menu prose
+    /// from appearing as a bogus effort control.
+    static func normalizeEffortLabel(_ raw: String, vendor: WebChatVendor) -> WebEffort? {
         var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !s.isEmpty else { return nil }
         // Strip leading selection markers / emojis commonly present in web menus.
         for prefix in ["✓", "✔", "•", "- ", "* "] {
             if s.hasPrefix(prefix) { s.removeFirst(prefix.count); s = s.trimmingCharacters(in: .whitespaces) }
         }
-        // Drop obvious non-effort UI entries (but NOT "auto"/"Авто" — it's a valid effort level).
         let lower = s.lowercased()
-        let noise = ["new", "upgrade", "plus", "pro plan", "manage", "settings",
-                     "see all", "more", "beta", "coming soon", "sign in", "log in",
-                     "default", "balanced", "creative", "precise"]
-        if noise.contains(lower) { return nil }
-        // Map vendor-specific labels to WebEffort (English + Chinese + Russian)
+        let compact = lower.replacingOccurrences(of: "[^a-zа-яё0-9一-龯]", with: "", options: .regularExpression)
+        let isLow = ["low", "fast", "quick", "низк", "быстр", "快速", "快", "低"].contains { compact.contains($0) }
+        let isHigh = ["high", "deep", "thinking", "reasoning", "высок", "глубок", "мышлен", "深度", "推理", "高"].contains { compact.contains($0) }
+        let isMedium = ["medium", "standard", "стандарт", "default", "balanced", "auto", "средн", "обыч", "авто", "标准", "自动", "中"].contains { compact.contains($0) }
+
+        // Vendor-specific controls share this vocabulary, but the final
+        // fallback is intentionally nil for every vendor.
         switch vendor {
-        case .kimi:
-            if lower.contains("thinking") || lower.contains("深度") || lower.contains("推理") || lower.contains("мышлен") || lower.contains("мышлени") || lower.contains("высок") || lower.contains("глубок") {
-                return .high
-            }
-            if lower.contains("快速") || lower.contains("快") || lower.contains("fast") || lower.contains("быстр") {
-                return .low
-            }
-            return .medium
-        case .qwen:
-            if lower.contains("deep") || lower.contains("深度") || lower.contains("推理") || lower.contains("thinking") || lower.contains("мышлен") || lower.contains("мышлени") || lower.contains("высок") || lower.contains("глубок") {
-                return .high
-            }
-            if lower.contains("快") || lower.contains("fast") || lower.contains("速度") || lower.contains("быстр") {
-                return .low
-            }
-            return .medium
-        case .chatgpt:
-            if lower.contains("high") || lower.contains("高") || lower.contains("pro") {
-                return .high
-            }
-            if lower.contains("low") || lower.contains("低") || lower.contains("快") {
-                return .low
-            }
-            if lower.contains("medium") || lower.contains("中") || lower.contains("balanced") {
-                return .medium
-            }
-            return .medium
-        case .custom:
-            if lower.contains("high") || lower.contains("高") || lower.contains("pro") || lower.contains("deep") || lower.contains("thinking") || lower.contains("мышлен") {
-                return .high
-            }
-            if lower.contains("low") || lower.contains("低") || lower.contains("快") || lower.contains("speed") || lower.contains("быстр") {
-                return .low
-            }
-            return .medium
+        case .kimi, .qwen, .chatgpt, .custom:
+            if isHigh { return .high }
+            if isLow { return .low }
+            if isMedium { return .medium }
+            return nil
         }
     }
 

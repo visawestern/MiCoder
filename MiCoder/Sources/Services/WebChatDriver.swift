@@ -518,22 +518,59 @@ struct WebChatDriver {
         return nil
     }
 
-    /// Extract the chat ID/slug from the current URL.
+    /// Extract the chat ID/slug from the current URL or the provider's active
+    /// conversation DOM. Kimi can keep the shell at `/` while exposing the
+    /// active UUID through data attributes/history links, so URL-only parsing
+    /// incorrectly blocked every first send.
     func getCurrentChatID() async throws -> String? {
         let url = try await bridge.currentURL()
-        // Kimi: /chat/{id}, Qwen: /chat/{id}, ChatGPT: /c/{id}
+        // Kimi/Qwen: /chat/{id}; ChatGPT: /c/{id}.
         let patterns = ["/chat/", "/c/"]
         for pattern in patterns {
             if let range = url.range(of: pattern) {
                 let after = url[range.upperBound...]
                 let pathPart = after.split(whereSeparator: { $0 == "/" || $0 == "?" || $0 == "#" }).first.map(String.init) ?? String(after)
-                let chatId = pathPart.trimmingCharacters(in: .whitespacesAndNewlines)
-                if chatId.count >= 4, chatId.rangeOfCharacter(from: .letters) != nil {
-                    return chatId
+                if let chatID = WebRemoteChatIdentityLogic.firstValid([pathPart]) {
+                    return chatID
                 }
             }
         }
-        return nil
+
+        let script = """
+        (function(){
+          const values = [];
+          const selectors = [
+            '[data-chat-id]', '[data-conversation-id]', '[data-conversationid]',
+            '[data-testid*="conversation" i]', '[aria-current="page"]',
+            'a[href*="/chat/"]', 'a[href*="/c/"]'
+          ];
+          selectors.forEach(selector => document.querySelectorAll(selector).forEach(el => {
+            ['data-chat-id', 'data-conversation-id', 'data-conversationid', 'data-testid', 'href'].forEach(attr => {
+              const value = el.getAttribute(attr);
+              if (!value) return;
+              if (attr === 'href') {
+                const parts = value.split(/[\\/?#]/).filter(Boolean);
+                if (parts.length) values.push(parts[parts.length - 1]);
+              } else {
+                values.push(value);
+              }
+            });
+          }));
+          return JSON.stringify(values);
+        })();
+        """
+        let raw = try await bridge.evaluateJS(script)
+        let candidates: [String]
+        if let json = raw as? String,
+           let data = json.data(using: .utf8),
+           let decoded = try? JSONDecoder().decode([String].self, from: data) {
+            candidates = decoded
+        } else if let decoded = raw as? [String] {
+            candidates = decoded
+        } else {
+            candidates = []
+        }
+        return WebRemoteChatIdentityLogic.firstValid(candidates)
     }
 
     /// Select a model in the web UI.
