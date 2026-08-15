@@ -88,13 +88,25 @@ enum ProjectFileIndexLogic {
         var toRemove: [String]     // relative paths no longer present
     }
 
+    /// Collapse malformed duplicate-path snapshots deterministically. The
+    /// scanner normally emits unique paths, but persisted JSON can be edited or
+    /// corrupted; the last record wins instead of trapping in Dictionary init.
+    static func recordsByPath(_ records: [FileIndexRecord]) -> [String: FileIndexRecord] {
+        var result: [String: FileIndexRecord] = [:]
+        for record in records {
+            result[record.path] = record
+        }
+        return result
+    }
+
     static func computeDelta(current: [FileIndexRecord], scanned: [FileIndexRecord]) -> IndexDelta {
-        let currentByPath = Dictionary(uniqueKeysWithValues: current.map { ($0.path, $0) })
-        let scannedPaths = Set(scanned.map { $0.path })
+        let currentByPath = recordsByPath(current)
+        let scannedByPath = recordsByPath(scanned)
 
         var toUpsert: [FileIndexRecord] = []
-        for file in scanned {
-            if let existing = currentByPath[file.path] {
+        for path in scannedByPath.keys.sorted() {
+            guard let file = scannedByPath[path] else { continue }
+            if let existing = currentByPath[path] {
                 // Re-index only if hash or mtime changed (plan Блок 3 п.26).
                 if existing.hash != file.hash || existing.lastModified != file.lastModified {
                     toUpsert.append(file)
@@ -104,7 +116,7 @@ enum ProjectFileIndexLogic {
             }
         }
         // Removed = in current but not in scan (plan Блок 3 п.27).
-        let toRemove = current.map { $0.path }.filter { !scannedPaths.contains($0) }
+        let toRemove = currentByPath.keys.filter { scannedByPath[$0] == nil }.sorted()
         return IndexDelta(toUpsert: toUpsert, toRemove: toRemove)
     }
 

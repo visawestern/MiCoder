@@ -19,17 +19,18 @@ enum ProjectFileIndexPersistenceLogic {
         current: [FileIndexRecord],
         scanned: [FileIndexRecord]
     ) -> [FileIndexRecord] {
-        var byPath: [String: FileIndexRecord] = Dictionary(uniqueKeysWithValues: current.map { ($0.path, $0) })
-        let scannedPaths = Set(scanned.map(\.path))
-        for record in scanned {
-            if let existing = byPath[record.path],
+        var byPath = ProjectFileIndexLogic.recordsByPath(current)
+        let scannedByPath = ProjectFileIndexLogic.recordsByPath(scanned)
+        for path in scannedByPath.keys.sorted() {
+            guard let record = scannedByPath[path] else { continue }
+            if let existing = byPath[path],
                existing.hash == record.hash,
                existing.lastModified == record.lastModified {
                 continue
             }
-            byPath[record.path] = record
+            byPath[path] = record
         }
-        for path in current.map(\.path) where !scannedPaths.contains(path) {
+        for path in byPath.keys where scannedByPath[path] == nil {
             byPath.removeValue(forKey: path)
         }
         return byPath.values.sorted { $0.path < $1.path }

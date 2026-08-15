@@ -1678,3 +1678,41 @@ PROV-08 remains **PARTIAL**. Linux cannot execute URLSession against real provid
 | Target-runtime confidence | 0/100 | Linux cannot execute URLSession, Keychain, SwiftUI settings, or real provider endpoints. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `PROV-08` remains PARTIAL because payload validation is fixed and contract-tested, while native settings, credentials, network, and endpoint runtime remain unverified.
+
+## Round 72 — Resilient duplicate-path file-index deltas
+
+### Scope and chain audit
+
+The sequential audit continued at `STO-06 File Index Logic`. The chain was traced from project/workspace selection and the `@` file suggestion path through `ProjectFileScanner`, `FileIndexRecord`, `ProjectFileIndexLogic.shouldExclude/shouldIndex/computeDelta`, `ProjectFileIndexPersistenceLogic.applyDelta`, `ProjectFileIndexStore`, watcher invalidation, and downstream file context.
+
+The normal scanner emits unique sorted relative paths, but persisted JSON is an external boundary. Both delta implementations constructed dictionaries with `Dictionary(uniqueKeysWithValues:)`; a duplicate path in a malformed or manually edited snapshot caused a fatal runtime trap during refresh or relaunch.
+
+### TDD defect confirmation and fix
+
+`ProjectFileIndexDuplicateRecordTests` was written first. After adding only the required Foundation/index fixtures to the harness, the red run reached the intended duplicate-key fatal crash. The green fix adds `ProjectFileIndexLogic.recordsByPath`, where the last record for a path wins deterministically. `computeDelta` and `applyDelta` both use this helper, iterate scanned keys in sorted order, and return deterministic output without crashing.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red duplicate-path regression | **failed as expected** | Production dictionary trap reached in harness |
+| Green duplicate-path regressions | **2/2 passed** | `computeDelta` and `applyDelta` recover deterministically |
+| Full Foundation harness | **242/242 passed** | Existing contracts plus STO-06 regressions |
+| Swift parser validation | **passed** | Record, logic, persistence sources |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| macOS file I/O/FSEvents | **UNVERIFIED/PARTIAL** | Requires native runtime |
+| Persistent SQLite/FTS | **MISSING** | Separate IDX-03 capability |
+
+### Remaining STO-06 limitations
+
+STO-06 remains **PARTIAL**. Project-scoped JSON persistence, hash/mtime delta computation, exclusion rules, duplicate-path recovery, and deterministic output are covered. CoreServices watcher behavior is implemented but live macOS event delivery, shutdown, and permissions remain unverified. Full persistent SQLite/FTS search remains missing and is tracked separately as IDX-03; this round does not claim that JSON snapshots constitute FTS.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 94/100 | Malformed duplicate snapshots no longer crash index refresh and output order is deterministic; FTS, native file I/O, and live watcher behavior remain. |
+| Task adherence | 100/100 | Every STO-06 function and action was traced, the confirmed crash received a red regression before the fix, and missing/runtime-only behavior remains honestly classified. |
+| Target-runtime confidence | 0/100 | Linux cannot execute macOS file I/O, CoreServices FSEvents, SwiftUI, or SQLite/FTS runtime behavior. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `STO-06` remains PARTIAL because duplicate-path recovery is fixed and contract-tested, while live watcher behavior and persistent FTS remain outside this verifiable scope.
