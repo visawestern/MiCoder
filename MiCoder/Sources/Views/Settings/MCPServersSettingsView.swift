@@ -92,6 +92,7 @@ struct InstalledMCPRow: View {
 
     @State private var showRemoveConfirmation = false
     @State private var healthStatus: MCPHealthStatus = .unknown
+    @State private var mutationError: String?
 
     private var configURL: URL {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".micoder/mcp.json")
@@ -120,6 +121,12 @@ struct InstalledMCPRow: View {
                         .interfaceFont(size: 11, design: .monospaced)
                         .foregroundColor(Color.mimo.textMuted)
                         .lineLimit(1)
+                }
+                if let mutationError {
+                    Text(mutationError)
+                        .interfaceFont(size: 10)
+                        .foregroundColor(Color.mimo.error)
+                        .lineLimit(2)
                 }
             }
             Spacer()
@@ -193,35 +200,33 @@ struct InstalledMCPRow: View {
         _ = session.beginCheck(server.id); session.update(server.id, .unknown)
     }
 
-    private func mutateConfig(_ transform: (inout [String: Any]) -> Void) {
-        guard let data = try? Data(contentsOf: configURL),
-              var root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              var servers = root["mcpServers"] as? [String: Any],
-              var entry = servers[server.id] as? [String: Any] else { return }
-        transform(&entry)
-        servers[server.id] = entry
-        root["mcpServers"] = servers
-        if let out = try? JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys]) {
-            try? out.write(to: configURL, options: .atomic)
-        }
-    }
-
     private func setDisabled(_ disabled: Bool) {
-        mutateConfig { $0["disabled"] = disabled }
-        _ = try? MCPRegistryManager.setEnabled(id: server.id, enabled: !disabled, homeDirectory: home)
-        onChanged()
+        mutationError = nil
+        do {
+            let data = try Data(contentsOf: configURL)
+            let output = try MCPConfigMutationLogic.setDisabled(data: data, id: server.id, disabled: disabled)
+            try output.write(to: configURL, options: .atomic)
+            guard try MCPRegistryManager.setEnabled(id: server.id, enabled: !disabled, homeDirectory: home) else {
+                throw MCPConfigMutationError.targetMissing(server.id)
+            }
+            onChanged()
+        } catch {
+            mutationError = error.localizedDescription
+        }
     }
 
     private func remove() {
-        guard let data = try? Data(contentsOf: configURL),
-              var root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              var servers = root["mcpServers"] as? [String: Any] else { return }
-        servers.removeValue(forKey: server.id)
-        root["mcpServers"] = servers
-        if let out = try? JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys]) {
-            try? out.write(to: configURL, options: .atomic)
+        mutationError = nil
+        do {
+            let data = try Data(contentsOf: configURL)
+            let output = try MCPConfigMutationLogic.remove(data: data, id: server.id)
+            try output.write(to: configURL, options: .atomic)
+            guard try MCPRegistryManager.remove(id: server.id, homeDirectory: home) else {
+                throw MCPConfigMutationError.targetMissing(server.id)
+            }
+            onChanged()
+        } catch {
+            mutationError = error.localizedDescription
         }
-        _ = try? MCPRegistryManager.remove(id: server.id, homeDirectory: home)
-        onChanged()
     }
 }

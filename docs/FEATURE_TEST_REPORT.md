@@ -1397,3 +1397,43 @@ SET-04 remains **PARTIAL**. There are no bulk enable/disable/update/remove contr
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit alerts, Settings presentation, bundled-resource packaging, or native filesystem integration. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `SET-04` remains PARTIAL because the core install/update/dependency-hint path is implemented and the two confirmed defects are fixed, while bulk actions, export/import, transactional failure handling, and native runtime verification remain incomplete.
+
+## Round 65 — MCP configuration mutation safety
+
+### Scope and chain audit
+
+The sequential audit continued at `SET-05 MCP Server Management`. The chain was traced from Settings tab selection into `MCPServersSettingsView`, catalog install/update/uninstall cards, configured-server search/count/empty state, `AgentResourcesLoader`, `MCPConfigMutationLogic`, `MCPRegistryManager`, health cache/checker/prober, and the installed-row enable/disable/remove controls.
+
+The existing registry note was stale: MCP catalog install, update, and uninstall paths already existed. The confirmed defect was lower-level and more dangerous: installed-row enable/disable and remove used silent `guard`/`try?` mutations and called `onChanged` as if the operation had succeeded. A missing target, malformed config, failed write, or failed registry update could therefore leave the configuration and registry inconsistent without user feedback.
+
+### TDD defect confirmation and fix
+
+`MCPConfigMutationLogicTests` was written before the production helper. The red run failed because `MCPConfigMutationError` and `MCPConfigMutationLogic` did not exist. The green implementation now validates the JSON root and `mcpServers` object, requires the target id, preserves sibling servers, produces typed errors, and encodes deterministic output.
+
+`InstalledMCPRow` now writes the tested mutation result, updates registry metadata only after the config write succeeds, calls `onChanged` only after both persistence steps succeed, and renders a visible error message when either step fails. The existing destructive confirmation remains in the row. The MCP library uninstall branch is still not guarded by a dedicated confirmation policy, so that gap remains PARTIAL rather than being claimed complete.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red MCP mutation regression | **failed as expected** | Missing typed mutation contract |
+| Green MCP mutation regressions | **3/3 passed** | Sibling preservation, missing-target failure, and remove behavior |
+| Full Foundation harness | **209/209 passed** | Existing contracts plus Round 65 MCP tests |
+| Swift parser validation | **passed** | MCP mutation helper and MCP settings source |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Native SwiftUI/AppKit interaction | **UNVERIFIED** | Requires macOS runtime |
+| Live HTTP/stdio health probes | **UNVERIFIED** | Requires real MCP endpoints/processes |
+
+### Remaining SET-05 limitations
+
+SET-05 remains **PARTIAL**. There is no editable MCP configuration form, install-set/bulk management, or dedicated MCP library uninstall confirmation. Config and registry persistence is not transactional across a registry failure after a successful config write; the failure is now surfaced, but rollback is a future hardening candidate. Health caching is keyed by server id and can retain a stale status if the same id’s endpoint changes in one app session. Live network/token fetching, stdio probing, SwiftUI rendering, AppKit Settings interaction, and packaged catalog behavior remain unverified on Linux.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 93/100 | Silent config mutation is fixed with a pure tested contract and inline error path; rollback, stale-cache invalidation, editable configuration, bulk actions, and live runtime remain. |
+| Task adherence | 100/100 | Every MCP action was traced, red tests preceded the confirmed fix, canonical registry/checklist/report updates were prepared, and missing capabilities remain PARTIAL. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit, live MCP network/stdio probes, or bundled macOS runtime behavior. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `SET-05` remains PARTIAL because the core install/update/health/enable/disable/remove paths exist and silent mutation failure is fixed, while edit, install-set/bulk, rollback, dedicated library confirmation, and native runtime verification remain incomplete.
