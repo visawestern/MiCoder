@@ -13,11 +13,13 @@ import WebKit
 enum WKWebViewBridgeError: LocalizedError {
     case invalidURL(String)
     case elementNotFound(String)
+    case navigationTimeout
 
     var errorDescription: String? {
         switch self {
         case .invalidURL(let url): return "Invalid web provider URL: \(url)"
         case .elementNotFound(let selector): return "Web provider element not found: \(selector)"
+        case .navigationTimeout: return WebBrowserTransportLogic.navigationTimeoutMessage
         }
     }
 }
@@ -37,12 +39,16 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         webView.load(URLRequest(url: u))
         // Wait for page to start loading
         await wait(ms: 500)
-        // Wait for document readyState === 'complete'
+        // Wait for document readyState === 'complete'. A timeout is a
+        // transport failure, not a successful navigation with a half-loaded DOM.
         for _ in 0..<30 {
             let ready = (try? await eval("document.readyState === 'complete'")) as? Bool ?? false
-            if ready { return }
+            if case .ready = WebBrowserTransportLogic.navigationOutcome(documentReady: ready) {
+                return
+            }
             await wait(ms: 500)
         }
+        throw WKWebViewBridgeError.navigationTimeout
     }
 
     func typeText(_ text: String, into selector: String, humanized: Bool) async throws {
@@ -402,6 +408,9 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
             var props: [HTTPCookiePropertyKey: Any] = [
                 .name: c.name, .value: c.value, .domain: c.domain, .path: c.path
             ]
+            let attributes = WebCookieRestoreLogic.attributes(for: c)
+            if attributes.secure { props[.secure] = "TRUE" }
+            if attributes.httpOnly { props[HTTPCookiePropertyKey("HttpOnly")] = "TRUE" }
             if let exp = c.expiresEpoch { props[.expires] = Date(timeIntervalSince1970: exp) }
             if let cookie = HTTPCookie(properties: props) {
                 await store.setCookie(cookie)

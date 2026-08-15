@@ -1962,3 +1962,45 @@ Red regressions were added to `ProviderResponseValidationLogicTests` before impl
 | Target-runtime confidence | 0/100 | Linux cannot execute native SwiftUI/AppKit message rendering or live Serve/SSE timing. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `ERR-03` remains PARTIAL because validation and blank-completion handling are fixed and contract-tested, while native rendering and live Serve/SSE behavior remain outside the verifiable scope.
+
+## Round 79 — Fail closed on browser navigation timeout and preserve cookie security
+
+### Scope and chain audit
+
+The sequential audit continued at `WEB-05 Browser Transport (WKWebView)`. The chain was traced from persisted transport selection and runtime labels through `WKWebViewBrowserBridge` navigation, readyState polling, JavaScript evaluation, text injection, click helpers, selector waits, DOM text/fingerprint reads, model candidate discovery, cookie capture/restoration, localStorage restoration, screenshots, stop-generation fallback, and WebChatDriver consumers.
+
+Round 66 correctly removed the false claim that legacy CDP attached to external Chrome. The fresh audit found two additional transport-boundary defects. `navigate(to:)` polled readyState for 15 seconds and then returned without indicating that the page never became ready. `setCookies` captured secure/httpOnly fields into `BrowserCookie` but rebuilt HTTPCookie values without either property, weakening restored session fidelity.
+
+### TDD defect confirmation and fix
+
+`WebBrowserTransportLogicTests` was written before implementation. The red run failed because explicit navigation-timeout and cookie-attribute contracts did not exist. The green implementation adds a bounded navigation outcome/message contract and a cookie-attribute mapper. `WKWebViewBrowserBridge.navigate` now throws `navigationTimeout` after readyState polling expires. `setCookies` forwards secure and httpOnly properties to HTTPCookie when rebuilding cookies.
+
+The audit also records two remaining source limitations rather than falsely claiming completion: the `selector` argument of `screenshot(selector:)` is ignored and the `waitForSelector` timeout currently returns without throwing. External Playwright MCP/CDP transport remains absent by design; runtime labels remain honest.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red transport regressions | **failed as expected** | Timeout/cookie contracts absent before implementation |
+| Green transport regressions | **3/3 passed** | Ready timeout, secure/httpOnly preservation, false flags |
+| Full Foundation harness | **260/260 passed** | Existing contracts plus WEB-05 regressions |
+| Swift parser validation | **passed** | Transport helper and WKWebView bridge |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Live WKWebView navigation/cookies | **UNVERIFIED** | Requires macOS/WebKit and vendor pages |
+| External Playwright MCP/CDP | **MISSING** | No production external transport exists; label is honest |
+| Selector-scoped screenshot | **PARTIAL** | Current bridge takes a page snapshot and ignores selector argument |
+| Selector wait expiry | **PARTIAL** | Bounded wait exists but expiry is not thrown to callers |
+
+### Remaining WEB-05 limitations
+
+`WEB-05` remains **PARTIAL**. The supported runtime is honestly identified as an isolated WKWebView; navigation timeout now fails closed and cookie security flags survive restoration. External Playwright/CDP transports, live WebKit behavior, selector-scoped screenshots, and throwing selector-wait expiry remain incomplete or unverified.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 95/100 | Silent navigation success and cookie-security loss are fixed with narrow contracts; selector-scoped screenshots, wait-expiry propagation, and native runtime verification remain. |
+| Task adherence | 100/100 | Every transport, navigation, DOM, cookie, storage, screenshot, stop, and error action was traced; red tests preceded the confirmed fixes; canonical documentation was updated; unsupported runtime behavior remains explicitly UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or live vendor pages. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-05` remains PARTIAL because WKWebView behavior is hardened and contract-tested, while external transports, selector-scoped screenshots, wait-expiry propagation, and native WebKit verification remain incomplete.
