@@ -472,7 +472,11 @@ struct CenteredInputCard: View {
         CompactChatPromptField(
             text: $messageText,
             placeholder: MiMoCopy.promptPlaceholder(language: appState.appLanguage),
-            onSubmit: { hasAttemptedSend = true; onSend() },
+            onSubmit: {
+                hasAttemptedSend = true
+                guard SendButtonActivationLogic.canInvokeSend(canSend: canSend, isLoading: isLoading) else { return }
+                onSend()
+            },
             focusRequest: appState.inputFocusRequest,
             maxHeightOverride: maxTextHeight
         )
@@ -595,7 +599,10 @@ struct BottomInputBar: View {
             CompactMessageTextField(
                 text: $messageText,
                 placeholder: MiMoCopy.followUpPlaceholder(language: appState.appLanguage),
-                onSubmit: onSend,
+                onSubmit: {
+                    guard SendButtonActivationLogic.canInvokeSend(canSend: canSend, isLoading: isLoading) else { return }
+                    onSend()
+                },
                 compactSingleLine: messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                 focusRequest: appState.inputFocusRequest
             )

@@ -1562,3 +1562,41 @@ WEB-06 remains **PARTIAL**. The Linux harness verifies session/model selection c
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or authenticated vendor pages. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-06` remains PARTIAL because provider eligibility and stale-model fallback are fixed and contract-tested, while live vendor discovery and native runtime remain unverified.
+
+## Round 69 — Unified Send button and keyboard activation gate
+
+### Scope and chain audit
+
+The sequential audit continued at `INP-10 Send Button`. The chain was traced from `ChatPanelView` and `EmptyChatStateView` into `CenteredInputCard`, `BottomInputBar`, `MessageInputToolbar`, `SendStopButton`, `CompactMessageTextField`, `ZeroInsetTextField`, `SendReadinessLogic`, `SendReadinessReason`, `MessageQueue`, attachment paths, route resolution, and `sendDirectly`.
+
+The visible Send icon already obeyed `canSend` and changed to Stop while loading. The confirmed defect was a second activation path: the centered composer used `onSubmit: { hasAttemptedSend = true; onSend() }`, and the bottom composer passed `onSubmit: onSend`. Pressing Enter could therefore invoke `sendDirectly` while the visible Send button was disabled or while the UI was loading and should have exposed only Stop.
+
+### TDD defect confirmation and fix
+
+`SendButtonActivationLogicTests` was written before the production contract. The red run failed because `SendButtonActivationLogic` did not exist. The green contract returns true only when `canSend` is true and `isLoading` is false. Both centered and bottom Enter callbacks now use this guard. The centered path still records `hasAttemptedSend` before returning, so an empty-input attempt produces the intended readiness explanation without invoking a rejected send.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red keyboard activation regressions | **failed as expected** | Missing shared activation contract |
+| Green activation regressions | **3/3 passed** | Ready/idle allow, invalid/loading block |
+| Full Foundation harness | **232/232 passed** | Existing contracts plus INP-10 regressions |
+| Swift parser validation | **passed** | Activation logic and InputViews |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Native SwiftUI/AppKit interaction | **UNVERIFIED** | Requires macOS runtime |
+| Keyboard/accessibility behavior | **UNVERIFIED** | Requires native event and VoiceOver runtime |
+
+### Remaining INP-10 limitations
+
+INP-10 remains **PARTIAL**. Linux cannot execute SwiftUI/AppKit rendering, keyboard event delivery, accessibility/VoiceOver, native file/photo pickers, or live provider stop behavior. The visible Send button and both keyboard paths now share one tested activation gate, while route-level runtime failures continue to be handled by `sendDirectly` validation and persistence guards.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 94/100 | Button and keyboard routes share one ready/idle contract; native keyboard/accessibility, picker, and live cancellation behavior remain. |
+| Task adherence | 100/100 | Every visible send/stop action and underlying function was traced, the confirmed bypass received a red test before the fix, and native-only behavior is explicitly UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit keyboard, accessibility, picker, or provider runtime behavior. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `INP-10` remains PARTIAL because the source-level activation contract is fixed and tested, while native interaction and live provider cancellation remain unverified.
