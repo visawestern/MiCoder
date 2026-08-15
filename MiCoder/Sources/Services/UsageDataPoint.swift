@@ -10,5 +10,15 @@ struct UsageDataPoint: Equatable {
     let completionTokens: Int
     let costUSD: Double?
 
+    init(timestamp: Date, model: String, provider: String,
+         promptTokens: Int, completionTokens: Int, costUSD: Double?) {
+        self.timestamp = timestamp
+        self.model = model
+        self.provider = provider
+        self.promptTokens = promptTokens
+        self.completionTokens = completionTokens
+        self.costUSD = UsageCostSafety.sanitized(costUSD)
+    }
+
     var totalTokens: Int { promptTokens + completionTokens }
 }

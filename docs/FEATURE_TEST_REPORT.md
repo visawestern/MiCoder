@@ -2123,3 +2123,47 @@ The resulting count intentionally represents usage-bearing records shown by the 
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit or validate user-scale database/UI timing. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `USG-02` remains PARTIAL because the range-consistent usage data contract is hardened and tested, while synchronous loading, visible source-read errors, and native SwiftUI rendering remain incomplete or unverified.
+
+## Round 83 — Make Cost per Model reject invalid provider charges
+
+### Scope and chain audit
+
+The sequential audit continued at `USG-03 Cost per Model`. Every cost-bearing chain was traced from the send route to the Usage screen: `DirectChatClient.parseResponse` and its `usage.cost_usd`/`usage.cost` extraction; the ACP response-to-`UsageCapture` adapter; the Auto Free, WebKit, and MiMo Serve branches that do not currently create usage captures; `MessageStore.update`; `DatabaseBridge`; legacy `DatabaseManager`; per-project `ProjectDatabaseManager`; `UsageDataPoint`; `UsageDataSourcesLogic.merge`; `UsageStatisticsAggregator`; and `UsageSettingsView` per-model rows and total-cost cards.
+
+Round 63 already fixed the source-selection defect that excluded project databases. The devil’s-advocate pass then asked whether a correct nullable-cost design could still display a malformed numeric value. It could: `UsageCapture` previously stored provider-reported negative, NaN, and infinite values verbatim, and `costLabel` formatted them as `$-0.25`, `$nan`, or `$inf`. This was a confirmed logical and UX defect because the UI represented an invalid provider value as a real monetary charge.
+
+The same trace confirms the remaining intentional boundary: the app does not invent provider-specific pricing. Direct OpenAI-compatible gateways may contribute a provider-reported cost; ACP may contribute tokens but its adapter sets cost to nil; Auto Free, Web providers, and MiMo Serve have no trusted usage/cost payload in the traced send chain. Those rows remain N/A or absent rather than being fabricated as `$0.00`.
+
+### TDD defect confirmation and fix
+
+`UsageCostSafetyTests.swift` was written before the production change. The red run failed with `UsageDataPoint.costUSD → -0.25`, `UsageDataPoint.costUSD → nan`, `UsageCapture.costUSD → -inf`, and labels `$-0.25`, `$nan`, `$inf`, and `$-1.00` where the contract required `nil`/`N/A`. The valid zero-cost test already passed, establishing that the fix must not collapse a genuine free charge into unknown cost.
+
+`UsageCostSafety.sanitized` now returns nil for missing, negative, NaN, or infinite values and preserves every finite non-negative value, including zero. The invariant is applied at three boundaries: `UsageCapture.init` before persistence, `UsageDataPoint.init` after database reconstruction, and `UsageStatisticsAggregator.costLabel` as a final defensive display gate. This prevents malformed values from entering storage-derived aggregates and also protects the formatter if a malformed aggregate is constructed by another caller.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red USG-03 cost-safety run | **failed as expected** | Invalid values passed through before implementation |
+| Green `UsageCostSafetyTests` | **5/5 passed** | Negative, NaN, infinity, zero, and defensive labels |
+| Full Foundation harness | **270/270 passed** | Linux-compatible contracts and all prior rounds |
+| Swift parser validation | **passed** | Modified production and test files |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| `git diff --check` | **passed** | No trailing whitespace |
+| Native Usage SwiftUI rendering | **UNVERIFIED** | Requires macOS runtime |
+| Live provider cost payloads | **UNVERIFIED** | Requires real gateway/browser/Serve responses |
+| Provider-specific pricing | **UNVERIFIED/PARTIAL** | No trusted pricing table is embedded or available for all routes |
+
+### Remaining USG-03 limitations
+
+`USG-03` remains **PARTIAL**. Project-scoped rows, deterministic cross-source aggregation, normalized model grouping, nullable-cost semantics, finite-cost safety, and per-model cost labels are now contract-tested. Provider-specific pricing, usage capture from Auto Free/Web/Serve, visible database-read failure UX, and native SwiftUI rendering remain incomplete or unverified. The app deliberately does not fabricate prices for routes that do not expose trustworthy billing metadata.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 97/100 | Cost safety is centralized and enforced at capture, reconstruction, and display boundaries; valid zero is preserved; the full harness is green. Synchronous large-DB loading and silent source-read failures remain. |
+| Task adherence | 100/100 | Every provider branch, persistence boundary, aggregation function, label, row, empty state, and failure path was traced; red tests preceded the fix; the canonical registry, checklist, and cumulative report were updated; runtime limits remain explicit. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or validate live provider/browser usage metadata. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `USG-03` remains PARTIAL because malformed-cost safety and project aggregation are fixed and tested, while provider-specific pricing and native/runtime verification remain incomplete.

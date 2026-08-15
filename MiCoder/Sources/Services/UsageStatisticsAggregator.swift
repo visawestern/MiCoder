@@ -1,5 +1,14 @@
 import Foundation
 
+/// Cost values are provider-reported data, not estimates. A missing, negative,
+/// NaN, or infinite value cannot be presented as a monetary charge.
+enum UsageCostSafety {
+    static func sanitized(_ costUSD: Double?) -> Double? {
+        guard let costUSD, costUSD.isFinite, costUSD >= 0 else { return nil }
+        return costUSD
+    }
+}
+
 /// Runtime usage captured from a provider response before persistence.
 /// `costUSD` is nil for local providers (Ollama/mimoCLI) where no price applies.
 struct UsageCapture: Equatable {
@@ -14,7 +23,7 @@ struct UsageCapture: Equatable {
     init(promptTokens: Int, completionTokens: Int, costUSD: Double?, modelID: String, providerID: String) {
         self.promptTokens = promptTokens
         self.completionTokens = completionTokens
-        self.costUSD = costUSD
+        self.costUSD = UsageCostSafety.sanitized(costUSD)
         self.modelID = modelID.isEmpty ? "unknown" : modelID
         self.providerID = providerID.isEmpty ? "unknown" : providerID
     }
@@ -138,7 +147,7 @@ enum UsageStatisticsAggregator {
     /// Cost display: "N/A" for local providers, formatted USD otherwise
     /// (plan Блок 2 п.22 — no misleading "$0.00").
     static func costLabel(_ cost: Double?) -> String {
-        guard let cost = cost else { return "N/A" }
+        guard let cost = UsageCostSafety.sanitized(cost) else { return "N/A" }
         return String(format: "$%.2f", cost)
     }
 }
