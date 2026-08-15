@@ -1186,3 +1186,45 @@ MiCoder Auto Free carries effective model, history, system prompt, attachments, 
 | Overall verifiable project quality | 99/100 | 99/100 | 189/189 harness, parser, 12/12 source checks; live target remains required |
 
 The canonical registry remains **274 rows** and now reports **224 PASS, 40 PARTIAL, 5 MISSING, and 5 FUTURE**. Activity 14 is documented in full; the next audit must continue sequentially from the following activity checklist and must preserve the same TDD, chain-trace, source-verification, documentation, and commit/push discipline.
+
+
+## Round 60 — Global recheck: project indexing and file search
+
+### Scope and chain audit
+
+The global registry recheck resumed at the earliest remaining non-PASS stories after Activity 14: `STO-06 File Index Logic` and `STO-07 FSEvents Dynamic Reindexing`. The audit traced the Indexing settings tab, `indexNewFolders` and `indexRepositories` bindings, `AppState.inputDropdownContext()`, `ProjectFilesCacheLogic`, `ProjectFileScanner`, `ProjectFileIndexLogic`, hash/mtime delta computation, the `@` input dropdown, and every repository reference to FSEvents, `file_index`, FTS, and indexing status.
+
+### Confirmed defect — file index was only an in-memory TTL cache
+
+The scanner and delta code existed, but `inputDropdownContext()` retained only file names in a 30-second `ProjectFilesCacheState`. A new launch or cache refresh had no persisted records to compare against, and source search found no project-local index store. Round 60 adds the codable `ProjectFileIndexSnapshot`, dependency-free `ProjectFileIndexPersistenceLogic`, shared `FileIndexRecord`, and production `ProjectFileIndexStore`. On rescan, AppState loads the project snapshot, scans current files, applies hash/mtime delta semantics, saves `<project>/.micoder/file_index.json`, and feeds the cache from the resulting records. The snapshot embeds and validates the project path to prevent cross-project reuse.
+
+### Confirmed UX defect — indexing toggles had no consumer
+
+`IndexingSettingsView` persisted `indexNewFolders` and `indexRepositories`, but no FSEvents watcher or scanner path consumed either setting. The UI therefore implied automatic behavior that did not exist. The toggles are now disabled and accompanied by an honest message that automatic indexing is unavailable and `@` suggestions refresh on demand. Preferences remain stored for future watcher activation rather than being silently discarded.
+
+### Explicitly unresolved capabilities
+
+A repository-wide source audit found no FSEventStream subscription, watcher lifecycle, persistent SQLite `file_index` table, FTS schema/query API, or automatic indexing status consumer. `STO-07` remains **MISSING**. Persistent FTS remains unimplemented. These are not represented as PASS and require a future macOS-specific round with red tests for debounce, create/delete/rename, project switching, watcher shutdown, and file-permission errors.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| New index persistence/settings regressions | **3/3 passed** | Foundation contracts |
+| Full Foundation harness | **192/192 passed** | Linux-compatible logic and fake browser contracts |
+| Index scanner/delta tests | **passed in full harness** | Deterministic scan/exclusion/hash behavior |
+| Swift parser validation | **passed** | Index/AppState/settings syntax; no framework typecheck |
+| macOS file I/O and SwiftUI Indexing settings | **UNVERIFIED** | Requires macOS build |
+| FSEvents dynamic reindexing | **MISSING** | No implementation exists |
+| SQLite/FTS persistent search | **MISSING** | No implementation exists |
+| `git diff --check` | **passed** | Repository hygiene |
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 96/100 | Project-scoped persistence and honest disabled settings are deterministic; FSEvents/FTS remain outside scope and macOS I/O is unavailable |
+| Task adherence | 100/100 | Every indexing control and function was traced, red tests preceded the core fix, and missing capabilities remain explicitly marked |
+| Target-runtime confidence | 0/100 | Linux sandbox cannot execute SwiftUI, AppKit, macOS file watchers, or macOS SQLite |
+
+The canonical registry remains **274 rows** with **224 PASS, 40 PARTIAL, 5 MISSING, and 5 FUTURE**. `STO-06` now documents its per-project JSON snapshot implementation while retaining PARTIAL because FSEvents/FTS are absent; `STO-07` remains MISSING.

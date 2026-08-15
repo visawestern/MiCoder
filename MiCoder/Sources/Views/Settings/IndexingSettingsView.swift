@@ -26,11 +26,18 @@ struct IndexingSettingsView: View {
             Text(L.t(AppLocalizationKey.locCodebase))
                 .interfaceFont(size: 14, weight: .semibold)
                 .foregroundColor(Color.mimo.textMuted)
-            
+
+            Text(IndexingSettingsLogic.statusMessage)
+                .interfaceFont(size: 12)
+                .foregroundColor(Color.mimo.textMuted)
+                .fixedSize(horizontal: false, vertical: true)
+
             SettingsCard {
                 SettingsToggleRow(title: L.t(AppLocalizationKey.locIndexNewFolders), description: L.t(AppLocalizationKey.locAutomaticallyIndexAnyNewFoldersWithFewerThan500), isOn: indexNewFoldersBinding)
-                
+                    .disabled(!IndexingSettingsLogic.automaticIndexingIsAvailable)
+
                 SettingsToggleRow(title: L.t(AppLocalizationKey.locIndexRepositoriesForInstantGrepBeta), description: L.t(AppLocalizationKey.locAutomaticallyIndexRepositoriesSpeedGrepSearches), isOn: indexRepositoriesBinding)
+                    .disabled(!IndexingSettingsLogic.automaticIndexingIsAvailable)
             }
         }
     }

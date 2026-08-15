@@ -1557,8 +1557,15 @@ class AppState: ObservableObject {
         let path = selectedWorkspace?.path ?? ""
         // Real project files for `@` — scan (cached, TTL) instead of empty list.
         if ProjectFilesCacheLogic.needsRescan(cache: projectFilesCache, currentPath: path) {
-            let names = ProjectFileScanner.scan(root: path).map { $0.path }
-            projectFilesCache = ProjectFilesCacheState(projectPath: path, fileNames: names, scannedAt: Date())
+            let currentRecords = ProjectFileIndexStore.load(projectPath: path)
+            let scannedRecords = ProjectFileScanner.scan(root: path)
+            let records = ProjectFileIndexPersistenceLogic.applyDelta(current: currentRecords, scanned: scannedRecords)
+            ProjectFileIndexStore.save(projectPath: path, records: records)
+            projectFilesCache = ProjectFilesCacheState(
+                projectPath: path,
+                fileNames: records.map(\.path),
+                scannedAt: Date()
+            )
         }
         let fileNames = ProjectFilesCacheLogic.fileNames(cache: projectFilesCache, currentPath: path)
         return InputDropdownDataSource.Context(

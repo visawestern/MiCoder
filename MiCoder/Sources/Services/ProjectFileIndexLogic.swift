@@ -24,15 +24,6 @@ enum ProjectDatabaseLocator {
     }
 }
 
-/// One indexed file's metadata (plan Раздел 7 Блок 3 п.22).
-struct FileIndexRecord: Codable, Equatable {
-    let path: String        // relative to project root
-    var hash: String
-    var size: Int
-    var lastModified: TimeInterval
-    var language: String
-}
-
 /// Pure indexing decisions — what to index, what changed — independent of
 /// FSEvents/SQLite which live in the app layer (plan Раздел 7 Блок 3).
 enum ProjectFileIndexLogic {
