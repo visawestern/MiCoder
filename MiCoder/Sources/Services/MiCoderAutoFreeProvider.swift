@@ -65,10 +65,17 @@ final class MiCoderAutoFreeStore: ObservableObject {
     @discardableResult
     func refreshModels() async -> Bool {
         do {
+            let previousStatus = provider.statusMessage
+            let previousSelectedModel = provider.selectedModel
             let fetched = try await MiCoderAutoFreeClient.shared.listModels()
             applyCatalog(fetched)
             provider.lastCatalogRefresh = Date()
-            provider.statusMessage = "Anonymous OpenCode free catalog ready."
+            provider.statusMessage = MiCoderAutoFreeCatalogStatusLogic.statusAfterRefresh(
+                previousStatus: previousStatus,
+                previousSelectedModel: previousSelectedModel,
+                currentSelectedModel: provider.selectedModel,
+                fetchedModelIDs: fetched.map(\.id)
+            )
             return true
         } catch {
             // Keep the last known free catalog during a transient discovery

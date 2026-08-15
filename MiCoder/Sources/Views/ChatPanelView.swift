@@ -1469,7 +1469,11 @@ struct ChatPanelView: View {
                 let retryDriver = WebChatDriver(bridge: bridge, executor: executor, selectors: selectors,
                                                 config: refreshedConfig, projectRoot: workspacePath,
                                                 accessLevel: appState.accessLevel)
-                await retryDriver.runTurn(userMessage: text, isFirstMessage: true, emit: presentEvent)
+                await retryDriver.runTurn(
+                    userMessage: text,
+                    isFirstMessage: WebRetryContextLogic.isFirstMessageForRetry(originalIsFirst: isFirst),
+                    emit: presentEvent
+                )
                 guard !WebChatCancellationLogic.shouldStopAfterDriver(isCancelled: Task.isCancelled) else {
                     finishWebTurn()
                     return

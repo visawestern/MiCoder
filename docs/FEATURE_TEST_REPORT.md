@@ -2960,3 +2960,54 @@ USG-02 and USG-03 remain **PARTIAL** because native SwiftUI rendering, large dat
 | IDX-03 | 97/100 | 100/100 | 0/100 |
 
 The canonical registry remains **274 data rows**, with **224 PASS, 45 PARTIAL, 0 MISSING, and 5 FUTURE** after narrowing IDX-03 from MISSING to PARTIAL.
+
+## Round 100 — Preserve web retry context and Auto Free refresh explanations
+
+### Scope and chain audit
+
+The canonical sweep revisited **DNG-01**, **BUG-03**, **WEB-09**, **WEB-10**, **APP-06**, **MODEL-19**, and **WEB-22–WEB-27** from provider/model selection and live catalog refresh through capability probes, exact model/effort injection, remote-chat mapping, one-shot retry, response validation, completion journaling, Auto Free catalog refresh/failover/status UI, and dangerous-command policy.
+
+### DNG-01 — explicit FUTURE boundary
+
+Dangerous-command auto-detection remains **FUTURE** by product policy. No unsupported detector or false warning was added. The existing `AccessLevel` approval gate remains the current safety boundary and is distinct from future automatic danger classification.
+
+### WEB-26 — refresh retry duplicated first-turn context
+
+The original web turn computed `isFirst` from the remote mapping, but catalog refresh retry hardcoded `isFirstMessage: true`. An existing project/chat therefore received the first-turn system/tool preamble again after an injection failure, mixing context in the same remote conversation. A red regression was written first and failed to compile until the policy existed. The retry now preserves the original flag through `WebRetryContextLogic`.
+
+### MODEL-19 — refresh erased the model-switch explanation
+
+`applyCatalog` correctly switched an unavailable selected model and set a useful status, but `refreshModels` immediately replaced that status with `Anonymous OpenCode free catalog ready.` A red regression was written first. The new status policy preserves a forced switch reason and only uses the generic ready message when no switch occurred. The compact provider settings UI already renders `provider.statusMessage`, so the preserved explanation reaches the visible status path.
+
+### No new defects confirmed
+
+BUG-03, WEB-09, WEB-10, APP-06, WEB-22, WEB-23, WEB-24, WEB-25, and WEB-27 were traced through their complete source chains. Existing tests and adversarial checks cover the confirmed contracts; no speculative changes were made. Native browser/vendor/runtime claims remain UNVERIFIED.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| WEB-26 retry-context red test | **compile failed before policy → 1/1 passed** | Foundation context policy |
+| MODEL-19 status red test | **compile failed before policy → 2/2 passed** | Foundation status policy |
+| Partial-sweep source acceptance | **passed** | WEB-26/MODEL-19/DNG boundary |
+| Full Foundation harness | **360/360 passed** | Linux-safe suites |
+| Adversarial source checks | **12/12 passed** | Existing safety invariants |
+| Canonical registry integrity | **274 rows, unique IDs, valid statuses** | Registry acceptance |
+| Swift parser validation | **passed** | Changed production/test files |
+| `git diff --check` | **passed** | No trailing whitespace |
+
+### Status and scores
+
+DNG-01 remains **FUTURE** by product policy. BUG-03, WEB-09, WEB-10, APP-06, and WEB-22–27 remain **PARTIAL** because live WebKit/vendor DOM/SSE/SwiftUI behavior is unavailable in this environment. MODEL-19 remains **PARTIAL** with its source-level refresh-status defect fixed. WEB-26 remains **PARTIAL** with retry context fixed; live browser failure injection remains unverified.
+
+| Story | Code quality | Task adherence | Target-runtime confidence |
+|---|---:|---:|---:|
+| DNG-01 | 100/100 | 100/100 | 0/100 |
+| BUG-03 | 99/100 | 100/100 | 0/100 |
+| WEB-09 | 99/100 | 100/100 | 0/100 |
+| WEB-10 | 99/100 | 100/100 | 0/100 |
+| APP-06 | 99/100 | 100/100 | 0/100 |
+| MODEL-19 | 99/100 | 100/100 | 0/100 |
+| WEB-22–27 | 99/100 | 100/100 | 0/100 |
+
+The canonical status rollup is unchanged at **224 PASS, 45 PARTIAL, 0 MISSING, and 5 FUTURE**.
