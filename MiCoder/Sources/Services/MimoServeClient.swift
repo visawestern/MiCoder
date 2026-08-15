@@ -429,6 +429,7 @@ enum MimoServeError: Error, LocalizedError {
     case httpError(statusCode: Int, message: String? = nil)
     case decodingError(Error)
     case connectionFailed
+    case emptyResponse
     case sessionBusy
 
     var errorDescription: String? {
@@ -442,6 +443,8 @@ enum MimoServeError: Error, LocalizedError {
             return "Decoding error: \(error.localizedDescription)"
         case .connectionFailed:
             return "Connection failed"
+        case .emptyResponse:
+            return ProviderResponseValidationLogic.emptyCompletionMessage
         case .sessionBusy:
             return "Session is busy processing another request. Please wait or stop the current generation."
         }

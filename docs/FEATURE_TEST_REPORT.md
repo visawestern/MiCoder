@@ -2305,3 +2305,45 @@ The final-answer contract remains unchanged and verified: only a visible nonblan
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or authenticated vendor pages. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-10` remains PARTIAL because fail-closed send orchestration is hardened and tested while native WebKit, live vendor controls, and real authenticated sends remain unverified.
+
+## Round 87 — Reject blank direct Serve completions before task completion
+
+### Scope and chain audit
+
+The sequential audit continued at `APP-06 Serve Send Feedback`. The complete chain was traced from the composer send action through connection/model readiness, draft and attachment clearing, queue behavior, stable user/message/assistant IDs, route resolution, local session creation, user and assistant persistence, Serve request construction, thinking placeholder, global SSE connection, HTTP/JSON decoding, assistant-message extraction, pending-question handling, response merging, timeout, session-busy abort/retry, error mutation, loading reset, SSE teardown, Git refresh, and task-completion notification.
+
+Rounds 59 and 78 had already fixed the visible thinking state, robust direct response decoding, 90-second Serve/SSE timeout, blank SSE completion handling, and session-busy recovery. The devil’s-advocate pass found a direct-response gap: after `MimoServeClient.sendMessage` returned an assistant DTO, ChatPanel merged it and cleared loading without validating that the DTO contained usable text, reasoning, or tool activity. A blank non-SSE assistant response could therefore leave the “Thinking…” placeholder visible while notifying task completion.
+
+### TDD defect confirmation and fix
+
+`ServeResponseFeedbackLogicTests.swift` was written first. The red run failed to compile because the missing helper did not exist. The helper now delegates to the established `ProviderResponseValidationLogic.shouldReportEmptyCompletion` contract: blank text plus blank reasoning and no tool activity returns the actionable empty-response message; meaningful text, reasoning-only activity, and tool-bearing activity remain valid.
+
+The direct Serve branch now derives reasoning and tool activity from `MimoMessagePart` before entering the MainActor completion mutation. An unusable assistant response throws typed `MimoServeError.emptyResponse`. The existing generic error branch then replaces the assistant placeholder with retry guidance, resets loading/streaming state, disconnects SSE, refreshes project status, and does not emit the task-completed notification. The existing SSE path remains intact and continues to validate blank terminal events independently.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red blank direct-response regression | **failed as expected** | Missing `ServeResponseFeedbackLogic` contract |
+| Green APP-06 focused feedback suite | **6/6 passed** | Blank, reasoning-only, tool-bearing, and text cases plus existing validation |
+| Full Foundation harness | **291/291 passed** | All previous rounds plus APP-06 regression suite |
+| Swift parser validation | **passed** | Feedback helper, MimoServeClient, ChatPanel, and tests |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| `git diff --check` | **passed** | No trailing whitespace |
+| Live Serve response decoding | **UNVERIFIED** | Requires running MiMo Serve endpoint |
+| Native SwiftUI placeholder/error rendering | **UNVERIFIED** | Requires macOS runtime |
+| Real SSE completion and pending-question flow | **UNVERIFIED** | Requires live Serve session |
+
+### Remaining APP-06 limitations
+
+`APP-06` remains **PARTIAL**. Readiness validation, local session persistence, route separation, thinking feedback, request construction, decoding boundaries, pending-question handling, blank SSE and direct-response validation, timeout, busy retry, visible errors, loading reset, SSE teardown, and completion notification gating are source-verified and contract-tested. Native UI rendering, live Serve availability, real SSE timing, and authenticated/native runtime behavior remain unverified.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 97/100 | Direct and SSE response paths now share the same empty-content invariant; typed error and focused pure tests prevent a blank placeholder from being completed; native/live behavior remains. |
+| Task adherence | 100/100 | Every composer action, readiness gate, route, session/message persistence step, response shape, feedback state, timeout, retry, error, and notification path was traced; red tests preceded the fix; runtime limits are explicit. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit or a live MiMo Serve/SSE runtime. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `APP-06` remains PARTIAL because direct/SSE feedback is hardened and tested while native UI and live Serve/SSE execution remain unverified.

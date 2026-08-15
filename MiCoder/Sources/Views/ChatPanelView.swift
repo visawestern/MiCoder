@@ -945,6 +945,25 @@ struct ChatPanelView: View {
             )
             appState.scheduleGitRefresh(sessionID: sessionID)
             
+            let firstResponse = SessionSendLogic.assistantResponse(from: responseMessages)
+            if let firstResponse {
+                let reasoningText = firstResponse.parts?.compactMap { part -> String? in
+                    if case .reasoning(let value) = part { return value }
+                    return nil
+                }.joined(separator: "\n") ?? ""
+                let hasToolActivity = firstResponse.parts?.contains { part in
+                    if case .toolInvocation = part { return true }
+                    return false
+                } ?? false
+                if ServeResponseFeedbackLogic.failureMessage(
+                    text: firstResponse.textContent,
+                    reasoning: reasoningText,
+                    hasToolActivity: hasToolActivity
+                ) != nil {
+                    throw MimoServeError.emptyResponse
+                }
+            }
+
             await MainActor.run {
                 let hasPendingQuestion = self.appState.pendingQuestionRequest != nil
                 let mergedParts = messageStore.messages.first(where: { $0.id == self.currentAssistantMessageID })?.parts ?? []
@@ -963,7 +982,7 @@ struct ChatPanelView: View {
                     self.sseClient.disconnect()
                 }
 
-                if let firstResponse = SessionSendLogic.assistantResponse(from: responseMessages) {
+                if let firstResponse {
                     let merged = MessageResponseMergeLogic.mergedAssistantMessage(
                         existing: messageStore.messages.first(where: { $0.id == self.currentAssistantMessageID }) ?? Message(role: .assistant, content: ""),
                         serverParts: firstResponse.parts,
