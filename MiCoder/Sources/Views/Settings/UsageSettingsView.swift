@@ -106,8 +106,7 @@ struct UsageSettingsView: View {
     }
 
     private var formattedMessages: String {
-        guard let stats else { return "—" }
-        return "\(stats.messageCount)"
+        "\(UsageScreenSummaryLogic.messageCount(for: filteredPoints))"
     }
 }
 

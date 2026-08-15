@@ -2082,3 +2082,44 @@ Red presentation regressions were added to `WebCaptchaPresentationLogicTests` be
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or real captcha pages. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-07` remains PARTIAL because the interaction/resume chain is hardened and contract-tested, while native WebKit and third-party captcha behavior remain unverified.
+
+## Round 82 — Make the Usage Messages card obey the selected period
+
+### Scope and chain audit
+
+The sequential audit continued at `USG-02 Usage Screen with Real Data`. The chain was traced from provider response usage capture through assistant-message persistence, legacy and per-project database reads, deterministic source merge, `UsageSettingsView` loading, 7/30-day range controls, token/cost totals, active days, favorite model, normalized model rows, the Messages card, database-size card, empty state, and synchronous read/error behavior.
+
+Round 63 fixed the major source omission by merging legacy usage rows with every maintained project database. The fresh audit found a screen-level inconsistency: tokens, cost, active days, and model aggregates used `filteredPoints`, but the Messages card used `StorageStats.messageCount`, an all-time raw database count that also includes messages outside the selected period and messages without usage records.
+
+### TDD defect confirmation and fix
+
+`UsageScreenSummaryLogicTests` was written before implementation. After correcting a missing Foundation import in the test fixture, the red run failed specifically because `UsageScreenSummaryLogic` did not exist. The green implementation defines `messageCount(for:)` over the already-filtered usage points, and `UsageSettingsView.formattedMessages` now consumes that contract.
+
+The resulting count intentionally represents usage-bearing records shown by the Usage screen. Raw all-time database message count remains appropriate for storage statistics, but not for a range-filtered usage card.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red range-scoped Messages regression | **failed as expected** | Summary contract absent before implementation |
+| Green USG-02 summary tests | **2/2 passed** | Selected-period and empty-period count |
+| Full Foundation harness | **265/265 passed** | Existing contracts plus USG-02 regression |
+| Swift parser validation | **passed** | Summary helper and UsageSettingsView |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Native SwiftUI Usage screen | **UNVERIFIED** | Requires macOS runtime |
+| Large-database loading performance | **UNVERIFIED** | Linux harness does not reproduce user-scale DB/UI timing |
+| Visible database-read error/retry UX | **PARTIAL** | Current `try?` reads remain silent |
+
+### Remaining USG-02 limitations
+
+`USG-02` remains **PARTIAL**. Legacy/project source aggregation, selected-period token/cost/model metrics, active days, N/A cost behavior, and range-scoped Messages are contract-tested. Native rendering, large-database responsiveness, and visible read-error/retry UX remain incomplete or unverified.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 95/100 | The confirmed range inconsistency is fixed with a narrow pure contract and no change to storage semantics; synchronous loading and silent source-read failures remain. |
+| Task adherence | 100/100 | Every usage source, filter control, stat card, model row, empty state, loading boundary, and failure path was traced; the red test preceded the fix; documentation was updated; native/runtime boundaries remain explicitly UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit or validate user-scale database/UI timing. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `USG-02` remains PARTIAL because the range-consistent usage data contract is hardened and tested, while synchronous loading, visible source-read errors, and native SwiftUI rendering remain incomplete or unverified.
