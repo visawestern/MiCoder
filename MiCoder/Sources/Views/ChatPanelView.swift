@@ -1179,12 +1179,13 @@ struct ChatPanelView: View {
         var effectiveConfig = config
         let availableModels = WebProviderConnectivity.models(for: config)
         let routedWebModel = appState.effectiveSelectedModel()
-        if availableModels.contains(routedWebModel) {
-            effectiveConfig.selectedModel = routedWebModel
-        }
-        if let selectedEffort = appState.selectedWebEffort {
-            effectiveConfig.effort = selectedEffort
-        }
+        effectiveConfig.selectedModel = availableModels.contains(routedWebModel)
+            ? routedWebModel
+            : WebProviderSelectionLogic.effectiveSelectedModel(
+                for: config,
+                availableModels: availableModels
+            )
+        effectiveConfig.effort = appState.selectedWebEffort ?? .medium
         if effectiveConfig != config {
             WebProviderStore.save(WebProviderStore.upsert(effectiveConfig, in: WebProviderStore.load()))
         }

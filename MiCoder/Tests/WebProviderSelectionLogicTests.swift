@@ -47,12 +47,37 @@ struct WebProviderSelectionLogicTests {
         #expect(updated.selectedModel == "qwen-plus")
     }
 
+    @Test("An empty live model snapshot never returns a stale persisted model")
+    func emptyLiveSnapshotClearsEffectiveModel() {
+        let config = WebProviderConfig(
+            vendor: .chatgpt,
+            selectedModel: "gpt-stale",
+            discoveredModels: [WebProviderModel(name: "gpt-stale")]
+        )
+        #expect(WebProviderSelectionLogic.selectedModel(for: config, availableModels: []) == "")
+        #expect(WebProviderSelectionLogic.effectiveSelectedModel(for: config, availableModels: []) == "")
+    }
+
     @Test("Web providers hide effort menu before live discovery")
     func effortMenuIsHiddenBeforeDiscovery() {
         for vendor in [WebChatVendor.kimi, .qwen, .chatgpt, .custom] {
             let config = WebProviderConfig(vendor: vendor)
             #expect(WebProviderSelectionLogic.availableEfforts(for: config).isEmpty)
         }
+    }
+
+    @Test("Effort capabilities follow the effective model when persisted selection is stale")
+    func effortCapabilitiesFollowEffectiveModel() {
+        let config = WebProviderConfig(
+            vendor: .qwen,
+            selectedModel: "removed-model",
+            discoveredModels: [
+                WebProviderModel(name: "live-model", availableEfforts: [.high])
+            ]
+        )
+        let effective = WebProviderSelectionLogic.effectiveSelectedModel(for: config)
+        #expect(effective == "live-model")
+        #expect(WebProviderSelectionLogic.availableEfforts(for: config, modelID: effective) == [.high])
     }
 
     @Test("Selecting web effort updates only the web provider config")

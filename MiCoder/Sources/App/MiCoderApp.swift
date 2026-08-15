@@ -547,13 +547,19 @@ class AppState: ObservableObject {
 
     var availableWebEffortsForSelectedProvider: [WebEffort] {
         guard let config = selectedWebProviderConfig else { return [] }
-        return WebProviderSelectionLogic.availableEfforts(for: config)
+        return WebProviderSelectionLogic.availableEfforts(
+            for: config,
+            modelID: effectiveSelectedModel()
+        )
     }
 
     var selectedWebEffort: WebEffort? {
-        guard let config = selectedWebProviderConfig,
-              availableWebEffortsForSelectedProvider.contains(config.effort) else { return nil }
-        return config.effort
+        guard let config = selectedWebProviderConfig else { return nil }
+        return WebSelectionReconciliationLogic.effortForModel(
+            config: config,
+            modelID: effectiveSelectedModel(),
+            availableEfforts: availableWebEffortsForSelectedProvider
+        )
     }
 
     private func updateWebProvider(_ configID: String,
@@ -627,9 +633,9 @@ class AppState: ObservableObject {
         if let webID = WebProviderConnectivity.configID(fromOptionID: providerID),
            let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID }) {
             let models = WebProviderConnectivity.models(for: config)
-            let preferred = WebProviderSelectionLogic.modelForProviderSwitch(
+            let preferred = WebSelectionReconciliationLogic.modelForRestore(
                 config: config,
-                globalSelectedModel: selectedModel,
+                globalPreferredModel: selectedModel,
                 availableModels: models
             )
             selectedModel = preferred
@@ -796,6 +802,23 @@ class AppState: ObservableObject {
     }
 
     private func restorePreferredModelIfAvailable() {
+        if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
+           let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID }) {
+            let resolved = WebSelectionReconciliationLogic.modelForRestore(
+                config: config,
+                globalPreferredModel: preferredModelID,
+                availableModels: WebProviderConnectivity.models(for: config)
+            )
+            var providers = WebProviderStore.load(defaults: defaults)
+            if let index = providers.firstIndex(where: { $0.id == webID }),
+               providers[index].selectedModel != resolved {
+                providers[index].selectedModel = resolved
+                WebProviderStore.save(providers, defaults: defaults)
+            }
+            selectedModel = resolved
+            defaults.set(resolved, forKey: "com.micoder.selectedModel")
+            return
+        }
         if let restoredModel = SelectionRestoreLogic.resolvedModelID(
             preferred: preferredModelID,
             current: selectedModel,

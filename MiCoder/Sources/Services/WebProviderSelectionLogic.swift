@@ -3,10 +3,11 @@
 enum WebProviderSelectionLogic {
     static func selectedModel(for config: WebProviderConfig, availableModels: [String]? = nil) -> String {
         let models = availableModels ?? config.allModels
+        guard !models.isEmpty else { return "" }
         if models.contains(config.selectedModel) {
             return config.selectedModel
         }
-        return models.first ?? config.selectedModel
+        return models.first ?? ""
     }
 
     /// Resolve the model that the composer and browser driver may safely use.
@@ -43,11 +44,13 @@ enum WebProviderSelectionLogic {
         return updated
     }
 
-    static func availableEfforts(for config: WebProviderConfig) -> [WebEffort] {
+    static func availableEfforts(for config: WebProviderConfig,
+                                 modelID: String? = nil) -> [WebEffort] {
         // A profiled live model owns its own capability list. Empty means the
         // selected model has no effort/thinking control and the composer must
         // hide the custom effort selector rather than exposing a global one.
-        if let model = config.discoveredModels.first(where: { $0.name == config.selectedModel }) {
+        let resolvedModelID = modelID ?? config.selectedModel
+        if let model = config.discoveredModels.first(where: { $0.name == resolvedModelID }) {
             return model.availableEfforts
         }
         if !config.discoveredEffortLevels.isEmpty {

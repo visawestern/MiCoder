@@ -2214,3 +2214,49 @@ One existing parser fixture used custom labels `a`, `b`, and `c`, which the alre
 | Target-runtime confidence | 0/100 | Linux cannot execute authenticated macOS WebKit/SwiftUI or the real ChatGPT page. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `BUG-03` remains PARTIAL because stale snapshot handling is fixed and tested, while live ChatGPT discovery and native runtime verification remain incomplete.
+
+## Round 85 — Keep web composer selection coherent through browser injection
+
+### Scope and chain audit
+
+The sequential audit continued at `WEB-09 Web Selection Coherence`. The complete chain was traced from the provider/model/effort controls in `InputControls`, through `AppState.selectProvider`, `selectModel`, `selectWebEffort`, preferred-provider/model restoration, `WebProviderStore`, effective-model presentation, send readiness, `.web(configID)` route resolution, `ChatPanelView.runWebChatTurn`, `effectiveConfig`, named-session restoration, `WebChatDriver.injectModelAndEffort`, exact model/effort confirmation, parameter injection, retry, and completion journaling.
+
+Rounds 59 and 80 had already fixed the main model propagation and provider-switch precedence paths. The devil’s-advocate audit found three remaining coherence edges. First, a later preferred-model restoration path could use a global model ID even when the destination web provider already had a different valid local selection. Second, effort capabilities were looked up only against the persisted model ID, not the effective model selected after stale-model fallback. Third, `selectedModel(... availableModels: [])` returned the stale persisted ID instead of an empty value, allowing a browser snapshot to carry a model that the live provider had not exposed.
+
+### TDD defect confirmation and fix
+
+`WebSelectionReconciliationLogicTests.swift` was written first; the red run failed because the reconciliation helper did not exist. The helper now resolves destination-local valid model, then valid global fallback, then first available model, then empty. AppState provider switching and preferred-model restoration use this tested contract.
+
+A red regression was added to `WebProviderSelectionLogicTests` for a stale persisted model whose replacement had a different effort capability. `availableEfforts` now accepts an explicit model ID, and AppState passes `effectiveSelectedModel()` so the composer’s effort menu follows the same model that the browser receives. A second red regression confirmed that an explicitly empty live model list must return an empty effective model; the old implementation echoed the stale persisted ID. `runWebChatTurn` now uses this empty-safe fallback and snapshots a reconciled effort, defaulting to a neutral medium value that the driver skips when the selected model has no effort control.
+
+The browser endpoint remains fail-closed: `WebChatDriver` requires exact model confirmation before typing, treats effort as optional only when the live model exposes no effort control, and blocks before typing if a requested model or available effort cannot be confirmed.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red reconciliation regression | **failed as expected** | Missing destination/global selection contract |
+| Red effort-capability regression | **failed as expected** | Helper lacked model-aware argument |
+| Red empty-live-model regression | **failed as expected** | Stale persisted ID was returned for empty list |
+| Green WEB-09 focused suites | **16/16 passed** | Reconciliation, model, effort, and driver guards |
+| Full Foundation harness | **287/287 passed** | All previous rounds plus WEB-09 regressions |
+| Swift parser validation | **passed** | Reconciliation, selection, AppState, InputControls, ChatPanel, tests |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| `git diff --check` | **passed** | No trailing whitespace |
+| Native SwiftUI composer | **UNVERIFIED** | Requires macOS runtime |
+| Live WebKit model/effort injection | **UNVERIFIED** | Requires authenticated vendor pages |
+| Vendor DOM parameter controls | **UNVERIFIED** | Third-party page structure can change |
+
+### Remaining WEB-09 limitations
+
+`WEB-09` remains **PARTIAL**. Composer persistence, provider-local reconciliation, empty-safe model resolution, effective-model capability gating, exact browser injection guards, retry identity, and completion journaling are source-verified and contract-tested. Native SwiftUI behavior, authenticated WebKit execution, and live vendor DOM compatibility remain unverified.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 96/100 | One tested reconciliation source of truth now feeds provider restore, model fallback, effort capability, and browser snapshot construction; native/live behavior remains. |
+| Task adherence | 100/100 | Every control, state mutation, persistence path, readiness gate, route, browser injection, retry, journal, and failure path was traced; red tests preceded the confirmed fixes; runtime boundaries remain explicit. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or authenticated vendor pages. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-09` remains PARTIAL because selection coherence is hardened and tested while native UI, live WebKit, and vendor DOM behavior remain unverified.
