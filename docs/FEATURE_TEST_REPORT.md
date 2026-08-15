@@ -3011,3 +3011,51 @@ DNG-01 remains **FUTURE** by product policy. BUG-03, WEB-09, WEB-10, APP-06, and
 | WEB-22–27 | 99/100 | 100/100 | 0/100 |
 
 The canonical status rollup is unchanged at **224 PASS, 45 PARTIAL, 0 MISSING, and 5 FUTURE**.
+
+## Round 101 — Complete the final canonical tail audit
+
+### Scope and result
+
+The final canonical tail was traced end-to-end for **CHAT-19**, **WEB-CHAT-11–15**, **CHAT-20**, **PROV-20**, **DB-07–09**, **STO-30–31**, and **SHELL-01–03**. Each chain was followed from the initiating control or model event through pure policy, production caller, persistence/notification path, and visible result.
+
+No new production defect was confirmed in this tail. The audit challenged whether a mapper was actually observed by a UI consumer, whether approval classification matched executor behavior, whether unknown project IDs inherited the selected workspace, whether maintenance clamped invalid ages on every database branch, and whether session restoration replayed cookies and localStorage before reload. The source contracts and existing Foundation tests cover these cases.
+
+### Story-by-story conclusions
+
+| Story group | Conclusion |
+|---|---|
+| CHAT-19 | Attachment MIME/extension safety, bounded readable text, image data URLs, filenames, and visible unsupported-binary handling are source/test verified; picker/live request capture remain unverified. |
+| WEB-CHAT-11–15 | Tool gate, approval interruption, undo/history mutation path, session restoration, custom model selector, and destructive classification are source/test verified; native approval and WebKit runtime remain unverified. |
+| CHAT-20 | Finished/nonempty prior-turn filtering, zero/negative cap fail-closed, newest suffix cap, and current attachment isolation are source/test verified; live anonymous request context remains unverified. |
+| PROV-20 | Typed/textual rate-limit normalization reaches NotificationCenter, AppState, persistent notification service, and transient ChatPanel banner with error severity and from/to model names; live provider and visual banner remain unverified. |
+| DB-07–09 | New-project validation, workspace switch generation guards, and explicit project-path routing fail closed in source/tests; native picker/SQLite runtime remains unverified. |
+| STO-30–31 | Legacy plus project database maintenance and deterministic storage statistics aggregation are source/test verified; multi-database SQLite/filesystem runtime remains unverified. |
+| SHELL-01–03 | Project-aware branch/goal context, route-specific readiness/endpoint labels, and explicit undo/copy/action feedback are source/test verified; AppKit/SwiftUI visual runtime remains unverified. |
+
+### Explicit non-claims
+
+`DNG-01` remains **FUTURE** by the documented product policy and is not implemented speculatively. No native macOS PASS is claimed. SwiftUI rendering, AppKit clipboard/Finder/menu behavior, WebKit DOM/captcha/session behavior, live provider responses, and SQLite filesystem/maintenance behavior require a macOS runtime and remain **UNVERIFIED**.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Final-tail persistent source acceptance | **PASS** | All 16 canonical tail rows have traced production contracts and remain PARTIAL |
+| Existing focused tail tests | **PASS** | Attachment, history, access gate, approval, restoration, routing, maintenance, storage, and shell logic |
+| Foundation harness | **360/360 passed** | Linux-safe baseline from Round 100; no source change in this no-new-defect tail |
+| Adversarial source checks | **12/12 passed** | Existing global invariants |
+| Registry integrity | **274 unique rows; 224 PASS, 45 PARTIAL, 0 MISSING, 5 FUTURE** | Canonical spreadsheet |
+| Swift parser/diff checks | **PASS** | Acceptance/documentation changes are clean |
+
+### Separate quality scores
+
+| Story group | Code quality | Task adherence | Target-runtime confidence |
+|---|---:|---:|---:|
+| CHAT-19/20 | 99/100 | 100/100 | 0/100 |
+| WEB-CHAT-11–15 | 99/100 | 100/100 | 0/100 |
+| PROV-20 | 99/100 | 100/100 | 0/100 |
+| DB-07–09 | 99/100 | 100/100 | 0/100 |
+| STO-30–31 | 99/100 | 100/100 | 0/100 |
+| SHELL-01–03 | 99/100 | 100/100 | 0/100 |
+
+Round 101 completes the verifiable source-level audit loop. The remaining PARTIAL/FUTURE statuses are not silently promoted: they explicitly identify the native/runtime or intentionally deferred boundaries that require macOS/provider execution.
