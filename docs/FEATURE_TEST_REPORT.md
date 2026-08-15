@@ -1477,3 +1477,46 @@ WEB-05 remains **PARTIAL**. The supported implementation is an isolated `WKWebVi
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or live vendor pages. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-05` remains PARTIAL because the WKWebView implementation is honest and contract-tested, while Playwright MCP/CDP transports and native WebKit verification remain incomplete.
+
+## Round 67 — Interactive captcha solving and bounded resume
+
+### Scope and chain audit
+
+The sequential audit continued at `WEB-07 Captcha Display in Chat`. The chain was traced from `WebSessionLogic.detectCaptcha` and `inferState`, through `WebChatDriver.checkInterruptions`, screenshot capture in `WKWebViewBrowserBridge`, `WebChatEventPresenter`, `WebChatTurnMutation`, `ChatPanelView` event handling, the persistent per-project/per-chat `WKWebView`, and the final send/cleanup lifecycle.
+
+The original implementation correctly detected captcha markers and rendered a screenshot in chat, but it stopped the driver and finalized the web turn while the actual browser remained a nearly invisible 2-pixel view with hit testing disabled. The localized note claimed that the agent would resume automatically, although no live solver surface or polling resume loop existed.
+
+### TDD defect confirmation and fixes
+
+`WebCaptchaResolutionLogicTests` was written before the policy. The red run failed because the wait/resume/abort contract did not exist. The green policy distinguishes captcha wait, connected resume, logout abort, and unknown wait. `WebChatDriver` now keeps the same bridge and driver turn alive, polls the page for up to five minutes, resumes only after the page is connected, aborts on logout, and emits a bounded timeout error rather than suspending indefinitely.
+
+`WebCaptchaPresentationLogicTests` was written before the presentation policy. The red run failed because the solver visibility contract did not exist. The green implementation opens a `WebCaptchaSolverView` from the captcha event and attaches the exact same live `WKWebView` used by the driver via `WebChatWebViewHost`. The user can click and type in the real challenge page; the screenshot remains in the assistant bubble for diagnosis. Terminal events dismiss the sheet and progress events do not change its visibility.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red resolution-policy regressions | **failed as expected** | Missing wait/resume/abort contract |
+| Green resolution-policy tests | **3/3 passed** | Wait, resume, logout abort |
+| Red presentation-policy regressions | **failed as expected** | Missing solver visibility contract |
+| Green presentation-policy tests | **3/3 passed** | Show solver, dismiss terminally, ignore progress |
+| Existing WebChatDriver + captcha tests | **17/17 passed** | Driver interruption and policy contracts |
+| Full Foundation harness | **218/218 passed** | Existing contracts plus WEB-07 tests |
+| Swift parser validation | **passed** | Driver, policies, ChatPanel, solver view |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Native SwiftUI/WebKit interaction | **UNVERIFIED** | Requires macOS runtime and real challenge page |
+| Third-party captcha iframe compatibility | **UNVERIFIED** | Depends on vendor/WebKit challenge behavior |
+
+### Remaining WEB-07 limitations
+
+WEB-07 remains **PARTIAL**. The code now has a live same-session solver surface and bounded automatic resume, but third-party captcha behavior, iframe/input permissions, WebKit cookie state, sheet interaction, cancellation, and actual vendor completion require macOS runtime verification. A screenshot-only fallback remains in the chat. If a vendor blocks embedded WebKit interaction, the user may still need to complete the challenge externally and then refresh the session.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 91/100 | The false automatic-resume behavior and inaccessible screenshot-only flow are corrected with a bounded same-bridge policy and interactive solver; live runtime and third-party compatibility remain. |
+| Task adherence | 100/100 | Every captcha function/action was traced, red regressions preceded both confirmed fixes, screenshot fallback was retained, and macOS/WebKit boundaries remain explicitly UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or real captcha pages. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-07` remains PARTIAL because the interaction/resume chain is implemented and contract-tested, while native WebKit and third-party captcha behavior remain unverified.

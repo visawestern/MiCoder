@@ -20,6 +20,7 @@ struct ChatPanelView: View {
     @State private var activeWebProviderID: String?
     @State private var activeWebChatID: String?
     @State private var webCatalogRefreshKeys: Set<String> = []
+    @State private var captchaSolverContext: WebCaptchaSolverContext?
     #endif
     private let sseClient = SSEClient()
     private let db = DatabaseManager.shared
@@ -195,6 +196,11 @@ struct ChatPanelView: View {
             }
         }
         .background(Color.mimo.background)
+        #if canImport(WebKit)
+        .sheet(item: $captchaSolverContext) { context in
+            WebCaptchaSolverView(context: context)
+        }
+        #endif
         .onChange(of: appState.selectedSession?.id) { newSessionID in
             if let sessionID = newSessionID {
                 guard SessionReloadLogic.shouldReloadMessages(
@@ -1308,6 +1314,16 @@ struct ChatPanelView: View {
             }
             Task { @MainActor in
                 let presentation = WebChatEventPresenter.present(event)
+                switch WebCaptchaPresentationLogic.action(for: event) {
+                case .showSolver:
+                    if case .captcha(_, let note) = presentation {
+                        self.captchaSolverContext = WebCaptchaSolverContext(webView: webView, note: note)
+                    }
+                case .dismissSolver:
+                    self.captchaSolverContext = nil
+                case .none:
+                    break
+                }
                 switch WebChatTurnMutation.mutation(for: presentation) {
                 case .replaceText(let t, let finished, let streaming):
                     self.messageStore.update(id: assistantID) { m in
@@ -1553,6 +1569,7 @@ struct ChatPanelView: View {
         #if canImport(WebKit)
         activeWebProviderID = nil
         activeWebChatID = nil
+        captchaSolverContext = nil
         #endif
     }
 

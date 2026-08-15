@@ -54,8 +54,13 @@ struct WebChatDriver {
             // captcha page must produce its actionable interruption event rather
             // than a misleading missing-input/send-selector error.
             if let interruption = try await checkInterruptions(emit: emit) {
-                emit(interruption)
-                return
+                if case .captchaDetected = interruption {
+                    emit(interruption)
+                    guard await waitForCaptchaResolution(emit: emit) else { return }
+                } else {
+                    emit(interruption)
+                    return
+                }
             }
 
             var responseBaseline = try await sendPossiblyChunked(message, emit: emit)
@@ -64,8 +69,13 @@ struct WebChatDriver {
             while true {
                 // Guard against session drop / captcha before reading.
                 if let interruption = try await checkInterruptions(emit: emit) {
-                    emit(interruption)
-                    return
+                    if case .captchaDetected = interruption {
+                        emit(interruption)
+                        guard await waitForCaptchaResolution(emit: emit) else { return }
+                    } else {
+                        emit(interruption)
+                        return
+                    }
                 }
 
                 let response = try await awaitResponse(after: responseBaseline, emit: emit)
@@ -120,6 +130,36 @@ struct WebChatDriver {
     }
 
     // MARK: - Steps
+
+    /// Wait for the user to solve a captcha in the same live browser page.
+    /// The chat turn remains in the driver; no duplicate prompt or new remote
+    /// chat is created. A logout aborts the turn and a bounded timeout avoids a
+    /// permanently suspended task.
+    private func waitForCaptchaResolution(emit: (WebChatEvent) -> Void) async -> Bool {
+        let maxPolls = 600 // five minutes at 500 ms
+        for _ in 0..<maxPolls {
+            await bridge.wait(ms: 500)
+            let url = (try? await bridge.currentURL()) ?? ""
+            let pageText = (try? await bridge.pageText()) ?? ""
+            let hasInput = (try? await bridge.exists(selector: selectors.input)) ?? false
+            let state = WebSessionLogic.inferState(
+                currentURL: url,
+                hasChatInput: hasInput,
+                pageText: pageText
+            )
+            switch WebCaptchaResolutionLogic.action(for: state) {
+            case .resume:
+                return true
+            case .abort:
+                emit(.loggedOut)
+                return false
+            case .wait:
+                continue
+            }
+        }
+        emit(.error("Captcha was not solved before the browser wait timed out. Retry after completing it."))
+        return false
+    }
 
     /// Send a message, splitting a large PROMPT into several messages so we don't
     /// overload the web model / hit its session length limit (plan Раздел 12
