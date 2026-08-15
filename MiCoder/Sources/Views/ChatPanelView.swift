@@ -953,22 +953,21 @@ struct ChatPanelView: View {
             appState.scheduleGitRefresh(sessionID: sessionID)
             
             let firstResponse = SessionSendLogic.assistantResponse(from: responseMessages)
-            if let firstResponse {
-                let reasoningText = firstResponse.parts?.compactMap { part -> String? in
-                    if case .reasoning(let value) = part { return value }
-                    return nil
-                }.joined(separator: "\n") ?? ""
-                let hasToolActivity = firstResponse.parts?.contains { part in
-                    if case .toolInvocation = part { return true }
-                    return false
-                } ?? false
-                if ServeResponseFeedbackLogic.failureMessage(
-                    text: firstResponse.textContent,
-                    reasoning: reasoningText,
-                    hasToolActivity: hasToolActivity
-                ) != nil {
-                    throw MimoServeError.emptyResponse
-                }
+            let reasoningText = firstResponse?.parts?.compactMap { part -> String? in
+                if case .reasoning(let value) = part { return value }
+                return nil
+            }.joined(separator: "\n") ?? ""
+            let hasToolActivity = firstResponse?.parts?.contains { part in
+                if case .toolInvocation = part { return true }
+                return false
+            } ?? false
+            if ServeResponseFeedbackLogic.failureMessage(
+                responseCount: responseMessages.count,
+                text: firstResponse?.textContent,
+                reasoning: reasoningText,
+                hasToolActivity: hasToolActivity
+            ) != nil {
+                throw MimoServeError.emptyResponse
             }
 
             await MainActor.run {
@@ -1042,9 +1041,19 @@ struct ChatPanelView: View {
                         assistantMessageID: assistantID,
                         messageID: messageID
                     )
-                    if let nextPlan = SessionBusyRetryLogic.nextPlan(from: currentPlan) {
+                    if let nextPlan = SessionBusyRetryLogic.nextPlan(
+                        from: currentPlan,
+                        isCancelled: Task.isCancelled
+                    ) {
+                        guard !Task.isCancelled else { return }
                         try? await appState.mimoClient.abortSession(id: sessionID)
-                        try? await Task.sleep(nanoseconds: 500_000_000)
+                        guard !Task.isCancelled else { return }
+                        do {
+                            try await Task.sleep(nanoseconds: 500_000_000)
+                        } catch {
+                            return
+                        }
+                        guard !Task.isCancelled else { return }
                         await sendDirectly(
                             text: text,
                             files: files,
@@ -1057,14 +1066,31 @@ struct ChatPanelView: View {
                     }
                 }
             }
+            let isServeRoute: Bool
+            if case .mimoServe = route {
+                isServeRoute = true
+            } else {
+                isServeRoute = false
+            }
+            let serveDisconnected = ServeTransportFailureLogic.shouldMarkServerDisconnected(
+                isServeRoute: isServeRoute,
+                error: error
+            )
+            let userFacingError = serveDisconnected
+                ? ServeTransportFailureLogic.disconnectedMessage
+                : "Error: \(error.localizedDescription)"
             await MainActor.run {
                 self.serveTimeoutTask?.cancel()
                 self.serveTimeoutTask = nil
                 self.appState.isLoading = false
                 self.appState.isStreaming = false
                 self.sseClient.disconnect()
+                if serveDisconnected {
+                    self.appState.serverConnected = false
+                    self.appState.notificationService.serverDisconnected()
+                }
                 self.messageStore.update(id: assistantID) { msg in
-                    msg.content = "Error: \(error.localizedDescription)"
+                    msg.content = userFacingError
                     msg.isFinished = true
                     msg.isStreaming = false
                 }

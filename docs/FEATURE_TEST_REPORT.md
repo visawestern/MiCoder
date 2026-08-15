@@ -2820,3 +2820,47 @@ The confirmed SET-04 and SET-05 source-level defects are fixed. The stories rema
 | SEC-06 | 100/100 | 100/100 | 0/100 |
 
 No new registry rows were added in Round 96. The canonical registry remains **274 rows**, with the existing status distribution **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**.
+
+## Round 97 — Close error-handling retry, disconnect, and empty-response gaps
+
+### Scope and chain audit
+
+The canonical audit covered **ERR-01**, **ERR-02**, and **ERR-03** from keyboard/button send through readiness validation, route selection, session creation, Serve transport, 409 recovery, cancellation, SSE finalization, notifications, message persistence, and final user-visible error copy.
+
+### ERR-01 — cancellation could be defeated by busy recovery
+
+The existing busy path used `try? await Task.sleep(...)` and did not consult cancellation before or after abort/sleep. A user pressing Stop during the 500 ms recovery window could therefore reach another `sendDirectly` call. A red compile regression was written first for cancellation-aware retry planning. `SessionBusyRetryLogic.nextPlan` now accepts cancellation state; `ChatPanelView` guards before abort, after abort, after cancellable sleep, and immediately before retry. The existing bounded retry and stable session/assistant/request identity contract remains intact.
+
+### ERR-02 — raw Serve transport failures were generic and stale
+
+`MimoServeClient.sendMessage` allowed raw `URLSession` transport errors to escape, while `ChatPanelView` rendered only generic error copy and left `serverConnected` unchanged. A route-scoped red regression was written first. Send transport failures now map to `MimoServeError.connectionFailed`; only the `.mimoServe` route clears stale connection state and emits the existing disconnect notification. Direct, web, ACP, and Auto Free routes are not poisoned by Serve state changes.
+
+### ERR-03 — zero-message Serve response bypassed blank-completion guard
+
+The previous code validated only when `assistantResponse(from:)` returned a DTO. When Serve returned an empty array, finalization could proceed with no visible response and leave an empty streaming placeholder. A red regression was written first for `responseCount == 0`. The feedback helper now fails closed on zero responses while preserving reasoning-only and tool-bearing success cases.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| ERR-01 cancellation red test | **compile failed as expected → 3/3 passed** | Foundation retry logic |
+| ERR-02 transport/disconnect red tests | **compile failed as expected → 3/3 passed** | Foundation classifier + source wiring |
+| ERR-03 empty-array red test | **compile failed as expected → passed** | Foundation response validation |
+| Persistent Round 97 source acceptance | **passed** | Production wiring |
+| Full Foundation harness | **350/350 passed** | Linux-safe suites |
+| Adversarial source checks | **12/12 passed** | Existing safety invariants |
+| Canonical registry integrity | **274 rows, unique IDs, valid statuses** | Registry acceptance |
+| Swift parser validation | **passed** | Changed production/test files |
+| `git diff --check` | **passed** | No trailing whitespace |
+
+### Status and scores
+
+The confirmed source-level defects in all three stories are fixed. They remain **PARTIAL** because macOS SwiftUI/AppKit rendering, URLSession behavior against the real local agent, SSE event delivery, native notifications, and live endpoint session semantics are not verifiable in this Linux environment.
+
+| Story | Code quality | Task adherence | Target-runtime confidence |
+|---|---:|---:|---:|
+| ERR-01 | 99/100 | 100/100 | 0/100 |
+| ERR-02 | 99/100 | 100/100 | 0/100 |
+| ERR-03 | 99/100 | 100/100 | 0/100 |
+
+No new registry rows were added in Round 97. The canonical registry remains **274 data rows**, with the existing status distribution **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**.

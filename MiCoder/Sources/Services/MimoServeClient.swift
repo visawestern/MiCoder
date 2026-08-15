@@ -206,7 +206,16 @@ class MimoServeClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = data
         
-        let (responseData, response) = try await session.data(for: request)
+        let responseData: Data
+        let response: URLResponse
+        do {
+            (responseData, response) = try await session.data(for: request)
+        } catch {
+            if ServeTransportFailureLogic.isConnectionFailure(error) {
+                throw MimoServeError.connectionFailed
+            }
+            throw error
+        }
         guard let httpResponse = response as? HTTPURLResponse,
               (200...299).contains(httpResponse.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1

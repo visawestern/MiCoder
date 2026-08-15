@@ -26,4 +26,16 @@ struct SessionBusyRetryLogicTests {
         #expect(next.assistantMessageID == current.assistantMessageID)
         #expect(next.messageID == current.messageID)
     }
+
+    @Test("cancelled busy recovery does not create another retry plan")
+    func cancellationStopsRetry() throws {
+        let current = SessionBusyRetryLogic.RetryPlan(
+            retryCount: 0,
+            sessionID: "remote-session",
+            assistantMessageID: "assistant-message",
+            messageID: "request-message"
+        )
+        #expect(SessionBusyRetryLogic.nextPlan(from: current, isCancelled: true) == nil)
+        #expect(SessionBusyRetryLogic.nextPlan(from: current, isCancelled: false) != nil)
+    }
 }

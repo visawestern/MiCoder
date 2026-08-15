@@ -14,8 +14,8 @@ enum SessionBusyRetryLogic {
         retryCount >= 0 && retryCount < maxRetries
     }
 
-    static func nextPlan(from current: RetryPlan) -> RetryPlan? {
-        guard shouldRetry(retryCount: current.retryCount) else { return nil }
+    static func nextPlan(from current: RetryPlan, isCancelled: Bool = false) -> RetryPlan? {
+        guard !isCancelled, shouldRetry(retryCount: current.retryCount) else { return nil }
         return RetryPlan(
             retryCount: current.retryCount + 1,
             sessionID: current.sessionID,
