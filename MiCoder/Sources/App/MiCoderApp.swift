@@ -627,9 +627,11 @@ class AppState: ObservableObject {
         if let webID = WebProviderConnectivity.configID(fromOptionID: providerID),
            let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID }) {
             let models = WebProviderConnectivity.models(for: config)
-            let preferred = models.contains(selectedModel)
-                ? selectedModel
-                : WebProviderSelectionLogic.selectedModel(for: config, availableModels: models)
+            let preferred = WebProviderSelectionLogic.modelForProviderSwitch(
+                config: config,
+                globalSelectedModel: selectedModel,
+                availableModels: models
+            )
             selectedModel = preferred
             defaults.set(preferred, forKey: "com.micoder.selectedModel")
             selectedVariant = ""

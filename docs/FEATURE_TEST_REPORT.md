@@ -2004,3 +2004,41 @@ The audit also records two remaining source limitations rather than falsely clai
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or live vendor pages. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-05` remains PARTIAL because WKWebView behavior is hardened and contract-tested, while external transports, selector-scoped screenshots, wait-expiry propagation, and native WebKit verification remain incomplete.
+
+## Round 80 — Preserve destination-provider model context on web-provider switch
+
+### Scope and chain audit
+
+The sequential audit continued at `WEB-06 Web Providers in Chat Input`. The chain was traced from `WebProviderStore` persistence and sanitization through session/cookie eligibility, expiry checks, zero-model filtering, `web:<id>` option identity, `ProviderSelectorMenu`, `selectProvider`, `modelsForSelectedProvider`, effective-model presentation, effort capability gating, send readiness, `WebChatDriver` model/effort injection, discovery persistence, and web-session/send metadata.
+
+Round 68 had already excluded cookie-only zero-model providers and added stale persisted-model fallback. The fresh audit found one remaining state leak. `AppState.selectProvider` examined the global `selectedModel` first. If that ID also existed in the destination provider’s model list, switching providers silently selected the global model even when the destination config had a different valid persisted `selectedModel`.
+
+### TDD defect confirmation and fix
+
+A red regression was added to `WebProviderSelectionLogicTests` before implementation. It failed because no provider-switch model contract existed. The green implementation adds `modelForProviderSwitch(config:globalSelectedModel:availableModels:)`: the destination provider’s valid persisted model wins; only when that is stale may a valid global fallback be used, followed by the first available model. `AppState.selectProvider` now consumes this contract and persists the resulting model consistently.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red provider-switch regression | **failed as expected** | Destination-specific selection contract absent before implementation |
+| Green WEB-06 selection suite | **10/10 passed** | Provider switch, selection, effort, injection, and custom vendor coverage |
+| Full Foundation harness | **261/261 passed** | Existing contracts plus WEB-06 regression |
+| Swift parser validation | **passed** | Selection logic and AppState wiring |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Native SwiftUI composer/menus | **UNVERIFIED** | Requires macOS runtime |
+| Live WebKit model discovery and send | **UNVERIFIED** | Requires authenticated vendor pages |
+
+### Remaining WEB-06 limitations
+
+`WEB-06` remains **PARTIAL**. Session/model eligibility, zero-model filtering, stale-model fallback, provider-specific switch selection, effort capability gating, and browser injection guards are contract-tested. Native menus, live vendor discovery, cookie restoration, and real ChatGPT/Kimi/Qwen send behavior remain unverified.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 95/100 | Provider identity and model selection now have one tested source of truth; native/live runtime and dynamic zero-model transitions remain. |
+| Task adherence | 100/100 | Every WEB-06 selector, state transition, discovery action, send gate, browser injection, and persistence path was traced; the confirmed defect received a red test before the fix; documentation was updated; runtime-only behavior remains explicitly UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or authenticated vendor pages. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-06` remains PARTIAL because provider eligibility and provider-specific model selection are hardened and contract-tested, while live vendor discovery and native runtime remain unverified.

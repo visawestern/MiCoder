@@ -19,6 +19,23 @@ struct WebProviderSelectionLogicTests {
         #expect(updated.selectedModel == "k2-thinking")
     }
 
+    @Test("switching provider prefers its persisted model over a global legacy selection")
+    func providerSwitchUsesProviderSelection() {
+        let config = WebProviderConfig(
+            vendor: .kimi,
+            selectedModel: "kimi-thinking",
+            discoveredModels: [
+                WebProviderModel(name: "shared-model"),
+                WebProviderModel(name: "kimi-thinking")
+            ]
+        )
+        #expect(WebProviderSelectionLogic.modelForProviderSwitch(
+            config: config,
+            globalSelectedModel: "shared-model",
+            availableModels: ["shared-model", "kimi-thinking"]
+        ) == "kimi-thinking")
+    }
+
     @Test("Unknown web model cannot silently replace the selected model")
     func selectingUnknownModelIsIgnored() {
         let config = WebProviderConfig(vendor: .qwen, selectedModel: "qwen-plus")

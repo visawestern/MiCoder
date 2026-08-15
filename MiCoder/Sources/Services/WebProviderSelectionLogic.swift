@@ -17,6 +17,21 @@ enum WebProviderSelectionLogic {
         selectedModel(for: config, availableModels: availableModels)
     }
 
+    static func modelForProviderSwitch(
+        config: WebProviderConfig,
+        globalSelectedModel: String,
+        availableModels: [String]? = nil
+    ) -> String {
+        let models = availableModels ?? config.allModels
+        if models.contains(config.selectedModel) {
+            return config.selectedModel
+        }
+        if models.contains(globalSelectedModel) {
+            return globalSelectedModel
+        }
+        return models.first ?? ""
+    }
+
     static func selectingModel(_ modelID: String,
                                in config: WebProviderConfig,
                                availableModels: [String]? = nil) -> WebProviderConfig {
