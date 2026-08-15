@@ -583,7 +583,8 @@ struct ChatPanelView: View {
         files: [FileInfo],
         images: [ClipboardImage] = [],
         agentModeOverride: AgentMode? = nil,
-        retryCount: Int = 0
+        retryCount: Int = 0,
+        retryPlan: SessionBusyRetryLogic.RetryPlan? = nil
     ) async {
         if let error = SendReadinessLogic.connectionValidationError(
             serverConnected: appState.serverConnected,
@@ -603,9 +604,9 @@ struct ChatPanelView: View {
             return
         }
 
-        let assistantID = UUID().uuidString
-        let selectedID = appState.selectedSession?.id
-        let messageID = MessageIDGenerator.next()
+        let assistantID = retryPlan?.assistantMessageID ?? UUID().uuidString
+        let selectedID = retryPlan?.sessionID ?? appState.selectedSession?.id
+        let messageID = retryPlan?.messageID ?? MessageIDGenerator.next()
         let agentMode = agentModeOverride ?? appState.agentMode
         let sendOptions = SessionSendLogic.buildSendOptions(
             agentMode: agentMode,
@@ -640,8 +641,13 @@ struct ChatPanelView: View {
             localProviders: localProviders,
             webProviderIDs: appState.webProviderIDs
         )
-        let preparedSessionID = await prepareSessionBeforeAppending(route: route, title: text)
-
+                let preparedSessionID: String?
+        if let retryPlan {
+            preparedSessionID = retryPlan.sessionID
+            await MainActor.run { messageStore.currentSessionID = retryPlan.sessionID }
+        } else {
+            preparedSessionID = await prepareSessionBeforeAppending(route: route, title: text)
+        }
         let userMessage = Message(
             role: .user,
             content: text,
@@ -649,19 +655,28 @@ struct ChatPanelView: View {
             parts: MessagePartsBuilder.displayParts(text: text, images: images)
         )
         await MainActor.run {
-            messageStore.append(userMessage)
+            if retryPlan == nil {
+                messageStore.append(userMessage)
+            }
             if let preparedSessionID,
                let preparedSession = appState.sessions.first(where: { $0.id == preparedSessionID }) {
                 appState.selectedSession = preparedSession
             }
         }
-
         let parts = MessagePartsBuilder.build(text: text, files: files, images: images)
-
         await MainActor.run {
             currentAssistantMessageID = assistantID
-            messageStore.append(Message(id: assistantID, role: .assistant, content: "", isStreaming: true))
+            if retryPlan == nil {
+                messageStore.append(Message(id: assistantID, role: .assistant, content: "", isStreaming: true))
+            } else {
+                messageStore.update(id: assistantID) { message in
+                    message.content = ""
+                    message.isFinished = false
+                    message.isStreaming = true
+                }
+            }
             appState.isLoading = true
+
             appState.isStreaming = true
             streamingText = ""
         }
@@ -993,18 +1008,27 @@ struct ChatPanelView: View {
                     }
                     self.appState.notificationService.sessionBusy()
                 }
-                if retryCount < 3 {
-                    if let sessionID = messageStore.currentSessionID {
+                if let sessionID = messageStore.currentSessionID ?? selectedID,
+                   !sessionID.isEmpty {
+                    let currentPlan = SessionBusyRetryLogic.RetryPlan(
+                        retryCount: retryCount,
+                        sessionID: sessionID,
+                        assistantMessageID: assistantID,
+                        messageID: messageID
+                    )
+                    if let nextPlan = SessionBusyRetryLogic.nextPlan(from: currentPlan) {
                         try? await appState.mimoClient.abortSession(id: sessionID)
                         try? await Task.sleep(nanoseconds: 500_000_000)
+                        await sendDirectly(
+                            text: text,
+                            files: files,
+                            images: images,
+                            agentModeOverride: agentModeOverride,
+                            retryCount: nextPlan.retryCount,
+                            retryPlan: nextPlan
+                        )
+                        return
                     }
-                    await MainActor.run {
-                        self.messageStore.update(id: assistantID) { msg in
-                            msg.content = ""
-                        }
-                    }
-                    await sendDirectly(text: text, files: files, images: images, agentModeOverride: agentModeOverride, retryCount: retryCount + 1)
-                    return
                 }
             }
             await MainActor.run {

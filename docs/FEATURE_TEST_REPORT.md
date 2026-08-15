@@ -1840,3 +1840,45 @@ Round 62 had correctly replaced one unbounded recursive removal with a project-r
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit deletion interaction or macOS filesystem, permission, and symlink scenarios. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `STO-28` remains PARTIAL because safety and failure visibility are fixed and contract-tested, while visible asynchronous progress/cancellation, rollback, and native filesystem behavior remain outside the verifiable scope.
+
+## Round 76 — Preserve session-busy retry identity and turn persistence
+
+### Scope and chain audit
+
+The sequential audit continued at `ERR-01 Session Busy Recovery`. The chain was traced from `ChatPanelView.sendDirectly` through readiness checks, route selection, remote session preparation, user/assistant persistence, `MimoServeClient.sendMessage`, HTTP status classification, `MimoServeError.sessionBusy`, notification, `abortSession`, the 500 ms delay, recursive retry, response merge, terminal failure, and loading/streaming cleanup.
+
+The existing source correctly mapped HTTP 409 to a distinct session-busy error, notified the user, aborted the session, waited 500 ms, and limited recursion to three retries. The adversarial chain found a persistence/identity defect. Each recursive retry generated a fresh assistant UUID and request message ID, called the session-preparation path again, and appended the same user message to `MessageStore`. Because `MessageStore.append` persists to the current session database, one user send could become multiple persisted user turns after busy recovery. The retry could also lose the exact session identity that returned 409.
+
+### TDD defect confirmation and fix
+
+`SessionBusyRetryLogicTests` was written first. The initial red run failed because the retry planner did not exist. The green implementation adds `SessionBusyRetryLogic` with a three-retry bound and a `RetryPlan` carrying the session ID and assistant-message ID. A second red edge-case run added request message-ID preservation and failed until that identity was included in the plan.
+
+`ChatPanelView.sendDirectly` now accepts an internal retry plan. The initial attempt creates and persists the user message and assistant placeholder. Busy retries reuse the original session, assistant placeholder, and request message ID; they do not append another user message, and they update the existing assistant row before reissuing the Serve request. Exhaustion remains bounded and the terminal path clears loading/streaming state.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red retry-planner regression | **failed as expected** | Planner absent before implementation |
+| Red message-ID regression | **failed as expected** | Request ID was not carried before implementation |
+| Green retry regressions | **2/2 passed** | Bound and all three identities preserved |
+| Full Foundation harness | **254/254 passed** | Existing contracts plus ERR-01 regressions |
+| Swift parser validation | **passed** | Retry planner and ChatPanelView |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Live 409 Serve response | **UNVERIFIED** | Requires macOS/runtime and a real Serve endpoint |
+| Native notification/message rendering | **UNVERIFIED** | Requires SwiftUI/AppKit runtime |
+| Abort endpoint behavior/race timing | **UNVERIFIED** | Requires live Serve session lifecycle |
+
+### Remaining ERR-01 limitations
+
+`ERR-01` remains **PARTIAL**. The confirmed duplicate-turn/new-identity defect is fixed and contract-tested, with a bounded retry plan and coherent terminal cleanup. Live Serve 409 behavior, abort races, native notification presentation, and endpoint-specific session semantics remain unverified. Abort failure remains best-effort and is not separately surfaced before retry exhaustion.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 96/100 | Retry identity and persistence are now coherent and bounded; live session behavior, abort-failure observability, and native runtime remain. |
+| Task adherence | 100/100 | Every request, persistence, retry, abort, notification, and terminal-error action was traced, red tests preceded each confirmed fix, canonical documentation was updated, and runtime-only behavior remains explicitly UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute a live MiMo Serve 409/abort lifecycle or native SwiftUI/AppKit notification/message rendering. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `ERR-01` remains PARTIAL because stable retry identity and duplicate-turn prevention are fixed and contract-tested, while live Serve session behavior and native presentation remain outside the verifiable scope.
