@@ -20,11 +20,14 @@ struct StatusBarView: View {
                 .fill(Color.mimo.border)
                 .frame(width: 1, height: 12)
             
-            if !appState.selectedModel.isEmpty {
+            if let displayModel = StatusBarModelLogic.displayModel(
+                selectedModel: appState.selectedModel,
+                effectiveModel: appState.effectiveSelectedModel()
+            ) {
                 HStack(spacing: 4) {
                     Image(systemName: "cpu")
                         .interfaceFont(size: 10)
-                    Text(appState.selectedModel)
+                    Text(displayModel)
                         .interfaceFont(size: 11, design: .monospaced)
                 }
                 .foregroundColor(Color.mimo.textSecondary)
@@ -60,7 +63,13 @@ struct StatusBarView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "network")
                         .interfaceFont(size: 10)
-                    Text(appState.serverConnected ? "\(appState.serverHost):\(appState.serverPort)" : appState.selectedProviderID)
+                    Text(ProviderConnectionStatusLogic.endpointLabel(
+                        selectedID: appState.selectedProviderID,
+                        serverProviderIDs: appState.serverProviders.map(\.id),
+                        serverConnected: appState.serverConnected,
+                        serverHost: appState.serverHost,
+                        serverPort: appState.serverPort
+                    ))
                         .interfaceFont(size: 11, design: .monospaced)
                 }
                 .foregroundColor(Color.mimo.textMuted)

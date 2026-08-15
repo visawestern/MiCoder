@@ -65,11 +65,7 @@ struct MiCoderApp: App {
             }
             CommandMenu("Actions") {
                 Button("Undo Last File Change") {
-                    if let sessionID = appState.selectedSession?.id {
-                        if let projectUndo = appState.projectUndoManager {
-                            _ = try? projectUndo.undoMostRecent(sessionId: sessionID)
-                        }
-                    }
+                    appState.undoLastAction()
                 }
                 .keyboardShortcut("z", modifiers: [.command, .option])
                 .disabled(appState.selectedSession == nil)
@@ -271,6 +267,8 @@ class AppState: ObservableObject {
     @Published var pendingProviderToDelete: CustomProvider?
     @Published var notificationService = NotificationService()
     @Published var transientProviderNotification: AppNotification? = nil
+    /// Short-lived feedback for shell actions such as Cmd+Option+Z.
+    @Published var shellActionNotice: String?
     private var autoFreeSwitchObserver: NSObjectProtocol? = nil
     
     var displayedWorkspaces: [Workspace] {
@@ -1459,17 +1457,81 @@ class AppState: ObservableObject {
     }
 
     var selectedProviderConnected: Bool {
-        if serverConnected { return true }
-        guard !selectedProviderID.isEmpty else { return false }
-        if let checked = providerConnectivity[selectedProviderID] { return checked }
+        let webConnected: Bool?
         if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
            let config = WebProviderStore.load().first(where: { $0.id == webID }) {
-            return WebProviderConnectivity.isConnected(config, homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+            webConnected = WebProviderConnectivity.isConnected(
+                config,
+                homeDirectory: FileManager.default.homeDirectoryForCurrentUser
+            )
+        } else {
+            webConnected = nil
         }
-        return false
+        let localEnabled = LocalProviderLogic.load().contains {
+            $0.id == selectedProviderID && $0.isEnabled
+        }
+        let customReady = customProviders.contains {
+            $0.id == selectedProviderID
+                && $0.isEnabled
+                && (!$0.requiresAPIKey || !$0.apiKey.isEmpty)
+        }
+        let autoFreeReady = selectedProviderID == MiCoderAutoFreeProvider.builtInID
+            ? MiCoderAutoFreeStore.shared.provider.isReady
+            : false
+        return ProviderConnectionStatusLogic.isConnected(
+            selectedID: selectedProviderID,
+            serverProviderIDs: serverProviders.map(\.id),
+            serverConnected: serverConnected,
+            autoFreeID: MiCoderAutoFreeProvider.builtInID,
+            autoFreeReady: autoFreeReady,
+            webConnected: webConnected,
+            localEnabled: localEnabled,
+            customReady: customReady,
+            remembered: providerConnectivity[selectedProviderID]
+        )
     }
 
     var currentSessionGoal: String? { selectedSession?.sessionGoal }
+
+    /// Undo the most recent project-scoped file change and make every outcome
+    /// visible. The old command discarded both the Bool result and thrown
+    /// errors, leaving users unable to tell whether anything happened.
+    @MainActor
+    func undoLastAction() {
+        guard selectedSession != nil else {
+            publishShellActionNotice(UndoActionFeedbackLogic.message(for: .nothingToUndo))
+            return
+        }
+        guard let projectUndoManager else {
+            publishShellActionNotice(UndoActionFeedbackLogic.message(for: .nothingToUndo))
+            return
+        }
+        let result: UndoActionResult
+        do {
+            let didUndo = try projectUndoManager.undoMostRecent(sessionId: selectedSession?.id ?? "")
+            result = didUndo ? .undone : .nothingToUndo
+        } catch {
+            result = .failed(error.localizedDescription)
+        }
+        publishShellActionNotice(UndoActionFeedbackLogic.message(for: result))
+        if result == .undone {
+            let directory = selectedWorkspace?.path
+            Task { await refreshGitFromLocal(directory: directory) }
+        }
+    }
+
+    @MainActor
+    private func publishShellActionNotice(_ message: String) {
+        shellActionNotice = message
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard self?.shellActionNotice == message else { return }
+                self?.shellActionNotice = nil
+            }
+        }
+    }
 
     /// Set the goal on the selected session, persist in-memory and to the DB
     /// so it survives restarts (plan Раздел 5 Блок 1 п.10).
@@ -1481,7 +1543,7 @@ class AppState: ObservableObject {
         if let idx = sessions.firstIndex(where: { $0.id == session.id }) {
             sessions[idx].sessionGoal = value
         }
-        try? DatabaseManager.shared.setSessionGoal(sessionId: session.id, goal: value)
+        DatabaseBridge.shared.setSessionGoal(sessionId: session.id, goal: value)
     }
 
     /// Build the data context for the in-input command dropdown (plan Раздел 6).

@@ -35,6 +35,7 @@ struct ProjectSessionRecord {
     let isArchived: Bool
     let tokensUsed: Int
     let costUsd: Double
+    let sessionGoal: String?
 }
 
 /// A record describing a single message stored inside a per-project database.
@@ -134,6 +135,7 @@ final class ProjectDatabaseManager {
     private let sessionCostUsd = Expression<Double>("cost_usd")
     private let sessionActiveTimeSeconds = Expression<Int64>("active_time_seconds")
     private let sessionMetadata = Expression<String?>("metadata")
+    private let sessionGoal = Expression<String?>("session_goal")
 
     private let messages = Table("messages")
     private let messageId = Expression<String>("id")
@@ -386,7 +388,12 @@ final class ProjectDatabaseManager {
             t.column(sessionCostUsd, defaultValue: 0.0)
             t.column(sessionActiveTimeSeconds, defaultValue: 0)
             t.column(sessionMetadata)
+            t.column(sessionGoal)
         })
+        // Existing per-project databases predate session-goal persistence.
+        // CREATE TABLE IF NOT EXISTS does not upgrade them, so add the column
+        // explicitly while preserving all existing session rows.
+        try addColumnIfMissing(table: "sessions", column: "session_goal", definition: "TEXT")
 
         try db.run(messages.create(ifNotExists: true) { t in
             t.column(messageId, primaryKey: true)
@@ -563,7 +570,8 @@ final class ProjectDatabaseManager {
         agentMode: String = "build",
         modelId: String? = nil,
         providerId: String? = nil,
-        parentSessionId: String? = nil
+        parentSessionId: String? = nil,
+        sessionGoal: String? = nil
     ) throws {
         touch()
         let now = Int64(Date().timeIntervalSince1970)
@@ -579,7 +587,8 @@ final class ProjectDatabaseManager {
             sessionModelId <- modelId,
             sessionProviderId <- providerId,
             sessionParentId <- parentSessionId,
-            sessionIsArchived <- false
+            sessionIsArchived <- false,
+            sessionGoal <- sessionGoal
         ))
     }
 
@@ -590,6 +599,14 @@ final class ProjectDatabaseManager {
             query = sessions.filter(sessionIsArchived == false).order(sessionUpdatedAt.desc)
         }
         return try SQLiteSafeQuery.rows(db.prepareRowIterator(query)).map(rowToSessionRecord)
+    }
+
+    /// Persists the /goal value inside this project's database.
+    /// nil clears the goal without touching unrelated session metadata.
+    func setSessionGoal(id: String, goal: String?) throws {
+        touch()
+        let row = sessions.filter(sessionId == id)
+        try db.run(row.update(sessionGoal <- goal))
     }
 
     func updateSessionTimestamp(id: String) throws {
@@ -645,7 +662,8 @@ final class ProjectDatabaseManager {
             agentMode: row[sessionAgentMode],
             isArchived: row[sessionIsArchived],
             tokensUsed: Int(row[sessionTokensUsed]),
-            costUsd: row[sessionCostUsd]
+            costUsd: row[sessionCostUsd],
+            sessionGoal: row[sessionGoal]
         )
     }
 

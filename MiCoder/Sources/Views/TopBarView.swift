@@ -45,7 +45,10 @@ struct TopBarView: View {
             }
 
             // Branch badge — when project is selected
-            if appState.selectedProject != nil {
+            if ProjectHeaderContextLogic.shouldShowBranch(
+                selectedWorkspace: appState.selectedWorkspace != nil,
+                selectedLegacyProject: appState.selectedProject != nil
+            ) {
                 HStack(spacing: 4) {
                     Image(systemName: "command")
                         .interfaceFont(size: 10)
@@ -76,6 +79,18 @@ struct TopBarView: View {
                     .background(Color.mimo.brand.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     .help(goal)
+            }
+
+            if let notice = appState.shellActionNotice {
+                HStack(spacing: 4) {
+                    Image(systemName: notice.hasPrefix("Undo failed") ? "exclamationmark.triangle" : "checkmark.circle")
+                        .interfaceFont(size: 10)
+                    Text(notice)
+                        .interfaceFont(size: 11)
+                        .lineLimit(1)
+                }
+                .foregroundColor(notice.hasPrefix("Undo failed") ? Color.mimo.error : Color.mimo.success)
+                .transition(.opacity)
             }
 
             Spacer()

@@ -1069,3 +1069,65 @@ The existing `archiveSession`/`unarchiveSession` database primitives remain avai
 | Overall verifiable project quality | 97/100 | 98/100 | 162/162 harness, parser, source checks and diff hygiene passed |
 
 Canonical checklist 08, registry and README were updated. The registry now contains **271 rows: 233 PASS, 28 PARTIAL, 5 MISSING, 5 FUTURE**. Round 57 is ready for staged validation and commit/push. The next sequential audit is checklist 09 (`09-shell-status.md`).
+
+
+## Round 58 — Shell and Status adversarial audit
+
+### Scope and method
+
+Round 58 audited Activity 09 (`09-shell-status.md`) from the first visible shell control through its complete trigger→handler→state→consumer→persistence chain. The manual devil’s-advocate pass covered the sidebar toggle, New Task/Cmd+N, Goal and Terminal panels, Copy Chat, session/workspace/branch context, goal badge persistence, provider connection status, endpoint label, model status, streaming/loading priority, Search/Cmd+K, Undo/Cmd+Option+Z, native Cut/Copy/Paste/Select All, workspace switching, and first-send session bootstrap.
+
+The audit found and fixed five confirmed defects. The first three are canonical SHELL stories; the last two are additional regression fixes recorded in the checklist and cumulative evidence.
+
+### SHELL-01 — Workspace-only branch context was hidden
+
+`TopBarView` previously gated the branch badge on the retired `selectedProject` property, while current project navigation uses `selectedWorkspace`. A workspace-only project therefore displayed the no-project MiCoder fallback even though a real branch was active. A red test was written first for workspace-only and no-context cases. `ProjectHeaderContextLogic.shouldShowBranch` is now wired into the TopBar. Evidence: **2/2 Foundation tests passed**.
+
+### SHELL-02 — Serve health masqueraded as every provider’s connectivity
+
+`AppState.selectedProviderConnected` previously exposed global Serve health as the universal connection state. An expired web login, unavailable Auto Free catalog, disabled local provider, or unready custom provider could therefore appear connected whenever Serve was healthy. A red route matrix was written first. `ProviderConnectionStatusLogic.isConnected` now applies readiness according to the selected provider family. Evidence: **3/3 route-specific connection tests passed**.
+
+### SHELL-03 — Endpoint label described the wrong route
+
+The status bar previously displayed the Serve host and port for every provider. The endpoint contract now displays `host:port` only when the selected ID belongs to the Serve provider set; web, Auto Free, local, and custom routes display their selected provider ID. During the round, the endpoint regression test was also found outside its suite’s closing brace; it was moved inside the suite before execution. Evidence: **4/4 provider status tests passed**, including the endpoint test.
+
+### Additional confirmed defect — effective web/Auto Free model disappeared from StatusBar
+
+`StatusBarView` rendered only `appState.selectedModel`, although web and Auto Free routes can hold the actual selected model in `effectiveSelectedModel()`. The status bar could therefore show no model or misleading state. Red tests were written first for effective-model precedence, legacy fallback, and the both-empty case. `StatusBarModelLogic.displayModel` is now used by `StatusBarView`. Evidence: **2/2 tests passed**.
+
+### Additional confirmed defect — project goal was not stored in the project database
+
+The global `DatabaseManager` had a `session_goal` column, but the per-project schema and `ProjectSessionRecord` did not. `AppState.setCurrentSessionGoal` wrote to the global store while workspace reloads read project-scoped sessions, so the TopBar goal badge could disappear after switching or restarting. Red tests were written first for project precedence and legacy compatibility. The per-project schema now adds/upgrades `session_goal`, CRUD and record hydration carry the value, `DatabaseBridge` routes reads/writes by owning session, and AppState uses that bridge. Evidence: **3/3 routing-contract tests passed**. Real macOS SQLite migration remains unverified in Linux.
+
+### Additional confirmed UX defect — Undo silently discarded results and errors
+
+The Cmd+Option+Z closure ignored the Boolean result from `undoMostRecent` and swallowed thrown errors. Users had no way to know whether a file was restored, no entry existed, or the snapshot was missing. Red tests were written first for success, no-op, and failure messages. `AppState.undoLastAction` now exposes the outcome through a short-lived TopBar notice and refreshes Git state after success; `UndoActionFeedbackLogic` keeps the mapping deterministic. Evidence: **3/3 tests passed**. Native menu and filesystem restore remain macOS-bound.
+
+### Source-traced controls with no remaining confirmed deterministic defect
+
+Cmd+N clears selection and execution state; the first send then establishes `MessageStore.currentSessionID` before appending the user and assistant messages. Cmd+K is wired through `showSearch` to `ContentView`’s SearchPalette sheet and selection returns through `AppState.selectSession`. Goal and Terminal toggles mount the expected right and bottom panels. Copy Chat sends the notification to ChatPanel, builds the transcript, writes the macOS pasteboard and resets button feedback after 1.5 seconds. Streaming takes precedence over loading, and loading takes precedence over idle. Native responder shortcuts are source-correct but require AppKit focus runtime verification.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Full Foundation harness | **176/176 passed** | Linux-compatible deterministic contracts |
+| Provider connection and endpoint suite | **4/4 passed** | Pure route contract; live provider/WebKit unverified |
+| Effective status-bar model suite | **2/2 passed** | Pure display contract; SwiftUI rendering unverified |
+| Project goal routing suite | **3/3 passed** | Pure precedence contract; macOS SQLite unverified |
+| Undo feedback suite | **3/3 passed** | Pure outcome contract; AppKit/filesystem unverified |
+| Swift parser validation | **passed** | Syntax only; no macOS framework typecheck |
+| Adversarial source checks | **12/12 passed** | Static repository checks |
+| `git diff --check` | **passed** | Repository hygiene |
+| macOS SwiftUI/AppKit/WebKit/SQLite runtime | **UNVERIFIED** | Requires a user-side macOS build/run |
+
+### Adversarial scores
+
+| Dimension | Before Round 58 | After Round 58 | Evidence |
+|---|---:|---:|---|
+| Shell/Status implementation quality | 84/100 | 98/100 | Five confirmed chain defects fixed; route and persistence contracts are explicit; runtime boundary remains |
+| Shell/Status task adherence | 86/100 | 100/100 | Full control matrix, red tests first, separate quality scores, canonical docs, and honest UNVERIFIED labels |
+| Target-runtime confidence | 0/100 | 0/100 | Linux sandbox cannot execute SwiftUI, AppKit, WebKit, or macOS SQLite runtime |
+| Overall verifiable project quality | 98/100 | 99/100 | 176/176 harness, parser, 12/12 source checks; macOS runtime still required |
+
+Canonical checklist 09, the 274-row registry, and README totals are updated for Round 58. The next sequential audit remains Activity 14 (`send-providers.md`), beginning with provider/model selection through readiness, route resolution, browser/direct client execution, session UUID routing, persistence, retry/failover, and user-visible error handling.

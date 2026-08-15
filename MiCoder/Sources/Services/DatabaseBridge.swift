@@ -121,7 +121,8 @@ class DatabaseBridge: ObservableObject {
                         updatedAt: record.updatedAt,
                         directory: record.directory,
                         branch: record.branch,
-                        gitSummary: nil
+                        gitSummary: nil,
+                        sessionGoal: record.sessionGoal
                     )
                 }
             } catch {
@@ -190,6 +191,24 @@ class DatabaseBridge: ObservableObject {
         }
     }
     
+    /// Persist a session goal in the same project-scoped store used for reload.
+    /// Legacy/temporary sessions retain the global DatabaseManager fallback.
+    func setSessionGoal(sessionId id: String, goal: String?) {
+        if let projectDB = resolveProjectDatabase(forSessionID: id) {
+            do {
+                try projectDB.setSessionGoal(id: id, goal: goal)
+            } catch {
+                print("❌ Failed to persist project session goal: \(error)")
+            }
+            return
+        }
+        do {
+            try db.setSessionGoal(sessionId: id, goal: goal)
+        } catch {
+            print("❌ Failed to persist legacy session goal: \(error)")
+        }
+    }
+
     /// Архивировать сессию в базе проекта, которому она принадлежит.
     func archiveSession(id: String) {
         guard let projectDB = resolveProjectDatabase(forSessionID: id) else {
