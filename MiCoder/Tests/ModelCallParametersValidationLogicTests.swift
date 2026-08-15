@@ -14,6 +14,17 @@ struct ModelCallParametersValidationLogicTests {
         #expect(params == ModelCallParameters(temperature: 0.7, maxTokens: 2048, topP: 0.9, systemPrompt: "Be precise"))
     }
 
+    @Test("system prompt normalization trims meaningful text")
+    func systemPromptIsTrimmed() {
+        let params = ModelCallParametersValidationLogic.parse(
+            temperature: "",
+            maxTokens: "",
+            topP: "",
+            systemPrompt: "  Be precise  "
+        )
+        #expect(params?.systemPrompt == "Be precise")
+    }
+
     @Test("blank numeric fields remain provider defaults")
     func blanksAreUnset() {
         let params = ModelCallParametersValidationLogic.parse(

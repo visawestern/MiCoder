@@ -21,7 +21,7 @@ enum SendProviderReadinessLogic {
     ) -> String? {
         let selected = selectedProviderID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !selected.isEmpty else {
-            return serverConnected ? nil : genericProviderError
+            return genericProviderError
         }
 
         if selected == autoFreeID {

@@ -704,6 +704,12 @@ struct SendReadinessLogicTests {
         #expect(error == "Select a provider for this model.")
     }
 
+    @Test("sendValidationError returns error when providerID is only whitespace")
+    func sendErrorWhitespaceProvider() {
+        let error = SendReadinessLogic.sendValidationError(modelID: "gpt-4", providerID: "  \n  ")
+        #expect(error == "Select a provider for this model.")
+    }
+
     // MARK: - canSendMessage
 
     @Test("canSendMessage true when all conditions are met")

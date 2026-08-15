@@ -15,7 +15,8 @@ enum ModelCallParametersValidationLogic {
         if !temperature.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && temperatureValue == nil { return nil }
         if !topP.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && topPValue == nil { return nil }
 
-        let prompt = systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : systemPrompt
+        let trimmedPrompt = systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prompt = trimmedPrompt.isEmpty ? nil : trimmedPrompt
         return ModelCallParameters(
             temperature: temperatureValue,
             maxTokens: maxTokensValue,

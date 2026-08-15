@@ -15,6 +15,18 @@ struct ProviderConnectionValidationLogicTests {
         #expect(!ProviderConnectionValidationLogic.isValidModelsResponse(statusCode: 200, body: Data("<html>login</html>".utf8)))
     }
 
+    @Test("blank alternate ID falls back to a valid model name")
+    func blankAlternateIDUsesName() {
+        let body = Data(#"{"models":[{"id":"  ","name":"qwen-coder"}]}"#.utf8)
+        #expect(ProviderConnectionValidationLogic.isValidModelsResponse(statusCode: 200, body: body))
+    }
+
+    @Test("model extraction filters blanks, falls back to names, and deduplicates")
+    func modelExtractionIsCanonical() {
+        let body = Data(#"{"data":[{"id":"  "},{"id":"gpt-test"},{"id":"gpt-test"}],"models":[{"id":" ","name":"models/qwen-coder"}]}"#.utf8)
+        #expect(ProviderConnectionValidationLogic.modelIDs(from: body) == ["gpt-test", "qwen-coder"])
+    }
+
     @Test("empty model list is not connected")
     func emptyModelsFail() {
         let body = Data(#"{"data":[]}"#.utf8)

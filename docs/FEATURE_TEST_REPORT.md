@@ -2623,3 +2623,54 @@ The confirmed source-level storage and shell truthfulness defects are fixed. The
 | SHELL-03 | 98/100 | 100/100 | 0/100 |
 
 No new registry rows were added in Round 92. The canonical registry remains **274 rows**, with the existing status distribution **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**.
+
+## Round 93 — Harden input readiness, model parameters, and provider model refresh
+
+### Scope and chain audit
+
+The canonical audit covered **INP-10**, **INP-14**, and **PROV-08**. The full chains were traced from the visual send/stop button and both Enter handlers through readiness gates; from model parameter editors through validation, UserDefaults, request fragments, and Direct/Serve/ACP/Auto Free callers; and from Test Connection plus Refresh Models through HTTP status, JSON parsing, model catalog mutation, and visible provider readiness.
+
+Three source-level defects were confirmed.
+
+### INP-10/PROV-08 — empty provider IDs passed the connected-Serve fallback
+
+`SendProviderReadinessLogic.connectionValidationError` trimmed the selected provider ID but returned nil for an empty selection whenever Serve was connected. This lower-level gate could therefore approve an empty or whitespace route. A red Foundation test was written first. The helper now returns the generic provider error for every empty selection, and `SendReadinessLogic.sendValidationError` trims provider IDs so the user receives the actionable “Select a provider for this model.” message.
+
+The send/stop button chain was re-traced: idle uses `canSend`, loading renders stop, and both CenteredInputCard and BottomInputBar Enter handlers call `SendButtonActivationLogic.canInvokeSend`. No additional native UI defect was confirmed; keyboard, accessibility, cancellation, and SwiftUI interaction remain unverified in Linux.
+
+### INP-14 — system prompts were padded and whitespace-only values persisted
+
+The shared parser returned the original system prompt after checking only trimmed emptiness. The settings editor duplicated numeric parsing and stored raw prompt text. The per-model store treated whitespace as customized and emitted padded `system` fragments. Red tests were written first for parser trimming, whitespace-only store entries, and request-fragment trimming. The shared parser, settings editor, store load/set normalization, customization badge, and request fragment now use the same normalized prompt contract.
+
+Numeric validation remains finite and range-bound: temperature 0…2, top-p 0…1, and max tokens a positive integer. Direct chat inserts the system prompt as a system message; Serve/ACP request fragments and Auto Free prompt insertion remain wired by existing source/tests.
+
+### PROV-08 — Refresh Models bypassed canonical response validation
+
+The Test Connection path used `ProviderConnectionValidationLogic`, but custom Refresh Models independently extracted raw strings. It could accept whitespace IDs, ignore a valid `name` when `id` was blank, and diverge in prefix and duplicate handling. A red canonical extraction test was written first. `ProviderConnectionValidationLogic.modelIDs(from:)` now performs one normalization/fallback/deduplication/sort pass, and AppState custom refresh uses the same extractor after a successful HTTP response. Invalid JSON, non-2xx responses, and empty usable catalogs remain rejected.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| INP-10/PROV-08 whitespace-provider red test | **failed as expected → 1/1 passed** | Foundation readiness logic |
+| INP-10 wrapper whitespace-provider regression | **written first; parser/native UI verification UNVERIFIED** | macOS `SendReadinessLogic` wrapper |
+| INP-14 prompt parser red test | **failed as expected → 5/5 passed** | Foundation parser |
+| INP-14 parameter-store red tests | **failed as expected → 7/7 passed** | Foundation UserDefaults/serialization |
+| PROV-08 blank-ID/name fallback red test | **failed as expected → 5/5 passed** | Foundation validator |
+| PROV-08 canonical extraction red compile test | **failed as expected → 6/6 passed** | Foundation validator/parser |
+| Full Foundation harness | **317/317 passed** | Linux-safe suites |
+| Adversarial source checks | **12/12 passed** | Existing web/model safety invariants |
+| Swift parser validation | **passed** | Changed production and test Swift |
+| `git diff --check` | **passed** | No trailing whitespace |
+
+### Status and scores
+
+The confirmed input/provider defects are fixed. The stories remain **PARTIAL** wherever confirmation depends on SwiftUI/AppKit keyboard behavior, native cancellation, URLSession, Keychain, settings popovers, or live provider responses. No Linux result is represented as a native runtime PASS.
+
+| Story | Code quality | Task adherence | Target-runtime confidence |
+|---|---:|---:|---:|
+| INP-10 | 98/100 | 100/100 | 0/100 |
+| INP-14 | 98/100 | 100/100 | 0/100 |
+| PROV-08 | 99/100 | 100/100 | 0/100 |
+
+No new registry rows were added in Round 93. The canonical registry remains **274 rows**, with the existing status distribution **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**.

@@ -45,7 +45,8 @@ enum SendReadinessLogic {
         guard !trimmedModel.isEmpty else {
             return "Select a model before sending."
         }
-        guard let providerID, !providerID.isEmpty else {
+        guard let providerID,
+              !providerID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return "Select a provider for this model."
         }
         return nil

@@ -742,7 +742,10 @@ struct ModelSettingsProviderColumns: View {
                 temperature: temperature,
                 maxTokens: maxTokens,
                 topP: topP,
-                systemPrompt: parameterSystemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : parameterSystemPrompt
+                systemPrompt: {
+                    let trimmed = parameterSystemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+                    return trimmed.isEmpty ? nil : trimmed
+                }()
             ),
             for: parameterModelID
         )

@@ -30,6 +30,12 @@ struct ModelCallParametersTests {
         #expect(ModelCallParametersStore.loadAll(defaults: d).isEmpty)
     }
 
+    @Test func whitespaceSystemPromptDoesNotCreateEntry() {
+        let d = UserDefaults(suiteName: "model-params-\(UUID().uuidString)")!
+        ModelCallParametersStore.set(ModelCallParameters(systemPrompt: "  \n\t "), for: "m", defaults: d)
+        #expect(ModelCallParametersStore.loadAll(defaults: d).isEmpty)
+    }
+
     @Test func requestFragmentOnlyIncludesSetKeys() {
         let frag = ModelCallParametersStore.requestFragment(
             ModelCallParameters(temperature: 0.3, maxTokens: 1000)
@@ -38,6 +44,13 @@ struct ModelCallParametersTests {
         #expect(frag["max_tokens"] as? Int == 1000)
         #expect(frag["top_p"] == nil)
         #expect(frag["system"] == nil)
+    }
+
+    @Test func requestFragmentTrimsSystemPrompt() {
+        let frag = ModelCallParametersStore.requestFragment(
+            ModelCallParameters(systemPrompt: "  Be precise  ")
+        )
+        #expect(frag["system"] as? String == "Be precise")
     }
 
     @Test func requestFragmentEmptyForDefaults() {

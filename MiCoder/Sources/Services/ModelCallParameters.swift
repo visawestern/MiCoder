@@ -18,7 +18,10 @@ struct ModelCallParameters: Codable, Equatable, Hashable {
 
     /// Whether any parameter is customized (for a badge/indicator).
     var isCustomized: Bool {
-        temperature != nil || maxTokens != nil || topP != nil || (systemPrompt?.isEmpty == false)
+        temperature != nil
+            || maxTokens != nil
+            || topP != nil
+            || !(systemPrompt?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
     }
 }
 
@@ -57,13 +60,14 @@ enum ModelCallParametersStore {
     }
 
     static func parameters(for modelID: String, defaults: UserDefaults = .standard) -> ModelCallParameters {
-        loadAll(defaults: defaults)[modelID] ?? ModelCallParameters()
+        normalized(loadAll(defaults: defaults)[modelID] ?? ModelCallParameters())
     }
 
     static func set(_ params: ModelCallParameters, for modelID: String, defaults: UserDefaults = .standard) {
         var map = loadAll(defaults: defaults)
-        if params.isCustomized {
-            map[modelID] = params
+        let value = normalized(params)
+        if value.isCustomized {
+            map[modelID] = value
         } else {
             map.removeValue(forKey: modelID)
         }
@@ -76,7 +80,19 @@ enum ModelCallParametersStore {
         if let t = params.temperature { body["temperature"] = t }
         if let m = params.maxTokens { body["max_tokens"] = m }
         if let p = params.topP { body["top_p"] = p }
-        if let s = params.systemPrompt, !s.isEmpty { body["system"] = s }
+        if let s = params.systemPrompt {
+            let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { body["system"] = trimmed }
+        }
         return body
+    }
+
+    private static func normalized(_ params: ModelCallParameters) -> ModelCallParameters {
+        var value = params
+        if let prompt = value.systemPrompt {
+            let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+            value.systemPrompt = trimmed.isEmpty ? nil : trimmed
+        }
+        return value
     }
 }

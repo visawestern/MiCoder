@@ -1112,11 +1112,9 @@ class AppState: ObservableObject {
                 }
                 // OpenAI-compatible: { data: [{ id }] }; Ollama: { models:
                 // [{ name }] }; Google: { models: [{ name: "models/..." }] }.
-                let openAIModels = (json["data"] as? [[String: Any]])?.compactMap { $0["id"] as? String } ?? []
-                let namedModels = (json["models"] as? [[String: Any]])?.compactMap {
-                    ($0["id"] as? String) ?? ($0["name"] as? String)
-                }.map { $0.replacingOccurrences(of: "models/", with: "") } ?? []
-                let discoveredModels = Array(Set(openAIModels + namedModels)).sorted()
+                // Keep refresh and Test Connection on one canonical parser so
+                // blank IDs, fallback names, and duplicate rows behave alike.
+                let discoveredModels = ProviderConnectionValidationLogic.modelIDs(from: data)
                 let models: [String] = provider.type == .openCodeZen
                     ? OpenCodeZenCatalog.availableModels(from: discoveredModels, apiKey: apiKey)
                     : discoveredModels
