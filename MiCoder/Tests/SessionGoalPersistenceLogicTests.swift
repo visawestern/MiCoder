@@ -30,4 +30,10 @@ struct SessionGoalPersistenceLogicTests {
             legacyStoredGoal: nil
         ) == nil)
     }
+
+    @Test("goal normalization trims meaningful text and clears whitespace-only input")
+    func normalizedGoalEdges() {
+        #expect(SessionGoalPersistenceLogic.normalizedGoal("  Ship the release  ") == "Ship the release")
+        #expect(SessionGoalPersistenceLogic.normalizedGoal(" \n\t ") == nil)
+    }
 }

@@ -275,6 +275,7 @@ class AppState: ObservableObject {
     @Published var transientProviderNotification: AppNotification? = nil
     /// Short-lived feedback for shell actions such as Cmd+Option+Z.
     @Published var shellActionNotice: String?
+    @Published var shellActionNoticeTone: UndoActionFeedbackTone = .success
     private var autoFreeSwitchObserver: NSObjectProtocol? = nil
     
     var displayedWorkspaces: [Workspace] {
@@ -1529,11 +1530,17 @@ class AppState: ObservableObject {
     @MainActor
     func undoLastAction() {
         guard selectedSession != nil else {
-            publishShellActionNotice(UndoActionFeedbackLogic.message(for: .nothingToUndo))
+            publishShellActionNotice(
+                UndoActionFeedbackLogic.message(for: .nothingToUndo),
+                tone: UndoActionFeedbackLogic.tone(for: .nothingToUndo)
+            )
             return
         }
         guard let projectUndoManager else {
-            publishShellActionNotice(UndoActionFeedbackLogic.message(for: .nothingToUndo))
+            publishShellActionNotice(
+                UndoActionFeedbackLogic.message(for: .nothingToUndo),
+                tone: UndoActionFeedbackLogic.tone(for: .nothingToUndo)
+            )
             return
         }
         let result: UndoActionResult
@@ -1543,7 +1550,10 @@ class AppState: ObservableObject {
         } catch {
             result = .failed(error.localizedDescription)
         }
-        publishShellActionNotice(UndoActionFeedbackLogic.message(for: result))
+        publishShellActionNotice(
+            UndoActionFeedbackLogic.message(for: result),
+            tone: UndoActionFeedbackLogic.tone(for: result)
+        )
         if result == .undone {
             let directory = selectedWorkspace?.path
             Task { await refreshGitFromLocal(directory: directory) }
@@ -1551,8 +1561,12 @@ class AppState: ObservableObject {
     }
 
     @MainActor
-    private func publishShellActionNotice(_ message: String) {
+    private func publishShellActionNotice(
+        _ message: String,
+        tone: UndoActionFeedbackTone
+    ) {
         shellActionNotice = message
+        shellActionNoticeTone = tone
         Task { [weak self] in
             try? await Task.sleep(nanoseconds: 2_500_000_000)
             guard !Task.isCancelled else { return }
@@ -1567,7 +1581,7 @@ class AppState: ObservableObject {
     /// so it survives restarts (plan Раздел 5 Блок 1 п.10).
     func setCurrentSessionGoal(_ goal: String) {
         guard var session = selectedSession else { return }
-        let value = goal.isEmpty ? nil : goal
+        let value = SessionGoalPersistenceLogic.normalizedGoal(goal)
         session.sessionGoal = value
         selectedSession = session
         if let idx = sessions.firstIndex(where: { $0.id == session.id }) {

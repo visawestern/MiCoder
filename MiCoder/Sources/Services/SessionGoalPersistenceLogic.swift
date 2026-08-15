@@ -1,10 +1,15 @@
 import Foundation
 
 enum SessionGoalPersistenceLogic {
+    static func normalizedGoal(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
     static func effectiveGoal(projectStoredGoal: String?, legacyStoredGoal: String?) -> String? {
-        let project = projectStoredGoal?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !project.isEmpty { return project }
-        let legacy = legacyStoredGoal?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return legacy.isEmpty ? nil : legacy
+        if let project = projectStoredGoal.flatMap(normalizedGoal) {
+            return project
+        }
+        return legacyStoredGoal.flatMap(normalizedGoal)
     }
 }

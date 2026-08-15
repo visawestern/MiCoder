@@ -83,13 +83,23 @@ struct TopBarView: View {
 
             if let notice = appState.shellActionNotice {
                 HStack(spacing: 4) {
-                    Image(systemName: notice.hasPrefix("Undo failed") ? "exclamationmark.triangle" : "checkmark.circle")
+                    Image(systemName: appState.shellActionNoticeTone == .error
+                          ? "exclamationmark.triangle"
+                          : appState.shellActionNoticeTone == .warning
+                            ? "minus.circle"
+                            : "checkmark.circle")
                         .interfaceFont(size: 10)
                     Text(notice)
                         .interfaceFont(size: 11)
                         .lineLimit(1)
                 }
-                .foregroundColor(notice.hasPrefix("Undo failed") ? Color.mimo.error : Color.mimo.success)
+                .foregroundColor(
+                    appState.shellActionNoticeTone == .error
+                        ? Color.mimo.error
+                        : appState.shellActionNoticeTone == .warning
+                            ? Color.mimo.warning
+                            : Color.mimo.success
+                )
                 .transition(.opacity)
             }
 
@@ -124,14 +134,19 @@ struct TopBarView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(Color.mimo.surface)
+        .onReceive(NotificationCenter.default.publisher(for: .copyEntireChatCompleted)) { _ in
+            withAnimation { chatCopied = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                withAnimation { chatCopied = false }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .copyEntireChatUnavailable)) { _ in
+            withAnimation { chatCopied = false }
+        }
     }
 
     private func copyEntireChat() {
         NotificationCenter.default.post(name: .copyEntireChat, object: nil)
-        withAnimation { chatCopied = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation { chatCopied = false }
-        }
     }
 }
 

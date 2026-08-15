@@ -31,4 +31,15 @@ struct ChatCopyLogicTests {
         #expect(transcript.contains("Only this"))
         #expect(transcript.contains("Assistant") == false)
     }
+
+    @Test("empty transcript reports no copy instead of success")
+    func emptyTranscriptIsNotCopied() {
+        #expect(ChatCopyLogic.result(from: []) == .empty)
+    }
+
+    @Test("visible transcript reports copied content")
+    func visibleTranscriptIsCopied() {
+        let message = Message(id: "message-1", role: .user, content: "Hello")
+        #expect(ChatCopyLogic.result(from: [message]) == .copied("User:\nHello"))
+    }
 }

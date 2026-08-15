@@ -17,4 +17,11 @@ struct UndoActionFeedbackLogicTests {
     func failureMessage() {
         #expect(UndoActionFeedbackLogic.message(for: .failed("snapshot missing")) == "Undo failed: snapshot missing")
     }
+
+    @Test("undo outcomes expose an explicit presentation tone")
+    func explicitPresentationTone() {
+        #expect(UndoActionFeedbackLogic.tone(for: .undone) == .success)
+        #expect(UndoActionFeedbackLogic.tone(for: .nothingToUndo) == .warning)
+        #expect(UndoActionFeedbackLogic.tone(for: .failed("snapshot missing")) == .error)
+    }
 }

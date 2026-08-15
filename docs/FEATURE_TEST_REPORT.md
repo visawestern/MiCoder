@@ -2559,3 +2559,67 @@ The confirmed source and documentation defects are fixed. The audited stories re
 | Registry integrity | 98/100 | 100/100 | 100/100 |
 
 The canonical registry remains **274 rows**, now with **unique story IDs**. The current status distribution remains **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**; Round 91 changed evidence and identifiers but did not alter the PASS/PARTIAL classification of the audited runtime-bound stories.
+
+## Round 92 — Harden storage maintenance and shell truthfulness
+
+### Scope and chain audit
+
+The sequential audit covered **STO-30**, **STO-31**, and **SHELL-01 through SHELL-03**. The chain was traced from Storage Settings archive/delete/vacuum controls through AppState, legacy and project databases, and stats refresh; from workspace/session selection through branch and goal badges; and from route readiness through StatusBar labels and TopBar copy/undo feedback.
+
+Four source-level UX/safety defects were confirmed.
+
+### STO-30 — legacy maintenance accepted negative ages
+
+`ProjectDatabaseManager` already clamped negative ages with `max(0, days)`, but the legacy `DatabaseManager.archiveSessionsOlderThan` and `deleteSessionsOlderThan` methods used raw negative values. A negative age moves the cutoff into the future and can archive or delete current sessions. A macOS in-memory red regression was written first for both operations. The legacy methods now clamp at zero, keeping compatibility and project stores behaviorally aligned.
+
+### SHELL-01 — whitespace goals were persisted as nonempty values
+
+`AppState.setCurrentSessionGoal` used `goal.isEmpty`, while the display/hydration helper trimmed later. A user entering only spaces could therefore persist a whitespace goal, and meaningful goals retained accidental leading/trailing padding. Red normalization tests were written first. `SessionGoalPersistenceLogic.normalizedGoal` now trims meaningful text and converts whitespace-only input to nil; both hydration and setter persistence use the same contract.
+
+### SHELL-03 — undo no-op and copy action reported false success
+
+TopBar inferred an undo failure only from the literal `Undo failed` prefix. `Nothing to undo.` consequently rendered with a green checkmark even though no action occurred. Red tone tests were written first; `UndoActionFeedbackTone` now distinguishes success, warning, and error and is wired through AppState and TopBar.
+
+The Copy button also set its checkmark immediately after posting an intent. The ChatPanel responder silently returned for an empty transcript and did not report clipboard failure. Red copy-result tests were written first; `ChatCopyLogic.result` now distinguishes empty and copyable transcripts, ChatPanel emits completion only after `NSPasteboard.setString` succeeds, and TopBar listens for completion/unavailable events.
+
+### Canonical registry — STO-28 status field was shifted by missing CSV quotes
+
+The persistent registry regression was extended to require every row’s `status` field to be one of `PASS`, `PARTIAL`, `MISSING`, or `FUTURE`. It failed on STO-28 because a comma-containing expected-behavior sentence was unquoted, shifting the coverage, status, and notes columns. The expected behavior is now correctly quoted; the registry parses as 274 rows with 274 unique IDs and the intended 224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE distribution.
+
+### SHELL-03 — invalid endpoint labels were displayed as trusted Serve endpoints
+
+`ProviderConnectionStatusLogic.endpointLabel` returned `host:port` whenever the selected ID matched a server provider, including an empty selected ID, blank host, or port zero. Red edge tests were written first. The helper now requires a nonempty selected ID, trimmed host, and port in `1...65535`; otherwise it returns the selected provider label.
+
+### Re-audited unchanged story
+
+`STO-31` continues to aggregate legacy and project snapshots once each with deterministic project-ID ordering. `SHELL-02` continues to compute connectivity from the selected route family and to prefer the effective route model. Both remain PARTIAL only for native SQLite, SwiftUI, live provider/WebKit, and visual runtime boundaries.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| STO-30 negative-age red regression | **written first; native green UNVERIFIED** | `DatabaseManager.createInMemory` is macOS/test-target dependent |
+| SHELL-01 goal red normalization test | **failed as expected → 4/4 passed** | Foundation logic |
+| SHELL-03 undo tone red test | **failed as expected → 4/4 passed** | Foundation logic |
+| SHELL-03 endpoint red edge test | **failed as expected → 5/5 passed** | Foundation logic |
+| SHELL-03 copy-result red tests | **written first; native green UNVERIFIED** | Message/AppKit/SwiftUI chain |
+| STO-31 storage aggregation | **existing tests pass** | Foundation aggregation; live SQLite/UI UNVERIFIED |
+| Full Foundation harness | **306/306 passed** | Linux-safe suites |
+| Adversarial source checks | **12/12 passed** | Existing web/model safety invariants |
+| Swift parser validation | **passed** | Changed production and test Swift |
+| Canonical registry integrity | **274/274 rows and IDs valid** | Persistent Python acceptance regression; red malformed STO-28 status fixed |
+| `git diff --check` | **passed** | No trailing whitespace |
+
+### Status and scores
+
+The confirmed source-level storage and shell truthfulness defects are fixed. The stories remain **PARTIAL** wherever confirmation depends on macOS SQLite, AppKit clipboard, SwiftUI rendering, native undo, or live provider/WebKit state. No Linux result is represented as native runtime proof.
+
+| Story | Code quality | Task adherence | Target-runtime confidence |
+|---|---:|---:|---:|
+| STO-30 | 98/100 | 100/100 | 0/100 |
+| STO-31 | 97/100 | 100/100 | 0/100 |
+| SHELL-01 | 98/100 | 100/100 | 0/100 |
+| SHELL-02 | 97/100 | 100/100 | 0/100 |
+| SHELL-03 | 98/100 | 100/100 | 0/100 |
+
+No new registry rows were added in Round 92. The canonical registry remains **274 rows**, with the existing status distribution **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**.

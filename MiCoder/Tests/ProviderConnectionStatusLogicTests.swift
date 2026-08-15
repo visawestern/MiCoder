@@ -76,4 +76,22 @@ struct ProviderConnectionStatusLogicTests {
             serverPort: 1234
         ) == "127.0.0.1:1234")
     }
+
+    @Test("empty or invalid Serve endpoint data fails closed to the selected provider label")
+    func endpointLabelRejectsInvalidServerData() {
+        #expect(ProviderConnectionStatusLogic.endpointLabel(
+            selectedID: "",
+            serverProviderIDs: [""],
+            serverConnected: true,
+            serverHost: "127.0.0.1",
+            serverPort: 1234
+        ) == "")
+        #expect(ProviderConnectionStatusLogic.endpointLabel(
+            selectedID: "serve-provider",
+            serverProviderIDs: ["serve-provider"],
+            serverConnected: true,
+            serverHost: "",
+            serverPort: 0
+        ) == "serve-provider")
+    }
 }

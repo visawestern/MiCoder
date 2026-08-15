@@ -13,6 +13,13 @@ class FeatureRegistryIntegrityTests(unittest.TestCase):
         self.assertEqual(len(rows), 274)
         self.assertTrue(all(ids))
         self.assertEqual(len(ids), len(set(ids)), "canonical story IDs must be unique")
+        allowed_statuses = {"PASS", "PARTIAL", "MISSING", "FUTURE"}
+        malformed = [
+            (row["id"], row["status"])
+            for row in rows
+            if row["status"].strip() not in allowed_statuses
+        ]
+        self.assertEqual(malformed, [], "every registry row must have an allowed status")
 
 
 if __name__ == "__main__":

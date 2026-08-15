@@ -1003,7 +1003,7 @@ class DatabaseManager {
     /// Archive sessions not updated in more than `days` days
     func archiveSessionsOlderThan(days: Int) throws {
         guard let db = db else { throw DatabaseError.notInitialized }
-        let cutoff = Int64(Date().timeIntervalSince1970) - Int64(days * 86400)
+        let cutoff = Int64(Date().timeIntervalSince1970) - Int64(max(0, days) * 86400)
         let oldSessions = sessions.filter(sessionUpdatedAt < cutoff && sessionIsArchived == false)
         try db.run(oldSessions.update(sessionIsArchived <- true))
     }
@@ -1026,7 +1026,7 @@ class DatabaseManager {
     /// Hard delete sessions older than N days (including their messages via FK cascade)
     func deleteSessionsOlderThan(days: Int) throws -> Int {
         guard let db = db else { throw DatabaseError.notInitialized }
-        let cutoff = Int64(Date().timeIntervalSince1970) - Int64(days * 86400)
+        let cutoff = Int64(Date().timeIntervalSince1970) - Int64(max(0, days) * 86400)
         let old = sessions.filter(sessionUpdatedAt < cutoff)
         let count = try db.run(old.delete())
         return count

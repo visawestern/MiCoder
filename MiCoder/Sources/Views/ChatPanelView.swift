@@ -266,10 +266,17 @@ struct ChatPanelView: View {
             submitQuestionAnswers(answers)
         }
         .onReceive(NotificationCenter.default.publisher(for: .copyEntireChat)) { _ in
-            let transcript = ChatCopyLogic.transcript(from: messageStore.messages)
-            guard !transcript.isEmpty else { return }
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(transcript, forType: .string)
+            switch ChatCopyLogic.result(from: messageStore.messages) {
+            case .empty:
+                NotificationCenter.default.post(name: .copyEntireChatUnavailable, object: nil)
+            case .copied(let transcript):
+                NSPasteboard.general.clearContents()
+                let didCopy = NSPasteboard.general.setString(transcript, forType: .string)
+                NotificationCenter.default.post(
+                    name: didCopy ? .copyEntireChatCompleted : .copyEntireChatUnavailable,
+                    object: nil
+                )
+            }
         }
         .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
             if case .success(let urls) = result {

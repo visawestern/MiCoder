@@ -8,10 +8,15 @@ enum ProviderConnectionStatusLogic {
         serverHost: String,
         serverPort: Int
     ) -> String {
-        if serverConnected && serverProviderIDs.contains(selectedID) {
-            return "\(serverHost):\(serverPort)"
+        guard !selectedID.isEmpty else { return "" }
+        let host = serverHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard serverConnected,
+              serverProviderIDs.contains(selectedID),
+              !host.isEmpty,
+              (1...65535).contains(serverPort) else {
+            return selectedID
         }
-        return selectedID
+        return "\(host):\(serverPort)"
     }
 
     static func isConnected(
