@@ -256,6 +256,14 @@ struct StorageSettingsView: View {
                     .interfaceFont(size: 16, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 Spacer()
+                Button("Export app configuration") {
+                    exportAppConfiguration()
+                }
+                .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+                Button("Import app configuration") {
+                    importAppConfiguration()
+                }
+                .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
                 Button(L.t(AppLocalizationKey.locArchiveInactiveDays).replacingOccurrences(of: "{0}", with: "\(Int(archiveDays))")) {
                     mutateProjects { ProjectStorageAdmin.archiveAllInactive(days: Int(archiveDays), in: $0) }
                 }
@@ -424,6 +432,37 @@ struct StorageSettingsView: View {
         }
     }
 
+    private func exportAppConfiguration() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "micoder-app-configuration.json"
+        panel.canCreateDirectories = true
+        panel.prompt = "Export"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        _ = AppConfigurationBackupStore.export(
+            homeDirectory: home,
+            defaults: appState.defaults,
+            to: url
+        )
+    }
+
+    private func importAppConfiguration() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.json]
+        panel.prompt = "Import"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard AppConfigurationBackupStore.import(
+            from: url,
+            homeDirectory: home,
+            defaults: appState.defaults
+        ) else { return }
+        appState.settings = AppSettings.load(from: appState.defaults)
+        appState.refreshProjectRegistry()
+        refreshStats()
+    }
+
     private func importProjectBackup(_ entry: ProjectRegistryEntry) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
@@ -471,7 +510,7 @@ struct StorageSettingsView: View {
                                     detail: "path=\(entry.path)",
                                     homeDirectory: home)
         // Remove only the project's .micoder data, never the user's files.
-        try? FileManager.default.removeItem(at: ProjectDatabaseLocator.projectMimoDir(projectPath: entry.path))
+        guard ProjectDeletionExecutor.deleteProjectData(projectPath: entry.path) else { return }
         mutateProjects { ProjectRegistryLogic.remove(id: entry.id, in: $0) }
         // If the deleted project was the active selection, drop it so the UI
         // never points at a registry entry that no longer exists.

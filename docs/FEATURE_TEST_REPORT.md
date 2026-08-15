@@ -1273,3 +1273,46 @@ The source audit found no SQLite `file_index` table, FTS schema, query API, or s
 | Target-runtime confidence | 0/100 | macOS SwiftUI/AppKit/CoreServices runtime is unavailable in the sandbox |
 
 The canonical registry remains **274 rows** and now reports **224 PASS, 41 PARTIAL, 4 MISSING, and 5 FUTURE**. `STO-07` moved from MISSING to PARTIAL because the watcher is implemented and contract-tested, while live macOS event delivery remains UNVERIFIED. `STO-06` remains PARTIAL because persistent FTS and SQLite indexing are not implemented.
+
+
+## Round 62 — Registry/settings backup and project cleanup
+
+### Scope and chain audit
+
+The global recheck continued at the earliest remaining storage stories: `STO-27 Registry+Settings Export/Import` and `STO-28 Chunked Big-Project Delete`. The audit traced StorageSettingsView’s project header and per-project buttons, `ProjectBackupLogic`, `ProjectHistoryExporter`, `AppSettings` UserDefaults persistence, `ProjectRegistryLogic`, typed delete confirmation, auto-backup preservation, `deleteProject`, active workspace cleanup, and all source references to chunking/progress/cancellation.
+
+### Confirmed defect — project ZIP did not migrate global configuration
+
+The existing project backup ZIP contained one project’s `.micoder` directory only. It did not include the global project registry or AppSettings, so it could not migrate the whole user configuration to another machine. Round 62 adds `AppConfigurationBackupBundle`, `AppConfigurationBackupLogic`, and `AppConfigurationBackupStore`. StorageSettingsView now exposes separate app-configuration export/import actions. The versioned bundle carries independent registry and settings JSON payloads; import rejects unsupported schemas, writes the registry, saves injected UserDefaults, reloads AppState settings, refreshes the project registry, and refreshes storage statistics.
+
+### Confirmed defect — project deletion used one unbounded synchronous removal
+
+The previous delete path called `FileManager.removeItem` on the complete project `.micoder` directory from a UI action. It had no bounded work plan or root-safety helper. Round 62 adds `ProjectDeletionLogic` for bounded chunks, safe progress calculation, and empty/root rejection, plus `ProjectDeletionExecutor` that enumerates only the exact project `.micoder` directory, deletes deepest paths in chunks of 128, and removes the root after its contents. Registry mutation now occurs only after the executor reports success; the existing backup-before-delete, typed-name confirmation, audit log, and active-selection cleanup remain in the chain.
+
+### Explicit remaining limitation — no background progress or cancellation
+
+STO-28 is now **PARTIAL**, not PASS. Chunking bounds individual work batches, but the executor is still called synchronously from the current SwiftUI action and does not publish progress, support cancellation, disable duplicate actions, or surface per-file failures. A future macOS round should move it to a cancellable background task and add a visible progress/error surface. Native save/open panels and macOS filesystem behavior are also UNVERIFIED in Linux.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Global configuration backup regressions | **2/2 passed** | Versioned payload and schema rejection |
+| Project deletion regressions | **3/3 passed** | Bounded chunks, progress, root safety |
+| Full Foundation harness | **201/201 passed** | Linux-compatible logic and fake browser contracts |
+| Swift parser validation | **passed** | Backup/deletion production files and StorageSettingsView syntax |
+| Adversarial source checks | **12/12 passed** | Existing send/browser invariants |
+| Native save/open panels | **UNVERIFIED** | Requires macOS AppKit runtime |
+| macOS `ditto` and filesystem delete | **UNVERIFIED** | Requires macOS runtime |
+| Background delete progress/cancellation | **MISSING** | Current executor remains synchronous |
+| `git diff --check` | **passed** | Repository hygiene |
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 94/100 | Versioned global backup and root-scoped bounded deletion are implemented; asynchronous progress/cancellation and macOS runtime remain |
+| Task adherence | 100/100 | Every storage backup/delete chain was traced, red regressions preceded pure fixes, docs/registry were updated, and incomplete runtime behavior is explicit |
+| Target-runtime confidence | 0/100 | Linux sandbox cannot execute SwiftUI/AppKit panels or macOS filesystem integration |
+
+The canonical registry remains **274 rows** and now reports **224 PASS, 43 PARTIAL, 2 MISSING, and 5 FUTURE**. `STO-27` and `STO-28` moved from MISSING to PARTIAL; both retain explicit runtime or UX limitations.

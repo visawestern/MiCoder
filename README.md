@@ -36,8 +36,8 @@ The current codebase has been audited screen-by-screen and tracked in the canoni
 spreadsheet (`docs/FEATURE_SPREADSHEET.csv`, 274 user stories):
 
 - `224 PASS`
-- `41 PARTIAL`
-- `4 MISSING`
+- `43 PARTIAL`
+- `2 MISSING`
 - `5 FUTURE`
 
 The send-chain recovery rounds added explicit coverage for web model/effort coherence, verified
