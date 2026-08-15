@@ -22,6 +22,8 @@ struct StorageSettingsView: View {
     @State private var quota = ProjectStorageAdmin.StorageQuotaStatus(
         totalBytes: 0, thresholdBytes: 0, archivableBytes: 0, archivedBytes: 0
     )
+    @State private var deletionInProgress = false
+    @State private var deletionNotice: ProjectDeletionOutcomeLogic.Notice?
     @State private var pendingAppConfigurationImportURL: URL?
     @State private var appConfigurationNotice: AppConfigurationTransferLogic.Notice?
     
@@ -266,6 +268,19 @@ struct StorageSettingsView: View {
             } message: {
                 Text(appConfigurationNotice?.message ?? "")
             }
+            .alert(
+                deletionNotice?.title ?? "",
+                isPresented: Binding(
+                    get: { deletionNotice != nil },
+                    set: { if !$0 { deletionNotice = nil } }
+                )
+            ) {
+                Button("OK") {
+                    deletionNotice = nil
+                }
+            } message: {
+                Text(deletionNotice?.message ?? "")
+            }
         }
         .onAppear(perform: refreshStats)
     }
@@ -378,6 +393,7 @@ struct StorageSettingsView: View {
             }) {
                 Image(systemName: "trash").interfaceFont(size: 11).foregroundColor(Color.mimo.error)
             }
+            .disabled(deletionInProgress)
             .buttonStyle(.plain)
             .help(L.t(AppLocalizationKey.locDeleteRecord))
         }
@@ -421,6 +437,7 @@ struct StorageSettingsView: View {
             }) {
                 Image(systemName: "trash").interfaceFont(size: 11).foregroundColor(Color.mimo.error)
             }
+            .disabled(deletionInProgress)
             .buttonStyle(.plain)
             .help(L.t(AppLocalizationKey.locDeleteProjectHelp2))
 
@@ -551,22 +568,70 @@ struct StorageSettingsView: View {
     }
 
     private func deleteProject(_ entry: ProjectRegistryEntry) {
-        // Auto-backup the project DB before deletion (plan Раздел 8 п.49).
-        // The backup must SURVIVE the deletion, so it's moved to a global
-        // deleted-backups area (inside .micoder it would be removed with it).
-        _ = try? ProjectAutoBackupLogic.createBackup(projectPath: entry.path)
-        _ = try? ProjectAutoBackupLogic.preserveForDeletion(projectPath: entry.path)
-        try? StorageAuditLog.append(action: "project.delete",
-                                    detail: "path=\(entry.path)",
-                                    homeDirectory: home)
-        // Remove only the project's .micoder data, never the user's files.
-        guard ProjectDeletionExecutor.deleteProjectData(projectPath: entry.path) else { return }
-        mutateProjects { ProjectRegistryLogic.remove(id: entry.id, in: $0) }
-        // If the deleted project was the active selection, drop it so the UI
-        // never points at a registry entry that no longer exists.
-        if appState.selectedWorkspace?.path == entry.path {
-            appState.clearNavigationHistory()
-            appState.selectedWorkspace = nil
+        guard !deletionInProgress else { return }
+        deletionInProgress = true
+        defer { deletionInProgress = false }
+
+        let databaseExists = FileManager.default.fileExists(
+            atPath: ProjectDatabaseLocator.databaseURL(projectPath: entry.path).path
+        )
+        do {
+            // Auto-backup the project DB before deletion. If a DB exists, both
+            // creation and preservation are hard safety prerequisites.
+            let backupURL = try ProjectAutoBackupLogic.createBackup(projectPath: entry.path)
+            let preservedURL: URL? = backupURL == nil
+                ? nil
+                : try ProjectAutoBackupLogic.preserveForDeletion(
+                    projectPath: entry.path,
+                    homeDirectory: home
+                )
+            guard ProjectDeletionBackupPolicy.canProceed(
+                databaseExists: databaseExists,
+                backupCreated: backupURL != nil,
+                backupPreserved: preservedURL != nil
+            ) else {
+                deletionNotice = ProjectDeletionOutcomeLogic.notice(
+                    .failed("A recovery backup could not be created and preserved.")
+                )
+                return
+            }
+
+            try? StorageAuditLog.append(action: "project.delete",
+                                        detail: "path=\(entry.path)",
+                                        homeDirectory: home)
+            let outcome = ProjectDeletionExecutor.execute(projectPath: entry.path)
+            guard ProjectDeletionOutcomeLogic.shouldRemoveRegistryEntry(outcome) else {
+                deletionNotice = ProjectDeletionOutcomeLogic.notice(outcome)
+                return
+            }
+
+            let before = ProjectRegistryLogic.load(homeDirectory: home)
+            let updated = ProjectRegistryLogic.remove(id: entry.id, in: before)
+            do {
+                try ProjectRegistryLogic.save(updated, homeDirectory: home)
+            } catch {
+                deletionNotice = ProjectDeletionOutcomeLogic.notice(
+                    .failed("Project data was deleted, but the registry could not be saved: \(error.localizedDescription)")
+                )
+                return
+            }
+            projectEntries = updated
+            appState.refreshProjectRegistry()
+
+            // If the deleted project was the active selection, drop it so the UI
+            // never points at a registry entry that no longer exists.
+            let selectedPath = appState.selectedWorkspace?.path.map {
+                URL(fileURLWithPath: $0).standardizedFileURL.path
+            }
+            let deletedPath = URL(fileURLWithPath: entry.path).standardizedFileURL.path
+            if selectedPath == deletedPath {
+                appState.clearNavigationHistory()
+                appState.selectedWorkspace = nil
+            }
+        } catch {
+            deletionNotice = ProjectDeletionOutcomeLogic.notice(
+                .failed(error.localizedDescription)
+            )
         }
     }
 

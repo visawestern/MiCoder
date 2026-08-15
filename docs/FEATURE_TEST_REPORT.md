@@ -1799,3 +1799,44 @@ The green fix adds `AppConfigurationTransferLogic` with typed operation/outcome 
 | Target-runtime confidence | 0/100 | Linux cannot execute AppKit save/open panels, SwiftUI alert presentation, macOS filesystem permissions, or cross-machine relinking. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `STO-27` remains PARTIAL because transfer safety and error visibility are fixed and contract-tested, while native panels, filesystem behavior, manual path relinking, and external credential/session migration remain outside the verifiable scope.
+
+## Round 75 — Harden big-project deletion safety and failure visibility
+
+### Scope and chain audit
+
+The sequential audit continued at `STO-28 Chunked Big-Project Delete`. Every delete path was traced from the active and orphan project-row trash buttons through `pendingDeleteEntry`, typed-name confirmation, the scope description, auto-backup creation, deleted-backup preservation, audit logging, `ProjectDeletionExecutor`, registry persistence, active-workspace cleanup, and visible result handling.
+
+Round 62 had correctly replaced one unbounded recursive removal with a project-root guard, deepest-first ordering, and bounded deletion batches. The adversarial chain found that the safety boundary was incomplete. `deleteProject` ignored failures from both backup calls and proceeded with irreversible deletion. `ProjectDeletionExecutor` swallowed per-item filesystem errors and exposed only a Bool. A failed delete returned silently, and registry-save errors were ignored after the filesystem operation. The user could therefore receive no actionable explanation and could lose the promised recovery backup.
+
+### TDD defect confirmation and fix
+
+`ProjectDeletionOutcomeLogicTests` was written first for completion gating and visible cancellation/failure notices. The red run failed because the outcome contract did not exist. A second red run added the backup prerequisite cases and failed because `ProjectDeletionBackupPolicy` did not exist. The green implementation adds explicit completed/cancelled/failed outcomes, a backup policy that fails closed when a project DB exists without both backup creation and preservation, and notices that distinguish failure from cancellation.
+
+`ProjectDeletionExecutor.execute` now exposes `shouldCancel` and `onProgress` hooks, reports the failing path/reason instead of swallowing `removeItem` errors, and treats root-removal failure or a residual root as a failed outcome. The legacy Bool wrapper remains for existing callers. `StorageSettingsView` gates deletion on required backup success, disables duplicate delete buttons while the action is active, mutates the registry only after a completed delete and successful atomic save, compares selected/deleted paths canonically, and presents visible failure/cancellation notices. The current UI action remains synchronous; the new hooks prepare the next asynchronous progress/cancellation round but do not falsely claim that a progress task already exists.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red deletion outcome regressions | **failed as expected** | Outcome/notice contract absent before implementation |
+| Red backup-safety regression | **failed as expected** | Backup policy absent before implementation |
+| Green outcome/backup regressions | **4/4 passed** | Completion gate, cancellation/failure notices, backup prerequisites |
+| Full Foundation harness | **252/252 passed** | Existing contracts plus STO-28 regressions |
+| Swift parser validation | **passed** | Outcome logic, executor, StorageSettingsView |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Native filesystem/symlink behavior | **UNVERIFIED** | Requires macOS filesystem runtime |
+| Background progress/cancellation UI | **MISSING/PARTIAL** | Hooks exist; visible asynchronous task remains absent |
+
+### Remaining STO-28 limitations
+
+`STO-28` remains **PARTIAL**. Required recovery backup, error propagation, registry gating, duplicate-action prevention, canonical active-workspace cleanup, and result notices are hardened. The executor still enumerates synchronously, the SwiftUI action has no visible progress or cancellation task, registry-save failure after data deletion has no rollback transaction, and native filesystem/symlink behavior remains unverified in Linux.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 96/100 | Irreversible deletion now fails closed on required backup failure and reports filesystem/registry problems; asynchronous progress, rollback, and native filesystem behavior remain. |
+| Task adherence | 100/100 | Every delete action and function was traced, red regressions preceded each newly confirmed safety fix, canonical documentation was updated, and native/runtime limits remain explicit. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit deletion interaction or macOS filesystem, permission, and symlink scenarios. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `STO-28` remains PARTIAL because safety and failure visibility are fixed and contract-tested, while visible asynchronous progress/cancellation, rollback, and native filesystem behavior remain outside the verifiable scope.
