@@ -50,15 +50,26 @@ extension AppState {
     /// Загрузить сессии проекта из БД
     @MainActor
     func loadSessionsFromDatabase(projectId: String) async {
-        let projectPath = workspaces.first(where: { $0.id == projectId })?.path ?? projectId
-        let sessions = db.loadSessions(projectId: projectPath)
-        
-        // Update global sessions list
-        self.sessions = sessions
-        
+        guard let targetWorkspace = workspaces.first(where: { $0.id == projectId || $0.path == projectId }) else {
+            return
+        }
+        let projectPath = targetWorkspace.path
+        let loadedSessions = db.loadSessions(projectId: projectPath)
+
+        // A project switch can happen while another load is in flight. Never
+        // let the old project's rows overwrite the newly selected project's UI.
+        guard WorkspaceSelectionLogic.shouldApplyLoadedSessions(
+            selectedID: selectedWorkspace?.id,
+            loadedID: targetWorkspace.id
+        ) else {
+            return
+        }
+
+        self.sessions = loadedSessions
+
         // Convert sessions to workspace tasks
-        if let index = workspaces.firstIndex(where: { $0.id == projectId || $0.path == projectPath }) {
-            let tasks = sessions.map { session in
+        if let index = workspaces.firstIndex(where: { $0.id == targetWorkspace.id }) {
+            let tasks = loadedSessions.map { session in
                 WorkspaceTask(
                     id: session.id,
                     title: session.title,
@@ -96,7 +107,11 @@ extension AppState {
         directory: String,
         branch: String? = nil
     ) {
-        let projectPath = selectedWorkspace?.path ?? projectId
+        let projectPath = ProjectSessionRoutingLogic.path(
+            projectID: projectId,
+            selectedPath: selectedWorkspace?.path,
+            workspaces: workspaces.map { ProjectSessionRoutingLogic.WorkspacePath(id: $0.id, path: $0.path) }
+        )
         db.createSession(
             id: id,
             projectId: projectPath,
@@ -173,60 +188,110 @@ extension AppState {
     }
 
     func loadStorageStats() -> StorageStats {
-        let dbSize = DatabaseManager.shared.databaseFileSize()
-        let snapSize = FileSnapshotManager.shared.snapshotsSizeBytes()
-        let msgCount = (try? DatabaseManager.shared.messageCount()) ?? 0
-        let sessionCounts = (try? DatabaseManager.shared.sessionCountsByProject()) ?? []
-        
+        let globalCounts = (try? DatabaseManager.shared.sessionCountsByProject()) ?? []
+        let globalSnapshot = ProjectStorageStatsLogic.Snapshot(
+            databaseSize: DatabaseManager.shared.databaseFileSize(),
+            messageCount: (try? DatabaseManager.shared.messageCount()) ?? 0,
+            active: globalCounts.reduce(0) { $0 + $1.active },
+            archived: globalCounts.reduce(0) { $0 + $1.archived },
+            projectID: "legacy"
+        )
+        let projectSnapshots = projectPathsForMaintenance.compactMap { path -> ProjectStorageStatsLogic.Snapshot? in
+            guard let projectDB = try? ProjectDatabaseManager.manager(forProjectPath: path),
+                  let sessions = try? projectDB.getAllSessions(includeArchived: true) else {
+                return nil
+            }
+            return ProjectStorageStatsLogic.Snapshot(
+                databaseSize: projectDB.databaseFileSizeBytes(),
+                messageCount: (try? projectDB.messageCount()) ?? 0,
+                active: sessions.filter { !$0.isArchived }.count,
+                archived: sessions.filter(\.isArchived).count,
+                projectID: path
+            )
+        }
+        let aggregate = ProjectStorageStatsLogic.aggregate(
+            global: globalSnapshot,
+            projects: projectSnapshots,
+            snapshotSize: FileSnapshotManager.shared.snapshotsSizeBytes()
+        )
         return StorageStats(
-            databaseSize: dbSize,
-            snapshotSize: snapSize,
-            messageCount: msgCount,
-            sessionCountsByProject: sessionCounts
+            databaseSize: aggregate.databaseSize,
+            snapshotSize: aggregate.snapshotSize,
+            messageCount: aggregate.messageCount,
+            sessionCountsByProject: aggregate.sessionCounts.map {
+                (projectId: $0.projectID, active: $0.active, archived: $0.archived)
+            }
         )
     }
     
-    /// Заархивировать сессии старше N дней
+    private var projectPathsForMaintenance: [String] {
+        var paths = Set(workspaces.map { ChatSession.normalizedPath($0.path) })
+        if let selectedPath = selectedWorkspace?.path {
+            paths.insert(ChatSession.normalizedPath(selectedPath))
+        }
+        return paths.sorted()
+    }
+
+    private func refreshProjectSessionUI() {
+        Task { @MainActor in
+            await loadProjectsFromDatabase()
+            if let projectID = selectedWorkspace?.id {
+                await loadSessionsFromDatabase(projectId: projectID)
+            }
+        }
+    }
+
+    /// Archive sessions older than N days in the legacy store and every loaded
+    /// project database. The legacy pass preserves history created before the
+    /// per-project storage migration; project DBs are the canonical path now.
     func archiveOldSessions(days: Int) {
         try? StorageAuditLog.append(action: "sessions.archive_old",
                                     detail: "days=\(days)",
                                     homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
-        try? DatabaseManager.shared.archiveSessionsOlderThan(days: days)
-        Task { @MainActor in
-            await loadProjectsFromDatabase()
+        _ = try? DatabaseManager.shared.archiveSessionsOlderThan(days: days)
+        for path in projectPathsForMaintenance {
+            guard let projectDB = try? ProjectDatabaseManager.manager(forProjectPath: path) else { continue }
+            _ = try? projectDB.archiveSessionsOlderThan(days: days)
         }
+        refreshProjectSessionUI()
     }
-    
-    /// Удалить все архивированные сессии
+
+    /// Permanently delete archived sessions from the legacy store and every
+    /// loaded project database.
     func deleteArchivedSessions() -> Int {
         try? StorageAuditLog.append(action: "sessions.delete_archived",
                                     detail: "all",
                                     homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
-        let count = (try? DatabaseManager.shared.deleteArchivedSessions()) ?? 0
-        if count > 0 {
-            try? DatabaseManager.shared.vacuum()
-            Task { @MainActor in
-                await loadProjectsFromDatabase()
-            }
+        var count = (try? DatabaseManager.shared.deleteArchivedSessions()) ?? 0
+        for path in projectPathsForMaintenance {
+            guard let projectDB = try? ProjectDatabaseManager.manager(forProjectPath: path) else { continue }
+            let deleted = (try? projectDB.deleteArchivedSessions()) ?? 0
+            count += deleted
+            if deleted > 0 { _ = try? projectDB.vacuum() }
         }
+        if count > 0 { try? DatabaseManager.shared.vacuum() }
+        if count > 0 { refreshProjectSessionUI() }
         return count
     }
-    
-    /// Удалить сессии старше N дней
+
+    /// Permanently delete sessions older than N days from the legacy store and
+    /// every loaded project database.
     func deleteSessionsOlderThan(days: Int) -> Int {
         try? StorageAuditLog.append(action: "sessions.delete_older",
                                     detail: "days=\(days)",
                                     homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
-        let count = (try? DatabaseManager.shared.deleteSessionsOlderThan(days: days)) ?? 0
-        if count > 0 {
-            try? DatabaseManager.shared.vacuum()
-            Task { @MainActor in
-                await loadProjectsFromDatabase()
-            }
+        var count = (try? DatabaseManager.shared.deleteSessionsOlderThan(days: days)) ?? 0
+        for path in projectPathsForMaintenance {
+            guard let projectDB = try? ProjectDatabaseManager.manager(forProjectPath: path) else { continue }
+            let deleted = (try? projectDB.deleteSessionsOlderThan(days: days)) ?? 0
+            count += deleted
+            if deleted > 0 { _ = try? projectDB.vacuum() }
         }
+        if count > 0 { try? DatabaseManager.shared.vacuum() }
+        if count > 0 { refreshProjectSessionUI() }
         return count
     }
-    
+
     /// Clears in-memory selection/navigation/sessions/projects (no DB I/O).
     /// Round 10 — the crash fix is verifiable without touching the real
     /// database, so tests never race on ~/.micoder/mimo.db.
@@ -295,9 +360,13 @@ extension AppState {
         }
     }
     
-    /// Сжать базу (VACUUM)
+    /// Сжать legacy and every project-scoped database (VACUUM).
     func vacuumDatabase() {
         try? DatabaseManager.shared.vacuum()
+        for path in projectPathsForMaintenance {
+            guard let projectDB = try? ProjectDatabaseManager.manager(forProjectPath: path) else { continue }
+            _ = try? projectDB.vacuum()
+        }
     }
 
     /// Сжать per-project БД конкретного проекта (plan Раздел 8 п.28).

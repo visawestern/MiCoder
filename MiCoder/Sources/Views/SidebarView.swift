@@ -327,7 +327,7 @@ struct WorkspaceGridView: View {
     var body: some View {
         LazyVGrid(columns: columns, spacing: 8) {
             ForEach(workspaces) { workspace in
-                Button(action: { appState.selectedWorkspace = workspace }) {
+                Button(action: { appState.selectWorkspace(workspace) }) {
                     VStack(spacing: 6) {
                         Image(systemName: "folder.fill")
                             .interfaceFont(size: 18)
@@ -630,7 +630,7 @@ struct WorkspacesOverviewSheet: View {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(filtered) { workspace in
                         Button(action: {
-                            appState.selectedWorkspace = workspace
+                            appState.selectWorkspace(workspace)
                             dismiss()
                         }) {
                             HStack {
@@ -744,7 +744,7 @@ struct WorkspaceSidebarSection: View {
                 // Name + chevron
                 Button(action: {
                     let alreadySelected = appState.selectedWorkspace?.id == workspace.id
-                    appState.selectedWorkspace = workspace
+                    appState.selectWorkspace(workspace)
                     withAnimation(.easeInOut(duration: 0.2)) {
                         isExpanded = SidebarExpansionLogic.nextState(
                             isAlreadySelected: alreadySelected,

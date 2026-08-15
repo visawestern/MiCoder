@@ -909,7 +909,7 @@ class AppState: ObservableObject {
         let ws = navigationHistory[navigationIndex]
         navigationLock.unlock()
         isNavigatingHistory = true
-        selectedWorkspace = ws
+        selectWorkspace(ws)
         isNavigatingHistory = false
     }
 
@@ -923,7 +923,7 @@ class AppState: ObservableObject {
         let ws = navigationHistory[navigationIndex]
         navigationLock.unlock()
         isNavigatingHistory = true
-        selectedWorkspace = ws
+        selectWorkspace(ws)
         isNavigatingHistory = false
     }
 
@@ -1582,11 +1582,33 @@ class AppState: ObservableObject {
             .sorted { $0.updatedAt > $1.updatedAt }
     }
     
-    func selectSession(_ session: ChatSession) {
-        selectedSession = session
-        if let workspace = workspaces.first(where: { session.belongs(to: $0) }) {
-            selectedWorkspace = workspace
+    func selectWorkspace(_ workspace: Workspace, reloadSessions: Bool = true) {
+        let previousID = selectedWorkspace?.id
+        selectedWorkspace = workspace
+        guard reloadSessions,
+              WorkspaceSelectionLogic.shouldReloadSessions(previousID: previousID, newID: workspace.id) else {
+            return
         }
+
+        // Do not show the previous project's sessions while the new project's
+        // database is loading. ChatPanel observes the nil selection and clears
+        // its message store before the new session list arrives.
+        selectedSession = nil
+        sessions = []
+        currentSteps = []
+        vcsChanges = []
+        sessionGitTotals = SessionGitTotals(additions: 0, deletions: 0)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.loadSessionsFromDatabase(projectId: workspace.id)
+        }
+    }
+
+    func selectSession(_ session: ChatSession) {
+        if let workspace = workspaces.first(where: { session.belongs(to: $0) }) {
+            selectWorkspace(workspace)
+        }
+        selectedSession = session
         if SessionContextLoader.shouldOpenRightPanel(for: session) {
             showGoal = true
         }
@@ -1926,7 +1948,7 @@ class AppState: ObservableObject {
     
     func startNewTask(in workspace: Workspace? = nil) {
         if let workspace {
-            selectedWorkspace = workspace
+            selectWorkspace(workspace)
         }
         selectedSession = nil
         selectedTask = nil
@@ -2019,7 +2041,7 @@ class AppState: ObservableObject {
         let normalized = ChatSession.normalizedPath(path)
         if let existing = workspaces.first(where: { ChatSession.normalizedPath($0.path) == normalized }) {
             createOrUpdateProject(id: existing.id, name: existing.name, path: normalized, gitBranch: existing.branch)
-            selectedWorkspace = existing
+            selectWorkspace(existing)
             return existing
         }
         
@@ -2034,7 +2056,7 @@ class AppState: ObservableObject {
             tasks: []
         )
         workspaces.append(workspace)
-        selectedWorkspace = workspace
+        selectWorkspace(workspace, reloadSessions: false)
         createOrUpdateProject(id: workspace.id, name: workspace.name, path: normalized, gitBranch: branch)
 
         // Round 14 (п.11/п.32): registering here fixes the orphaned registry —

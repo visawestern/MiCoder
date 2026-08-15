@@ -663,7 +663,7 @@ struct WorkspaceDropdown: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(filteredWorkspaces) { workspace in
-                        Button(action: { appState.selectedWorkspace = workspace; isPresented = false }) {
+                        Button(action: { appState.selectWorkspace(workspace); isPresented = false }) {
                             HStack(spacing: 8) {
                                 Image(systemName: "folder").interfaceFont(size: 12).foregroundColor(Color.mimo.textMuted)
                                 Text(workspace.name).interfaceFont(size: 13).foregroundColor(Color.mimo.textPrimary)

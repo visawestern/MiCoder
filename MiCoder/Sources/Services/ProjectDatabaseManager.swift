@@ -610,6 +610,30 @@ final class ProjectDatabaseManager {
         try db.run(row.update(sessionIsArchived <- false, sessionUpdatedAt <- Int64(Date().timeIntervalSince1970)))
     }
 
+    /// Archives active sessions older than the supplied age in this project DB.
+    @discardableResult
+    func archiveSessionsOlderThan(days: Int, now: Date = Date()) throws -> Int {
+        touch()
+        let cutoff = Int64(now.timeIntervalSince1970) - Int64(max(0, days) * 86400)
+        let oldActive = sessions.filter(sessionIsArchived == false && sessionUpdatedAt < cutoff)
+        return try db.run(oldActive.update(sessionIsArchived <- true))
+    }
+
+    /// Permanently deletes every archived session in this project DB.
+    @discardableResult
+    func deleteArchivedSessions() throws -> Int {
+        touch()
+        return try db.run(sessions.filter(sessionIsArchived == true).delete())
+    }
+
+    /// Permanently deletes sessions older than the supplied age in this project DB.
+    @discardableResult
+    func deleteSessionsOlderThan(days: Int, now: Date = Date()) throws -> Int {
+        touch()
+        let cutoff = Int64(now.timeIntervalSince1970) - Int64(max(0, days) * 86400)
+        return try db.run(sessions.filter(sessionUpdatedAt < cutoff).delete())
+    }
+
     private func rowToSessionRecord(_ row: Row) -> ProjectSessionRecord {
         ProjectSessionRecord(
             id: row[sessionId],

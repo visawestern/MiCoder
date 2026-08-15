@@ -8,6 +8,7 @@ struct NewProjectSheet: View {
     @State private var projectName = ""
     @State private var projectPath = ""
     @State private var showFolderPicker = false
+    @State private var validationError: String?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -53,6 +54,12 @@ struct NewProjectSheet: View {
                     .buttonStyle(.plain)
                     .help(L.t(AppLocalizationKey.locChooseFolder))
                 }
+                if let validationError {
+                    Text(validationError)
+                        .interfaceFont(size: 11)
+                        .foregroundColor(Color.mimo.error)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             
             Spacer()
@@ -80,9 +87,7 @@ struct NewProjectSheet: View {
         .frame(width: 420, height: 260)
         .background(Color.mimo.background)
         .onSubmit {
-            if !projectName.isEmpty && !projectPath.isEmpty {
-                createProject()
-            }
+            createProject()
         }
     }
     
@@ -97,6 +102,7 @@ struct NewProjectSheet: View {
         
         guard panel.runModal() == .OK, let url = panel.url else { return }
         projectPath = url.path
+        validationError = nil
         
         if projectName.isEmpty {
             projectName = url.lastPathComponent
@@ -104,11 +110,27 @@ struct NewProjectSheet: View {
     }
     
     private func createProject() {
-        let name = projectName.trimmingCharacters(in: .whitespaces)
-        let path = projectPath.trimmingCharacters(in: .whitespaces)
-        guard !name.isEmpty, !path.isEmpty else { return }
-        
-        appState.createNewProject(name: name, path: path)
-        dismiss()
+        let result = NewProjectValidationLogic.validate(
+            name: projectName,
+            path: projectPath,
+            fileExists: { path in
+                FileManager.default.fileExists(atPath: path)
+            },
+            isDirectory: { path in
+                var isDirectory: ObjCBool = false
+                guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory) else {
+                    return false
+                }
+                return isDirectory.boolValue
+            }
+        )
+        switch result {
+        case .valid(let name, let path):
+            validationError = nil
+            appState.createNewProject(name: name, path: path)
+            dismiss()
+        case .invalid(let issue):
+            validationError = issue.message
+        }
     }
 }

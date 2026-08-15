@@ -232,3 +232,29 @@ struct ProjectDatabaseManagerTests {
         #expect(result == nil)
     }
 }
+
+@Suite("ProjectDatabaseManager — project-scoped session maintenance")
+struct ProjectDatabaseMaintenanceTests {
+    @Test("archives old sessions inside the owning project database")
+    func archivesOldProjectSessions() throws {
+        let db = try ProjectDatabaseManager.createInMemory(projectPath: "/tmp/maintenance-archive")
+        try db.insertSession(id: "old", title: "Old", directory: "/tmp/maintenance-archive")
+        let archived = try db.archiveSessionsOlderThan(days: 0, now: Date().addingTimeInterval(2))
+        #expect(archived == 1)
+        #expect(try db.getAllSessions(includeArchived: false).isEmpty)
+        #expect(try db.getAllSessions(includeArchived: true).map(\.id) == ["old"])
+    }
+
+    @Test("deletes archived sessions and old sessions only in the project database")
+    func deletesProjectSessions() throws {
+        let db = try ProjectDatabaseManager.createInMemory(projectPath: "/tmp/maintenance-delete")
+        try db.insertSession(id: "archived", title: "Archived", directory: "/tmp/maintenance-delete")
+        _ = try db.archiveSessionsOlderThan(days: 0, now: Date().addingTimeInterval(2))
+        #expect(try db.deleteArchivedSessions() == 1)
+        #expect(try db.getAllSessions(includeArchived: true).isEmpty)
+
+        try db.insertSession(id: "old", title: "Old", directory: "/tmp/maintenance-delete")
+        #expect(try db.deleteSessionsOlderThan(days: 0, now: Date().addingTimeInterval(2)) == 1)
+        #expect(try db.getAllSessions(includeArchived: true).isEmpty)
+    }
+}
