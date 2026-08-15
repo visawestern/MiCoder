@@ -38,7 +38,7 @@ final class ProjectFileIndexWatcher {
         stream = FSEventStreamCreate(
             nil,
             { _, info, count, pathPointers, _, _ in
-                guard let info, let pathPointers else { return }
+                guard let info else { return }
                 let watcher = Unmanaged<ProjectFileIndexWatcher>
                     .fromOpaque(info)
                     .takeUnretainedValue()

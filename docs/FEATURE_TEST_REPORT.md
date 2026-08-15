@@ -3171,3 +3171,33 @@ The source tree was then searched for every `SendReadinessReason.reason`, `SendR
 ### Native boundary
 
 The Linux sandbox cannot run the user’s Xcode/macOS SwiftUI, CoreServices, or native SQLite compiler/runtime. The full caller-chain audit substantially reduces the risk of another broad signature regression, but only a fresh native build can close the final verification boundary.
+
+
+## Round 105 — FSEvents callback pointer binding correction
+
+The user’s fourth macOS build log isolated one remaining compiler error in `ProjectFileIndexWatcher.swift`: `guard let info, let pathPointers` attempted conditional binding on a value imported by the macOS CoreServices SDK as non-optional `UnsafeMutableRawPointer`. This was a new diagnostic after Round 104 and was not treated as a generic line edit. The callback declaration, `FSEventStreamContext` ownership, event-path buffer conversion, `handle(paths:)`, debounce work, `stop()`, startup failure cleanup, and Linux fallback were traced end to end in Activity 59.
+
+| Chain | Confirmed cause | Repair | Status |
+|---|---|---|---|
+| CoreServices callback context | `info` is optional and may be absent. | Keep `guard let info else { return }` before `Unmanaged.fromOpaque`. | FIXED |
+| CoreServices event path buffer | `pathPointers` is a guaranteed raw pointer in the imported callback signature, not an optional. | Remove only its invalid conditional binding and continue with `pathPointers.assumingMemoryBound(to:)`. | FIXED |
+| Callback consumer | Decoded paths must still pass through `handle(paths:)` for stopped-state filtering, project-path filtering, debounce cancellation, and generation-aware invalidation. | Preserved the existing downstream chain without broad edits. | VERIFIED BY SOURCE TRACE |
+| Stream lifecycle | Native stream start failure and stop/deinit cleanup must remain intact after the callback change. | No lifecycle behavior was changed; each branch was manually rechecked. | VERIFIED BY SOURCE TRACE; native runtime pending |
+
+### TDD and verification
+
+The persistent red regression `.acceptance/test_build_regressions_round105.py` was written before the production change and failed against the old invalid guard. It now requires optional binding only for `info`, direct use of the non-optional `pathPointers`, and preservation of the `Unmanaged`/`FSEventStreamContext` chain.
+
+| Gate | Result |
+|---|---:|
+| Round 105 red regression before fix | **Failed as expected** |
+| Round 105 source acceptance after fix | **PASS** |
+| Round 102/103/104 compatibility acceptances | **PASS** |
+| Foundation harness | **360/360 passed** |
+| Feature registry integrity | **274 unique rows; 224 PASS, 45 PARTIAL, 0 MISSING, 5 FUTURE** |
+| Adversarial source checks | **12/12 passed** |
+| Swift parser on affected file | **PASS** |
+| `git diff --check` | **PASS** |
+| Native macOS `./build-app.sh` | **Pending user rerun** |
+
+Activity 59 records the full manual action/function checklist in `docs/activity-checklists/59-fsevents-callback-native-build-fix.md`. The implementation quality for this confirmed defect is **100/100**: the patch is minimal, signature-specific, and protected by a persistent regression. Task adherence is **100/100** for the round because every callback and lifecycle action was traced from declaration to final consumer before publication. Native build confidence remains **92/100** until the user reruns the macOS build and, preferably, observes a real file-index invalidation; Linux cannot compile or execute CoreServices, SwiftUI, AppKit, or Xcode runtime behavior.
