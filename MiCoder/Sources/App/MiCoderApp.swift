@@ -1253,7 +1253,9 @@ class AppState: ObservableObject {
     /// cancelling the Swift task: the vendor page must receive its own stop
     /// action or it can keep consuming tokens in the background.
     @MainActor
-    func stopWebGeneration(providerID: String) async {
+    func stopWebGeneration(providerID: String,
+                            projectID: String,
+                            chatID: String) async {
         guard let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == providerID }) else { return }
         let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)
         let selectors = WebVendorSelectors(
@@ -1262,7 +1264,10 @@ class AppState: ObservableObject {
             responseContainer: catalogEntry?.responseContainer ?? "div[class*='message']",
             stopButton: catalogEntry?.stopButton ?? "button[aria-label*='stop' i], button[data-testid='stop-button']"
         )
-        let bridge = WKWebViewBrowserBridge(webView: webView(for: config), selectors: selectors)
+        let bridge = WKWebViewBrowserBridge(
+            webView: webView(for: config, projectID: projectID, chatID: chatID),
+            selectors: selectors
+        )
         try? await bridge.stopGeneration()
     }
 

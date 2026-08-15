@@ -31,6 +31,7 @@ struct WebChatDriver {
     /// (streaming/toolCall/toolResult/captcha/final) via `emit`.
     func runTurn(userMessage: String, isFirstMessage: Bool, emit: (WebChatEvent) -> Void) async {
         do {
+            try Task.checkCancellation()
             // Check session state before touching any model/effort controls. A
             // logged-out or captcha page must produce its actionable interruption
             // event rather than a misleading injection failure.
@@ -67,6 +68,7 @@ struct WebChatDriver {
 
             var iteration = 0
             while true {
+                try Task.checkCancellation()
                 // Guard against session drop / captcha before reading.
                 if let interruption = try await checkInterruptions(emit: emit) {
                     if case .captchaDetected = interruption {
@@ -124,6 +126,8 @@ struct WebChatDriver {
                 responseBaseline = try await sendPossiblyChunked(resultsBlock, emit: emit)
                 iteration += 1
             }
+        } catch is CancellationError {
+            return
         } catch let error as WebChatError {
             switch error {
             case .captchaResolutionAborted, .sessionLoggedOut:
@@ -145,6 +149,7 @@ struct WebChatDriver {
     private func waitForCaptchaResolution(emit: (WebChatEvent) -> Void) async throws {
         let maxPolls = 600 // five minutes at 500 ms
         for _ in 0..<maxPolls {
+            try Task.checkCancellation()
             await bridge.wait(ms: 500)
             let url = (try? await bridge.currentURL()) ?? ""
             let pageText = (try? await bridge.pageText()) ?? ""
@@ -238,6 +243,7 @@ struct WebChatDriver {
         let maxPolls = 600  // pollIntervalMs * 600 = up to 2 min at 200ms
         var polls = 0
         while polls < maxPolls {
+            try Task.checkCancellation()
             if let interruption = try await checkInterruptions(emit: emit) {
                 if case .captchaDetected = interruption {
                     emit(interruption)

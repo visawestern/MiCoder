@@ -2864,3 +2864,52 @@ The confirmed source-level defects in all three stories are fixed. They remain *
 | ERR-03 | 99/100 | 100/100 | 0/100 |
 
 No new registry rows were added in Round 97. The canonical registry remains **274 data rows**, with the existing status distribution **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**.
+
+## Round 98 — Correct active browser Stop routing and cancellation-safe web UX
+
+### Scope and chain audit
+
+The canonical audit covered **WEB-05**, **WEB-06**, and **WEB-07** from provider selection through per-project/per-chat WebKit instance allocation, session-cookie restoration, navigation/readiness, remote-chat UUID binding, model/effort injection, browser send, polling, captcha interruption, captcha solver presentation, completion, retry, and Stop/cancellation.
+
+### WEB-05 — Stop addressed a different WebView
+
+`ChatPanelView` stored the active project/chat web identity, but `MiCoderApp.stopWebGeneration(providerID:)` called `webView(for: config)` without project or chat IDs. The browser stop command could therefore target the provider-default page while the active project/chat page continued generating. A red Foundation test was written first for active identity preservation, followed by persistent source acceptance. `stopWebGeneration` now receives `projectID` and `chatID`, and the ChatPanel passes the active web chat identity.
+
+### WEB-05/WEB-07 — Stop could be followed by web post-driver continuation
+
+The web driver did not observe `Task` cancellation, and `runWebChatTurn` continued into catalog refresh/completion status after the driver returned. A red cancellation regression was written first. `WebChatDriver` now checks cancellation at entry, polling, captcha waits, and loop iterations, exits silently on `CancellationError`, and ChatPanel guards after both the original and refresh driver turns.
+
+### WEB-06 — no new defect after adversarial trace
+
+The implementation correctly reconciles stale models, keeps model and effort selectors separate, gates unsupported effort, blocks unconfirmed injection before typing, refreshes once, and reuses verified remote chat identity. No speculative change was made.
+
+### WEB-07 — no new defect after adversarial trace
+
+The implementation presents the same live WKWebView in a non-dismissible solver sheet, pauses/resumes on captcha, aborts on logout/timeout, and dismisses on terminal states. No speculative change was made; third-party challenge behavior remains native-unverified.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| WEB-05 active stop identity red test | **compile failed as expected → 2/2 passed** | Foundation key routing |
+| WEB-05/WEB-07 cancellation red test | **compile failed as expected → 1/1 passed** | Foundation cancellation policy |
+| Stop-routing source acceptance | **passed** | AppState + ChatPanel wiring |
+| Cancellation source acceptance | **passed** | WebChatDriver + ChatPanel wiring |
+| Existing web driver/model/effort/captcha suites | **passed** | Foundation browser orchestration |
+| Full Foundation harness | **353/353 passed** | Linux-safe suites |
+| Adversarial source checks | **12/12 passed** | Existing safety invariants |
+| Canonical registry integrity | **274 rows, unique IDs, valid statuses** | Registry acceptance |
+| Swift parser validation | **passed** | Changed production/test files |
+| `git diff --check` | **passed** | No trailing whitespace |
+
+### Status and scores
+
+WEB-05 has two confirmed source-level defects fixed in Round 98. WEB-06 and WEB-07 received a full chain re-audit with no additional confirmed defect. All three remain **PARTIAL** because native SwiftUI/WebKit rendering, live vendor selectors, cookie restoration, third-party captcha behavior, real browser Stop action, and external model discovery cannot be verified in this Linux environment.
+
+| Story | Code quality | Task adherence | Target-runtime confidence |
+|---|---:|---:|---:|
+| WEB-05 | 99/100 | 100/100 | 0/100 |
+| WEB-06 | 99/100 | 100/100 | 0/100 |
+| WEB-07 | 99/100 | 100/100 | 0/100 |
+
+No new registry rows were added in Round 98. The canonical registry remains **274 data rows**, with the existing status distribution **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**.

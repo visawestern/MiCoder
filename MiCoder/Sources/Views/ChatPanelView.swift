@@ -1135,8 +1135,19 @@ struct ChatPanelView: View {
 
         #if canImport(WebKit)
         if let providerID = activeWebProviderID {
+            let projectID = appState.selectedWorkspace?.id
+                ?? appState.selectedWorkspace?.path
+                ?? "global"
+            let chatID = activeWebChatID
+                ?? messageStore.currentSessionID
+                ?? appState.selectedSession?.id
+                ?? "provider-default"
             Task { @MainActor in
-                await appState.stopWebGeneration(providerID: providerID)
+                await appState.stopWebGeneration(
+                    providerID: providerID,
+                    projectID: projectID,
+                    chatID: chatID
+                )
             }
         }
         #endif
@@ -1421,6 +1432,10 @@ struct ChatPanelView: View {
             }
         }
         await driver.runTurn(userMessage: text, isFirstMessage: isFirst, emit: presentEvent)
+        guard !WebChatCancellationLogic.shouldStopAfterDriver(isCancelled: Task.isCancelled) else {
+            finishWebTurn()
+            return
+        }
 
         // Injection failures happen before typing. Refresh the same live page
         // once, reload the persisted model/profile snapshot, and retry exactly
@@ -1455,6 +1470,10 @@ struct ChatPanelView: View {
                                                 config: refreshedConfig, projectRoot: workspacePath,
                                                 accessLevel: appState.accessLevel)
                 await retryDriver.runTurn(userMessage: text, isFirstMessage: true, emit: presentEvent)
+                guard !WebChatCancellationLogic.shouldStopAfterDriver(isCancelled: Task.isCancelled) else {
+                    finishWebTurn()
+                    return
+                }
             } else {
                 appendWebStatus(to: assistantID, line: "Model catalog refresh returned no selectable models; retry stopped.")
             }
