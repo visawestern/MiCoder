@@ -1306,7 +1306,7 @@ class AppState: ObservableObject {
             let models = await WebModelDiscovery.discoverAllModels(using: bridge,
                                                                     dropdownSelector: selector,
                                                                     vendor: config.vendor)
-            guard let found = models, !found.isEmpty else {
+            guard let found = models else {
                 return String(format: L.t(AppLocalizationKey.locWebModelListFailed), config.displayName)
             }
             let capabilityModels = await WebModelDiscovery.discoverModelCapabilities(
@@ -1331,13 +1331,12 @@ class AppState: ObservableObject {
                 }
                 if restored { await bridge.wait(ms: 250) }
             }
-            var updated = config
-            updated.discoveredModels = resolvedModels
+            var updated = WebModelRefreshLogic.replacing(config: config, with: resolvedModels)
             updated.discoveredEffortLevels = discoveredEfforts
-            if !updated.allModels.contains(updated.selectedModel) {
-                updated.selectedModel = updated.allModels.first ?? ""
-            }
             WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
+            if resolvedModels.isEmpty {
+                return String(format: L.t(AppLocalizationKey.locWebModelListFailed), config.displayName)
+            }
             if selectedProviderID == "web:\(config.id)" {
                 selectProvider(selectedProviderID, persistPreference: false)
             }

@@ -847,15 +847,15 @@ struct WebProviderLoginView: View {
             let resolvedModels = profiledModels.isEmpty ? models : profiledModels
             let efforts = Array(Set(resolvedModels.flatMap(\.availableEfforts))).sorted { $0.rawValue < $1.rawValue }
             await MainActor.run {
+                let updated = WebModelRefreshLogic.replacing(config: config, with: resolvedModels)
+                var persisted = updated
+                persisted.discoveredEffortLevels = efforts
+                WebProviderStore.save(WebProviderStore.upsert(persisted, in: WebProviderStore.load()))
+                config = persisted
                 if resolvedModels.isEmpty {
                     detectResult = .failed("No models found in the live model menu.")
                 } else {
                     detectResult = .found(resolvedModels)
-                    var updated = config
-                    updated.discoveredModels = resolvedModels
-                    updated.discoveredEffortLevels = efforts
-                    WebProviderStore.save(WebProviderStore.upsert(updated, in: WebProviderStore.load()))
-                    config = updated
                 }
             }
         }

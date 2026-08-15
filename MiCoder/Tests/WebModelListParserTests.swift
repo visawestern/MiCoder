@@ -48,8 +48,19 @@ struct WebModelListParserTests {
         #expect(updated.discoveredModels.isEmpty)  // nothing real parsed
     }
 
+    @Test func emptyRefreshRemovesStaleChatGPTModels() {
+        let cfg = WebProviderConfig(
+            vendor: .chatgpt,
+            selectedModel: "gpt-stale",
+            discoveredModels: [WebProviderModel(name: "gpt-stale")]
+        )
+        let updated = WebModelListParser.updated(cfg, withDropdownText: "ChatGPT\nDeep Research\nCanvas")
+        #expect(updated.discoveredModels.isEmpty)
+        #expect(updated.selectedModel.isEmpty)
+    }
+
     @Test func pipeAndCommaSeparators() {
-        let models = WebModelListParser.parse(dropdownText: "a | b, c", vendor: .custom)
-        #expect(models == ["a", "b", "c"])
+        let models = WebModelListParser.parse(dropdownText: "model-a1 | model-b2, model-c3", vendor: .custom)
+        #expect(models == ["model-a1", "model-b2", "model-c3"])
     }
 }

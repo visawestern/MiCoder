@@ -2167,3 +2167,50 @@ The same trace confirms the remaining intentional boundary: the app does not inv
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or validate live provider/browser usage metadata. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `USG-03` remains PARTIAL because malformed-cost safety and project aggregation are fixed and tested, while provider-specific pricing and native/runtime verification remain incomplete.
+
+## Round 84 — Replace stale ChatGPT model snapshots atomically
+
+### Scope and chain audit
+
+The sequential audit continued at `BUG-03 ChatGPT Stale Models`. The complete chain was traced from `WebChatVendor.chatgpt` and the bundled web-provider catalog, through `WebProviderStore.load`/`sanitize`, `WebModelListParser`, structured DOM candidate validation, text fallback, bounded “Expand more models” discovery, `WebModelDiscovery.discoverAllModels`, `AppState.refreshWebModels`, the Settings built-in detector, AI-assisted candidate handling, `WebProviderConnectivity.providerOptions`, `WebProviderSelectionLogic`, `AppState.effectiveSelectedModel`, and `WebChatDriver` model injection.
+
+Existing source contracts already removed static ChatGPT model guesses, rejected feature actions such as Deep Research/Image/Canvas, required live/selectable DOM candidates, hid connected providers without real models, and blocked send when model injection could not be confirmed. The devil’s-advocate pass found a lifecycle gap: a completed empty discovery result preserved the previous `discoveredModels` and `selectedModel`. `WebModelListParser.updated` only replaced non-empty results, while `AppState.refreshWebModels` returned before persistence on `[]`. The UI could therefore present yesterday’s model as current after a successful refresh that found no real model options.
+
+A browser failure (`nil`/throw) remains distinct from an authoritative empty live menu. The failure path reports an actionable error without claiming a new snapshot. An empty completed snapshot now clears stale auto-discovered state, recomputes efforts, and repairs selection from explicit manual models if any remain.
+
+### TDD defect confirmation and fix
+
+`WebModelRefreshLogicTests.swift` was written before implementation. The first red run failed to compile because `WebModelRefreshLogic` did not exist. The pure contract then implemented atomic replacement: normalize and deduplicate fresh labels, mark them live/selectable, replace the discovered snapshot, recompute effort levels, and choose the first remaining sendable model or an empty selection.
+
+A second red regression was added to `WebModelListParserTests`: a ChatGPT config containing `gpt-stale` was refreshed from `ChatGPT`, `Deep Research`, and `Canvas`; the old helper left `gpt-stale` selected. `WebModelListParser.updated` now delegates to the same replacement contract. `AppState.refreshWebModels` distinguishes nil failure from an empty discovery result, and `WebProvidersSection.findModelsBuiltIn` uses the same atomic transition for both success and empty live detection.
+
+One existing parser fixture used custom labels `a`, `b`, and `c`, which the already-intended strict custom-provider validator correctly rejects. That fixture was updated to valid versioned identifiers; no production weakening was introduced.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red `WebModelRefreshLogicTests` | **failed as expected** | Replacement contract absent before implementation |
+| Red caller-level ChatGPT refresh regression | **failed as expected** | Stale model and selection survived empty parse |
+| Green refresh/parser suites | **11/11 passed** | Empty, changed, feature-filtered, deduplicated, and parser cases |
+| Full Foundation harness | **281/281 passed** | All prior contracts plus BUG-03 regressions |
+| Swift parser validation | **passed** | Helper, parser, AppState, Settings detector, and tests |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| `git diff --check` | **passed** | No trailing whitespace |
+| Live ChatGPT model discovery | **UNVERIFIED** | Requires authenticated macOS WebKit session |
+| Native Settings refresh interaction | **UNVERIFIED** | Requires macOS SwiftUI runtime |
+| Third-party selector compatibility | **UNVERIFIED** | Vendor DOM can change independently of source contracts |
+
+### Remaining BUG-03 limitations
+
+`BUG-03` remains **PARTIAL**. Static catalog guesses, feature-entry filtering, strict candidate validation, provider availability gating, atomic refresh replacement, and stale-selection fallback are now source-verified and contract-tested. The actual account-specific ChatGPT model list, live selector compatibility, and native Settings interaction remain unverified because this Linux environment cannot execute authenticated WebKit/SwiftUI.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 96/100 | One atomic replacement contract is reused by parser, AppState refresh, and Settings detection; empty and changed snapshots are safe; live DOM and native UI remain unverified. |
+| Task adherence | 100/100 | Every discovery, filter, refresh, persistence, selection, send, AI-candidate, and failure chain was traced; red tests preceded both confirmed fixes; documentation and registry were updated. |
+| Target-runtime confidence | 0/100 | Linux cannot execute authenticated macOS WebKit/SwiftUI or the real ChatGPT page. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `BUG-03` remains PARTIAL because stale snapshot handling is fixed and tested, while live ChatGPT discovery and native runtime verification remain incomplete.

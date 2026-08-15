@@ -182,11 +182,8 @@ enum WebModelListParser {
     /// Merge freshly parsed models into a config, preserving user selection if
     /// still present (plan Раздел 13 п.4).
     static func updated(_ config: WebProviderConfig, withDropdownText text: String) -> WebProviderConfig {
-        var updated = config
         let modelNames = parse(dropdownText: text, vendor: config.vendor)
-        if !modelNames.isEmpty {
-            updated.discoveredModels = modelNames.map { WebProviderModel(name: $0) }
-        }
-        return updated
+        let models = modelNames.map { WebProviderModel(name: $0) }
+        return WebModelRefreshLogic.replacing(config: config, with: models)
     }
 }
