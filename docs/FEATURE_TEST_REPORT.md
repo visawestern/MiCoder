@@ -1882,3 +1882,43 @@ The existing source correctly mapped HTTP 409 to a distinct session-busy error, 
 | Target-runtime confidence | 0/100 | Linux cannot execute a live MiMo Serve 409/abort lifecycle or native SwiftUI/AppKit notification/message rendering. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `ERR-01` remains PARTIAL because stable retry identity and duplicate-turn prevention are fixed and contract-tested, while live Serve session behavior and native presentation remain outside the verifiable scope.
+
+## Round 77 — Make disconnected Serve errors route-specific
+
+### Scope and chain audit
+
+The sequential audit continued at `ERR-02 Server Disconnected Error`. The chain was traced from `AppState.serverConnected` and `selectedProviderID` through `SendReadinessLogic`, `SendProviderReadinessLogic`, `SendReadinessReason`, centered and bottom composer `canSend` gates, keyboard Enter activation, `SendStopButton.disabledReason`, `ChatPanelView` direct-send preflight, rejected-send persistence, and the final user-facing message.
+
+The prior Round 59 work correctly prevented Serve health from masquerading as readiness for web, local, and custom routes. The adversarial audit found one remaining clarity defect: when a known Serve provider was selected while `serverConnected` was false, readiness fell through to a generic “No provider is ready” message listing unrelated local/custom/web alternatives. The user was not told that the selected route required MiCoder Serve to be started or reconnected.
+
+### TDD defect confirmation and fix
+
+A red regression was added to `SendProviderReadinessLogicTests` before implementation. It required the known disconnected Serve route to produce an actionable message containing both Serve and connection guidance. The red run failed because the existing generic message did not mention Serve. The green fix adds a narrow branch for a known `serverProviderIDs` entry while disconnected: “MiCoder Serve is not running or disconnected. Start or reconnect MiCoder Serve before sending.” Existing web/local/custom route behavior remains unchanged.
+
+The message flows through `SendReadinessReason` into both composer layouts and `SendStopButton.disabledReason`; the send button remains disabled, the reason is shown inline/help, and direct send rechecks the same readiness contract before routing. Keyboard Enter cannot bypass the shared gate.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red disconnected-Serve message regression | **failed as expected** | Generic message did not mention Serve |
+| Green readiness regressions | **4/4 passed** | Known Serve, web, effective model, and stale-health cases |
+| Full Foundation harness | **255/255 passed** | Existing contracts plus ERR-02 regression |
+| Swift parser validation | **passed** | SendProviderReadinessLogic |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Native composer rendering | **UNVERIFIED** | Requires SwiftUI/AppKit runtime |
+| Live Serve endpoint/health failure | **UNVERIFIED** | Requires macOS runtime and actual Serve process |
+
+### Remaining ERR-02 limitations
+
+`ERR-02` remains **PARTIAL**. Route-specific disconnected Serve guidance is fixed and contract-tested, while web/local/custom readiness remains independent of Serve health. Native composer rendering, live health transitions, network failure variants, localization, and endpoint-specific runtime behavior remain unverified.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 96/100 | The confirmed misleading text is fixed with a narrow provider-aware branch; native presentation and live endpoint behavior remain. |
+| Task adherence | 100/100 | Every readiness function, button, keyboard path, rejected-send path, and error consumer was traced; the red test preceded the fix; documentation was updated; macOS-only behavior remains explicitly UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute native SwiftUI/AppKit composer rendering or a live Serve health transition. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `ERR-02` remains PARTIAL because route-specific guidance is fixed and contract-tested, while native presentation and live endpoint behavior remain outside the verifiable scope.

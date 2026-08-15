@@ -40,6 +40,10 @@ enum SendProviderReadinessLogic {
 
         if localProviderIDs.contains(selected) { return nil }
 
+        if !serverConnected && serverProviderIDs.contains(selected) {
+            return "MiCoder Serve is not running or disconnected. Start or reconnect MiCoder Serve before sending."
+        }
+
         if let custom = customProviders.first(where: { $0.id == selected && $0.isEnabled }) {
             if custom.requiresAPIKey && !custom.hasAPIKey {
                 return "This provider requires an API key. Add it in Settings."

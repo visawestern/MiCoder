@@ -32,6 +32,22 @@ struct SendProviderReadinessLogicTests {
         ) == nil)
     }
 
+    @Test("disconnected known Serve provider names Serve in the actionable error")
+    func disconnectedServeProviderIsExplicit() {
+        let error = SendProviderReadinessLogic.connectionValidationError(
+            serverConnected: false,
+            selectedProviderID: "serve:gpt",
+            autoFreeReady: true,
+            customProviders: [],
+            localProviderIDs: [],
+            webProviderIDs: [],
+            serverProviderIDs: ["serve:gpt"],
+            webConnected: nil
+        )
+        #expect(error?.localizedCaseInsensitiveContains("Serve") == true)
+        #expect(error?.localizedCaseInsensitiveContains("connect") == true)
+    }
+
     @Test("effective web model satisfies model preflight when legacy selection is empty")
     func effectiveModelSatisfiesPreflight() {
         #expect(SendProviderReadinessLogic.modelValidationID(
