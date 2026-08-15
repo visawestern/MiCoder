@@ -22,6 +22,8 @@ struct StorageSettingsView: View {
     @State private var quota = ProjectStorageAdmin.StorageQuotaStatus(
         totalBytes: 0, thresholdBytes: 0, archivableBytes: 0, archivedBytes: 0
     )
+    @State private var pendingAppConfigurationImportURL: URL?
+    @State private var appConfigurationNotice: AppConfigurationTransferLogic.Notice?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -212,6 +214,24 @@ struct StorageSettingsView: View {
                 Text(resetAlertMessage)
             }
             .alert(
+                "Replace app configuration?",
+                isPresented: Binding(
+                    get: { pendingAppConfigurationImportURL != nil },
+                    set: { if !$0 { pendingAppConfigurationImportURL = nil } }
+                )
+            ) {
+                Button(L.t(AppLocalizationKey.locCancel), role: .cancel) {
+                    pendingAppConfigurationImportURL = nil
+                }
+                Button("Import and replace", role: .destructive) {
+                    guard let url = pendingAppConfigurationImportURL else { return }
+                    pendingAppConfigurationImportURL = nil
+                    performAppConfigurationImport(from: url)
+                }
+            } message: {
+                Text("Importing will replace the current project registry and app settings. This action cannot be undone.")
+            }
+            .alert(
                 L.t(AppLocalizationKey.locAlertDeleteProject),
                 isPresented: Binding(
                     get: { pendingDeleteEntry != nil },
@@ -232,6 +252,19 @@ struct StorageSettingsView: View {
                 Text(ProjectDeleteConfirmation.deletionDescription(
                     projectPath: pendingDeleteEntry?.path ?? ""
                 ))
+            }
+            .alert(
+                appConfigurationNotice?.title ?? "",
+                isPresented: Binding(
+                    get: { appConfigurationNotice != nil },
+                    set: { if !$0 { appConfigurationNotice = nil } }
+                )
+            ) {
+                Button("OK") {
+                    appConfigurationNotice = nil
+                }
+            } message: {
+                Text(appConfigurationNotice?.message ?? "")
             }
         }
         .onAppear(perform: refreshStats)
@@ -438,10 +471,14 @@ struct StorageSettingsView: View {
         panel.canCreateDirectories = true
         panel.prompt = "Export"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        _ = AppConfigurationBackupStore.export(
+        let succeeded = AppConfigurationBackupStore.export(
             homeDirectory: home,
             defaults: appState.defaults,
             to: url
+        )
+        appConfigurationNotice = AppConfigurationTransferLogic.notice(
+            operation: .export,
+            succeeded: succeeded
         )
     }
 
@@ -453,11 +490,24 @@ struct StorageSettingsView: View {
         panel.allowedContentTypes = [.json]
         panel.prompt = "Import"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        guard AppConfigurationBackupStore.import(
+        guard AppConfigurationTransferLogic.importRequiresConfirmation else {
+            performAppConfigurationImport(from: url)
+            return
+        }
+        pendingAppConfigurationImportURL = url
+    }
+
+    private func performAppConfigurationImport(from url: URL) {
+        let succeeded = AppConfigurationBackupStore.import(
             from: url,
             homeDirectory: home,
             defaults: appState.defaults
-        ) else { return }
+        )
+        appConfigurationNotice = AppConfigurationTransferLogic.notice(
+            operation: .import,
+            succeeded: succeeded
+        )
+        guard succeeded else { return }
         appState.settings = AppSettings.load(from: appState.defaults)
         appState.refreshProjectRegistry()
         refreshStats()

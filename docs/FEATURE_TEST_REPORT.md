@@ -1757,3 +1757,45 @@ The green implementation adds `ProjectFileIndexWatcherLifecycleLogic.shouldResta
 | Target-runtime confidence | 0/100 | Linux cannot execute CoreServices FSEvents, SwiftUI observation, AppKit behavior, or packaged macOS filesystem/permission scenarios. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `STO-07` remains PARTIAL because the branch-only lifecycle defect is fixed and contract-tested, while live macOS FSEvents behavior, native teardown/permissions, and persistent FTS remain outside the verifiable scope.
+
+## Round 74 — Safe and visible registry/settings configuration transfer
+
+### Scope and chain audit
+
+The sequential audit continued at `STO-27 Registry+Settings Export/Import`. The full chain was manually traced from the Storage settings header buttons through `NSSavePanel`/`NSOpenPanel`, `AppConfigurationBackupStore`, `AppConfigurationBackupLogic`, `ProjectRegistryLogic`, `AppSettings`, `UserDefaults`, atomic file writes, post-import settings reload, registry refresh, and storage-stat refresh. The existing project `.zip` export/import path was checked separately so global configuration migration is not confused with one-project history backup.
+
+The bundle itself was already versioned and validated: it carries independent registry and settings JSON payloads, uses ISO-8601 dates and sorted-key JSON, rejects malformed/unsupported schemas, and writes the export atomically. The adversarial chain found two confirmed user-facing defects in the native action layer. A valid imported bundle directly replaced the current registry and settings without a confirmation step. Export and import Bool results were also discarded: write failures and rejected bundles silently returned, making failure indistinguishable from a cancelled panel.
+
+### TDD defect confirmation and fix
+
+`AppConfigurationTransferLogicTests` was written before the implementation. The red run failed because the transfer safety/notice contract did not exist. The three regressions require explicit replacement confirmation and require visible, non-empty failure notices for both export and import failures.
+
+The green fix adds `AppConfigurationTransferLogic` with typed operation/outcome notices and an explicit `importRequiresConfirmation` contract. `StorageSettingsView` now retains the selected import URL until the user chooses “Import and replace”. The action then calls `AppConfigurationBackupStore.import`; only success reloads `AppSettings`, refreshes the project registry, and recomputes storage statistics. Export and import results now generate visible success/failure alerts instead of being silently ignored.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red transfer UX regressions | **failed as expected** | Transfer safety/notice contract absent before implementation |
+| Green transfer UX regressions | **3/3 passed** | Confirmation required; export/import failures produce visible notices |
+| Full Foundation harness | **248/248 passed** | Existing contracts plus STO-27 transfer regressions |
+| Swift parser validation | **passed** | Transfer logic and StorageSettingsView |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| AppKit save/open panels | **UNVERIFIED** | Requires macOS runtime and actual user interaction |
+| Filesystem permissions and atomic replacement | **UNVERIFIED** | Requires native filesystem execution |
+| Cross-machine path remapping | **PARTIAL** | Imported absolute paths are preserved; orphan/relink remains manual |
+| Keychain/custom-provider/web-cookie migration | **OUT OF SCOPE** | Not encoded by the registry + AppSettings bundle |
+
+### Remaining STO-27 limitations
+
+`STO-27` remains **PARTIAL**. The versioned global bundle is validated, destructive replacement is confirmed, transfer failures are visible, and successful import refreshes the visible settings-page state. Native panel behavior, filesystem permission failures, actual cross-machine relinking, and migration of external secret/browser-session stores require macOS runtime or a separately designed migration contract. The bundle honestly covers the registry and `AppSettings`; it does not claim to migrate Keychain secrets, custom-provider catalogs, or web cookies that are persisted elsewhere.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 96/100 | Confirmed silent-failure and unconfirmed-overwrite defects are fixed with a small typed contract and regression coverage; native panels, portability, and external stores remain. |
+| Task adherence | 100/100 | Every visible control and persistence function was traced, red tests preceded the fixes, the canonical checklist/registry/report were updated, and native/runtime limits remain explicitly UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute AppKit save/open panels, SwiftUI alert presentation, macOS filesystem permissions, or cross-machine relinking. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `STO-27` remains PARTIAL because transfer safety and error visibility are fixed and contract-tested, while native panels, filesystem behavior, manual path relinking, and external credential/session migration remain outside the verifiable scope.
