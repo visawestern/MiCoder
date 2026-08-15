@@ -49,7 +49,8 @@ struct WebProviderConnectivityTests {
 
     @Test func providerOptionsOnlyConnected() throws {
         let home = try makeTempHome()
-        let connected = WebProviderConfig(vendor: .kimi, acknowledgedToS: true)
+        var connected = WebProviderConfig(vendor: .kimi, acknowledgedToS: true)
+        connected.discoveredModels = [WebProviderModel(name: "kimi-real")]
         let notConnected = WebProviderConfig(vendor: .qwen, acknowledgedToS: true)
         try persistCookies(home, id: connected.id, expiry: 9_999_999_999)
         let opts = WebProviderConnectivity.providerOptions([connected, notConnected], homeDirectory: home)

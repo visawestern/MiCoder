@@ -9,6 +9,14 @@ enum WebProviderSelectionLogic {
         return models.first ?? config.selectedModel
     }
 
+    /// Resolve the model that the composer and browser driver may safely use.
+    /// A persisted model can disappear after live discovery; never propagate
+    /// that stale identifier when a real discovered replacement exists.
+    static func effectiveSelectedModel(for config: WebProviderConfig,
+                                       availableModels: [String]? = nil) -> String {
+        selectedModel(for: config, availableModels: availableModels)
+    }
+
     static func selectingModel(_ modelID: String,
                                in config: WebProviderConfig,
                                availableModels: [String]? = nil) -> WebProviderConfig {

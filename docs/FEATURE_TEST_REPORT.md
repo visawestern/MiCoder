@@ -1520,3 +1520,45 @@ WEB-07 remains **PARTIAL**. The code now has a live same-session solver surface 
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or real captcha pages. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-07` remains PARTIAL because the interaction/resume chain is implemented and contract-tested, while native WebKit and third-party captcha behavior remain unverified.
+
+## Round 68 — Real-model provider eligibility and stale-model fallback
+
+### Scope and chain audit
+
+The sequential audit continued at `WEB-06 Web Providers in Chat Input`. The chain was traced from `WebProviderConfig` and `WebSessionManager` through `WebProviderConnectivity.isConnected`, `providerOptions`, `MiCoderApp.providerOptions`, provider selection, `modelsForSelectedProvider`, `WebProviderSelectionLogic`, `effectiveSelectedModel`, Web Providers settings actions, and the final browser send route.
+
+Two confirmed defects were found. A web provider with valid non-expired cookies but zero discovered real models was exposed in the global provider selector. Separately, `MiCoderApp.effectiveSelectedModel` returned any non-empty persisted model identifier, bypassing the existing selection fallback after live discovery removed that model.
+
+### TDD defect confirmation and fixes
+
+`WebProviderAvailabilityLogicTests` was written before the availability change. The red run demonstrated that a cookie-only provider appeared as selectable. The green implementation now requires both a valid session and at least one `allModels` entry before `WebProviderConnectivity.providerOptions` emits a web option. Existing connected-provider fixtures were corrected to include a real discovered model.
+
+`WebProviderEffectiveModelLogicTests` was written before the effective-model change. The red run failed because no effective-model contract existed. The green `WebProviderSelectionLogic.effectiveSelectedModel` preserves a valid persisted model and falls back to the first discovered real model when the persisted ID is stale. `MiCoderApp.effectiveSelectedModel` now calls that tested contract for web routes.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red zero-model availability regression | **failed as expected** | Cookie-only provider was selectable |
+| Green availability regressions | **2/2 passed** | Zero-model exclusion and real-model inclusion |
+| Red stale-model regression | **failed as expected** | Effective-model helper absent |
+| Green effective-model regressions | **2/2 passed** | Stale fallback and valid preservation |
+| Full Foundation harness | **229/229 passed** | Existing contracts plus WEB-06 regressions |
+| Swift parser validation | **passed** | Connectivity, selection logic, MiCoderApp wiring |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| Native SwiftUI/AppKit interaction | **UNVERIFIED** | Requires macOS runtime |
+| Live WebKit/vendor model discovery | **UNVERIFIED** | Requires authenticated vendor pages |
+
+### Remaining WEB-06 limitations
+
+WEB-06 remains **PARTIAL**. The Linux harness verifies session/model selection contracts, but cannot execute SwiftUI/AppKit controls, WebKit cookie restoration, vendor dropdown discovery, live ChatGPT/Kimi/Qwen pages, or provider-specific model availability. Providers with no live models are intentionally hidden rather than shown with a broken send path. A direct programmatic route can still be constructed outside the selector; runtime readiness and browser injection remain separate safety boundaries.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 94/100 | Provider eligibility now requires session plus real models, and stale model propagation uses one tested source of truth; native/live selection and direct-route boundaries remain. |
+| Task adherence | 100/100 | Every WEB-06 control and chain was traced, both confirmed defects received red tests before fixes, and runtime-dependent behavior remains explicitly UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit/WebKit or authenticated vendor pages. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-06` remains PARTIAL because provider eligibility and stale-model fallback are fixed and contract-tested, while live vendor discovery and native runtime remain unverified.

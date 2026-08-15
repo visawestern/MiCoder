@@ -505,9 +505,8 @@ class AppState: ObservableObject {
     /// since AppState.selectedModel is empty for web providers.
     func effectiveSelectedModel() -> String {
         if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
-           let cfg = WebProviderStore.load().first(where: { $0.id == webID }),
-           !cfg.selectedModel.isEmpty {
-            return cfg.selectedModel
+           let cfg = WebProviderStore.load().first(where: { $0.id == webID }) {
+            return WebProviderSelectionLogic.effectiveSelectedModel(for: cfg)
         }
         if selectedProviderID == MiCoderAutoFreeProvider.builtInID {
             return MiCoderAutoFreeStore.shared.provider.selectedModel

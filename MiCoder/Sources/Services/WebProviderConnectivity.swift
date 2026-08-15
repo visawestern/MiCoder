@@ -26,6 +26,7 @@ enum WebProviderConnectivity {
                                now: Date = Date()) -> [ProviderOption] {
         configs
             .filter { isConnected($0, homeDirectory: homeDirectory, now: now) }
+            .filter { !models(for: $0).isEmpty }
             .map { ProviderOption(id: "web:\($0.id)", name: "🌐 \($0.displayName)",
                                   isCustom: true, isConnected: true) }
     }
