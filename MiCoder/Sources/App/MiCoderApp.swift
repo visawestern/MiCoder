@@ -142,6 +142,7 @@ class AppState: ObservableObject {
     
     @Published var selectedWorkspace: Workspace? {
         didSet {
+            updateProjectFileIndexWatcher(for: selectedWorkspace)
             guard let workspace = selectedWorkspace else { return }
 
             // E04 (Раздел 8 п.48): open-time integrity check — a corrupted
@@ -1549,6 +1550,36 @@ class AppState: ObservableObject {
     /// Build the data context for the in-input command dropdown (plan Раздел 6).
     /// Cached project file list for `@` mentions (audit P12).
     private var projectFilesCache: ProjectFilesCacheState?
+    private var projectFileIndexWatcher: ProjectFileIndexWatcher?
+    private var projectFileIndexGeneration: UInt64 = 0
+
+    private func updateProjectFileIndexWatcher(for workspace: Workspace?) {
+        projectFileIndexGeneration &+= 1
+        projectFileIndexWatcher?.stop()
+        projectFileIndexWatcher = nil
+        projectFilesCache = nil
+        guard let workspace, !workspace.path.isEmpty else { return }
+
+        let path = workspace.path
+        let generation = projectFileIndexGeneration
+        let watcher = ProjectFileIndexWatcher(
+            projectPath: path,
+            generation: generation
+        ) { [weak self] eventPath, eventGeneration in
+            DispatchQueue.main.async {
+                guard let self,
+                      ProjectFileIndexWatcherLogic.shouldApply(
+                          eventProjectPath: eventPath,
+                          activeProjectPath: self.selectedWorkspace?.path ?? "",
+                          eventGeneration: eventGeneration,
+                          activeGeneration: self.projectFileIndexGeneration
+                      ) else { return }
+                self.projectFilesCache = nil
+            }
+        }
+        projectFileIndexWatcher = watcher
+        watcher.start()
+    }
 
     func inputDropdownContext() -> InputDropdownDataSource.Context {
         let skills = AgentResourcesLoader.loadSkills().map { $0.name }

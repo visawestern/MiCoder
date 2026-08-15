@@ -1228,3 +1228,48 @@ A repository-wide source audit found no FSEventStream subscription, watcher life
 | Target-runtime confidence | 0/100 | Linux sandbox cannot execute SwiftUI, AppKit, macOS file watchers, or macOS SQLite |
 
 The canonical registry remains **274 rows** with **224 PASS, 40 PARTIAL, 5 MISSING, and 5 FUTURE**. `STO-06` now documents its per-project JSON snapshot implementation while retaining PARTIAL because FSEvents/FTS are absent; `STO-07` remains MISSING.
+
+
+## Round 61 — STO-07 FSEvents dynamic reindexing
+
+### Scope and method
+
+The next global recheck target was the earliest remaining storage gap: `STO-07 FSEvents Dynamic Reindexing`. The audit traced `IndexingSettingsView`, `AppState.selectedWorkspace`, workspace switching/clearing, the `@` file-dropdown cache, `ProjectFileScanner`, `ProjectFileIndexStore`, and every source reference to FSEvents, index invalidation, and project file state.
+
+The devil’s-advocate cases were: a change outside the active project, a change inside `.micoder` caused by the index itself, a callback from a previously selected project arriving after a workspace switch, rapid bursts of file events, watcher shutdown on workspace clear, and a watcher implementation that parses on Linux but cannot run there.
+
+### Confirmed implementation gap — no dynamic watcher lifecycle
+
+The previous round persisted project snapshots but had no watcher. Round 61 adds a pure `ProjectFileIndexWatcherLogic` contract and a platform-safe `ProjectFileIndexWatcher`. On macOS, the watcher uses CoreServices FSEvents with a 300 ms debounce. It filters paths to the active project, suppresses `.micoder` changes to avoid self-triggered loops, and emits the canonical project path plus generation. `AppState.selectedWorkspace` stops the old watcher, increments generation, clears the cache, starts the new watcher, and dispatches invalidation back to the main queue. A stale callback is rejected when its canonical project path or generation does not match the active state. Outside macOS, a no-op fallback preserves compilation and the same lifecycle contract.
+
+### Indexing settings remain honest
+
+`indexNewFolders` and `indexRepositories` still have no consumer that can change watcher behavior. The Indexing settings controls remain disabled with an explicit “automatic indexing is not available yet” message. The FSEvents watcher itself is active for the workspace file tree, but repository/folder preference semantics and persistent FTS are not claimed as implemented.
+
+### Persistent FTS remains missing
+
+The source audit found no SQLite `file_index` table, FTS schema, query API, or search consumer. The file index remains a project-local JSON snapshot used by the existing `@` dropdown path. Persistent FTS is deliberately left **MISSING** rather than being inferred from the watcher implementation.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red watcher contract suite | Failed before implementation | `ProjectFileIndexWatcherLogic` absent by design |
+| Green watcher contract suite | **4/4 passed** | Path filtering, `.micoder` suppression, stale generation, debounce bound |
+| Full Foundation harness | **196/196 passed** | Linux-compatible logic and fake browser contracts |
+| Swift parser validation | **passed** | CoreServices-guarded watcher and AppState syntax |
+| Adversarial source checks | **12/12 passed** | Existing model/browser/send invariants |
+| macOS FSEvents event delivery | **UNVERIFIED** | Linux sandbox cannot execute CoreServices event stream |
+| macOS watcher shutdown/permission behavior | **UNVERIFIED** | Requires macOS filesystem runtime |
+| Persistent SQLite/FTS search | **MISSING** | No implementation exists |
+| `git diff --check` | **passed** | Repository hygiene |
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 96/100 | Watcher has debounce, project isolation, stale-generation safety, self-write suppression, and a non-macOS fallback; live CoreServices behavior is unavailable |
+| Task adherence | 100/100 | Workspace lifecycle and every indexing chain were manually traced, red tests preceded the core watcher contract, docs/registry are updated, and FTS remains honestly missing |
+| Target-runtime confidence | 0/100 | macOS SwiftUI/AppKit/CoreServices runtime is unavailable in the sandbox |
+
+The canonical registry remains **274 rows** and now reports **224 PASS, 41 PARTIAL, 4 MISSING, and 5 FUTURE**. `STO-07` moved from MISSING to PARTIAL because the watcher is implemented and contract-tested, while live macOS event delivery remains UNVERIFIED. `STO-06` remains PARTIAL because persistent FTS and SQLite indexing are not implemented.
