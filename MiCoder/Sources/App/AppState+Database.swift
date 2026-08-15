@@ -184,7 +184,11 @@ extension AppState {
     @MainActor
     /// Real usage data points from the DB for statistics (plan Раздел 10).
     func loadUsageDataPoints() -> [UsageDataPoint] {
-        (try? DatabaseManager.shared.usageDataPoints()) ?? []
+        let legacy = (try? DatabaseManager.shared.usageDataPoints()) ?? []
+        let projectPoints = projectPathsForMaintenance.map { path in
+            (try? ProjectDatabaseManager.manager(forProjectPath: path).usageDataPoints()) ?? []
+        }
+        return UsageDataSourcesLogic.merge(legacy: legacy, projects: projectPoints)
     }
 
     func loadStorageStats() -> StorageStats {

@@ -40,21 +40,6 @@ struct UsageCapture: Equatable {
     }
 }
 
-/// One usage data point read from the DB (plan Раздел 10 Блок 2 п.13-14).
-/// Sourced from existing `prompt_tokens`/`completion_tokens`/`cost_usd` columns
-/// tagged with model+provider — no fabricated numbers.
-struct UsageDataPoint: Equatable {
-    let timestamp: Date
-    let model: String
-    let provider: String
-    let promptTokens: Int
-    let completionTokens: Int
-    /// nil for local providers (Ollama/mimoCLI) where cost is not applicable.
-    let costUSD: Double?
-
-    var totalTokens: Int { promptTokens + completionTokens }
-}
-
 /// Per-model (or per-provider) aggregate (plan Блок 2 п.16/п.38).
 struct UsageAggregate: Equatable {
     let key: String              // model id or provider id

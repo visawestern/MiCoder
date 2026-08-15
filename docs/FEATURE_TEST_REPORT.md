@@ -1316,3 +1316,42 @@ STO-28 is now **PARTIAL**, not PASS. Chunking bounds individual work batches, bu
 | Target-runtime confidence | 0/100 | Linux sandbox cannot execute SwiftUI/AppKit panels or macOS filesystem integration |
 
 The canonical registry remains **274 rows** and now reports **224 PASS, 43 PARTIAL, 2 MISSING, and 5 FUTURE**. `STO-27` and `STO-28` moved from MISSING to PARTIAL; both retain explicit runtime or UX limitations.
+
+## Round 63 — Per-project usage and cost-per-model aggregation
+
+### Scope and chain audit
+
+The audit continued at `USG-02 Usage Screen with Real Data` and `USG-03 Cost per Model`. The complete chain was traced from direct-provider response usage, ACP usage, Auto Free/web/Serve response paths, assistant-message persistence, legacy `DatabaseManager`, canonical per-project `ProjectDatabaseManager`, `AppState.loadUsageDataPoints()`, `UsageStatisticsAggregator`, and the Usage settings consumer.
+
+The devil’s-advocate question was whether a correct database query could still produce an incorrect UI because AppState selected the wrong database source. The answer was yes: both database managers preserved nullable `messageCostUsd`, but `AppState+Database.loadUsageDataPoints()` read only `DatabaseManager.shared`. Since normal current sessions/messages are stored in per-project databases, project-scoped usage and cost were absent from the Usage screen.
+
+### TDD defect confirmation and fix
+
+Round 63 first extracted `UsageDataPoint` from `UsageStatisticsAggregator.swift` so the source-selection contract could be tested in the Foundation-only harness. Two red regression tests were then added before the implementation: one required legacy and project-scoped points, including nullable cost values, to be present together; the other required empty sources to remain empty. The red run failed with `cannot find 'UsageDataSourcesLogic' in scope`, confirming that the test was exercising a missing production contract rather than passing accidentally.
+
+`UsageDataSourcesLogic.merge` was then implemented as a deterministic merge of legacy and every project source, ordered by timestamp with stable provider/model tie-breakers. `AppState.loadUsageDataPoints()` now reads the legacy store, reads all maintained project databases, and passes both collections through the tested merge contract before UsageSettingsView filters and aggregates them.
+
+The fix deliberately does not invent provider pricing. Direct gateways may contribute a real nullable cost when their response supplies one. ACP, Auto Free, web-browser, and Serve paths remain N/A when no trustworthy usage or pricing payload is exposed in the traced chain. A numeric `$0.00` would be less correct than an honest unknown value.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red cross-database regression run | **failed as expected** | Missing `UsageDataSourcesLogic` before implementation |
+| Green usage-source regressions | **2/2 passed** | Project inclusion and empty-source edge case |
+| Full Foundation harness | **203/203 passed** | Linux-compatible logic and fake browser contracts |
+| Swift parser validation | **passed** | Usage model, aggregator, merge helper, and AppState wiring |
+| Adversarial source checks | **12/12 passed** | Provider/browser invariants remained green |
+| macOS Usage settings rendering | **UNVERIFIED** | Requires macOS SwiftUI runtime |
+| Live provider usage/cost payloads | **PARTIAL/UNVERIFIED** | Web/Auto Free/Serve/ACP do not expose a trusted price in the traced source chain |
+| `git diff --check` | **passed** | No trailing whitespace after final Round 63 edits |
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 96/100 | The canonical per-project source omission is fixed with a small deterministic contract, cost remains nullable and honest, and the full harness is green; provider-specific cost payloads and macOS runtime remain unavailable. |
+| Task adherence | 100/100 | Every usage source and consumer was manually traced, red tests preceded the fix, edge cases were covered, documentation and registry updates were prepared, and unsupported pricing is not fabricated. |
+| Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI/AppKit or validate live provider/browser usage metadata. |
+
+The canonical registry now contains **274 rows** and reports **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `USG-03` moved from MISSING to PARTIAL because per-project usage/cost data now reaches aggregation, while provider-specific pricing and native runtime verification remain explicitly incomplete. `USG-02` remains PARTIAL with its global-only source note corrected.
