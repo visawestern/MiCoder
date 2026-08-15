@@ -928,6 +928,10 @@ struct SearchPaletteView: View {
     private var matchingSessions: [ChatSession] {
         SearchPaletteLogic.matchingSessions(appState.sessions, query: query)
     }
+
+    private var matchingFiles: [FileIndexRecord] {
+        appState.searchProjectFiles(query: query)
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -967,6 +971,37 @@ struct SearchPaletteView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                    }
+
+                    if !matchingFiles.isEmpty {
+                        Text("Project files")
+                            .interfaceFont(size: 11, weight: .semibold)
+                            .foregroundColor(Color.mimo.textMuted)
+                            .padding(.top, 8)
+                        ForEach(matchingFiles, id: \.path) { file in
+                            Button(action: {
+                                guard let root = appState.selectedWorkspace?.path else { return }
+                                let url = URL(fileURLWithPath: root).appendingPathComponent(file.path)
+                                NSWorkspace.shared.activateFileViewerSelecting([url])
+                                dismiss()
+                            }) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "doc.text")
+                                        .foregroundColor(Color.mimo.textMuted)
+                                    Text(file.path)
+                                        .interfaceFont(size: 12)
+                                        .foregroundColor(Color.mimo.textPrimary)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Text(file.language)
+                                        .interfaceFont(size: 10)
+                                        .foregroundColor(Color.mimo.textMuted)
+                                }
+                                .padding(.vertical, 6)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
             }

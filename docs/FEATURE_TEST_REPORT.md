@@ -2913,3 +2913,50 @@ WEB-05 has two confirmed source-level defects fixed in Round 98. WEB-06 and WEB-
 | WEB-07 | 99/100 | 100/100 | 0/100 |
 
 No new registry rows were added in Round 98. The canonical registry remains **274 data rows**, with the existing status distribution **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**.
+
+## Round 99 — Harden usage integrity and expose persistent project-file search
+
+### Scope and chain audit
+
+The canonical audit covered **USG-02**, **USG-03**, and **IDX-03** from provider response usage extraction through database persistence, legacy/per-project merge, date-range filtering, message/active-day/model/cost aggregation, visible Usage screen cards, file scanning, snapshot persistence, watcher invalidation, SearchPalette query handling, result ranking, and Finder reveal.
+
+### USG-02/USG-03 — Negative token counts distorted usage totals
+
+`UsageCapture` and `UsageDataPoint` accepted negative prompt/completion token counts. A malformed provider payload or persisted row could produce negative totals, negative model ranking, or a negative session usage value. Two red tests were written first and failed with four assertions. Both boundaries now clamp counts at zero before aggregation and persistence-facing consumption. Valid positive counts, zero-cost payloads, and N/A costs remain unchanged.
+
+### IDX-03 — File index existed but file-content search was missing
+
+The audit found a real persistent `file_index.json` metadata snapshot and watcher-driven on-demand scan, but no searchable file content and no user-visible file result in SearchPalette. The red regression first required `searchableText` and a deterministic `ProjectFileSearchLogic`; persistent source acceptance then required AppState/SearchPalette/Finder wiring. Round 99 adds bounded UTF-8 text capture, all-term ranking, binary exclusion, on-demand persistence, visible file results, and Finder reveal.
+
+IDX-03 moves from **MISSING** to **PARTIAL**. SQLite file-content FTS, secret-pattern redaction, and continuous automatic background indexing remain absent and are documented rather than overstated.
+
+### No speculative cost change
+
+USG-03 cost provenance was already correctly fail-closed for negative, NaN, and infinite costs while preserving `$0.00`. No duplicate fix was introduced.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Usage token red regressions | **2 tests failed before fix → 2/2 passed** | Foundation data boundary |
+| IDX-03 file search red regression | **compile failed before fix → 2/2 passed** | Foundation search logic |
+| Project-file wiring red acceptance | **failed before AppState/UI wiring → passed** | AppState + SearchPalette source |
+| Usage/index source acceptance | **passed** | Production invariants |
+| Focused file index/search suites | **20/20 passed** | Foundation scanner/persistence/search |
+| Full Foundation harness | **357/357 passed** | Linux-safe suites |
+| Adversarial source checks | **12/12 passed** | Existing safety invariants |
+| Canonical registry integrity | **274 rows, unique IDs, valid statuses** | Registry acceptance |
+| Swift parser validation | **passed** | Changed production/test files |
+| `git diff --check` | **passed** | No trailing whitespace |
+
+### Status and scores
+
+USG-02 and USG-03 remain **PARTIAL** because native SwiftUI rendering, large database performance, silent database read failures, and provider-specific pricing are not verifiable in this Linux environment. IDX-03 moves from **MISSING** to **PARTIAL** because persistent metadata indexing and visible bounded project-file search now exist, while SQLite file-content FTS and automatic background indexing remain absent.
+
+| Story | Code quality | Task adherence | Target-runtime confidence |
+|---|---:|---:|---:|
+| USG-02 | 99/100 | 100/100 | 0/100 |
+| USG-03 | 99/100 | 100/100 | 0/100 |
+| IDX-03 | 97/100 | 100/100 | 0/100 |
+
+The canonical registry remains **274 data rows**, with **224 PASS, 45 PARTIAL, 0 MISSING, and 5 FUTURE** after narrowing IDX-03 from MISSING to PARTIAL.

@@ -41,12 +41,19 @@ enum ProjectFileScanner {
             guard let data = try? Data(contentsOf: fileURL) else { continue }
             let mtime = values?.contentModificationDate?.timeIntervalSince1970 ?? 0
             let ext = (rel as NSString).pathExtension
+            let searchableText: String? = {
+                let prefix = Data(data.prefix(ProjectFileIndexLogic.defaultSearchableTextMaxBytes))
+                guard !prefix.contains(0),
+                      let text = String(data: prefix, encoding: .utf8) else { return nil }
+                return text
+            }()
             records.append(FileIndexRecord(
                 path: rel,
                 hash: hash(of: data),
                 size: size,
                 lastModified: mtime,
-                language: ProjectFileIndexLogic.language(forExtension: ext)
+                language: ProjectFileIndexLogic.language(forExtension: ext),
+                searchableText: searchableText
             ))
         }
         return records.sorted { $0.path < $1.path }

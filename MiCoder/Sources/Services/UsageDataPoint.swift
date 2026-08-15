@@ -15,8 +15,8 @@ struct UsageDataPoint: Equatable {
         self.timestamp = timestamp
         self.model = model
         self.provider = provider
-        self.promptTokens = promptTokens
-        self.completionTokens = completionTokens
+        self.promptTokens = max(0, promptTokens)
+        self.completionTokens = max(0, completionTokens)
         self.costUSD = UsageCostSafety.sanitized(costUSD)
     }
 

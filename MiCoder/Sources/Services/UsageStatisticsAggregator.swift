@@ -21,8 +21,8 @@ struct UsageCapture: Equatable {
     var totalTokens: Int { promptTokens + completionTokens }
 
     init(promptTokens: Int, completionTokens: Int, costUSD: Double?, modelID: String, providerID: String) {
-        self.promptTokens = promptTokens
-        self.completionTokens = completionTokens
+        self.promptTokens = max(0, promptTokens)
+        self.completionTokens = max(0, completionTokens)
         self.costUSD = UsageCostSafety.sanitized(costUSD)
         self.modelID = modelID.isEmpty ? "unknown" : modelID
         self.providerID = providerID.isEmpty ? "unknown" : providerID

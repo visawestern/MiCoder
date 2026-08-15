@@ -1627,6 +1627,27 @@ class AppState: ObservableObject {
         watcher.start()
     }
 
+    @MainActor
+    func searchProjectFiles(query: String) -> [FileIndexRecord] {
+        let path = selectedWorkspace?.path ?? ""
+        guard !path.isEmpty else { return [] }
+        if ProjectFilesCacheLogic.needsRescan(cache: projectFilesCache, currentPath: path) {
+            let currentRecords = ProjectFileIndexStore.load(projectPath: path)
+            let scannedRecords = ProjectFileScanner.scan(root: path)
+            let records = ProjectFileIndexPersistenceLogic.applyDelta(current: currentRecords, scanned: scannedRecords)
+            ProjectFileIndexStore.save(projectPath: path, records: records)
+            projectFilesCache = ProjectFilesCacheState(
+                projectPath: path,
+                fileNames: records.map(\.path),
+                scannedAt: Date()
+            )
+        }
+        return ProjectFileSearchLogic.search(
+            query: query,
+            records: ProjectFileIndexStore.load(projectPath: path)
+        )
+    }
+
     func inputDropdownContext() -> InputDropdownDataSource.Context {
         let skills = AgentResourcesLoader.loadSkills().map { $0.name }
         let mcpServers = AgentResourcesLoader.loadMCPServers().map { $0.name }

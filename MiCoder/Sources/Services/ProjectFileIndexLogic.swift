@@ -36,6 +36,9 @@ enum ProjectFileIndexLogic {
     /// Max file size to index by default (plan Блок 3 п.30), bytes.
     static let defaultMaxFileSize = 5 * 1024 * 1024
 
+    /// Maximum UTF-8 text retained per file for search, keeping snapshots bounded.
+    static let defaultSearchableTextMaxBytes = 512 * 1024
+
     /// Whether a relative path should be excluded given exclude dir names and
     /// user gitignore-style patterns.
     static func shouldExclude(relativePath: String,

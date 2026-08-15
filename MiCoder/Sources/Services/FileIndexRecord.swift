@@ -7,4 +7,20 @@ struct FileIndexRecord: Codable, Equatable {
     var size: Int
     var lastModified: TimeInterval
     var language: String
+    /// Bounded UTF-8 text retained for project-file search; nil for binary/unreadable files.
+    var searchableText: String?
+
+    init(path: String,
+         hash: String,
+         size: Int,
+         lastModified: TimeInterval,
+         language: String,
+         searchableText: String? = nil) {
+        self.path = path
+        self.hash = hash
+        self.size = size
+        self.lastModified = lastModified
+        self.language = language
+        self.searchableText = searchableText
+    }
 }
