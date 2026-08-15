@@ -142,7 +142,12 @@ class AppState: ObservableObject {
     
     @Published var selectedWorkspace: Workspace? {
         didSet {
-            updateProjectFileIndexWatcher(for: selectedWorkspace)
+            if ProjectFileIndexWatcherLifecycleLogic.shouldRestart(
+                oldProjectPath: oldValue?.path,
+                newProjectPath: selectedWorkspace?.path
+            ) {
+                updateProjectFileIndexWatcher(for: selectedWorkspace)
+            }
             guard let workspace = selectedWorkspace else { return }
 
             // E04 (Раздел 8 п.48): open-time integrity check — a corrupted

@@ -1716,3 +1716,44 @@ STO-06 remains **PARTIAL**. Project-scoped JSON persistence, hash/mtime delta co
 | Target-runtime confidence | 0/100 | Linux cannot execute macOS file I/O, CoreServices FSEvents, SwiftUI, or SQLite/FTS runtime behavior. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `STO-06` remains PARTIAL because duplicate-path recovery is fixed and contract-tested, while live watcher behavior and persistent FTS remain outside this verifiable scope.
+
+## Round 73 — Avoid watcher restart on branch-only workspace update
+
+### Scope and chain audit
+
+The sequential audit continued at `STO-07 FSEvents Dynamic Reindexing`. The chain was traced from workspace selection, branch updates, and `selectedWorkspace.didSet` through `updateProjectFileIndexWatcher`, `ProjectFileIndexWatcher.start/stop`, CoreServices FSEvents callback filtering, debounce scheduling, generation guards, project cache invalidation, and the downstream `@` file-suggestion refresh path.
+
+The watcher implementation already had the important safety contracts: CoreServices FSEvents on macOS, a Linux no-op fallback, 300 ms debounce, project-path boundary filtering, `.micoder` suppression, and generation/project guards against stale callbacks. The adversarial chain found one lifecycle defect. `updateWorkspaceBranch` creates a new `Workspace` value with only its branch changed and reassigns `selectedWorkspace`. The old `didSet` unconditionally stopped the watcher, cleared `projectFilesCache`, and created a new watcher even though the project path was unchanged. This created avoidable event-stream churn and forced a later file-index refresh for a metadata-only mutation.
+
+### TDD defect confirmation and fix
+
+`ProjectFileIndexWatcherLifecycleLogicTests` was written before the implementation. The red run failed at compilation because the restart policy did not yet exist, confirming that the test exercised a missing contract rather than merely repeating an existing behavior. The three regression cases cover path-stable mutations with trailing-slash normalization, actual project-path changes, and workspace creation/clearing through `nil` transitions.
+
+The green implementation adds `ProjectFileIndexWatcherLifecycleLogic.shouldRestart(oldProjectPath:newProjectPath:)`. It canonicalizes non-empty file paths with `standardizedFileURL` and returns true only when the canonical old and new project paths differ. `selectedWorkspace.didSet` now invokes `updateProjectFileIndexWatcher` only when this policy returns true. Therefore branch-only workspace updates preserve the active watcher and file-index cache, while project switches, workspace creation, and workspace clearing still restart or stop the lifecycle as required.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red watcher lifecycle regression | **failed as expected** | Missing restart policy was referenced by the new tests |
+| Green watcher lifecycle regressions | **3/3 passed** | Same canonical path does not restart; path/nil transitions restart |
+| Full Foundation harness | **245/245 passed** | Existing contracts plus STO-07 lifecycle regressions |
+| Swift parser validation | **passed** | Lifecycle helper and `MiCoderApp` wiring |
+| Adversarial source checks | **12/12 passed** | Provider/browser/model invariants remained green |
+| CoreServices FSEvents delivery | **UNVERIFIED** | Requires native macOS runtime and filesystem events |
+| Native watcher teardown/permissions | **UNVERIFIED** | Requires macOS runtime, permissions, and real filesystem races |
+| Persistent SQLite/FTS search | **MISSING** | Separate IDX-03 capability; not falsely claimed here |
+
+### Remaining STO-07 limitations
+
+`STO-07` remains **PARTIAL**. The source-level lifecycle, path filtering, debounce, generation isolation, `.micoder` suppression, and path-stable branch-update behavior are implemented and contract-tested. Live CoreServices event delivery, stream shutdown, filesystem permission failures, SwiftUI observation timing, and packaged macOS behavior remain unverified in the Linux Foundation harness. Persistent SQLite/FTS search is a separate missing capability and is not implied by the JSON index snapshot.
+
+### Scores
+
+| Dimension | Score | Rationale |
+|---|---:|---|
+| Implementation quality | 95/100 | The confirmed branch-only watcher churn is removed with a small canonical-path policy and regression coverage; native event delivery, shutdown races, permissions, and persistent FTS remain unverified or missing. |
+| Task adherence | 100/100 | Every STO-07 action and function was manually chain-traced, red tests preceded the fix, canonical checklist/registry/report updates were made, and native-only limits remain explicitly UNVERIFIED. |
+| Target-runtime confidence | 0/100 | Linux cannot execute CoreServices FSEvents, SwiftUI observation, AppKit behavior, or packaged macOS filesystem/permission scenarios. |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `STO-07` remains PARTIAL because the branch-only lifecycle defect is fixed and contract-tested, while live macOS FSEvents behavior, native teardown/permissions, and persistent FTS remain outside the verifiable scope.
