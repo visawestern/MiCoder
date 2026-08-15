@@ -14,9 +14,10 @@ enum MiCoderAutoFreeHistoryLogic {
         let cleaned = turns.filter { turn in
             guard turn.role == "user" || turn.role == "assistant" else { return false }
             guard !turn.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-            return turn.isFinished || turn.role == "user"
+            return turn.isFinished
         }
-        guard maxTurns > 0, cleaned.count > maxTurns else { return maxTurns == 0 ? [] : cleaned }
+        guard maxTurns > 0 else { return [] }
+        guard cleaned.count > maxTurns else { return cleaned }
         return Array(cleaned.suffix(maxTurns))
     }
 }

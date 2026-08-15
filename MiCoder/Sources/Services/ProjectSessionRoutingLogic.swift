@@ -10,13 +10,13 @@ enum ProjectSessionRoutingLogic {
         projectID: String,
         selectedPath: String?,
         workspaces: [WorkspacePath]
-    ) -> String {
+    ) -> String? {
         if let workspace = workspaces.first(where: { $0.id == projectID }) {
             return workspace.path
         }
         if projectID.hasPrefix("/") {
             return projectID
         }
-        return selectedPath ?? projectID
+        return nil
     }
 }

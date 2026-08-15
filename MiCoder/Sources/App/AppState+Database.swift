@@ -107,11 +107,14 @@ extension AppState {
         directory: String,
         branch: String? = nil
     ) {
-        let projectPath = ProjectSessionRoutingLogic.path(
+        guard let projectPath = ProjectSessionRoutingLogic.path(
             projectID: projectId,
             selectedPath: selectedWorkspace?.path,
             workspaces: workspaces.map { ProjectSessionRoutingLogic.WorkspacePath(id: $0.id, path: $0.path) }
-        )
+        ) else {
+            print("❌ Cannot create session without a resolvable project: \(projectId)")
+            return
+        }
         db.createSession(
             id: id,
             projectId: projectPath,

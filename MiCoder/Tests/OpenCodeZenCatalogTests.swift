@@ -30,4 +30,13 @@ struct OpenCodeZenCatalogTests {
         #expect(result == ["big-pickle", "deepseek-v4-flash", "kimi-k2.7-code"])
         #expect(!result.contains("gpt-5.5"))
     }
+
+    @Test("repeated provider rows produce one model option each")
+    func duplicateRowsAreCollapsed() {
+        let result = OpenCodeZenCatalog.availableModels(
+            from: ["big-pickle", "big-pickle", "mimo-v2.5-free", "mimo-v2.5-free"],
+            apiKey: ""
+        )
+        #expect(result == ["big-pickle", "mimo-v2.5-free"])
+    }
 }

@@ -33,7 +33,7 @@ enum OpenCodeZenCatalog {
 
     static func availableModels(from modelIDs: [String], apiKey: String) -> [String] {
         let available = Set(modelIDs)
-        let free = modelIDs.filter(isFreeModel)
+        let free = Array(Set(modelIDs.filter(isFreeModel)))
         let normalizedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedKey.isEmpty else {
             return free.sorted()

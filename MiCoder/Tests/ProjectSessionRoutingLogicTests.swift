@@ -24,4 +24,13 @@ struct ProjectSessionRoutingLogicTests {
             workspaces: []
         ) == "/tmp/project")
     }
+
+    @Test("unknown symbolic project IDs fail closed instead of inheriting selected workspace")
+    func unknownSymbolicProjectDoesNotShadowSelectedWorkspace() {
+        #expect(ProjectSessionRoutingLogic.path(
+            projectID: "missing-project",
+            selectedPath: "/tmp/project-a",
+            workspaces: []
+        ) == nil)
+    }
 }

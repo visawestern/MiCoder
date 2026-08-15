@@ -2497,3 +2497,65 @@ The access gate, approval interruption, named-session restoration order, custom 
 | WEB-CHAT-15 | 97/100 | 100/100 | 0/100 |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. The audited stories remain PARTIAL solely for explicit live-runtime boundaries and not because the confirmed source-level defects remain open.
+
+## Round 91 — Harden Auto Free history, Zen catalog uniqueness, and explicit project routing
+
+### Scope and chain audit
+
+The sequential audit covered **CHAT-20**, the two provider stories that had accidentally reused **PROV-17**, and **DB-07 through DB-09**. The chain was traced from ChatPanel send preparation and Auto Free history extraction through provider preset/catalog filtering, failover notification construction, new-project validation, workspace switching, per-project database resolution, and canonical registry identity.
+
+Three source-level defects and one documentation defect were confirmed.
+
+### CHAT-20 — unfinished user turns and negative history caps leaked context
+
+`MiCoderAutoFreeHistoryLogic` excluded unfinished assistant placeholders but allowed unfinished user turns, even though its contract said only finished prior turns should be sent. A negative `maxTurns` also bypassed the cap and returned every cleaned row. Red tests were written first for both cases. The fix requires `turn.isFinished` for both user and assistant history and returns an empty history for every non-positive limit. The current user’s attachments remain on the new user message rather than being folded into prior text history.
+
+### PROV-17 — repeated free model rows created duplicate choices
+
+`OpenCodeZenCatalog.availableModels` used `modelIDs.filter(isFreeModel)`, so duplicate rows in a valid provider response became duplicate model choices. A red catalog test supplied repeated trusted free IDs and required one sorted option per ID. The fix deduplicates free IDs before combining them with the curated keyed paid list. Existing anonymous/keyed filtering and hosted preset tests continue to pass.
+
+### DB-09 — unknown symbolic project IDs inherited the selected workspace
+
+`ProjectSessionRoutingLogic.path` returned `selectedPath ?? projectID` when an explicit symbolic project ID was absent from the workspace list. That could route a request intended for project B into selected project A’s database. A red regression first required unknown symbolic IDs to return nil. The router now returns an optional path, and `AppState.createSessionInDatabase` aborts before `DatabaseBridge.createSession` when no project can be resolved.
+
+### Canonical registry — duplicate story IDs
+
+A persistent Python acceptance test was written before the documentation fix. It found 274 rows but only 271 unique IDs: `PROV-17`, `SID-20`, and `SID-21` each appeared twice. The current registry now assigns `PROV-20` to rate-limit notification severity, `SID-27` to stable sidebar drag, and `SID-28` to responsive workspace toolbar. Historical report sections retain round-era identifiers so their evidence remains traceable; the current canonical registry is unique.
+
+### Re-audited unchanged stories
+
+DB-07 validation remains wired before `createNewProject` and covers blank, relative, nonexistent, and file paths with actionable inline errors. DB-08 clears selected/session UI before asynchronous project reload and rejects late results by workspace identity. PROV-20’s rate-limit classification and red notification path remain source-tested; live provider and visual SwiftUI behavior are not claimed without macOS.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| CHAT-20 red unfinished-user and negative-cap tests | **failed as expected** | Both old contracts were violated |
+| CHAT-20 green history suite | **4/4 passed** | Finished filtering, cap, zero, negative limit |
+| PROV-17 red duplicate-catalog test | **failed as expected** | Repeated free rows were emitted twice |
+| PROV-17 green Zen catalog suite | **4/4 passed** | Preset, anonymous, keyed, duplicate collapse |
+| DB-09 red unknown-symbolic routing test | **failed as expected** | Old router inherited selected path |
+| DB-09 green routing suite | **3/3 passed** | Explicit path, absolute fallback, fail-closed unknown ID |
+| DB-07 validation suite | **4/4 passed** | Existing directory, missing, file, blank fields |
+| DB-08 workspace selection suite | **3/3 passed** | Reload, stale result, nil selection |
+| Canonical registry integrity | **274/274 unique IDs** | Persistent Python acceptance regression |
+| Full Foundation harness | **303/303 passed** | Linux-safe suites |
+| Adversarial source checks | **12/12 passed** | Existing web/model safety invariants |
+| Swift parser validation | **passed** | All changed production/test Swift files |
+| `git diff --check` | **passed** | No trailing whitespace |
+
+### Status and scores
+
+The confirmed source and documentation defects are fixed. The audited stories remain **PARTIAL** where the canonical contract depends on macOS AppKit/SwiftUI, SQLite, live OpenCode responses, authenticated provider state, or native UI interaction. No Linux result is represented as native runtime proof.
+
+| Story | Code quality | Task adherence | Target-runtime confidence |
+|---|---:|---:|---:|
+| CHAT-20 | 98/100 | 100/100 | 0/100 |
+| PROV-17 | 98/100 | 100/100 | 0/100 |
+| PROV-20 | 97/100 | 100/100 | 0/100 |
+| DB-07 | 96/100 | 100/100 | 0/100 |
+| DB-08 | 97/100 | 100/100 | 0/100 |
+| DB-09 | 98/100 | 100/100 | 0/100 |
+| Registry integrity | 98/100 | 100/100 | 100/100 |
+
+The canonical registry remains **274 rows**, now with **unique story IDs**. The current status distribution remains **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**; Round 91 changed evidence and identifiers but did not alter the PASS/PARTIAL classification of the audited runtime-bound stories.
