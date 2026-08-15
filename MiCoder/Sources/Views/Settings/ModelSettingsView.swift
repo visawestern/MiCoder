@@ -653,7 +653,7 @@ struct ModelSettingsProviderColumns: View {
                     .lineLimit(2)
             }
             let detected = model.parameterProfile.values
-            Text("Detected defaults: temperature \(detected.temperature.map(String.init) ?? "—") · max tokens \(detected.maxTokens.map(String.init) ?? "—") · top P \(detected.topP.map(String.init) ?? "—")")
+            Text("Detected defaults: temperature \(detected.temperature.map { String(describing: $0) } ?? "—") · max tokens \(detected.maxTokens.map { String(describing: $0) } ?? "—") · top P \(detected.topP.map { String(describing: $0) } ?? "—")")
                 .interfaceFont(size: 10, design: .monospaced)
                 .foregroundColor(Color.mimo.textMuted)
                 .lineLimit(2)

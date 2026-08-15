@@ -32,6 +32,9 @@ final class ProjectFileIndexWatcher {
             copyDescription: nil
         )
         let paths = [projectPath] as CFArray
+        let eventFlags: FSEventStreamCreateFlags = UInt32(
+            truncatingIfNeeded: kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer
+        )
         stream = FSEventStreamCreate(
             nil,
             { _, info, count, pathPointers, _, _ in
@@ -49,7 +52,7 @@ final class ProjectFileIndexWatcher {
             paths,
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
             0.3,
-            kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer
+            eventFlags
         )
         guard let stream else { return }
         FSEventStreamSetDispatchQueue(stream, callbackQueue)

@@ -321,8 +321,7 @@ struct CenteredInputCard: View {
             serverProviderIDs: appState.serverProviders.map(\.id),
             webConnected: WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID) == nil
                 ? nil
-                : appState.selectedProviderConnected,
-            effectiveModelID: appState.effectiveSelectedModel()
+                : appState.selectedProviderConnected
         )
     }
 
@@ -557,8 +556,7 @@ struct BottomInputBar: View {
             serverProviderIDs: appState.serverProviders.map(\.id),
             webConnected: WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID) == nil
                 ? nil
-                : appState.selectedProviderConnected,
-            effectiveModelID: appState.effectiveSelectedModel()
+                : appState.selectedProviderConnected
         )
     }
 

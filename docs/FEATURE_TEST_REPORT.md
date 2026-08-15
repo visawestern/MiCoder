@@ -3135,3 +3135,39 @@ Round 103 red/source acceptance was written before the final corrections in `.ac
 ### Native boundary
 
 The sandbox cannot execute the user’s native macOS SwiftUI/AppKit/CoreServices/Xcode build. The final code now corresponds to the second supplied diagnostic layer and passes all available source/parser tests, but the only definitive confirmation remains a fresh `git pull origin main && ./build-app.sh` on macOS. Any new compiler diagnostic after this round is new evidence and must be handled separately.
+
+## Round 104 — Full caller-chain audit for the third macOS build log
+
+### Incident
+
+The third native log showed that a prior broad edit had mixed two different InputViews APIs and that the CoreServices and SwiftUI fixes still needed toolchain-specific type context. This round manually traced each error from declaration through every known caller and final consumer before the final repair.
+
+### Chain findings and repairs
+
+| Chain | Finding | Repair |
+|---|---|---|
+| `ProjectFileIndexWatcher` → `FSEventStreamCreate` | CoreServices flags were exposed as `Int` on the user SDK, while the API expected `FSEventStreamCreateFlags`/UInt32. | Combine the constants, explicitly convert with `UInt32(truncatingIfNeeded:)`, and pass a typed `eventFlags` local. |
+| `ModelSettingsView.webProfilePanel` → `WebModelParameterProfile.values` → `Text` | `map(String.init)` was ambiguous for optional numeric values. | Use `map { String(describing: $0) }` for temperature, max tokens, and top P. |
+| `CenteredInputCard.canSend` and `CompactInputCard.canSend` → `SendReadinessLogic.canSendMessage` | This API consumes `modelID` but has no `effectiveModelID` parameter. A broad prior edit had appended one. | Remove `effectiveModelID` from exactly the two `canSendMessage` calls. |
+| `CenteredInputCard.sendReason` and `CompactInputCard.sendReason` → `SendReadinessReason.reason` | This separate API does declare `effectiveModelID`, but only after `webConnected`. | Keep `effectiveModelID` only in the two reason calls and leave it as the final argument. |
+
+The source tree was then searched for every `SendReadinessReason.reason`, `SendReadinessLogic.canSendMessage`, `selectModel`, `selectWebEffort`, and `FSEventStreamCreate` caller. AppState restore/API callers, ChatPanel, composer controls, provider/model settings, web discovery, and both InputViews send paths were checked. No additional stale `effectiveModelID` was left in a `canSendMessage` invocation.
+
+### TDD and verification
+
+`.acceptance/test_build_regressions_round104.py` was written before the production fixes and initially failed on the missing FSEvents UInt32 conversion. During implementation it also caught the real secondary regression caused by appending `effectiveModelID` to `canSendMessage`. The final acceptance checks the two API signatures separately, explicit numeric formatting, and typed CoreServices conversion.
+
+| Gate | Result |
+|---|---:|
+| Round 104 red regression before fixes | **Failed as expected** |
+| Round 104 source acceptance after chain repair | **PASS** |
+| Round 102/103 compatibility acceptance | **PASS** |
+| Foundation harness | **360/360 passed** |
+| Registry integrity | **274 unique rows; 224 PASS, 45 PARTIAL, 0 MISSING, 5 FUTURE** |
+| Adversarial source checks | **12/12 passed** |
+| Swift parser on affected files | **PASS** |
+| `git diff --check` | **PASS** |
+
+### Native boundary
+
+The Linux sandbox cannot run the user’s Xcode/macOS SwiftUI, CoreServices, or native SQLite compiler/runtime. The full caller-chain audit substantially reduces the risk of another broad signature regression, but only a fresh native build can close the final verification boundary.
