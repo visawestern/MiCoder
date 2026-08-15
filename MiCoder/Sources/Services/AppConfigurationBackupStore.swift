@@ -36,7 +36,8 @@ enum AppConfigurationBackupStore {
             return false
         }
         do {
-            try ProjectRegistryLogic.save(registry, homeDirectory: homeDirectory)
+            let normalizedRegistry = ProjectRegistryLogic.deduplicated(registry)
+            try ProjectRegistryLogic.save(normalizedRegistry, homeDirectory: homeDirectory)
             settings.save(to: defaults)
             return true
         } catch {

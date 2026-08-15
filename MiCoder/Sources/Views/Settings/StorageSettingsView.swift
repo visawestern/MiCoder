@@ -23,6 +23,11 @@ struct StorageSettingsView: View {
         totalBytes: 0, thresholdBytes: 0, archivableBytes: 0, archivedBytes: 0
     )
     @State private var deletionInProgress = false
+    @State private var deletionProgress = 0.0
+    @State private var deletionProgressLabel = ""
+    @State private var deletionCancelRequested = false
+    @State private var deletionCancellation: ProjectDeletionCancellation?
+    @State private var deletionTask: Task<Void, Never>?
     @State private var deletionNotice: ProjectDeletionOutcomeLogic.Notice?
     @State private var pendingAppConfigurationImportURL: URL?
     @State private var appConfigurationNotice: AppConfigurationTransferLogic.Notice?
@@ -283,6 +288,10 @@ struct StorageSettingsView: View {
             }
         }
         .onAppear(perform: refreshStats)
+        .onDisappear {
+            deletionCancellation?.cancel()
+            deletionTask?.cancel()
+        }
     }
 
     private var resetAlertTitle: String {
@@ -319,6 +328,30 @@ struct StorageSettingsView: View {
                 .help(L.t(AppLocalizationKey.locBulkArchiveHelp))
             }
             // Quota warning (plan Раздел 8 п.50): inform, never block.
+            if deletionInProgress {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        ProgressView(value: deletionProgress)
+                            .progressViewStyle(.linear)
+                        Text(deletionProgressLabel.isEmpty ? "Deleting project data…" : deletionProgressLabel)
+                            .interfaceFont(size: 11)
+                            .foregroundColor(Color.mimo.textSecondary)
+                            .lineLimit(1)
+                        Button("Cancel deletion") {
+                            deletionCancelRequested = true
+                            deletionCancellation?.cancel()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(deletionCancelRequested)
+                    }
+                    Text("The project stays in the registry until deletion completes successfully.")
+                        .interfaceFont(size: 10)
+                        .foregroundColor(Color.mimo.textMuted)
+                }
+                .padding(10)
+                .background(Color.mimo.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+            }
             if quota.isOverQuota {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -570,69 +603,133 @@ struct StorageSettingsView: View {
     private func deleteProject(_ entry: ProjectRegistryEntry) {
         guard !deletionInProgress else { return }
         deletionInProgress = true
-        defer { deletionInProgress = false }
+        deletionProgress = 0
+        deletionProgressLabel = "Preparing deletion…"
+        deletionCancelRequested = false
+        let cancellation = ProjectDeletionCancellation()
+        let progress = ProjectDeletionProgress()
+        deletionCancellation = cancellation
+        let projectPath = entry.path
+        let projectID = entry.id
+        let homeDirectory = home
 
+        deletionTask = Task { @MainActor in
+            let worker = Task.detached(priority: .utility) {
+                Self.executeProjectDeletion(
+                    projectPath: projectPath,
+                    homeDirectory: homeDirectory,
+                    cancellation: cancellation,
+                    progress: progress
+                )
+            }
+            while !progress.snapshot.finished {
+                self.publishDeletionProgress(progress.snapshot)
+                do {
+                    try await Task.sleep(nanoseconds: 75_000_000)
+                } catch {
+                    cancellation.cancel()
+                    break
+                }
+            }
+            if Task.isCancelled { cancellation.cancel() }
+            let outcome = await worker.value
+            self.publishDeletionProgress(progress.snapshot)
+            self.finishProjectDeletion(
+                projectID: projectID,
+                projectPath: projectPath,
+                outcome: outcome
+            )
+        }
+    }
+
+    private static func executeProjectDeletion(
+        projectPath: String,
+        homeDirectory: URL,
+        cancellation: ProjectDeletionCancellation,
+        progress: ProjectDeletionProgress
+    ) -> ProjectDeletionOutcomeLogic.Outcome {
+        defer { progress.finish() }
         let databaseExists = FileManager.default.fileExists(
-            atPath: ProjectDatabaseLocator.databaseURL(projectPath: entry.path).path
+            atPath: ProjectDatabaseLocator.databaseURL(projectPath: projectPath).path
         )
         do {
-            // Auto-backup the project DB before deletion. If a DB exists, both
-            // creation and preservation are hard safety prerequisites.
-            let backupURL = try ProjectAutoBackupLogic.createBackup(projectPath: entry.path)
+            let backupURL = try ProjectAutoBackupLogic.createBackup(projectPath: projectPath)
             let preservedURL: URL? = backupURL == nil
                 ? nil
                 : try ProjectAutoBackupLogic.preserveForDeletion(
-                    projectPath: entry.path,
-                    homeDirectory: home
+                    projectPath: projectPath,
+                    homeDirectory: homeDirectory
                 )
             guard ProjectDeletionBackupPolicy.canProceed(
                 databaseExists: databaseExists,
                 backupCreated: backupURL != nil,
                 backupPreserved: preservedURL != nil
             ) else {
-                deletionNotice = ProjectDeletionOutcomeLogic.notice(
-                    .failed("A recovery backup could not be created and preserved.")
-                )
-                return
+                return .failed("A recovery backup could not be created and preserved.")
             }
 
-            try? StorageAuditLog.append(action: "project.delete",
-                                        detail: "path=\(entry.path)",
-                                        homeDirectory: home)
-            let outcome = ProjectDeletionExecutor.execute(projectPath: entry.path)
-            guard ProjectDeletionOutcomeLogic.shouldRemoveRegistryEntry(outcome) else {
-                deletionNotice = ProjectDeletionOutcomeLogic.notice(outcome)
-                return
-            }
+            try? StorageAuditLog.append(
+                action: "project.delete",
+                detail: "path=\(projectPath)",
+                homeDirectory: homeDirectory
+            )
+            return ProjectDeletionExecutor.execute(
+                projectPath: projectPath,
+                shouldCancel: { cancellation.isCancelled },
+                onProgress: { completed, total in
+                    progress.update(completed: completed, total: total)
+                }
+            )
+        } catch {
+            return .failed(error.localizedDescription)
+        }
+    }
 
-            let before = ProjectRegistryLogic.load(homeDirectory: home)
-            let updated = ProjectRegistryLogic.remove(id: entry.id, in: before)
-            do {
-                try ProjectRegistryLogic.save(updated, homeDirectory: home)
-            } catch {
-                deletionNotice = ProjectDeletionOutcomeLogic.notice(
-                    .failed("Project data was deleted, but the registry could not be saved: \(error.localizedDescription)")
-                )
-                return
-            }
-            projectEntries = updated
-            appState.refreshProjectRegistry()
+    private func publishDeletionProgress(_ snapshot: ProjectDeletionProgress.Snapshot) {
+        let fraction = snapshot.total > 0
+            ? min(1, max(0, Double(snapshot.completed) / Double(snapshot.total)))
+            : 0
+        deletionProgress = fraction
+        deletionProgressLabel = snapshot.total > 0
+            ? "\(snapshot.completed)/\(snapshot.total) items"
+            : "Preparing deletion…"
+    }
 
-            // If the deleted project was the active selection, drop it so the UI
-            // never points at a registry entry that no longer exists.
-            let selectedPath = appState.selectedWorkspace?.path.map {
-                URL(fileURLWithPath: $0).standardizedFileURL.path
-            }
-            let deletedPath = URL(fileURLWithPath: entry.path).standardizedFileURL.path
-            if selectedPath == deletedPath {
-                appState.clearNavigationHistory()
-                appState.selectedWorkspace = nil
-            }
+    private func finishProjectDeletion(
+        projectID: String,
+        projectPath: String,
+        outcome: ProjectDeletionOutcomeLogic.Outcome
+    ) {
+        deletionInProgress = false
+        deletionCancellation = nil
+        deletionTask = nil
+        guard ProjectDeletionOutcomeLogic.shouldRemoveRegistryEntry(outcome) else {
+            deletionNotice = ProjectDeletionOutcomeLogic.notice(outcome)
+            return
+        }
+
+        let before = ProjectRegistryLogic.load(homeDirectory: home)
+        let updated = ProjectRegistryLogic.remove(id: projectID, in: before)
+        do {
+            try ProjectRegistryLogic.save(updated, homeDirectory: home)
         } catch {
             deletionNotice = ProjectDeletionOutcomeLogic.notice(
-                .failed(error.localizedDescription)
+                .failed("Project data was deleted, but the registry could not be saved: \(error.localizedDescription)")
             )
+            return
         }
+        projectEntries = updated
+        appState.refreshProjectRegistry()
+
+        let selectedPath = appState.selectedWorkspace?.path.map {
+            URL(fileURLWithPath: $0).standardizedFileURL.path
+        }
+        let deletedPath = URL(fileURLWithPath: projectPath).standardizedFileURL.path
+        if selectedPath == deletedPath {
+            appState.clearNavigationHistory()
+            appState.selectedWorkspace = nil
+        }
+        refreshStats()
     }
 
     private func refreshStats() {

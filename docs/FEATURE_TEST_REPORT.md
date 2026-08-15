@@ -2722,3 +2722,49 @@ The confirmed STO-06 source-level defect is fixed. STO-07 remains **PARTIAL** be
 | STO-11 | 100/100 | 100/100 | 0/100 |
 
 No new registry rows were added in Round 94. The canonical registry remains **274 rows**, with the existing status distribution **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**.
+
+## Round 95 — Harden configuration transfer and responsive project deletion
+
+### Scope and chain audit
+
+The canonical audit covered **STO-27**, **STO-28**, and **STO-29**. The full chains were traced from Storage Settings export/import and project-delete controls through bundle decoding, registry/settings replacement, backup/preservation gates, chunked filesystem deletion, progress/cancellation, registry mutation, active-workspace cleanup, and the explicit retirement of the CLI-import concept.
+
+Two source-level defects were confirmed.
+
+### STO-27 — imported duplicate registry paths were saved raw
+
+`AppConfigurationBackupStore.import` decoded the registry and wrote it directly. A valid configuration bundle could therefore reintroduce duplicate canonical project entries even though normal registry operations deduplicate paths. A red source regression was written first. Import now canonicalizes the decoded registry with `ProjectRegistryLogic.deduplicated` before the atomic registry save; settings refresh and visible success/failure notices remain intact.
+
+### STO-28 — deletion progress/cancellation hooks were orphaned from the UI
+
+`ProjectDeletionExecutor` already supported bounded chunks, `shouldCancel`, and `onProgress`, but `StorageSettingsView.deleteProject` called it synchronously without either hook. Large deletions could freeze the Settings UI and gave the user no progress or cancellation control. A red source-wiring regression was written first. Storage Settings now runs backup and deletion on a utility task, exposes a progress bar and `Cancel deletion`, propagates a thread-safe cancellation token, polls progress on the main actor, cancels cooperatively on view disappearance, and removes the registry only after `.completed`.
+
+The executor outcome remains authoritative: cancellation and failure retain the registry entry and produce a visible notice; only completed deletion proceeds to registry removal and active-workspace cleanup.
+
+### STO-29 — intentionally retired, not an implementation defect
+
+The CLI-import toggle and related state were explicitly removed under the clean-slate HTTP-only directive. The audit found no active toggle, database field, reset scope, migration chain, or UI action to repair. The story remains FUTURE by policy rather than being incorrectly marked PASS.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| STO-27 import-normalization red test | **failed as expected → 1/1 passed** | Persistent Python source acceptance |
+| STO-28 deletion-wiring red test | **failed as expected → 1/1 passed** | Persistent Python source acceptance |
+| STO-28 outcome/backup tests | **existing tests pass** | Foundation safety logic |
+| Full Foundation harness | **332/332 passed** | Linux-safe suites |
+| Adversarial source checks | **12/12 passed** | Existing web/model safety invariants |
+| Swift parser validation | **passed** | Changed backup/deletion/Settings Swift |
+| `git diff --check` | **passed** | No trailing whitespace |
+
+### Status and scores
+
+The confirmed STO-27 and STO-28 source-level defects are fixed. STO-27 remains **PARTIAL** for native panels/filesystem/UserDefaults and cross-machine path relinking. STO-28 remains **PARTIAL** for native filesystem behavior, SwiftUI progress rendering, cancellation timing, and macOS permission failures. STO-29 remains **FUTURE** by explicit product policy. No Linux result is represented as native runtime proof.
+
+| Story | Code quality | Task adherence | Target-runtime confidence |
+|---|---:|---:|---:|
+| STO-27 | 99/100 | 100/100 | 0/100 |
+| STO-28 | 98/100 | 100/100 | 0/100 |
+| STO-29 | 100/100 | 100/100 | 0/100 |
+
+No new registry rows were added in Round 95. The canonical registry remains **274 rows**, with the existing status distribution **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**.

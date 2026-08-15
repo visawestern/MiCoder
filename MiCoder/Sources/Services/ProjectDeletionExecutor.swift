@@ -1,5 +1,54 @@
 import Foundation
 
+final class ProjectDeletionCancellation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
+    }
+
+    var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+}
+
+final class ProjectDeletionProgress: @unchecked Sendable {
+    struct Snapshot: Sendable {
+        let completed: Int
+        let total: Int
+        let finished: Bool
+    }
+
+    private let lock = NSLock()
+    private var completed = 0
+    private var total = 0
+    private var finished = false
+
+    func update(completed: Int, total: Int) {
+        lock.lock()
+        self.completed = completed
+        self.total = total
+        lock.unlock()
+    }
+
+    func finish() {
+        lock.lock()
+        finished = true
+        lock.unlock()
+    }
+
+    var snapshot: Snapshot {
+        lock.lock()
+        defer { lock.unlock() }
+        return Snapshot(completed: completed, total: total, finished: finished)
+    }
+}
+
 enum ProjectDeletionExecutor {
     @discardableResult
     static func deleteProjectData(

@@ -11,7 +11,7 @@ enum ProjectDeletionBackupPolicy {
 }
 
 enum ProjectDeletionOutcomeLogic {
-    enum Outcome: Equatable {
+    enum Outcome: Equatable, Sendable {
         case completed
         case cancelled(completed: Int, total: Int)
         case failed(String)
