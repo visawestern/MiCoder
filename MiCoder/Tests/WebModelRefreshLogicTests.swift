@@ -26,6 +26,26 @@ struct WebModelRefreshLogicTests {
         #expect(refreshed.allModels.isEmpty)
     }
 
+    @Test("refresh preserves an unselectable capability-probe result")
+    func refreshPreservesUnselectableModel() {
+        let config = WebProviderConfig(vendor: .qwen)
+        let unselectable = WebProviderModel(
+            name: "Qwen3-Coder",
+            discoveryStatus: .inactive,
+            isLiveDiscovered: true,
+            isSelectable: false,
+            discoveryMessage: "The live menu did not expose a selectable option."
+        )
+
+        let refreshed = WebModelRefreshLogic.replacing(config: config, with: [unselectable])
+
+        #expect(refreshed.discoveredModels.count == 1)
+        #expect(refreshed.discoveredModels[0].isSelectable == false)
+        #expect(refreshed.discoveredModels[0].discoveryStatus == .inactive)
+        #expect(refreshed.allModels.isEmpty)
+        #expect(refreshed.selectedModel.isEmpty)
+    }
+
     @Test("non-empty live refresh replaces stale entries and keeps valid selection")
     func nonEmptyRefreshReplacesStaleState() {
         let config = WebProviderConfig(

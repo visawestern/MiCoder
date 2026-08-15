@@ -12,9 +12,15 @@ enum WebModelRefreshLogic {
                   seen.insert(normalized.lowercased()).inserted else { return nil }
             var model = original
             model.name = normalized
-            model.discoveryStatus = .active
-            model.isLiveDiscovered = true
-            model.isSelectable = true
+            // Capability probing can deliberately mark a visible candidate
+            // inactive/unselectable. Preserve that evidence; the refresh must
+            // not turn an unverified menu item into a sendable model.
+            if model.discoveryStatus == .notDetected {
+                model.discoveryStatus = .active
+            }
+            if !model.isLiveDiscovered {
+                model.isLiveDiscovered = true
+            }
             return model
         }
 

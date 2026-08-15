@@ -98,6 +98,23 @@ struct WebBrowserRuntimeTests {
         #expect(WebRemoteChatStore.mapping(for: otherLoginKey, defaults: defaults)?.remoteChatID == "remote-3")
     }
 
+    @Test("Remote chat storage keys cannot collide on delimiter-containing identities")
+    func remoteChatKeyDelimiterCollisionIsImpossible() {
+        let left = WebRemoteChatKey(
+            providerID: "qwen",
+            activeSessionID: "work::project",
+            projectID: "chat",
+            localChatID: "local"
+        )
+        let right = WebRemoteChatKey(
+            providerID: "qwen",
+            activeSessionID: "work",
+            projectID: "project::chat",
+            localChatID: "local"
+        )
+        #expect(left.storageKey != right.storageKey)
+    }
+
     @Test("Legacy model record migrates discovery status without rejecting valid model")
     func legacyModelStatusMigration() throws {
         let data = Data(#"{"name":"Qwen3.8-Max","availableModes":[],"availableEfforts":[],"supportsImageGeneration":false,"supportsDeepResearch":false,"supportsWebDev":false}"#.utf8)

@@ -7,7 +7,19 @@ struct WebRemoteChatKey: Codable, Equatable, Hashable, Sendable {
     let projectID: String
     let localChatID: String
 
+    /// Collision-safe persistence identity. The previous `::`-joined key was
+    /// ambiguous when any user/project/session identifier contained `::`.
     var storageKey: String {
+        let payload = [providerID, activeSessionID, projectID, localChatID]
+        guard let data = try? JSONEncoder().encode(payload) else {
+            return payload.map { $0.isEmpty ? "-" : $0 }.joined(separator: "::")
+        }
+        return data.base64EncodedString()
+    }
+
+    /// Legacy key retained only to migrate dictionaries written before the
+    /// collision-safe encoding was introduced.
+    var legacyStorageKey: String {
         [providerID, activeSessionID, projectID, localChatID]
             .map { $0.isEmpty ? "-" : $0 }
             .joined(separator: "::")
@@ -48,7 +60,15 @@ enum WebRemoteChatStore {
               let mappings = try? JSONDecoder().decode([String: WebRemoteChatMapping].self, from: data) else {
             return [:]
         }
-        return mappings
+        var normalized: [String: WebRemoteChatMapping] = [:]
+        for mapping in mappings.values {
+            normalized[mapping.key.storageKey] = mapping
+        }
+        if Set(normalized.keys) != Set(mappings.keys),
+           let migrated = try? JSONEncoder().encode(normalized) {
+            defaults.set(migrated, forKey: storageKey)
+        }
+        return normalized
     }
 
     static func mapping(for key: WebRemoteChatKey,

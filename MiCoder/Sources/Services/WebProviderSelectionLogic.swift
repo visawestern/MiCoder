@@ -53,6 +53,12 @@ enum WebProviderSelectionLogic {
         if let model = config.discoveredModels.first(where: { $0.name == resolvedModelID }) {
             return model.availableEfforts
         }
+        // A concrete but undetected/manual/stale model has no verified
+        // capability profile. Do not leak aggregate levels discovered for
+        // another model into this model's composer.
+        if !resolvedModelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return []
+        }
         if !config.discoveredEffortLevels.isEmpty {
             return config.discoveredEffortLevels
         }

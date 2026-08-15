@@ -2389,3 +2389,62 @@ The provider documentation stated that only official temporary free-model IDs ma
 | Target-runtime confidence | 0/100 | Linux cannot execute SwiftUI or verify a live OpenCode anonymous catalog/send. |
 
 The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `MODEL-19` remains PARTIAL because the compact catalog and trust boundary are hardened and tested while live OpenCode contents and native visual behavior remain unverified.
+
+## Round 89 — Preserve web model capability truth and collision-safe remote chat identity
+
+### Scope and chain audit
+
+The sequential audit covered `WEB-22` through `WEB-27`: strict DOM candidate validation, recursive nested model expansion, per-model capability and selectability, remote chat UUID routing, automatic safe catalog retry, and AI detection isolation. The review traced visible/leaf/disabled/selectable gates, parser normalization, vendor validation, expansion labels and fingerprints, capability probing, authoritative refresh, config `allModels`, composer effort options, driver injection, local provider/session/project/chat identity, remote URL/UUID verification, journal metadata, retry signaling, one-shot catalog refresh, completion gating, AI page-text extraction, candidate persistence, and built-in DOM activation.
+
+The source/tests already covered most of the intended contracts. Three logical defects were confirmed.
+
+### WEB-24 defect 1 — aggregate effort leaked to a concrete undetected model
+
+`WebProviderSelectionLogic.availableEfforts` fell back to aggregate `discoveredEffortLevels` when the requested concrete model was absent from `discoveredModels`. A manually added, stale, or not-yet-detected model could therefore show effort options discovered for a different model. `WebChatDriver.injectModelAndEffort` had the corresponding runtime leak: after live profiles existed, an undetected selected model still inherited the persisted effort and clicked the effort control.
+
+Red tests were written first. They required a manual model to receive no effort capabilities when another live model had `.high`, and required the browser driver not to click the effort option for an undetected model after a live profile snapshot existed. The fix returns no effort for a concrete model without a verified profile. The driver preserves the old compatibility path only while no live profiles exist, then applies the same model-aware gate as the composer.
+
+### WEB-24 defect 2 — authoritative refresh re-enabled unselectable capability results
+
+`discoverModelCapabilities` correctly returned inactive/unselectable when the live page did not expose a selectable option. `WebModelRefreshLogic.replacing` then overwrote that evidence by forcing every model to `.active`, `isLiveDiscovered=true`, and `isSelectable=true`; the unverified model entered `allModels` and became selected.
+
+The red refresh test passed an inactive/unselectable capability result and required it to remain review-visible but absent from `allModels`, with no active selection. The fix preserves status and selectability, promoting only an unspecified `.notDetected` record to `.active` for ordinary successful discovery.
+
+### WEB-25 defect — delimiter-collision in remote chat identity
+
+`WebRemoteChatKey.storageKey` joined provider, session, project, and local chat IDs with `::`. Distinct identities containing the delimiter could produce the same key and overwrite a verified remote UUID mapping. The red test constructed a direct collision. The fix encodes the four-component identity array as Base64 JSON and `WebRemoteChatStore.loadAll` reindexes decoded legacy mapping payloads into collision-safe keys. Existing host and exact remote UUID checks in `bindWebRemoteChat` remain fail-closed.
+
+### Other story results
+
+`WEB-22` strict validation and `WEB-23` bounded recursive expansion passed source and Foundation checks. `WEB-26` pre-send abort, same mapping one-shot refresh/retry, and completion gating passed source and existing tests; no first-attempt completion can be emitted before injection succeeds. `WEB-27` AI output remains normalized review-only state with `isSelectable=false`, while built-in DOM discovery is the only authoritative activation path. All live vendor DOM, authenticated WebKit, nested menu, UUID navigation, retry-failure, and AI/browser comparison behavior remains unverified.
+
+### Evidence
+
+| Check | Result | Boundary |
+|---|---:|---|
+| Red WEB-24 effort fallback regression | **failed as expected** | Aggregate effort leaked to manual/undetected model |
+| Green WEB-24 selection/driver tests | **15 tests passed across focused suites** | Model-aware composer/driver coherence |
+| Red WEB-24 refresh selectability regression | **failed as expected** | Replacement forcibly re-enabled unselectable model |
+| Green refresh suite | **3/3 passed** | Status/selectability/selection preserved |
+| Red WEB-25 delimiter-collision regression | **failed as expected** | Composite key produced identical identities |
+| Green WEB-25 runtime suite | **11/11 passed** | Collision-safe mapping and existing isolation |
+| Full Foundation harness | **296/296 passed** | All previous rounds plus four WEB-22–WEB-27 regressions |
+| Swift parser validation | **passed** | Discovery, parser, config, selection, driver, store, ChatPanel, views, and tests |
+| Adversarial source checks | **12/12 passed** | Strict validation, exact injection, remote mapping, retry, AI isolation |
+| `git diff --check` | **passed** | No trailing whitespace |
+| Live vendor DOM and WebKit routing | **UNVERIFIED** | Requires macOS, authenticated sessions, and real vendor pages |
+
+### Status and scores
+
+The six stories remain **PARTIAL** because Linux source/harness verification cannot prove behavior against live vendor DOMs, WebKit navigation, authenticated sessions, real remote UUID changes, or actual AI/browser comparison. The confirmed logical defects in capability propagation and identity persistence are fixed and regression-tested.
+
+| Story | Code quality | Task adherence | Target-runtime confidence |
+|---|---:|---:|---:|
+| WEB-22 | 96/100 | 100/100 | 0/100 |
+| WEB-23 | 96/100 | 100/100 | 0/100 |
+| WEB-24 | 97/100 | 100/100 | 0/100 |
+| WEB-25 | 97/100 | 100/100 | 0/100 |
+| WEB-26 | 96/100 | 100/100 | 0/100 |
+| WEB-27 | 96/100 | 100/100 | 0/100 |
+
+The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSING, and 5 FUTURE**. `WEB-22` through `WEB-27` remain PARTIAL solely for the explicit live-runtime boundaries and not because the confirmed source-level defects remain open.

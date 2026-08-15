@@ -80,6 +80,20 @@ struct WebProviderSelectionLogicTests {
         #expect(WebProviderSelectionLogic.availableEfforts(for: config, modelID: effective) == [.high])
     }
 
+    @Test("A manually added model does not inherit another model's effort capabilities")
+    func effortCapabilitiesDoNotLeakAcrossModels() {
+        let config = WebProviderConfig(
+            vendor: .qwen,
+            selectedModel: "manual-model",
+            discoveredModels: [
+                WebProviderModel(name: "live-model", availableEfforts: [.high])
+            ],
+            manuallyAddedModels: ["manual-model"],
+            discoveredEffortLevels: [.high]
+        )
+        #expect(WebProviderSelectionLogic.availableEfforts(for: config, modelID: "manual-model").isEmpty)
+    }
+
     @Test("Selecting web effort updates only the web provider config")
     func selectingEffortUsesConfig() {
         let config = WebProviderConfig(
@@ -169,6 +183,28 @@ struct WebDriverSelectionGuardTests {
             if case .error = event { return true }
             return false
         })
+    }
+
+    @Test("An undetected model does not receive a global effort injection")
+    func undetectedModelSkipsEffortInjection() async {
+        let bridge = InjectionBridge(acceptsOption: true)
+        let driver = WebChatDriver(
+            bridge: bridge,
+            executor: NoopExecutor(),
+            selectors: selectors,
+            config: WebProviderConfig(
+                vendor: .kimi,
+                selectedModel: "manual-model",
+                effort: .high,
+                discoveredModels: [WebProviderModel(name: "live-model", availableEfforts: [.high])]
+            ),
+            projectRoot: "/tmp",
+            accessLevel: .askBeforeChanges,
+            pollIntervalMs: 0,
+            stabilityChecks: 1
+        )
+        await driver.runTurn(userMessage: "hello", isFirstMessage: false) { _ in }
+        #expect(!bridge.clickedSelectors.contains("div.effort-item"))
     }
 
     @Test("Catalog keeps model and effort controls separate")

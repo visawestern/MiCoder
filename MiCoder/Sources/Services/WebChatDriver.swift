@@ -384,10 +384,16 @@ struct WebChatDriver {
         // Effort is optional: models without a live effort selector are not
         // injected. If a requested effort selector exists but cannot confirm the
         // choice, block before typing so recovery cannot duplicate a turn.
-        let selectedModelEfforts = config.discoveredModels.first(where: { $0.name == config.selectedModel })?.availableEfforts
+        let selectedModel = config.discoveredModels.first(where: { $0.name == config.selectedModel })
         let effortToInject: WebEffort? = {
-            guard let selectedModelEfforts else { return config.effort }
-            return selectedModelEfforts.contains(config.effort) ? config.effort : nil
+            // Before any live model profile exists, preserve the legacy
+            // persisted-effort path for vendors whose catalog exposes a
+            // universal control. Once profiles exist, an undetected model has
+            // no verified capability and must not inherit another model's
+            // effort setting.
+            guard !config.discoveredModels.isEmpty else { return config.effort }
+            guard let selectedModel else { return nil }
+            return selectedModel.availableEfforts.contains(config.effort) ? config.effort : nil
         }()
         if let effortLabel = effortToInject.flatMap(effortLabel), let catalogEntry {
             let selectors = (catalogEntry.effortDropdown?.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) } ?? [])
