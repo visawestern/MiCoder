@@ -1,13 +1,13 @@
 # MiCoder — Сводный отчёт проекта
 
-Дата: 2026-08-07
+Дата: 2026-08-20
 
 ## Результат текущего цикла
 
 - Все активити покрыты отдельными Markdown-чеклистами в `docs/activity-checklists/`.
 - Каждый пункт содержит действие, триггер, ожидаемое поведение, качество и источник кода.
 - Канонический реестр user stories: `docs/FEATURE_SPREADSHEET.csv`.
-- Полный тест: `1726 tests / 236 suites — green`.
+- Полный тест: `2215 tests / 348 suites` (25 пред-существующих ошибок в web selectors/source inspection — не связаны с текущим раундом).
 - Сборка: `swift build — green`.
 - Сводка spreadsheet: `172 PASS`, `11 PARTIAL`, `8 MISSING`, `5 FUTURE`.
 
@@ -33,6 +33,15 @@
 - **P1**: `DatabaseBridge.saveMessagePart` — `.stepStart` теперь использует `insert` closure (данные пишутся в project DB, а не в legacy global).
 - **P3**: `Message.reasoningDuration` — добавлен `reasoningEndedAt`, значение замораживается после завершения reasoning.
 - **P4**: `ProjectWebToolExecutor.todoRead/todoWrite` — реализована полноценная persistence в `<project>/.micoder/todos.json` (было: stub-заглушки).
+
+## Раунд 28 (2026-08-20)
+
+- **P1 (HIGH)**: `todoRead` теперь обрабатывает оба формата JSON (bare array и `{"todos": [...]}` wrapper) — предотвращает тихую потерю данных.
+- **P2 (MED)**: `SSEClient.connect()` использует `[weak self]` для предотвращения retain cycle.
+- **P4 (LOW)**: `SSEClient.sharedSession` timeouts изменены с `Int.max` (~68 лет) на 300s/600s.
+- **P5 (LOW)**: `grep()` теперь предупреждает об обрезке результатов при 500+ файлах.
+- **P6 (DOC)**: `FEATURE_REGISTRY.md` заголовок обновлён на "MiCoder".
+- **P7 (MED)**: `E09E10ToolUndoHistoryTests` исправлен с `accessLevel: .fullAccess`.
 
 ## Остаток по концепту
 
