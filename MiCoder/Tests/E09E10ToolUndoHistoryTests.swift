@@ -18,7 +18,7 @@ struct E09E10ToolUndoHistoryTests {
         ProjectDatabaseManager.evictProject(projectPath: root)
         let undo = try ProjectUndoManager(projectPath: root)
         try undo.db.insertSession(id: "s1", title: "Session", directory: root)
-        let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1")
+        let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1", accessLevel: .fullAccess)
 
         let result = await exec.execute(WebToolCall(name: "write_file", arguments: ["path": "a.txt", "content": "hello"]))
         #expect(result.hasPrefix("ok"))
@@ -41,7 +41,7 @@ struct E09E10ToolUndoHistoryTests {
         ProjectDatabaseManager.evictProject(projectPath: root)
         let undo = try ProjectUndoManager(projectPath: root)
         try undo.db.insertSession(id: "s1", title: "Session", directory: root)
-        let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1")
+        let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1", accessLevel: .fullAccess)
 
         _ = await exec.execute(WebToolCall(name: "write_file", arguments: ["path": "b.txt", "content": "foo bar"]))
         let edited = await exec.execute(WebToolCall(name: "edit_file", arguments: ["path": "b.txt", "old": "foo", "new": "baz"]))
@@ -61,7 +61,7 @@ struct E09E10ToolUndoHistoryTests {
         ProjectDatabaseManager.evictProject(projectPath: root)
         let undo = try ProjectUndoManager(projectPath: root)
         try undo.db.insertSession(id: "s1", title: "Session", directory: root)
-        let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1")
+        let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1", accessLevel: .fullAccess)
 
         let filePath = (root as NSString).appendingPathComponent("new.txt")
         _ = await exec.execute(WebToolCall(name: "write_file", arguments: ["path": "new.txt", "content": "fresh"]))
@@ -80,7 +80,7 @@ struct E09E10ToolUndoHistoryTests {
         ProjectDatabaseManager.evictProject(projectPath: root)
         let undo = try ProjectUndoManager(projectPath: root)
         try undo.db.insertSession(id: "s1", title: "Session", directory: root)
-        let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1")
+        let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1", accessLevel: .fullAccess)
         let todos = #"[{"id":"t1","content":"Review","status":"pending"}]"#
 
         let result = await exec.execute(WebToolCall(name: "todo_write", arguments: ["todos": todos]))
@@ -108,7 +108,7 @@ struct E09E10ToolUndoHistoryTests {
         ProjectDatabaseManager.evictProject(projectPath: root)
         let undo = try ProjectUndoManager(projectPath: root)
         try undo.db.insertSession(id: "s1", title: "Session", directory: root)
-        let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1")
+        let exec = ProjectWebToolExecutor(projectRoot: root, undoManager: undo, sessionId: "s1", accessLevel: .fullAccess)
 
         // edit_file against a file that does not exist must fail without side effects.
         let result = await exec.execute(WebToolCall(name: "edit_file", arguments: ["path": "missing.txt", "old": "x", "new": "y"]))
@@ -122,7 +122,7 @@ struct E09E10ToolUndoHistoryTests {
     func plainExecutorUnchanged() async throws {
         let root = try makeTempProjectDir()
         defer { try? FileManager.default.removeItem(atPath: root) }
-        let exec = ProjectWebToolExecutor(projectRoot: root)
+        let exec = ProjectWebToolExecutor(projectRoot: root, accessLevel: .fullAccess)
         let w = await exec.execute(WebToolCall(name: "write_file", arguments: ["path": "c.txt", "content": "plain"]))
         #expect(w.hasPrefix("ok"))
         let r = await exec.execute(WebToolCall(name: "read_file", arguments: ["path": "c.txt"]))

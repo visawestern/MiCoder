@@ -6,8 +6,8 @@ class SSEClient {
     private var buffer = ""
     private static let sharedSession: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = TimeInterval(Int.max)
-        config.timeoutIntervalForResource = TimeInterval(Int.max)
+        config.timeoutIntervalForRequest = 300
+        config.timeoutIntervalForResource = 600
         return URLSession(configuration: config)
     }()
     
@@ -31,7 +31,8 @@ class SSEClient {
         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
         request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
         
-        streamTask = Task {
+        streamTask = Task { [weak self] in
+            guard let self else { return }
             do {
                 let (bytes, response) = try await URLSession.shared.bytes(for: request)
                 

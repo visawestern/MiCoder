@@ -186,13 +186,25 @@ struct ProjectWebToolExecutor: WebToolExecutor {
     /// Read the current todo list from `<project>/.micoder/todos.json`.
     private func todoRead() -> String {
         let url = todoFileURL()
-        guard let data = try? Data(contentsOf: url),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
-              !json.isEmpty else {
+        guard let data = try? Data(contentsOf: url) else {
             return "[]"
         }
+        guard let json = try? JSONSerialization.jsonObject(with: data) else {
+            return "[]"
+        }
+        // Accept both a bare array and {"todos": [...]} wrapper.
+        let todos: [[String: Any]]
+        if let array = json as? [[String: Any]] {
+            todos = array
+        } else if let dict = json as? [String: Any],
+                  let array = dict["todos"] as? [[String: Any]] {
+            todos = array
+        } else {
+            return "[]"
+        }
+        guard !todos.isEmpty else { return "[]" }
         var lines: [String] = []
-        for item in json {
+        for item in todos {
             let id = item["id"] as? String ?? "?"
             let content = item["content"] as? String ?? ""
             let status = item["status"] as? String ?? "pending"
@@ -241,7 +253,11 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return "error: bad regex" }
         var hits: [String] = []
         let scanned = ProjectFileScanner.scan(root: dir.path)
-        for rec in scanned.prefix(500) {
+        let fileLimit = 500
+        var filesScanned = 0
+        for rec in scanned {
+            if filesScanned >= fileLimit { break }
+            filesScanned += 1
             let fileURL = dir.appendingPathComponent(rec.path)
             guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { continue }
             for (i, line) in content.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
@@ -252,7 +268,12 @@ struct ProjectWebToolExecutor: WebToolExecutor {
                 }
             }
         }
-        return hits.isEmpty ? "(no matches)" : hits.joined(separator: "\n")
+        if hits.isEmpty { return "(no matches)" }
+        var result = hits.joined(separator: "\n")
+        if scanned.count > fileLimit {
+            result += "\n⚠️ Truncated: scanned \(fileLimit) of \(scanned.count) files"
+        }
+        return result
     }
 
     private func glob(pattern: String, in dir: URL) -> String {

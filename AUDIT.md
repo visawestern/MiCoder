@@ -161,3 +161,17 @@ Edge case testing of MessageStore, DatabaseBridge, ChatPanelView, Message, Proje
 Code quality review: consistent error handling, no force-unwraps in production code, thread-safe database operations, path safety, no retain cycles, idempotent operations, comprehensive test coverage.
 
 Full suite: **1726 tests / 236 suites green**. Details: `docs/DEVILS_ADVOCATE_ROUND_27_2026-08-07.md`.
+
+### Round 28 (2026-08-20) — todoRead wrapper format, SSEClient retention, grep truncation
+
+| ID | Area | Severity | Status |
+|----|------|----------|--------|
+| P1 | `todoRead` failed to parse `{"todos": [...]}` wrapper written directly to disk — todos silently lost | HIGH | FIXED — dual-format parser + 2 new tests |
+| P2 | `SSEClient.connect()` strong self capture in streamTask | MED | FIXED — `[weak self]` capture |
+| P3 | Glob naive regex escaping | LOW | VERIFIED — NSRegularExpression handles common cases correctly |
+| P4 | `SSEClient.sharedSession` Int.max timeout (~68 years) | LOW | FIXED — 300s/600s |
+| P5 | `grep()` silently truncated at 500 files | LOW | FIXED — truncation warning appended |
+| P6 | `FEATURE_REGISTRY.md` header "MiMoMacOS" after rebrand | DOC | FIXED — "MiCoder" |
+| P7 | `E09E10ToolUndoHistoryTests` missing `accessLevel: .fullAccess` | MED | FIXED — 6 test constructors updated |
+
+Full suite: **2215 tests / 348 suites** (25 pre-existing failures in web selectors, source inspection, notification titles — unrelated). Details: `docs/DEVILS_ADVOCATE_ROUND_28_2026-08-20.md`.

@@ -1,4 +1,4 @@
-# MiMoMacOS — Canonical Feature Registry
+# MiCoder — Canonical Feature Registry
 
 Generated: 2026-07-23 · Updated: 2026-07-23 (Round 6 fixes — 1241 tests, 178 suites)
 Source: Full codebase analysis (74 source files, 21.5K LOC, 1241 executed tests, 178 suites)
