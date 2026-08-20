@@ -6,31 +6,25 @@
     {
       "id": "kimi",
       "name": "Kimi (Moonshot AI)",
-      "chatURL": "https://www.kimi.com/",
-      "loginURL": "https://www.kimi.com/",
-      "models": [
-        "k2",
-        "k2-thinking",
-        "k1.5",
-        "moonshot-v1-8k",
-        "moonshot-v1-32k",
-        "moonshot-v1-128k"
-      ],
+      "chatURL": "https://www.kimi.ai/",
+      "loginURL": "https://www.kimi.ai/",
+      "models": ["k2-thinking"],
       "effortToggle": "thinking",
       "selectors": {
-        "input": "textarea, div[contenteditable='true']",
-        "sendButton": ".send-button-container, button[type='submit'], button[aria-label*='send' i], button[data-testid*='send' i], [class*='send-button']",
+        "input": "div.chat-input-editor, textarea, div[contenteditable='true']",
+        "sendButton": ".send-button-container, .chat-editor-action button[class*='send'], button[type='submit']",
         "responseContainer": "div[class*='markdown']",
-        "stopButton": "button[aria-label*='top']",
-        "modelDropdown": ".current-model, [class*='model-selector'], [data-testid*='model'], button[aria-label*='model' i]",
-        "modelButton": ".current-model, [class*='model-selector'], [data-testid*='model'], button[aria-label*='model' i]",
-        "modelItem": "div.model-item span.name, [class*='model-item'] span, [role='option'] [class*='model'], [role='option']",
-        "effortDropdown": "div.effort-item, [class*='effort'], [class*='thinking'], [aria-label*='think' i], [data-testid*='thinking']",
-        "effortItem": "div.effort-item",
+        "stopButton": "button[aria-label*='stop' i], button[aria-label*='top']",
+        "modelDropdown": ".current-model",
+        "modelButton": ".current-model",
+        "modelItem": ".model-item .model-name .name, .model-item span.name, [class*='model-item'] span.name",
+        "effortDropdown": ".effort-item .effort-current, .effort-item",
+        "effortItem": ".effort-item .effort-value, .effort-value",
         "newChatTexts": [
-          "Новый чат",
-          "New Chat"
+          "New Chat",
+          "Новый чат"
         ],
+        "newChatSelector": ".new-chat-btn",
         "loginIndicator": "input[type='password'], button:has-text('Log in')"
       }
     },
@@ -40,51 +34,32 @@
       "chatURL": "https://chat.qwen.ai/",
       "loginURL": "https://chat.qwen.ai/auth",
       "models": [
-        "qwen2.5-max",
-        "qwen2.5-plus",
-        "qwen2.5-turbo",
-        "qwen2.5-coder-32b-instruct",
-        "qwen2.5-coder-7b-instruct",
-        "qwen2.5-vl-72b-instruct",
-        "qwen2.5-vl-32b-instruct",
-        "qwen2.5-vl-7b-instruct",
-        "qwen2.5-72b-instruct",
-        "qwen2.5-32b-instruct",
-        "qwen2.5-14b-instruct",
-        "qwen2.5-7b-instruct",
-        "qwen2.5-3b-instruct",
-        "qwen2.5-max-0115",
-        "qwen2.5-72b",
-        "qwen2.5-32b",
-        "qwen2.5-14b",
-        "qwen2.5-7b",
-        "qwen2.5-3b",
-        "qwen2.5-coder",
-        "qwen2.5-vl",
-        "qwen-max",
-        "qwen-plus",
-        "qwen-turbo",
-        "qwen-long"
+        "Qwen3.7-Plus",
+        "Qwen3.8-Max",
+        "Qwen3.7-Max",
+        "Qwen3.7-Coder",
+        "Qwen3.7-Coder-Plus"
       ],
       "effortToggle": "deep-thinking",
       "selectors": {
-        "input": "textarea, div[contenteditable='true']",
+        "input": "textarea.message-input-textarea, div[contenteditable='true']",
         "sendButton": ".message-input-right-button-send, button.ant-btn-primary",
         "responseContainer": "div[class*='markdown-body'], div[class*='response']",
         "stopButton": "button[class*='stop']",
-        "modelDropdown": "[class*=\"model-selector-text\"]",
-        "modelButton": "[class*=\"model-selector-text\"]",
-        "modelItem": "[class*='model-item-name']",
-        "effortDropdown": "[class*='effort'], [class*='thinking'], [class*='qwen-select-thinking']",
+        "modelDropdown": ".ant-dropdown-trigger",
+        "modelButton": ".ant-dropdown-trigger",
+        "modelItem": ".wms-list__item",
+        "effortDropdown": ".qwen-thinking-selector",
         "effortItem": "[class*='effort-option'], [class*='thinking-option'], [role='option']",
         "newChatTexts": [
           "Начать",
           "Start",
           "New Chat"
         ],
+        "newChatSelector": ".new-chat",
         "loginIndicator": "input[type='password'], button:has-text('Sign in')",
         "modeSelect": "[class*=\"mode-select\"]",
-        "thinkingSelect": "[class*=\"qwen-select-thinking\"]"
+        "thinkingSelect": ".qwen-thinking-selector"
       }
     },
     {
@@ -99,13 +74,18 @@
         "sendButton": "button[data-testid=\"send-button\"]",
         "responseContainer": "div[data-message-author-role='assistant']",
         "stopButton": "button[data-testid='stop-button']",
-        "modelDropdown": "button[data-testid*=\"model-switcher\"]",
-        "modelButton": "button[data-testid*=\"model-switcher\"]",
-        "modelItem": "[role='option'], [class*='option'], [class*='model']",
-        "effortDropdown": "[data-testid*='reasoning'], [data-testid*='effort'], button[aria-label*='Think'], button[aria-label*='Reasoning'], [class*='reasoning'], [class*='thinking']",
+        "modelDropdown": "button[data-testid*='model-switcher'], button[aria-haspopup='listbox']",
+        "modelButton": "button[data-testid*='model-switcher'], button[aria-haspopup='listbox']",
+        "modelItem": "[role='option'], [class*='model-item'], [class*='ModelSwitcherItem']",
+        "effortDropdown": "[data-testid*='reasoning'], [data-testid*='effort'], button[aria-label*='Think'], button[aria-label*='Reasoning']",
         "effortItem": "[role='option'], [class*='option']",
         "loginIndicator": "input[name='username'], button:has-text('Log in')",
-        "newChatTexts": ["New chat", "新对话"]
+        "newChatTexts": [
+          "New chat",
+          "Новый чат",
+          "新对话"
+        ],
+        "newChatSelector": "a[href='/']"
       }
     }
   ]

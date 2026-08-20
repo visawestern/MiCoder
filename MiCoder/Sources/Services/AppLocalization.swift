@@ -871,6 +871,17 @@ enum AppLocalizationKey: String, CaseIterable {
     case locAddOrSelectOpenCodeZen
     case locOpenCodeZenApiKeyOptional
     case locSecretKeyPlaceholder
+    case locFreeModelSwitched
+    case locTaskComplete
+    case locResponseStopped
+    case locLocalAgentConnectionLost
+    case locConnectedLocalAgent
+    case locSessionBusyMessage
+    case locFind
+    case locActive
+    case locClear
+    case locHide
+    case locShow
 }
 
 enum AppLocalization {
@@ -1735,5 +1746,10 @@ enum AppLocalization {
         "locSessionBusyMessage": ["en": "The session is processing another request. Please wait or stop current generation.", "ru": "Сессия обрабатывает другой запрос. Подождите или остановите текущую генерацию.", "es": "La sesión está procesando otra solicitud. Espera o detén la generación actual.", "fr": "La session traite une autre requête. Attendez ou arrêtez la génération actuelle.", "de": "Die Sitzung verarbeitet eine andere Anfrage. Warten Sie oder stoppen Sie die aktuelle Generierung.", "zh": "会话正在处理另一个请求。请等待或停止当前生成。", "ja": "セッションは別のリクエストを処理中です。待つか現在の生成を停止してください。", "ko": "세션이 다른 요청을 처리 중입니다. 기다리거나 현재 생성을 중지하세요.", "pt": "A sessão está a processar outro pedido. Aguarde ou pare a geração atual.", "ar": "تعالج الجلسة طلباً آخر. انتظر أو أوقف التوليد الحالي."],
         "locTaskComplete": ["en": "Task Complete", "ru": "Задача завершена", "es": "Tarea completada", "fr": "Tâche terminée", "de": "Aufgabe abgeschlossen", "zh": "任务完成", "ja": "タスク完了", "ko": "작업 완료", "pt": "Tarefa concluída", "ar": "اكتملت المهمة"],
         "locFreeModelSwitched": ["en": "Free model switched", "ru": "Бесплатная модель переключена", "es": "Modelo gratuito cambiado", "fr": "Modèle gratuit changé", "de": "Kostenloses Modell gewechselt", "zh": "已切换免费模型", "ja": "無料モデルを切り替えました", "ko": "무료 모델 전환됨", "pt": "Modelo gratuito alterado", "ar": "تم تبديل النموذج المجاني"],
+        "locFind": ["en": "Find", "ru": "Найти", "es": "Buscar", "fr": "Rechercher", "de": "Finden", "zh": "查找", "ja": "検索", "ko": "찾기", "pt": "Encontrar", "ar": "بحث"],
+        "locActive": ["en": "Active", "ru": "Активна", "es": "Activo", "fr": "Actif", "de": "Aktiv", "zh": "活跃", "ja": "アクティブ", "ko": "활성", "pt": "Ativo", "ar": "نشط"],
+        "locClear": ["en": "Clear", "ru": "Очистить", "es": "Borrar", "fr": "Effacer", "de": "Löschen", "zh": "清除", "ja": "クリア", "ko": "지우기", "pt": "Limpar", "ar": "مسح"],
+        "locHide": ["en": "Hide", "ru": "Скрыть", "es": "Ocultar", "fr": "Masquer", "de": "Ausblenden", "zh": "隐藏", "ja": "非表示", "ko": "숨기기", "pt": "Ocultar", "ar": "إخفاء"],
+        "locShow": ["en": "Show", "ru": "Показать", "es": "Mostrar", "fr": "Afficher", "de": "Anzeigen", "zh": "显示", "ja": "表示", "ko": "표시", "pt": "Mostrar", "ar": "إظهار"],
     ]
 }

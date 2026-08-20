@@ -209,10 +209,10 @@ struct ProviderCascadeTests {
 
     @Test("Disconnected server reports a visible send error")
     func sendBlockedWithoutServer() {
-        #expect(SendReadinessLogic.connectionValidationError(serverConnected: true) == nil)
+        #expect(SendReadinessLogic.connectionValidationError(serverConnected: true, selectedProviderID: "mimo", serverProviderIDs: ["mimo"]) == nil)
         #expect(
-            SendReadinessLogic.connectionValidationError(serverConnected: false)
-                == "No provider is ready. Connect the local agent, add a custom provider, configure a local model, or connect a web provider."
+            SendReadinessLogic.connectionValidationError(serverConnected: false, selectedProviderID: "mimo", serverProviderIDs: ["mimo"])
+                == "MiCoder Serve is not running or disconnected. Start or reconnect MiCoder Serve before sending."
         )
     }
 

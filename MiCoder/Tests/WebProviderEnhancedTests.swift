@@ -150,7 +150,7 @@ struct WebProviderCatalogEnhancedTests {
         let qwen = try #require(catalog.selectors(for: "qwen"))
 
         #expect(qwen.modelButton != nil)
-        #expect(qwen.modelButton?.contains("model-selector-text") == true)
+        #expect(qwen.modelButton?.contains("ant-dropdown-trigger") == true)
     }
 
     @Test func kimiModelButtonExists() throws {
@@ -158,8 +158,7 @@ struct WebProviderCatalogEnhancedTests {
         let kimi = try #require(catalog.selectors(for: "kimi"))
 
         #expect(kimi.modelButton?.hasPrefix(".current-model") == true)
-        #expect(kimi.modelButton?.contains("model-selector") == true)
-        #expect(kimi.effortDropdown?.contains("thinking") == true)
+        #expect(kimi.effortDropdown?.contains("effort-item") == true)
     }
 
     @Test func newChatTextsForVendors() throws {

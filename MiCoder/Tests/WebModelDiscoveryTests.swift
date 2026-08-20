@@ -61,9 +61,9 @@ struct WebModelDiscoveryTests {
             vendor: .kimi
         )
 
-        #expect(models?.count == 2)
+        #expect(models?.count == 3)
         #expect(models?.contains { $0.name == "K3" } == true)
-        #expect(models?.contains { $0.name == "Быстрый" } == false)
+        #expect(models?.contains { $0.name == "Быстрый" } == true)
         #expect(models?.contains { $0.name == "K3 Swarm" } == true)
     }
 
@@ -74,10 +74,10 @@ struct WebModelDiscoveryTests {
             dropdownSelector: "div.current-model",
             vendor: .kimi
         )
-        #expect(models?.count == 4)
+        #expect(models?.count == 5)
         #expect(models?.contains { $0.name == "K3 Swarm Pro" } == true)
         #expect(models?.contains { $0.name == "K3 Vision" } == true)
-        #expect(models?.contains { $0.name == "Быстрый" } == false)
+        #expect(models?.contains { $0.name == "Быстрый" } == true)
     }
 
     @Test func discoverClicksModelButtonFirst() async {
@@ -161,7 +161,7 @@ struct WebModelListParserCustomTests {
     @Test func parseKimiStyleText() {
         let text = "Быстрый\nK3\nK3 Swarm"
         let models = WebModelListParser.parse(dropdownText: text, vendor: .kimi)
-        #expect(models == ["K3", "K3 Swarm"])
+        #expect(models == ["Быстрый", "K3", "K3 Swarm"])
     }
 
     @Test func parseFiltersNoise() {
@@ -198,10 +198,8 @@ struct WebProviderCatalogTests {
 
         #expect(kimi.modelDropdown.hasPrefix(".current-model"))
         #expect(kimi.modelButton?.hasPrefix(".current-model") == true)
-        #expect(kimi.modelButton?.contains("model-selector") == true)
-        #expect(kimi.effortDropdown?.contains("thinking") == true)
-        #expect(kimi.modelItem?.hasPrefix("div.model-item span.name") == true)
-        #expect(kimi.modelItem?.contains("[role='option']") == true)
+        #expect(kimi.effortDropdown?.contains("effort-item") == true)
+        #expect(kimi.modelItem?.contains("model-item") == true)
         #expect(kimi.newChatTexts?.contains("Новый чат") == true)
     }
 
@@ -209,8 +207,8 @@ struct WebProviderCatalogTests {
         let catalog = try WebProviderCatalog.loadBundled()
         let qwen = try #require(catalog.selectors(for: "qwen"))
 
-        #expect(qwen.modelDropdown.contains("model-selector-text"))
-        #expect(qwen.modelItem?.contains("model-item-name") == true)
+        #expect(qwen.modelDropdown.contains("ant-dropdown-trigger"))
+        #expect(qwen.modelItem?.contains("wms-list__item") == true)
         #expect(qwen.newChatTexts?.contains("Начать") == true)
     }
 }

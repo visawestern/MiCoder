@@ -261,6 +261,14 @@ struct ChatPanelView: View {
         .onReceive(NotificationCenter.default.publisher(for: .stopGeneration)) { _ in
             stopGeneration()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .apiSendRequested)) { notification in
+            guard let message = notification.userInfo?["message"] as? String, !message.isEmpty else { return }
+            if let chatId = notification.userInfo?["chatId"] as? String, !chatId.isEmpty {
+                messageStore.currentSessionID = chatId
+            }
+            messageText = message
+            sendMessage()
+        }
         .onReceive(NotificationCenter.default.publisher(for: .submitPlanQuestionAnswers)) { notification in
             guard let answers = notification.userInfo?["answers"] as? [[String]] else { return }
             submitQuestionAnswers(answers)
@@ -1269,9 +1277,10 @@ struct ChatPanelView: View {
             stopButton: catalogEntry?.stopButton ?? "button[aria-label*='top'], button[data-testid='stop-button'], button[class*='stop']"
         )
         let bridge = WKWebViewBrowserBridge(webView: webView, selectors: selectors)
+
         // Restore cookies captured at login so the session is authenticated.
-        // Round 8 P2: cookie/navigation failures must be VISIBLE, not swallowed.
-        let sessionID = effectiveConfig.activeSessionID ?? WebSessionManager.defaultSessionID
+        // Use the chatID (session ID) for cookie restoration to match the webview session.
+        let sessionID = chatID
         var restorationPayload: WebSessionRestorationPayload?
         if let store = WebSessionManager.restore(providerId: effectiveConfig.id,
                                                  homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
@@ -1321,6 +1330,18 @@ struct ChatPanelView: View {
             }
             finishWebTurn()
             return
+        }
+
+        // SmartSend fallback: try direct API or smart element detection first
+        // AFTER the page is loaded and ready. If it succeeds, the message was
+        // already sent, so we skip the standard driver.runTurn() typing/clicking
+        // but still need to wait for the response.
+        let smartSendResult = await trySmartSendFallback(
+            config: effectiveConfig, bridge: bridge, message: text
+        )
+        let skipDriverSend = smartSendResult.success
+        if smartSendResult.success {
+            appendWebStatus(to: assistantID, line: "Sent via \(smartSendResult.winningMethod ?? "smart-fallback"), waiting for response…")
         }
 
         // Round 8 P4: give immediate visible feedback while the page loads and
@@ -1431,7 +1452,9 @@ struct ChatPanelView: View {
                 }
             }
         }
-        await driver.runTurn(userMessage: text, isFirstMessage: isFirst, emit: presentEvent)
+        print("🔄 [ChatPanelView] Calling driver.runTurn with skipSend=\(skipDriverSend)")
+        await driver.runTurn(userMessage: text, isFirstMessage: isFirst, emit: presentEvent, skipSend: skipDriverSend)
+        print("🔄 [ChatPanelView] driver.runTurn completed")
         guard !WebChatCancellationLogic.shouldStopAfterDriver(isCancelled: Task.isCancelled) else {
             finishWebTurn()
             return
@@ -1507,6 +1530,31 @@ struct ChatPanelView: View {
         #endif
     }
 
+    /// Try SmartSend fallback before standard web chat driver.
+    ///
+    /// Attempts to send via:
+    /// 1. Direct API (if network requests captured)
+    /// 2. Smart element detection (if elements found)
+    /// 3. Falls back to standard browser automation
+    ///
+    /// - Parameters:
+    ///   - config: Web provider configuration
+    ///   - bridge: Browser automation bridge
+    ///   - message: Message to send
+    /// - Returns: SmartSend result
+    private func trySmartSendFallback(
+        config: WebProviderConfig,
+        bridge: BrowserAutomationBridge,
+        message: String
+    ) async -> SmartSendResult {
+        await SmartSend.execute(
+            message: message,
+            config: config,
+            bridge: bridge,
+            appState: appState
+        )
+    }
+
     @MainActor
     private func bindWebRemoteChat(driver: WebChatDriver,
                                    bridge: WKWebViewBrowserBridge,
@@ -1542,6 +1590,26 @@ struct ChatPanelView: View {
               ),
               let remoteHost = URL(string: remoteURL)?.host,
               remoteHost == providerHost else {
+            // Fallback: the browser may already be on a valid chat page.
+            // Use the current page state instead of blocking the send.
+            if let currentID = try? await driver.getCurrentChatID(),
+               !currentID.isEmpty,
+               let currentURL = try? await bridge.currentURL(),
+               let currentHost = URL(string: currentURL)?.host,
+               currentHost == providerHost {
+                let canonical = WebRemoteChatIdentityLogic.canonicalURL(
+                    baseURL: currentURL,
+                    vendor: config.vendor,
+                    chatID: currentID
+                ) ?? currentURL
+                let mapping = WebRemoteChatMapping(key: key,
+                                                    remoteChatID: currentID,
+                                                    remoteURL: canonical,
+                                                    verifiedTitle: appState.selectedSession?.title)
+                appState.saveWebRemoteChatMapping(mapping)
+                try? await bridge.waitForSelector(selector: driver.selectors.input, timeout: 10_000)
+                return mapping
+            }
             throw WebChatError.remoteChatBindingFailed("The provider did not expose a verified remote chat UUID for this local project/chat. Sending was blocked to prevent context mixing.")
         }
         let mapping = WebRemoteChatMapping(key: key,

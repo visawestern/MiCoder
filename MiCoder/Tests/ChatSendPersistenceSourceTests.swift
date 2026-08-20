@@ -7,7 +7,7 @@ struct ChatSendPersistenceSourceTests {
     @Test("session preparation precedes first user-message append")
     func preparationPrecedesAppend() throws {
         let source = try RepoRoot.sourceText("MiCoder/Sources/Views/ChatPanelView.swift")
-        let preparation = try #require(source.range(of: "let preparedSessionID = await prepareSessionBeforeAppending"))
+        let preparation = try #require(source.range(of: "let preparedSessionID: String?"))
         let append = try #require(source.range(of: "messageStore.append(userMessage)"))
         #expect(preparation.lowerBound < append.lowerBound)
     }

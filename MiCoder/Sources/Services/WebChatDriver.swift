@@ -29,7 +29,8 @@ struct WebChatDriver {
     /// Run one user turn: inject the message, then loop tool-calls until the
     /// model produces a final answer or hits the iteration limit. Emits events
     /// (streaming/toolCall/toolResult/captcha/final) via `emit`.
-    func runTurn(userMessage: String, isFirstMessage: Bool, emit: (WebChatEvent) -> Void) async {
+    func runTurn(userMessage: String, isFirstMessage: Bool, emit: (WebChatEvent) -> Void, skipSend: Bool = false) async {
+        print("🔄 [WebChatDriver] runTurn started, skipSend=\(skipSend)")
         do {
             try Task.checkCancellation()
             // Check session state before touching any model/effort controls. A
@@ -41,6 +42,7 @@ struct WebChatDriver {
                     try await waitForCaptchaResolution(emit: emit)
                 } else {
                     emit(interruption)
+                    print("🔄 [WebChatDriver] runTurn interrupted")
                     return
                 }
             }
@@ -53,6 +55,7 @@ struct WebChatDriver {
                     // Never type/send when the browser did not confirm the
                     // selected model or required effort. The caller may refresh
                     // the live catalog and retry this same local turn safely.
+                    print("🔄 [WebChatDriver] runTurn: injection failed")
                     return
                 }
             }
@@ -64,7 +67,19 @@ struct WebChatDriver {
                 message = preamble + "\n\n---\n\n" + userMessage
             }
 
-            var responseBaseline = try await sendPossiblyChunked(message, emit: emit)
+            // If skipSend is true, SmartSend already typed and clicked.
+            // Just get the baseline response and wait for the answer.
+            var responseBaseline: ResponseBaseline
+            if skipSend {
+                print("🔄 [WebChatDriver] skipSend=true, getting baseline response")
+                let baselineText = (try? await readLatestResponse()) ?? ""
+                let baselineFingerprint = (try? await bridge.responseFingerprint(selector: selectors.responseContainer)) ?? baselineText
+                print("🔄 [WebChatDriver] baseline: text_len=\(baselineText.count), fingerprint_len=\(baselineFingerprint.count)")
+                responseBaseline = ResponseBaseline(text: baselineText, fingerprint: baselineFingerprint)
+            } else {
+                print("🔄 [WebChatDriver] skipSend=false, calling sendPossiblyChunked")
+                responseBaseline = try await sendPossiblyChunked(message, emit: emit)
+            }
 
             var iteration = 0
             while true {
@@ -242,6 +257,7 @@ struct WebChatDriver {
         // Bound the wait to avoid infinite loops on a broken page.
         let maxPolls = 600  // pollIntervalMs * 600 = up to 2 min at 200ms
         var polls = 0
+        print("🔄 [WebChatDriver] awaitResponse started, baseline_text_len=\(baseline.text.count), maxPolls=\(maxPolls)")
         while polls < maxPolls {
             try Task.checkCancellation()
             if let interruption = try await checkInterruptions(emit: emit) {
@@ -259,6 +275,9 @@ struct WebChatDriver {
             let fingerprint = (try? await bridge.responseFingerprint(selector: selectors.responseContainer)) ?? text
             let changed = text != baseline.text || fingerprint != baseline.fingerprint
             let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if polls % 50 == 0 {
+                print("🔄 [WebChatDriver] poll \(polls): generating=\(generating), text_len=\(text.count), changed=\(changed), normalized_len=\(normalized.count)")
+            }
             if !normalized.isEmpty && changed {
                 hasNonEmptyResponse = true
                 observedNewResponse = true
@@ -496,15 +515,13 @@ struct WebChatDriver {
     /// Start a new chat session by clicking the "New Chat" button.
     /// Returns the new chat URL or nil if could not determine.
     func startNewSession() async throws -> String? {
-        guard let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id) else {
-            return nil
-        }
+        let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)
 
         // Try exact interactive controls only. A fuzzy div click can select a
         // history row or page heading and silently keep the old remote chat.
         let beforeURL = try? await bridge.currentURL()
         let beforeID = try? await getCurrentChatID()
-        let newChatTexts = catalogEntry.newChatTexts ?? ["New Chat", "Новый чат", "Начать", "新对话"]
+        let newChatTexts = catalogEntry?.newChatTexts ?? ["New Chat", "Новый чат", "New chat", "Начать", "新对话"]
         for text in newChatTexts {
             let clicked = (try? await bridge.clickVisibleTextExact(selector: "button, a, [role='button'], [role='menuitem']", text: text)) ?? false
             guard clicked else { continue }
@@ -514,6 +531,26 @@ struct WebChatDriver {
             guard afterURL != beforeURL || afterID != beforeID,
                   afterID?.isEmpty == false else { continue }
             return afterURL
+        }
+        // Fallback: try clicking catalog-specific newChatSelector (e.g. ".new-chat-btn")
+        if let newChatSel = catalogEntry?.newChatSelector {
+            let clicked = (try? await bridge.click(selector: newChatSel)) != nil
+            if clicked {
+                await bridge.wait(ms: 2000)
+                let afterURL = try await bridge.currentURL()
+                let afterID = try? await getCurrentChatID()
+                if afterURL != beforeURL || afterID != beforeID {
+                    return afterURL
+                }
+            }
+        }
+        // Final fallback: try clicking any element with "new-chat" in class
+        if (try? await bridge.click(selector: "[class*='new-chat']")) != nil {
+            await bridge.wait(ms: 2000)
+            let afterURL = try await bridge.currentURL()
+            if afterURL != beforeURL {
+                return afterURL
+            }
         }
         return nil
     }
@@ -620,7 +657,7 @@ struct WebChatDriver {
         let label = effortLabel(for: level) ?? level.displayName
         switch config.vendor {
         case .qwen:
-            try await bridge.click(selector: "[class*='qwen-select-thinking']")
+            try await bridge.click(selector: ".qwen-thinking-selector")
             try await bridge.waitForSelector(selector: ".ant-select-item-option", timeout: 5000)
             let clicked = try await bridge.clickByText(
                 selector: ".ant-select-item-option-content",

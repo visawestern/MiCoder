@@ -31,6 +31,7 @@ final class MiCoderAPIServer {
     }
     
     func start() {
+        Self.appendLog("MiCoderAPIServer.start() called")
         do {
             let params = NWParameters.tcp
             params.allowLocalEndpointReuse = true
@@ -100,6 +101,20 @@ final class MiCoderAPIServer {
             return handleSend(body: body)
         case ("POST", "/api/select"):
             return handleSelect(body: body)
+        case ("POST", "/api/refresh-models"):
+            return handleRefreshModels(body: body)
+        case ("POST", "/api/evaluate"):
+            return handleEvaluate(body: body)
+        case ("GET", "/api/webviews"):
+            return handleWebviews()
+        case ("POST", "/api/save-session"):
+            return handleSaveSession(body: body)
+        case ("GET", "/api/inspect"):
+            return handleInspect()
+        case ("POST", "/api/discover-models"):
+            return handleDiscoverModels()
+        case ("POST", "/api/add-account"):
+            return handleAddAccount(body: body)
         default:
             return notFound()
         }
@@ -222,14 +237,15 @@ final class MiCoderAPIServer {
             selectedModel: appState.selectedModel,
             effectiveModel: appState.effectiveSelectedModel()
         )
-        let logMsg = "📤 API Send: message='\(message)', chatId=\(appState.selectedSession?.id ?? "nil"), provider=\(appState.selectedProviderID), model=\(responseModelID)"
+        let apiChatId = appState.selectedSession?.id ?? ""
+        let logMsg = "📤 API Send: message='\(message)', chatId=\(apiChatId), provider=\(appState.selectedProviderID), model=\(responseModelID)"
         os_log("%{public}@", log: apiLog, type: .info, logMsg)
         Self.appendLog(logMsg)
         DispatchQueue.main.async {
             NotificationCenter.default.post(
                 name: Notification.Name("apiSendRequested"),
                 object: nil,
-                userInfo: ["message": message]
+                userInfo: ["message": message, "chatId": apiChatId]
             )
         }
         
@@ -291,5 +307,319 @@ final class MiCoderAPIServer {
     
     private func notFound() -> String {
         return "HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\n\r\n{\"error\":\"not found\"}"
+    }
+
+    private func handleRefreshModels(body: String) -> String {
+        guard let appState = __miCoderAppState else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        guard let data = body.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let providerId = json["providerId"] as? String else {
+            return jsonResponse(["error": "providerId required"])
+        }
+        let configs = WebProviderStore.load()
+        guard let config = configs.first(where: { "web:\($0.id)" == providerId }) else {
+            return jsonResponse(["error": "provider not found"])
+        }
+        let semaphore = DispatchSemaphore(value: 0)
+        var result: String = "timeout"
+        Task { @MainActor in
+            result = await appState.refreshWebModels(for: config)
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 60)
+        let updated = WebProviderStore.load()
+        let updatedConfig = updated.first(where: { $0.id == config.id })
+        return jsonResponse(["message": result, "models": updatedConfig?.allModels ?? []])
+    }
+
+    private func handleEvaluate(body: String) -> String {
+        guard let data = body.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let script = json["script"] as? String else {
+            return jsonResponse(["error": "script is required"])
+        }
+        guard let appState = __miCoderAppState else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        let semaphore = DispatchSemaphore(value: 0)
+        var result: Any?
+        Task { @MainActor in
+            result = await appState.debugEvaluateJS(script)
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 15)
+        if let result = result {
+            if let dict = result as? [String: Any] {
+                return jsonResponse(dict)
+            } else if let arr = result as? [Any] {
+                return jsonResponse(["result": arr])
+            } else if let str = result as? String {
+                return jsonResponse(["result": str])
+            } else {
+                return jsonResponse(["result": "\(result)"])
+            }
+        }
+        return jsonResponse(["result": NSNull()])
+    }
+
+    private func handleWebviews() -> String {
+        guard let appState = __miCoderAppState else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        let semaphore = DispatchSemaphore(value: 0)
+        var result: [String: String] = [:]
+        Task { @MainActor in
+            result = appState.debugWebviewURLs()
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 10)
+        return jsonResponse(result)
+    }
+
+    private func handleSaveSession(body: String) -> String {
+        guard let appState = __miCoderAppState else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        guard let data = body.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let providerId = json["providerId"] as? String else {
+            return jsonResponse(["error": "providerId required"])
+        }
+        let configs = WebProviderStore.load()
+        guard let config = configs.first(where: { "web:\($0.id)" == providerId }) else {
+            return jsonResponse(["error": "provider not found"])
+        }
+        let semaphore = DispatchSemaphore(value: 0)
+        var cookies: [BrowserCookie] = []
+        var errorRef: Error? = nil
+        Task { @MainActor in
+            do {
+                let webView = appState.webView(for: config, projectID: "global", chatID: "provider-default")
+                let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)
+                let selectors = WebVendorSelectors(
+                    input: catalogEntry?.input ?? "textarea, div[contenteditable='true']",
+                    sendButton: catalogEntry?.sendButton ?? "button[type='submit'], button[aria-label*='send']",
+                    responseContainer: catalogEntry?.responseContainer ?? "div[class*='markdown']",
+                    stopButton: catalogEntry?.stopButton ?? "button[aria-label*='stop']"
+                )
+                let bridge = WKWebViewBrowserBridge(webView: webView, selectors: selectors)
+                do {
+                    cookies = try await bridge.cookies()
+                } catch {
+                    errorRef = error
+                }
+                semaphore.signal()
+            } catch {
+                errorRef = error
+                semaphore.signal()
+            }
+        }
+        _ = semaphore.wait(timeout: .now() + 30)
+        if let error = errorRef {
+            return jsonResponse(["error": "failed to get cookies: \(error.localizedDescription)"])
+        }
+        guard !cookies.isEmpty else {
+            return jsonResponse(["error": "no cookies found in browser"])
+        }
+        let sessionID = config.activeSessionID ?? WebSessionManager.defaultSessionID
+        let store = WebSessionStore(
+            cookies: cookies,
+            localStorage: [:],
+            savedAt: Date()
+        )
+        do {
+            try WebSessionManager.persist(
+                store,
+                providerId: config.id,
+                homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
+                sessionID: sessionID
+            )
+            return jsonResponse(["status": "saved", "cookieCount": cookies.count])
+        } catch {
+            return jsonResponse(["error": "failed to save session: \(error.localizedDescription)"])
+        }
+    }
+
+    private func handleInspect() -> String {
+        guard let appState = __miCoderAppState else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        let providerId = "web:56FA3447-A2EA-4FD1-84E3-B72767C8A376" // Kimi for now
+        let configs = WebProviderStore.load()
+        guard let config = configs.first(where: { "web:\($0.id)" == providerId }) else {
+            return jsonResponse(["error": "provider not found"])
+        }
+        
+        let semaphore = DispatchSemaphore(value: 0)
+        var finalResult: [String: Any] = ["error": "timeout"]
+        Task { @MainActor in
+            do {
+                let webView = appState.webView(for: config, projectID: "global", chatID: "provider-default")
+                let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)
+                let selectors = WebVendorSelectors(
+                    input: catalogEntry?.input ?? "textarea, div[contenteditable='true']",
+                    sendButton: catalogEntry?.sendButton ?? "button[type='submit'], button[aria-label*='send']",
+                    responseContainer: catalogEntry?.responseContainer ?? "div[class*='markdown']",
+                    stopButton: catalogEntry?.stopButton ?? "button[aria-label*='stop']"
+                )
+                let bridge = WKWebViewBrowserBridge(webView: webView, selectors: selectors)
+                
+                // Restore cookies and navigate
+                let sessionID = config.activeSessionID ?? WebSessionManager.defaultSessionID
+                if let store = WebSessionManager.restore(providerId: config.id,
+                                                         homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
+                                                         sessionID: sessionID),
+                   !store.cookies.isEmpty,
+                   !WebSessionManager.isExpired(store) {
+                    let payload = WebSessionRestorationLogic.payload(from: store)
+                    try await bridge.setCookies(payload.cookies)
+                    try await bridge.navigate(to: config.chatURL)
+                    if !payload.localStorage.isEmpty {
+                        try await bridge.setLocalStorage(payload.localStorage)
+                        try await bridge.navigate(to: config.chatURL)
+                    }
+                }
+                
+                // Wait for input to be ready
+                for _ in 0..<30 {
+                    if try await bridge.exists(selector: selectors.input) {
+                        break
+                    }
+                    await bridge.wait(ms: 500)
+                }
+                
+                // Now run the inspection JS
+                let js = """
+                (function(){
+                    var url = window.location.href;
+                    var title = document.title;
+                    var modelDropdown = document.querySelector('.current-model');
+                    var modelDropdownText = modelDropdown ? modelDropdown.innerText.trim() : '';
+                    var popover = document.querySelector('.models-popover, .n-popover__content');
+                    var popoverOpen = !!popover;
+                    var modelItems = Array.from(document.querySelectorAll('.model-item')).map(function(el){
+                        var name = el.querySelector('.model-name .name');
+                        var desc = el.querySelector('.desc');
+                        var checked = el.classList.contains('checked');
+                        return {name: name ? name.textContent.trim() : el.innerText.trim().substring(0, 50), desc: desc ? desc.textContent.trim() : '', checked: checked};
+                    });
+                    var effortValue = document.querySelector('.effort-value');
+                    var effortTitle = document.querySelector('.effort-title');
+                    var input = document.querySelector('.chat-input-editor, textarea, div[contenteditable="true"]');
+                    var sendBtn = document.querySelector('.send-button-container, .chat-editor-action button[class*="send"], button[type="submit"]');
+                    var newChatBtn = document.querySelector('.new-chat-btn, [class*="new-chat"]');
+                    return JSON.stringify({url: url, title: title, modelDropdownText: modelDropdownText, popoverOpen: popoverOpen, modelItems: modelItems, effort: {value: effortValue ? effortValue.textContent.trim() : '', title: effortTitle ? effortTitle.textContent.trim() : ''}, input: input ? {tag: input.tagName, cls: input.className.substring(0, 80)} : null, sendButton: sendBtn ? {tag: sendBtn.tagName, cls: sendBtn.className.substring(0, 80)} : null, newChatButton: newChatBtn ? {tag: newChatBtn.tagName, cls: newChatBtn.className.substring(0, 80), text: newChatBtn.innerText.trim().substring(0, 50)} : null});
+                })();
+                """
+                let inspectResult = await appState.debugEvaluateJS(js)
+                if let jsonStr = inspectResult as? String,
+                   let data = jsonStr.data(using: .utf8),
+                   let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    finalResult = dict
+                } else {
+                    finalResult = ["error": "failed to inspect"]
+                }
+            } catch {
+                finalResult = ["error": "failed to inspect: \(error.localizedDescription)"]
+            }
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 30)
+        return jsonResponse(finalResult)
+    }
+
+    private func handleDiscoverModels() -> String {
+        guard let appState = __miCoderAppState else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        // Click model dropdown
+        let clickScript = "document.querySelector('.current-model')?.click(); 'clicked'"
+        let semaphore1 = DispatchSemaphore(value: 0)
+        Task { @MainActor in
+            _ = await appState.debugEvaluateJS(clickScript)
+            semaphore1.signal()
+        }
+        _ = semaphore1.wait(timeout: .now() + 5)
+        // Wait for popover
+        Thread.sleep(forTimeInterval: 2)
+        // Read model items
+        let readScript = """
+        (function(){
+            var items = document.querySelectorAll('.model-item');
+            var r = [];
+            for (var i = 0; i < items.length; i++) {
+                var el = items[i];
+                var nameEl = el.querySelector('.model-name .name');
+                var name = nameEl ? (nameEl.textContent || '').trim() : '';
+                var desc = el.querySelector('.desc');
+                var descText = desc ? desc.textContent.trim() : '';
+                var checked = el.classList.contains('checked');
+                if (name) r.push({name: name, desc: descText, checked: checked});
+            }
+            // Effort
+            var effortEl = document.querySelector('.effort-value');
+            var effort = effortEl ? effortEl.textContent.trim() : '';
+            return JSON.stringify({models: r, effort: effort});
+        })();
+        """
+        let semaphore2 = DispatchSemaphore(value: 0)
+        var readResult: Any?
+        Task { @MainActor in
+            readResult = await appState.debugEvaluateJS(readScript)
+            semaphore2.signal()
+        }
+        _ = semaphore2.wait(timeout: .now() + 5)
+        if let jsonStr = readResult as? String,
+           let data = jsonStr.data(using: .utf8),
+           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            // Save discovered models to config
+            if let models = dict["models"] as? [[String: Any]] {
+                let modelNames = models.compactMap { $0["name"] as? String }
+                var configs = WebProviderStore.load()
+                if let idx = configs.firstIndex(where: { $0.vendor.id == "kimi" }) {
+                    var cfg = configs[idx]
+                    cfg.discoveredModels = modelNames.map { WebProviderModel(name: $0) }
+                    configs[idx] = cfg
+                    WebProviderStore.save(configs)
+                }
+            }
+            return jsonResponse(dict)
+        }
+        return jsonResponse(["error": "failed to read models"])
+    }
+
+    private func handleAddAccount(body: String) -> String {
+        guard let appState = __miCoderAppState else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        guard let data = body.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let vendorStr = json["vendor"] as? String,
+              let vendor = WebChatVendor(rawValue: vendorStr) else {
+            return jsonResponse(["error": "vendor required (kimi, qwen, chatgpt)"])
+        }
+        var configs = WebProviderStore.load()
+        // Find existing config for this vendor to clone settings from
+        guard let existing = configs.first(where: { $0.vendor.id == vendorStr }) else {
+            return jsonResponse(["error": "no existing config for vendor \(vendorStr)"])
+        }
+        // Create a new config with a different ID
+        let newConfig = WebProviderConfig(
+            id: UUID().uuidString,
+            vendor: vendor,
+            displayName: "\(existing.displayName) (Account \(configs.filter { $0.vendor.id == vendorStr }.count + 1))",
+            transport: existing.transport,
+            chatURL: existing.chatURL,
+            systemPrompt: existing.systemPrompt,
+            effort: existing.effort,
+            toolCallDelayMs: existing.toolCallDelayMs,
+            maxToolIterations: existing.maxToolIterations,
+            acknowledgedToS: existing.acknowledgedToS
+        )
+        configs.append(newConfig)
+        WebProviderStore.save(configs)
+        return jsonResponse(["status": "added", "id": newConfig.id, "name": newConfig.displayName])
     }
 }

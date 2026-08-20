@@ -58,7 +58,7 @@ enum WebModelListParser {
             "more", "more models", "expand more", "expand more models", "coming soon",
             "beta", "sign in", "log in", "model", "model comparison", "all models",
             "models", "model selector", "model settings", "select model", "choose model",
-            "быстрый", "быстро", "авто", "мышление", "глубокое мышление", "размышление",
+            "авто", "мышление", "глубокое мышление", "размышление",
             "fast", "quick", "auto", "thinking", "deep thinking", "reasoning", "effort"
         ]
         guard !exactNoise.contains(lower) else { return false }
@@ -79,10 +79,13 @@ enum WebModelListParser {
                 || lower.range(of: "\\bqwen[ -]?(?:max|plus|turbo|long|coder|vl)\\b", options: .regularExpression) != nil
             return words <= 4 && modelShape && !lower.contains(". ") && !lower.contains(",")
         case .kimi:
-            // Kimi exposes compact K2/K3/Kimi/Moonshot family labels; effort
-            // labels and prose are rejected before persistence.
+            // Kimi exposes Instant(Быстрый) / K3 / K3 Swarm family labels;
+            // effort labels and prose are rejected before persistence.
+            // Supports both English and Russian UI labels.
             let words = normalized.split(separator: " ").count
             let modelShape = lower.contains("kimi") || lower.contains("moonshot")
+                || lower.contains("instant") || lower.contains("быстр")
+                || lower.contains("k3") || lower.contains("k2")
                 || lower.range(of: "\\bk[0-9]", options: .regularExpression) != nil
             return words <= 4 && modelShape && !lower.contains(". ") && !lower.contains(",")
         case .chatgpt:

@@ -222,7 +222,7 @@ struct WebDriverSelectionGuardTests {
         )
         await driver.runTurn(userMessage: "hello", isFirstMessage: false) { _ in }
         #expect(bridge.clickedSelectors.first == ".current-model")
-        #expect(bridge.clickedSelectors.contains("div.effort-item"))
+        #expect(bridge.clickedSelectors.contains(".effort-item .effort-current"))
         #expect(bridge.clickedSelectors.last == "button.send")
     }
 

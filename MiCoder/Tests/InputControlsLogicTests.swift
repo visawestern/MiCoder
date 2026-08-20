@@ -605,7 +605,7 @@ struct SendReadinessLogicTests {
 
     @Test("connectionValidationError nil when server is connected")
     func connectionValidServerConnected() {
-        let error = SendReadinessLogic.connectionValidationError(serverConnected: true)
+        let error = SendReadinessLogic.connectionValidationError(serverConnected: true, selectedProviderID: "mimo")
         #expect(error == nil)
     }
 

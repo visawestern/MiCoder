@@ -1,6 +1,6 @@
 import Foundation
 
-struct Workspace: Identifiable, Codable {
+struct Workspace: Identifiable, Codable, Equatable {
     let id: String
     var name: String
     var path: String
@@ -16,7 +16,7 @@ struct Workspace: Identifiable, Codable {
     }
 }
 
-struct WorkspaceTask: Identifiable, Codable {
+struct WorkspaceTask: Identifiable, Codable, Equatable {
     let id: String
     var title: String
     var status: TaskStatus

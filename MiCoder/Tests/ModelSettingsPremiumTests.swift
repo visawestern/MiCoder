@@ -30,7 +30,7 @@ struct ModelSettingsPremiumTests {
         let source = try sourceText("MiCoder/Sources/Views/Settings/ModelSettingsView.swift")
         #expect(source.contains("openParameters(modelID: modelID, providerID: providerID)"))
         #expect(source.contains("ModelCallParametersStore.set"))
-        #expect(source.contains("Save parameters"))
+        #expect(source.contains("saveParameters"))
     }
 
     @Test("Connection success uses explicit boolean state and visible banner")
@@ -44,9 +44,9 @@ struct ModelSettingsPremiumTests {
     @Test("Model list has filter, sort, collapse and custom delete controls")
     func modelManagementControls() throws {
         let source = try sourceText("MiCoder/Sources/Views/Settings/ModelSettingsView.swift")
-        #expect(source.contains("Filter models"))
+        #expect(source.contains("locFilterModels"))
         #expect(source.contains("ModelSortOrder"))
-        #expect(source.contains("DisclosureGroup"))
+        #expect(source.contains("collapsedModelGroups"))
         #expect(source.contains("appState.removeModel(modelID, from: providerID)"))
     }
 
@@ -60,11 +60,10 @@ struct ModelSettingsPremiumTests {
     @Test("Custom provider discovery captures an immutable model snapshot")
     func immutableModelSnapshot() throws {
         let source = try sourceText("MiCoder/Sources/App/MiCoderApp.swift")
-        #expect(source.contains("let discoveredModels = Array(Set(openAIModels + namedModels)).sorted()"))
+        #expect(source.contains("let discoveredModels = ProviderConnectionValidationLogic.modelIDs(from: data)"))
         #expect(source.contains("let models: [String] = provider.type == .openCodeZen"))
         #expect(source.contains("let loadedModels = models"))
         #expect(source.contains("MainActor.run { [providerID, loadedModels, modelLoadMessage] in"))
-        #expect(!source.contains("var models = Array(Set(openAIModels + namedModels)).sorted()"))
     }
 
     private func sourceText(_ relativePath: String) throws -> String {

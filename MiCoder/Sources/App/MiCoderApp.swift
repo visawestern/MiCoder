@@ -430,10 +430,13 @@ class AppState: ObservableObject {
         // on a healthy server during the first startup task.
         await serverConnectionManager?.checkAvailability()
         let managerConnected = serverConnectionManager?.isConnected == true
-        serverConnected = ServerConnectionReadinessLogic.appStateConnectionState(
+        let newServerConnected = ServerConnectionReadinessLogic.appStateConnectionState(
             isConnected: serverConnected,
             healthHealthy: managerConnected
         )
+        await MainActor.run {
+            serverConnected = newServerConnected
+        }
 
         if serverConnected {
             await syncAccessLevelFromServer()
@@ -1189,17 +1192,79 @@ class AppState: ObservableObject {
             webViewLastUsed[key] = Date()
             return existing
         }
-        if webViews.count >= maxWebBrowserInstances,
+if webViews.count >= maxWebBrowserInstances,
            let evictKey = webViewLastUsed.min(by: { $0.value < $1.value })?.key,
            let evicted = webViews.removeValue(forKey: evictKey) {
             evicted.stopLoading()
             evicted.removeFromSuperview()
             webViewLastUsed.removeValue(forKey: evictKey)
         }
-        let wv = WKWebView(frame: .zero)
+        let config = WKWebViewConfiguration()
+        config.processPool = WKProcessPool()
+        config.websiteDataStore = WKWebsiteDataStore.default()
+        let wv = WKWebView(frame: NSRect(x: 0, y: 0, width: 1280, height: 720), configuration: config)
+        // Add to a hidden window to ensure proper loading
+        let hiddenWindow = NSWindow(contentRect: NSRect(x: -2000, y: 0, width: 1280, height: 720),
+                                    styleMask: [.borderless],
+                                    backing: .buffered,
+                                    defer: false)
+        hiddenWindow.contentView = wv
+        hiddenWindow.orderFront(nil)
+        hiddenWindow.alphaValue = 1.0
         webViews[key] = wv
         webViewLastUsed[key] = Date()
         return wv
+    }
+
+    /// Evaluate JavaScript on the most recently used webview (debug endpoint).
+    @MainActor
+    func debugEvaluateJS(_ script: String) async -> Any? {
+        // Try the most recent webview first
+        if let lastUsed = webViewLastUsed.max(by: { $0.value < $1.value }),
+           let wv = webViews[lastUsed.key] {
+            let result = await withCheckedContinuation { (continuation: CheckedContinuation<Any?, Never>) in
+                wv.evaluateJavaScript(script) { result, error in
+                    if let error = error {
+                        continuation.resume(returning: "ERROR: \(error.localizedDescription)")
+                    } else {
+                        continuation.resume(returning: result)
+                    }
+                }
+            }
+            if let str = result as? String, str.hasPrefix("ERROR:") {
+                // Try other webviews
+            } else if result != nil {
+                return result
+            }
+        }
+        // Fallback: try all webviews
+        for (_, wv) in webViews {
+            let result = await withCheckedContinuation { (continuation: CheckedContinuation<Any?, Never>) in
+                wv.evaluateJavaScript(script) { result, error in
+                    if let error = error {
+                        continuation.resume(returning: "ERROR: \(error.localizedDescription)")
+                    } else {
+                        continuation.resume(returning: result)
+                    }
+                }
+            }
+            if let str = result as? String, str.hasPrefix("ERROR:") {
+                continue
+            } else if result != nil {
+                return result
+            }
+        }
+        return nil
+    }
+
+    /// Get all webview URLs for debugging.
+    @MainActor
+    func debugWebviewURLs() -> [String: String] {
+        var urls: [String: String] = [:]
+        for (key, wv) in webViews {
+            urls[key] = wv.url?.absoluteString ?? "no-url"
+        }
+        return urls
     }
 
     @MainActor
@@ -1729,7 +1794,9 @@ class AppState: ObservableObject {
     }
     
     func stopServe() {
-        serverConnected = false
+        Task { @MainActor in
+            serverConnected = false
+        }
         notificationService.serverDisconnected()
         serverProviders = []
         if !customProviders.contains(where: { $0.id == selectedProviderID && $0.isEnabled }) {

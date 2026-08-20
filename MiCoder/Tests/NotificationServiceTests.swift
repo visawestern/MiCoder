@@ -188,7 +188,7 @@ struct NotificationServiceTests {
         service.generationStopped()
         
         #expect(service.notifications.first?.type == .info)
-        #expect(service.notifications.first?.title == "Generation Stopped")
+        #expect(service.notifications.first?.title == "Generation stopped")
     }
     
     @Test("Git operation notification creates success type")

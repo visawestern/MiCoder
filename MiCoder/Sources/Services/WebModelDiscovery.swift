@@ -24,6 +24,7 @@ import Foundation
             let modelButton: String?
             let modelItem: String?
             let newChatTexts: [String]?
+            let newChatSelector: String?
             let modeSelect: String?
             let thinkingSelect: String?
             let effortItem: String?
@@ -46,6 +47,7 @@ struct WebProviderCatalog {
         let modelButton: String?
         let modelItem: String?
         let newChatTexts: [String]?
+        let newChatSelector: String?
         let modeSelect: String?
         let thinkingSelect: String?
         let effortItem: String?
@@ -71,7 +73,7 @@ struct WebProviderCatalog {
             let map: [String: VendorEntry] = Dictionary(uniqueKeysWithValues:
                 root.vendors.compactMap { dto in
                     guard let selector = dto.selectors.modelDropdown, !selector.isEmpty else { return nil }
-                    return (dto.id, VendorEntry(id: dto.id, models: dto.models ?? [], input: dto.selectors.input, sendButton: dto.selectors.sendButton, responseContainer: dto.selectors.responseContainer, stopButton: dto.selectors.stopButton, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts, modeSelect: dto.selectors.modeSelect, thinkingSelect: dto.selectors.thinkingSelect, effortItem: dto.selectors.effortItem, modeItem: dto.selectors.modeItem))
+                    return (dto.id, VendorEntry(id: dto.id, models: dto.models ?? [], input: dto.selectors.input, sendButton: dto.selectors.sendButton, responseContainer: dto.selectors.responseContainer, stopButton: dto.selectors.stopButton, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts, newChatSelector: dto.selectors.newChatSelector, modeSelect: dto.selectors.modeSelect, thinkingSelect: dto.selectors.thinkingSelect, effortItem: dto.selectors.effortItem, modeItem: dto.selectors.modeItem))
                 })
             return WebProviderCatalog(entries: map)
         }
@@ -87,7 +89,7 @@ struct WebProviderCatalog {
             let map: [String: VendorEntry] = Dictionary(uniqueKeysWithValues:
                 root.vendors.compactMap { dto in
                     guard let selector = dto.selectors.modelDropdown, !selector.isEmpty else { return nil }
-                    return (dto.id, VendorEntry(id: dto.id, models: dto.models ?? [], input: dto.selectors.input, sendButton: dto.selectors.sendButton, responseContainer: dto.selectors.responseContainer, stopButton: dto.selectors.stopButton, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts, modeSelect: dto.selectors.modeSelect, thinkingSelect: dto.selectors.thinkingSelect, effortItem: dto.selectors.effortItem, modeItem: dto.selectors.modeItem))
+                    return (dto.id, VendorEntry(id: dto.id, models: dto.models ?? [], input: dto.selectors.input, sendButton: dto.selectors.sendButton, responseContainer: dto.selectors.responseContainer, stopButton: dto.selectors.stopButton, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts, newChatSelector: dto.selectors.newChatSelector, modeSelect: dto.selectors.modeSelect, thinkingSelect: dto.selectors.thinkingSelect, effortItem: dto.selectors.effortItem, modeItem: dto.selectors.modeItem))
                 })
             return WebProviderCatalog(entries: map)
         }
@@ -138,23 +140,10 @@ enum WebModelDiscovery {
             // Fallback: if selector not found, try clicking a catalog-defined
             // New Chat label to enter chat mode.
             if !modelBtnFound {
-                let newChatTexts = catalogEntry?.newChatTexts ?? ["New Chat", "Новый чат", "新对话"]
-                var clicked = false
-                for text in newChatTexts {
-                    if (try? await bridge.clickByText(selector: "button, a, div", text: text)) == true {
-                        clicked = true
-                        break
-                    }
-                }
-                if !clicked, (try? await bridge.exists(selector: "[class*='new-chat']")) == true {
-                    try? await bridge.click(selector: "[class*='new-chat']")
-                    clicked = true
-                }
-                if !clicked, (try? await bridge.exists(selector: "[data-testid*='new']")) == true {
-                    try? await bridge.click(selector: "[data-testid*='new']")
-                    clicked = true
-                }
-                if clicked {
+                // First try catalog-specific newChatSelector (e.g. ".new-chat")
+                if let newChatSel = catalogEntry?.newChatSelector,
+                   (try? await bridge.exists(selector: newChatSel)) == true {
+                    try? await bridge.click(selector: newChatSel)
                     await bridge.wait(ms: 2000)
                     for _ in 0..<25 {
                         if (try? await bridge.exists(selector: dropdownSelector)) == true {
@@ -162,6 +151,35 @@ enum WebModelDiscovery {
                             break
                         }
                         await bridge.wait(ms: 300)
+                    }
+                }
+                // Then try text-based new chat buttons
+                if !modelBtnFound {
+                    let newChatTexts = catalogEntry?.newChatTexts ?? ["New Chat", "Новый чат", "新对话"]
+                    var clicked = false
+                    for text in newChatTexts {
+                        if (try? await bridge.clickByText(selector: "button, a, div", text: text)) == true {
+                            clicked = true
+                            break
+                        }
+                    }
+                    if !clicked, (try? await bridge.exists(selector: "[class*='new-chat']")) == true {
+                        try? await bridge.click(selector: "[class*='new-chat']")
+                        clicked = true
+                    }
+                    if !clicked, (try? await bridge.exists(selector: "[data-testid*='new']")) == true {
+                        try? await bridge.click(selector: "[data-testid*='new']")
+                        clicked = true
+                    }
+                    if clicked {
+                        await bridge.wait(ms: 2000)
+                        for _ in 0..<25 {
+                            if (try? await bridge.exists(selector: dropdownSelector)) == true {
+                                modelBtnFound = true
+                                break
+                            }
+                            await bridge.wait(ms: 300)
+                        }
                     }
                 }
             }
@@ -330,6 +348,8 @@ enum WebModelDiscovery {
                 }
             }
             guard selected else {
+                // Selection failed (e.g., text mismatch), but model was discovered.
+                // Keep it selectable with empty capabilities rather than marking inactive.
                 result.append(WebProviderModel(name: model.name,
                                                description: model.description,
                                                availableModes: model.availableModes,
@@ -338,10 +358,10 @@ enum WebModelDiscovery {
                                                supportsImageGeneration: model.supportsImageGeneration,
                                                supportsDeepResearch: model.supportsDeepResearch,
                                                supportsWebDev: model.supportsWebDev,
-                                               discoveryStatus: .inactive,
+                                               discoveryStatus: .notDetected,
                                                isLiveDiscovered: model.isLiveDiscovered,
-                                               isSelectable: false,
-                                               discoveryMessage: "The live menu did not expose a selectable option for this model."))
+                                               isSelectable: true,
+                                               discoveryMessage: "Could not verify capabilities; model selectable but not probed."))
                 continue
             }
             await bridge.wait(ms: 350)
@@ -452,7 +472,7 @@ enum WebModelDiscovery {
                 try await bridge.click(selector: selector)
                 await bridge.wait(ms: 500)
                 let triggerText = (try? await bridge.readText(selector: selector)) ?? ""
-                let optionSelector = "[role='option'], [class*='effort'], [class*='thinking'], [class*='menu-item'], .ant-select-item-option-content, button"
+                let optionSelector = "[role='option'], [class*='effort'], [class*='thinking'], [class*='menu-item'], .ant-select-item-option-content, .effort-value, button"
                 let optionText = (try? await bridge.readText(selector: optionSelector)) ?? ""
                 let visibleText = ((try? await readVisibleTexts(using: bridge, selector: optionSelector)) ?? []).joined(separator: "\n")
                 let text = [triggerText, optionText, visibleText].filter { !$0.isEmpty }.joined(separator: "\n")
@@ -545,7 +565,7 @@ enum WebModelDiscovery {
     /// Discover thinking/effort levels for Qwen.
     static func discoverThinkingLevels(using bridge: BrowserAutomationBridge) async -> [WebEffort] {
         do {
-            try await bridge.click(selector: "[class*='qwen-select-thinking']")
+            try await bridge.click(selector: ".qwen-thinking-selector")
             try await bridge.waitForSelector(selector: ".ant-select-item-option", timeout: 5000)
 
             let rawLevels = try await bridge.evaluateJS("""
