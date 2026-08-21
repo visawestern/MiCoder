@@ -188,73 +188,68 @@ final class MiCoderAPIServer {
         let providerId = json["providerId"] as? String
         let modelId = json["modelId"] as? String
         
-        // Select provider/model if specified
-        if let providerId = providerId {
-            appState.selectProvider(providerId, persistPreference: false)
-        }
-        if let modelId = modelId, !modelId.isEmpty {
-            // For MiCoder Auto Free, also update the store's selected model
-            if providerId == MiCoderAutoFreeProvider.builtInID {
-                DispatchQueue.main.async { MiCoderAutoFreeStore.shared.selectModel(modelId) }
-            }
-            appState.selectModel(modelId, persistPreference: false)
-        }
+        // Capture values for main-thread dispatch
+        let messageText = message
+        var capturedChatId = chatId
+        var capturedSessionID = appState.selectedSession?.id
+        var capturedProviderID = appState.selectedProviderID
+        var capturedModelID = appState.selectedModel
         
-        // Debug log
-        Self.appendLog("🔍 After select: provider=\(appState.selectedProviderID), model=\(appState.selectedModel), effective=\(appState.effectiveSelectedModel()), session=\(appState.selectedSession?.id ?? "nil")")
-        
-        // Create or select session
-        var targetSession: ChatSession?
-        if let chatId = chatId {
-            targetSession = appState.sessions.first(where: { $0.id == chatId })
-            Self.appendLog("🔍 Existing session lookup: chatId=\(chatId), found=\(targetSession != nil)")
-        }
-        
-        if targetSession == nil {
-            // Create new temporary session
-            let tempDir = FileManager.default.temporaryDirectory.path
-            let newSession = ChatSession(
-                id: UUID().uuidString,
-                title: "API Chat",
-                directory: tempDir,
-                branch: nil
-            )
-            Self.appendLog("🔍 Creating new session: id=\(newSession.id)")
-            appState.upsertSession(newSession)
-            targetSession = appState.sessions.first(where: { $0.id == newSession.id }) ?? newSession
-            Self.appendLog("🔍 After upsert: sessions=\(appState.sessions.count), targetID=\(targetSession?.id ?? "nil")")
-        }
-        
-        if let session = targetSession {
-            appState.selectedSession = session
-            Self.appendLog("🔍 Selected session: \(session.id)")
-        } else {
-            Self.appendLog("❌ No session available")
-        }
-        
-        // Trigger send via notification
-        let responseModelID = SendAPIResponseLogic.modelID(
-            selectedModel: appState.selectedModel,
-            effectiveModel: appState.effectiveSelectedModel()
-        )
-        let apiChatId = appState.selectedSession?.id ?? ""
-        let logMsg = "📤 API Send: message='\(message)', chatId=\(apiChatId), provider=\(appState.selectedProviderID), model=\(responseModelID)"
-        os_log("%{public}@", log: apiLog, type: .info, logMsg)
-        Self.appendLog(logMsg)
+        // All @Published mutations MUST happen on main thread.
+        // Fire-and-forget: the notification-based send will pick up the state.
         DispatchQueue.main.async {
+            if let providerId = providerId {
+                appState.selectProvider(providerId, persistPreference: false)
+            }
+            if let modelId = modelId, !modelId.isEmpty {
+                if providerId == MiCoderAutoFreeProvider.builtInID {
+                    MiCoderAutoFreeStore.shared.selectModel(modelId)
+                }
+                appState.selectModel(modelId, persistPreference: false)
+            }
+            capturedProviderID = appState.selectedProviderID
+            capturedModelID = appState.selectedModel
+            
+            // Create or select session
+            var targetSession: ChatSession?
+            if let cid = capturedChatId {
+                targetSession = appState.sessions.first(where: { $0.id == cid })
+            }
+            
+            if targetSession == nil {
+                let tempDir = FileManager.default.temporaryDirectory.path
+                let newSession = ChatSession(
+                    id: UUID().uuidString,
+                    title: "API Chat",
+                    directory: tempDir,
+                    branch: nil
+                )
+                appState.upsertSession(newSession)
+                targetSession = appState.sessions.first(where: { $0.id == newSession.id }) ?? newSession
+            }
+            
+            if let session = targetSession {
+                appState.selectedSession = session
+                capturedSessionID = session.id
+            }
+            
+            // Trigger send via notification
+            let chatID = capturedSessionID ?? ""
             NotificationCenter.default.post(
                 name: Notification.Name("apiSendRequested"),
                 object: nil,
-                userInfo: ["message": message, "chatId": apiChatId]
+                userInfo: ["message": messageText, "chatId": chatID]
             )
         }
+        
+        Self.appendLog("📤 API Send: message='\(message)', provider=\(capturedProviderID), model=\(capturedModelID)")
         
         return jsonResponse([
             "status": "sent",
             "message": message,
-            "chatId": appState.selectedSession?.id ?? "",
-            "providerId": appState.selectedProviderID,
-            "modelId": responseModelID
+            "chatId": capturedSessionID ?? "",
+            "providerId": capturedProviderID,
+            "modelId": capturedModelID
         ])
     }
     
@@ -282,15 +277,17 @@ final class MiCoderAPIServer {
             return jsonResponse(["error": "invalid body or app not ready"])
         }
         
-        if let providerId = json["providerId"] as? String {
-            appState.selectProvider(providerId, persistPreference: false)
-        }
-        if let modelId = json["modelId"] as? String {
-            appState.selectModel(modelId, persistPreference: false)
-        }
-        if let chatId = json["chatId"] as? String {
-            if let session = appState.sessions.first(where: { $0.id == chatId }) {
-                appState.selectedSession = session
+        DispatchQueue.main.async {
+            if let providerId = json["providerId"] as? String {
+                appState.selectProvider(providerId, persistPreference: false)
+            }
+            if let modelId = json["modelId"] as? String {
+                appState.selectModel(modelId, persistPreference: false)
+            }
+            if let chatId = json["chatId"] as? String {
+                if let session = appState.sessions.first(where: { $0.id == chatId }) {
+                    appState.selectedSession = session
+                }
             }
         }
         
