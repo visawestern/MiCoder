@@ -34,7 +34,10 @@ class SSEClient {
         streamTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                // Round 29 R5: use the configured session (long SSE-friendly
+                // timeouts). Round 28 set these timeouts but connect() still
+                // used URLSession.shared, so the configuration never applied.
+                let (bytes, response) = try await Self.sharedSession.bytes(for: request)
                 
                 guard let httpResponse = response as? HTTPURLResponse,
                       (200...299).contains(httpResponse.statusCode) else {

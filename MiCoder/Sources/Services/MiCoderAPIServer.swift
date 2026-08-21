@@ -187,70 +187,92 @@ final class MiCoderAPIServer {
         let chatId = json["chatId"] as? String
         let providerId = json["providerId"] as? String
         let modelId = json["modelId"] as? String
-        
-        // Capture values for main-thread dispatch
-        let messageText = message
-        var capturedChatId = chatId
-        var capturedSessionID = appState.selectedSession?.id
-        var capturedProviderID = appState.selectedProviderID
-        var capturedModelID = appState.selectedModel
-        
-        // All @Published mutations MUST happen on main thread.
-        // Fire-and-forget: the notification-based send will pick up the state.
-        DispatchQueue.main.async {
-            if let providerId = providerId {
-                appState.selectProvider(providerId, persistPreference: false)
-            }
-            if let modelId = modelId, !modelId.isEmpty {
-                if providerId == MiCoderAutoFreeProvider.builtInID {
-                    MiCoderAutoFreeStore.shared.selectModel(modelId)
-                }
-                appState.selectModel(modelId, persistPreference: false)
-            }
-            capturedProviderID = appState.selectedProviderID
-            capturedModelID = appState.selectedModel
-            
-            // Create or select session
-            var targetSession: ChatSession?
-            if let cid = capturedChatId {
-                targetSession = appState.sessions.first(where: { $0.id == cid })
-            }
-            
-            if targetSession == nil {
-                let tempDir = FileManager.default.temporaryDirectory.path
-                let newSession = ChatSession(
-                    id: UUID().uuidString,
-                    title: "API Chat",
-                    directory: tempDir,
-                    branch: nil
-                )
-                appState.upsertSession(newSession)
-                targetSession = appState.sessions.first(where: { $0.id == newSession.id }) ?? newSession
-            }
-            
-            if let session = targetSession {
-                appState.selectedSession = session
-                capturedSessionID = session.id
-            }
-            
-            // Trigger send via notification
-            let chatID = capturedSessionID ?? ""
+
+        // Round 29 R4: apply all @Published mutations on the main thread AND
+        // wait for them here, so the HTTP response reports the post-mutation
+        // state. The previous fire-and-forget version returned stale values:
+        // for a new chat the response carried "" / the previously selected
+        // session instead of the freshly created one.
+        let semaphore = DispatchSemaphore(value: 0)
+        var resolved: ResolvedSendTarget?
+        Task { @MainActor in
+            let target = Self.resolveSendTargets(appState: appState,
+                                                 providerId: providerId,
+                                                 modelId: modelId,
+                                                 chatId: chatId)
             NotificationCenter.default.post(
                 name: Notification.Name("apiSendRequested"),
                 object: nil,
-                userInfo: ["message": messageText, "chatId": chatID]
+                userInfo: ["message": message, "chatId": target.chatID]
             )
+            resolved = target
+            semaphore.signal()
         }
-        
-        Self.appendLog("📤 API Send: message='\(message)', provider=\(capturedProviderID), model=\(capturedModelID)")
-        
+        _ = semaphore.wait(timeout: .now() + 30)
+
+        guard let target = resolved else {
+            return jsonResponse(["error": "send timed out waiting for main thread"])
+        }
         return jsonResponse([
             "status": "sent",
             "message": message,
-            "chatId": capturedSessionID ?? "",
-            "providerId": capturedProviderID,
-            "modelId": capturedModelID
+            "chatId": target.chatID,
+            "providerId": target.providerID,
+            "modelId": target.modelID
         ])
+    }
+
+    struct ResolvedSendTarget {
+        let chatID: String
+        let providerID: String
+        let modelID: String
+    }
+
+    /// Applies provider/model selection, creates or selects the target session,
+    /// and reads back the resulting state — all on the main actor. The returned
+    /// triple is exactly what `/api/send` must echo to the client.
+    @MainActor
+    static func resolveSendTargets(appState: AppState,
+                                   providerId: String?,
+                                   modelId: String?,
+                                   chatId: String?) -> ResolvedSendTarget {
+        if let providerId = providerId {
+            appState.selectProvider(providerId, persistPreference: false)
+        }
+        if let modelId = modelId, !modelId.isEmpty {
+            if providerId == MiCoderAutoFreeProvider.builtInID {
+                MiCoderAutoFreeStore.shared.selectModel(modelId)
+            }
+            appState.selectModel(modelId, persistPreference: false)
+        }
+
+        var targetSession: ChatSession?
+        if let cid = chatId {
+            targetSession = appState.sessions.first(where: { $0.id == cid })
+        }
+        if targetSession == nil {
+            let tempDir = FileManager.default.temporaryDirectory.path
+            let newSession = ChatSession(
+                id: UUID().uuidString,
+                title: "API Chat",
+                directory: tempDir,
+                branch: nil
+            )
+            appState.upsertSession(newSession)
+            targetSession = appState.sessions.first(where: { $0.id == newSession.id }) ?? newSession
+        }
+        if let session = targetSession {
+            appState.selectedSession = session
+        }
+
+        return ResolvedSendTarget(
+            chatID: appState.selectedSession?.id ?? "",
+            providerID: appState.selectedProviderID,
+            modelID: SendAPIResponseLogic.modelID(
+                selectedModel: appState.selectedModel,
+                effectiveModel: appState.effectiveSelectedModel()
+            )
+        )
     }
     
     private func messagesInfo() -> [String: Any] {

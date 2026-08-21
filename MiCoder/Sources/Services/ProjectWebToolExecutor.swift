@@ -109,30 +109,26 @@ struct ProjectWebToolExecutor: WebToolExecutor {
             return ProjectShellRunner.run(command: cmd, workingDirectory: projectRoot).output
         case .gitLog:
             let limit = call.arguments["limit"] ?? "10"
-            return ProjectShellRunner.run(command: "git log --oneline -\(limit)", workingDirectory: projectRoot).output
+            return ProjectShellRunner.run(command: Self.gitLogCommand(limit: limit), workingDirectory: projectRoot).output
         case .gitBranch:
-            if let branch = call.arguments["branch"], call.arguments["create"] == "true" {
-                return ProjectShellRunner.run(command: "git checkout -b \(branch)", workingDirectory: projectRoot).output
-            }
-            return ProjectShellRunner.run(command: "git branch", workingDirectory: projectRoot).output
+            return ProjectShellRunner.run(
+                command: Self.gitBranchCommand(branch: call.arguments["branch"], create: call.arguments["create"] == "true"),
+                workingDirectory: projectRoot).output
         case .gitCheckout:
             guard let branch = call.arguments["branch"] else { return "error: missing branch" }
-            return ProjectShellRunner.run(command: "git checkout \(branch)", workingDirectory: projectRoot).output
+            return ProjectShellRunner.run(command: Self.gitCheckoutCommand(branch: branch), workingDirectory: projectRoot).output
         case .gitCommit:
             guard let message = call.arguments["message"] else { return "error: missing message" }
             let addAll = call.arguments["addAll"] == "true"
-            let addCmd = addAll ? "git add -A && " : ""
-            return ProjectShellRunner.run(command: "\(addCmd)git commit -m \"\(message)\"", workingDirectory: projectRoot).output
+            return ProjectShellRunner.run(command: Self.gitCommitCommand(message: message, addAll: addAll), workingDirectory: projectRoot).output
         case .gitPush:
             let remote = call.arguments["remote"] ?? "origin"
             let branch = call.arguments["branch"] ?? ""
-            let branchArg = branch.isEmpty ? "" : " \(branch)"
-            return ProjectShellRunner.run(command: "git push \(remote)\(branchArg)", workingDirectory: projectRoot).output
+            return ProjectShellRunner.run(command: Self.gitRemoteRefCommand("git push", remote: remote, branch: branch), workingDirectory: projectRoot).output
         case .gitPull:
             let remote = call.arguments["remote"] ?? "origin"
             let branch = call.arguments["branch"] ?? ""
-            let branchArg = branch.isEmpty ? "" : " \(branch)"
-            return ProjectShellRunner.run(command: "git pull \(remote)\(branchArg)", workingDirectory: projectRoot).output
+            return ProjectShellRunner.run(command: Self.gitRemoteRefCommand("git pull", remote: remote, branch: branch), workingDirectory: projectRoot).output
         // File search & glob
         case .glob:
             let pattern = call.arguments["pattern"] ?? "*"
@@ -158,6 +154,56 @@ struct ProjectWebToolExecutor: WebToolExecutor {
     /// report the limitation honestly instead of silently skipping work.
     private func approvalMessage(for call: WebToolCall) -> String {
         "\(call.name) requires approval (AccessLevel: \(accessLevel.rawValue)); not executed"
+    }
+
+    // MARK: - Shell-safe git command construction (Round 29 R1)
+    //
+    // Model-supplied git arguments used to be interpolated raw into a
+    // `/bin/zsh -c <command>` invocation, so a crafted commit message like
+    // `x" && touch pwned && echo "` escaped the surrounding quotes and ran
+    // arbitrary shell beyond what the approved operation implies. Every
+    // interpolated value now goes through `shellQuoted`, and numeric options
+    // through `sanitizedNumber`.
+
+    /// Wraps a value in single quotes so `$()`, backticks, `&&`, `;`, `|`,
+    /// `>`, globs and whitespace lose their shell meaning. A literal `'`
+    /// becomes the standard `'\''` escape sequence.
+    static func shellQuoted(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    /// Digits-only sanitizer for numeric CLI options; falls back when the
+    /// value contains no usable positive number. Bounded so a huge number
+    /// cannot turn into an unbounded git query.
+    static func sanitizedNumber(_ raw: String, fallback: Int, maxValue: Int = 10_000) -> Int {
+        let digits = raw.filter(\.isNumber)
+        guard !digits.isEmpty, let n = Int(digits), n > 0 else { return fallback }
+        return min(n, maxValue)
+    }
+
+    static func gitLogCommand(limit: String) -> String {
+        "git log --oneline -\(sanitizedNumber(limit, fallback: 10))"
+    }
+
+    static func gitBranchCommand(branch: String?, create: Bool) -> String {
+        if let branch, create {
+            return "git checkout -b \(shellQuoted(branch))"
+        }
+        return "git branch"
+    }
+
+    static func gitCheckoutCommand(branch: String) -> String {
+        "git checkout \(shellQuoted(branch))"
+    }
+
+    static func gitCommitCommand(message: String, addAll: Bool) -> String {
+        let addPart = addAll ? "git add -A && " : ""
+        return "\(addPart)git commit -m \(shellQuoted(message))"
+    }
+
+    static func gitRemoteRefCommand(_ verb: String, remote: String, branch: String) -> String {
+        let branchPart = branch.isEmpty ? "" : " \(shellQuoted(branch))"
+        return "\(verb) \(shellQuoted(remote))\(branchPart)"
     }
 
     /// Runs a file-modifying tool under the project's undo manager when one is
@@ -254,47 +300,119 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         var hits: [String] = []
         let scanned = ProjectFileScanner.scan(root: dir.path)
         let fileLimit = 500
+        let hitLimit = 100
         var filesScanned = 0
-        for rec in scanned {
-            if filesScanned >= fileLimit { break }
+        var truncatedFiles = false
+        var truncatedHits = false
+
+        scanLoop: for rec in scanned {
+            if filesScanned >= fileLimit { truncatedFiles = true; break }
             filesScanned += 1
             let fileURL = dir.appendingPathComponent(rec.path)
             guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { continue }
             for (i, line) in content.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
                 let s = String(line)
                 if regex.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil {
+                    // Round 29 R2: stop BEFORE exceeding the hit limit and warn,
+                    // instead of silently returning a bare 100-line prefix.
+                    if hits.count >= hitLimit { truncatedHits = true; break scanLoop }
                     hits.append("\(rec.path):\(i + 1): \(s.trimmingCharacters(in: .whitespaces))")
-                    if hits.count >= 100 { return hits.joined(separator: "\n") }
                 }
             }
         }
         if hits.isEmpty { return "(no matches)" }
         var result = hits.joined(separator: "\n")
-        if scanned.count > fileLimit {
+        if truncatedFiles {
             result += "\n⚠️ Truncated: scanned \(fileLimit) of \(scanned.count) files"
+        }
+        if truncatedHits {
+            result += "\n⚠️ Truncated: showing first \(hitLimit) matches"
         }
         return result
     }
 
     private func glob(pattern: String, in dir: URL) -> String {
-        let fileManager = self.fileManager
-        let enumerator = fileManager.enumerator(at: dir, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles])
-        var matches: [String] = []
-        let patternRegex = pattern
-            .replacingOccurrences(of: ".", with: "\\.")
-            .replacingOccurrences(of: "*", with: ".*")
-            .replacingOccurrences(of: "?", with: ".")
-        guard let regex = try? NSRegularExpression(pattern: "^" + patternRegex + "$") else {
+        guard let regexPattern = Self.globToRegexPattern(pattern),
+              let regex = try? NSRegularExpression(pattern: regexPattern) else {
             return "error: invalid glob pattern"
         }
+        // Standardize first: a scan root of "." produces a "/./"-suffixed
+        // path, and on macOS the enumerator yields entries under the resolved
+        // symlink target (/var → /private/var). Resolve BOTH sides so the
+        // prefix comparison below cannot silently drop every entry.
+        let stdDir = dir.standardizedFileURL.resolvingSymlinksInPath()
+        let rootPath = stdDir.path
+        let enumerator = fileManager.enumerator(at: stdDir, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles])
+        var matches: [String] = []
+        var truncated = false
+        let matchLimit = 500
         while let fileURL = enumerator?.nextObject() as? URL {
-            let relPath = fileURL.path.replacingOccurrences(of: dir.path + "/", with: "")
-            let fileName = fileURL.lastPathComponent
-            if regex.firstMatch(in: fileName, range: NSRange(location: 0, length: fileName.count)) != nil {
+            // Round 29 R3: patterns are matched against the path relative to the
+            // scan root (glob semantics), so `src/*.swift` and `**/*.swift`
+            // work; previously only lastPathComponent was tested and every
+            // pattern containing "/" answered "(no matches)".
+            let fullPath = fileURL.resolvingSymlinksInPath().path
+            guard fullPath.hasPrefix(rootPath + "/") else { continue }
+            let relPath = String(fullPath.dropFirst(rootPath.count + 1))
+            let range = NSRange(relPath.startIndex..., in: relPath)
+            if regex.firstMatch(in: relPath, range: range) != nil {
+                if matches.count >= matchLimit { truncated = true; break }
                 matches.append(relPath)
             }
         }
-        return matches.isEmpty ? "(no matches)" : matches.joined(separator: "\n")
+        if matches.isEmpty { return "(no matches)" }
+        var result = matches.sorted().joined(separator: "\n")
+        if truncated {
+            result += "\n⚠️ Truncated: showing first \(matchLimit) entries"
+        }
+        return result
+    }
+
+    /// Converts a glob pattern into an anchored regular expression string.
+    /// `*` matches within one path segment (`[^/]*`), `**` spans segments
+    /// (`.*/?`-style, consuming an adjacent `/`), `?` is `[^/]`, `[...]`
+    /// classes pass through with glob's `!` negation translated to `^`, and
+    /// everything else — including `/` and regex metacharacters — is escaped
+    /// literally. Returns nil for invalid patterns (unterminated class).
+    static func globToRegexPattern(_ pattern: String) -> String? {
+        guard !pattern.isEmpty else { return nil }
+        var out = "^"
+        let chars = Array(pattern)
+        var i = 0
+        while i < chars.count {
+            let c = chars[i]
+            switch c {
+            case "*":
+                if i + 1 < chars.count && chars[i + 1] == "*" {
+                    out += ".*"
+                    i += 2
+                    if i < chars.count && chars[i] == "/" { i += 1 }
+                } else {
+                    out += "[^/]*"
+                    i += 1
+                }
+            case "?":
+                out += "[^/]"
+                i += 1
+            case "[":
+                var j = i + 1
+                if j < chars.count && chars[j] == "!" { j += 1 }
+                if j < chars.count && chars[j] == "]" { j += 1 }
+                while j < chars.count && chars[j] != "]" { j += 1 }
+                guard j < chars.count else { return nil }
+                var cls = String(chars[(i + 1)..<j])
+                if cls.hasPrefix("!") { cls = "^" + cls.dropFirst() }
+                out += "[" + cls + "]"
+                i = j + 1
+            case "]":
+                return nil
+            default:
+                if ".()+^$|{}\\".contains(c) { out += "\\" }
+                out.append(c)
+                i += 1
+            }
+        }
+        return out + "$"
     }
 
     private func executeTask(call: WebToolCall) async -> String {
