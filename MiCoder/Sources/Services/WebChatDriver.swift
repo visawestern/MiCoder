@@ -220,7 +220,7 @@ struct WebChatDriver {
         let baselineText = (try? await readLatestResponse()) ?? ""
         let baselineFingerprint = (try? await bridge.responseFingerprint(selector: selectors.responseContainer)) ?? baselineText
         await antiBanDelay()
-        try await bridge.typeText(text, into: selectors.input, humanized: config.toolCallDelayMs > 0)
+        try await bridge.typeText(text, into: selectors.input, humanized: config.toolCallDelayMs > 0, pressEnter: true)
         await antiBanDelay()
         try await bridge.click(selector: selectors.sendButton)
         return ResponseBaseline(text: baselineText, fingerprint: baselineFingerprint)

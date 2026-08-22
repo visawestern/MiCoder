@@ -28,7 +28,7 @@ struct WebChatDriverTests {
         init(responses: [String]) { self.responses = responses }
 
         func navigate(to url: String) async throws { self.url = url; navigations += 1 }
-        func typeText(_ text: String, into selector: String, humanized: Bool) async throws { typed.append(text) }
+        func typeText(_ text: String, into selector: String, humanized: Bool, pressEnter: Bool) async throws { typed.append(text) }
         func click(selector: String) async throws {
             clicks += 1
             // Each send (click) yields the next scripted response.
@@ -380,7 +380,7 @@ struct WebChatApprovalInterruptionTests {
         var submitted = false
 
         func navigate(to url: String) async throws {}
-        func typeText(_ text: String, into selector: String, humanized: Bool) async throws { typed.append(text) }
+        func typeText(_ text: String, into selector: String, humanized: Bool, pressEnter: Bool) async throws { typed.append(text) }
         func click(selector: String) async throws { submitted = true }
         func readText(selector: String) async throws -> String {
             submitted ? "```tool\n{\"name\":\"write_file\",\"args\":{\"path\":\"a.txt\",\"content\":\"x\"}}\n```" : ""

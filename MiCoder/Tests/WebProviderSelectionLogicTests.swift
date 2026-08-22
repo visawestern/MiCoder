@@ -119,7 +119,7 @@ struct WebDriverSelectionGuardTests {
         init(acceptsOption: Bool) { self.acceptsOption = acceptsOption }
 
         func navigate(to url: String) async throws {}
-        func typeText(_ text: String, into selector: String, humanized: Bool) async throws { typed.append(text) }
+        func typeText(_ text: String, into selector: String, humanized: Bool, pressEnter: Bool) async throws { typed.append(text) }
         func click(selector: String) async throws {
             menuClicks += 1
             clickedSelectors.append(selector)

@@ -190,3 +190,20 @@ Baseline note: the "25 pre-existing failures" left by Round 28 were already clos
 `d421aa4`; this round audited green code and still found five defects.
 
 Full suite after fixes: **2231 tests / 350 suites, all green** (incl. quality pass: checkout injection proof + grep zero-match truncation warning). Details: `docs/DEVILS_ADVOCATE_ROUND_29_2026-08-21.md`.
+
+### Round 30 (2026-08-22) — LIVE pipeline audit through the embedded API (port 8766)
+
+App launched and driven via its own HTTP API against real providers. Findings verified on the RUNNING app, not just in unit tests.
+
+| ID | Area | Severity | Status |
+|----|------|----------|--------|
+| W1 | Embedded WKWebView had no UIDelegate → `window.open`/`target=_blank` (kimi.com→kimi.ai handoff) silently dropped; JS dialogs could hang pages | HIGH | FIXED — `PermissiveWebNavigationPolicy` (allow-all nav, in-place popup redirect, dialog auto-answer) on browser pool + login view; live-proven |
+| W2 | Global DB message insert was plain INSERT → every streaming update failed UNIQUE → empty assistant bubbles persisted | HIGH | FIXED — replace-on-conflict like project DB; red→green + live proof |
+| W3 | FallbackRouter declared send success after one click() with zero verification | HIGH | FIXED — URL-gains-chat-id verification + bounded retries (`SendSubmissionPolicy`); fake success eliminated live |
+| W4 | qwen sendButton selector hit a DIV wrapper whose click() is a no-op (inner `<button class="send-button">` is the real trigger — proven by manual DOM experiment that got a real answer) | MED | FIXED — catalog selector reordered + structural tests |
+| W5 | Route discovery proposed telemetry/relative endpoints (`users/status`) → `-1002 unsupported URL` | MED | FIXED — junk-path + absolute-URL gates in `findChatAPI`; red→green |
+| W6 | Remote-chat binding clicked "New Chat" before reusing an already-open conversation | MED | FIXED — reuse current chat-id first |
+
+Honest remainder (documented, not masked): qwen model-injection false-negative vs current DOM (models ARE visible; selectors drifted), which then routes into a catalog-refresh that navigates away before final capture; Kimi honestly gated at manual login. Full report: `docs/DEVILS_ADVOCATE_ROUND_30_2026-08-22.md`.
+
+Full suite after Round 30: **2249 tests / 355 suites, all green**.

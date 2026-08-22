@@ -1175,6 +1175,10 @@ class AppState: ObservableObject {
     private var webViews: [String: WKWebView] = [:]
     private var webViewLastUsed: [String: Date] = [:]
     private let maxWebBrowserInstances = 100
+    /// Round 30: permissive navigation/UI policies kept alive per webview so
+    /// vendor region redirects (kimi.com → kimi.ai), window.open hops and JS
+    /// dialogs all work in the embedded browser.
+    private var webNavigationPolicies: [String: PermissiveWebNavigationPolicy] = [:]
 
     @Published private(set) var webBrowserActionJournal: [WebBrowserActionRecord] = WebBrowserActionJournal.load()
 
@@ -1192,17 +1196,25 @@ class AppState: ObservableObject {
             webViewLastUsed[key] = Date()
             return existing
         }
-if webViews.count >= maxWebBrowserInstances,
+        // Evict the policy together with its webview.
+        if webViews.count >= maxWebBrowserInstances,
            let evictKey = webViewLastUsed.min(by: { $0.value < $1.value })?.key,
            let evicted = webViews.removeValue(forKey: evictKey) {
             evicted.stopLoading()
             evicted.removeFromSuperview()
             webViewLastUsed.removeValue(forKey: evictKey)
+            _ = webNavigationPolicies.removeValue(forKey: evictKey)
         }
         let config = WKWebViewConfiguration()
         config.processPool = WKProcessPool()
         config.websiteDataStore = WKWebsiteDataStore.default()
         let wv = WKWebView(frame: NSRect(x: 0, y: 0, width: 1280, height: 720), configuration: config)
+        // Round 30: maximally permissive navigation — allow every host/scheme,
+        // redirect popups into the same view, auto-answer JS dialogs.
+        let policy = PermissiveWebNavigationPolicy(ownerWebView: wv)
+        wv.navigationDelegate = policy
+        wv.uiDelegate = policy
+        webNavigationPolicies[key] = policy
         // Add to a hidden window to ensure proper loading
         let hiddenWindow = NSWindow(contentRect: NSRect(x: -2000, y: 0, width: 1280, height: 720),
                                     styleMask: [.borderless],

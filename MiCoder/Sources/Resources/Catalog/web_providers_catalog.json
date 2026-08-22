@@ -43,7 +43,7 @@
       "effortToggle": "deep-thinking",
       "selectors": {
         "input": "textarea.message-input-textarea, div[contenteditable='true']",
-        "sendButton": ".message-input-right-button-send, button.ant-btn-primary",
+        "sendButton": ".chat-prompt-send-button button.send-button, button.send-button, .message-input-right-button-send button, .message-input-right-button-send, button.ant-btn-primary",
         "responseContainer": "div[class*='markdown-body'], div[class*='response']",
         "stopButton": "button[class*='stop']",
         "modelDropdown": ".ant-dropdown-trigger",

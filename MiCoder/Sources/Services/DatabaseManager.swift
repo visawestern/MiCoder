@@ -664,7 +664,13 @@ class DatabaseManager {
         guard let db = db else { throw DatabaseError.notInitialized }
 
         let now = Int64(Date().timeIntervalSince1970)
+        // Round 30: replace-on-conflict, mirroring ProjectDatabaseManager.
+        // MessageStore.update() re-saves the SAME message id on every
+        // streaming/status change; a plain INSERT threw
+        // `UNIQUE constraint failed: messages.id`, so streamed assistant text
+        // never reached this database (empty bubbles after history reload).
         try db.run(messages.insert(
+            or: .replace,
             messageId <- id,
             messageSessionId <- sessionId,
             messageRole <- role,

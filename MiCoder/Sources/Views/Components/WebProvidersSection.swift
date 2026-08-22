@@ -1037,10 +1037,23 @@ struct WebViewRepresentable: NSViewRepresentable {
     let url: String
 
     func makeNSView(context: Context) -> WKWebView {
+        // Round 30: maximally permissive navigation for the login surface too —
+        // region redirects (kimi.com → kimi.ai), window.open hops and JS
+        // dialogs must all work while the user logs in.
+        let policy = PermissiveWebNavigationPolicy(ownerWebView: webView)
+        webView.navigationDelegate = policy
+        webView.uiDelegate = policy
+        context.coordinator.retainedPolicy = policy
         if let u = URL(string: url) { webView.load(URLRequest(url: u)) }
         return webView
     }
     func updateNSView(_ nsView: WKWebView, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        var retainedPolicy: PermissiveWebNavigationPolicy?
+    }
 }
 
 /// Keeps the persistent chat WebView attached to the AppKit hierarchy so

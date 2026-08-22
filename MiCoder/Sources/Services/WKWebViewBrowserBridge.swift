@@ -51,7 +51,7 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         throw WKWebViewBridgeError.navigationTimeout
     }
 
-    func typeText(_ text: String, into selector: String, humanized: Bool) async throws {
+    func typeText(_ text: String, into selector: String, humanized: Bool, pressEnter: Bool = true) async throws {
         // React/Vue editors do not observe a plain `value = ...` assignment.
         // Use the native setter and the same beforeinput/input/change sequence a
         // real keystroke produces, then dispatch Enter so submit handlers see a
@@ -99,6 +99,7 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
           el.dispatchEvent(inputEvent);
           el.dispatchEvent(new Event('change', {bubbles:true}));
 
+          if (!\(pressEnter ? "true" : "false")) { return true; }
           var keyOptions = {key:'Enter', code:'Enter', keyCode:13, which:13,
                             bubbles:true, cancelable:true};
           try { el.dispatchEvent(new KeyboardEvent('keydown', keyOptions)); } catch (_) {}

@@ -1581,6 +1581,29 @@ struct ChatPanelView: View {
             return existing
         }
 
+        // Round 30: reuse an already-open remote conversation BEFORE creating a
+        // new one. SmartSend may have just submitted into a fresh chat whose
+        // URL now carries /chat/{id} or /c/{id}; letting startNewSession() run
+        // first would click "New Chat" and wipe that submitted conversation.
+        if let currentID = try? await driver.getCurrentChatID(),
+           !currentID.isEmpty,
+           let currentURL = try? await bridge.currentURL(),
+           SendSubmissionPolicy.urlHasChatID(currentURL),
+           let currentHost = URL(string: currentURL)?.host,
+           currentHost == providerHost {
+            let canonical = WebRemoteChatIdentityLogic.canonicalURL(
+                baseURL: currentURL,
+                vendor: config.vendor,
+                chatID: currentID
+            ) ?? currentURL
+            let reused = WebRemoteChatMapping(key: key,
+                                              remoteChatID: currentID,
+                                              remoteURL: canonical,
+                                              verifiedTitle: appState.selectedSession?.title)
+            appState.saveWebRemoteChatMapping(reused)
+            try? await bridge.waitForSelector(selector: driver.selectors.input, timeout: 10_000)
+            return reused
+        }
         guard let newURL = try await driver.startNewSession(),
               let remoteID = try await driver.getCurrentChatID(),
               let remoteURL = WebRemoteChatIdentityLogic.canonicalURL(

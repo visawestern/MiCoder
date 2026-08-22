@@ -13,7 +13,7 @@ struct WebModelDiscoveryTests {
         var expandedMoreModels = false
 
         func navigate(to url: String) async throws {}
-        func typeText(_ text: String, into selector: String, humanized: Bool) async throws {}
+        func typeText(_ text: String, into selector: String, humanized: Bool, pressEnter: Bool) async throws {}
         func click(selector: String) async throws {
             clickedSelectors.append(selector)
             if selector.contains("current-model") {
@@ -122,7 +122,7 @@ private final class FakeNestedQwenBridge: BrowserAutomationBridge {
     var expansionLevel = 0
 
     func navigate(to url: String) async throws {}
-    func typeText(_ text: String, into selector: String, humanized: Bool) async throws {}
+    func typeText(_ text: String, into selector: String, humanized: Bool, pressEnter: Bool) async throws {}
     func click(selector: String) async throws {
         if selector.contains("qwen-model") { dropdownOpen = true }
     }

@@ -7,7 +7,10 @@ protocol BrowserAutomationBridge {
     /// Navigate the tab to a URL.
     func navigate(to url: String) async throws
     /// Type text into the element matching `selector` (optionally char-by-char).
-    func typeText(_ text: String, into selector: String, humanized: Bool) async throws
+    /// `pressEnter: false` skips the Enter sequence — Round 30: some vendors
+    /// (qwen.ai) clear the input on a synthetic Enter instead of submitting;
+    /// button-driven submission with verification is then used.
+    func typeText(_ text: String, into selector: String, humanized: Bool, pressEnter: Bool) async throws
     /// Click the element matching `selector`.
     func click(selector: String) async throws
     /// Click the first element matching `selector` whose visible text equals

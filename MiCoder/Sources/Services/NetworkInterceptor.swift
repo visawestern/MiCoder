@@ -325,6 +325,22 @@ enum NetworkInterceptor {
         var candidates: [(request: CapturedRequest, score: Float)] = []
 
         for req in postRequests {
+            // Round 30 quality gates:
+            // (a) obvious non-chat endpoints (telemetry/status/log) must never
+            // become the chat route — they previously won scoring via their
+            // JSON bodies and produced garbage sends;
+            // (b) relative URLs cannot be executed by URLSession
+            // ("unsupported URL", -1002) — only absolute http(s) qualify.
+            let urlLower = req.url.lowercased()
+            let junkMarkers = ["users/status", "/users/", "telemetry", "tracking",
+                               "/log", "/report", "/ping", "/health", "/feedback",
+                               "/analytics"]
+            if junkMarkers.contains(where: { urlLower.contains($0) }) { continue }
+            guard let parsed = URL(string: req.url),
+                  let scheme = parsed.scheme?.lowercased(),
+                  scheme == "https" || scheme == "http",
+                  parsed.host != nil else { continue }
+
             var score: Float = 0
 
             // Check Content-Type
@@ -348,7 +364,6 @@ enum NetworkInterceptor {
             }
 
             // Check URL for chat endpoints
-            let urlLower = req.url.lowercased()
             let chatPaths = ["/chat", "/send", "/message", "/api/", "/completions", "/generate", "/v1/", "/v2/"]
             for path in chatPaths {
                 if urlLower.contains(path) {

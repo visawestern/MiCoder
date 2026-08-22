@@ -425,7 +425,7 @@ enum FallbackRouter {
         do {
             // Type message into input
             let inputSelector = await findInputElement(bridge: bridge)
-            try await bridge.typeText(message, into: inputSelector, humanized: false)
+            try await bridge.typeText(message, into: inputSelector, humanized: false, pressEnter: true)
 
             // Small delay for UI to process
             try? await Task.sleep(nanoseconds: 200_000_000)
@@ -473,13 +473,42 @@ enum FallbackRouter {
             let sendSelector = vendorEntry?.sendButton
                 ?? "button[type='submit'], .send-button"
 
-            logger.log("BrowserAutomation: typing into '\(inputSelector)'")
-            try await bridge.typeText(message, into: inputSelector, humanized: false)
-            logger.log("BrowserAutomation: typed, waiting 200ms")
-            try? await Task.sleep(nanoseconds: 200_000_000)
-            logger.log("BrowserAutomation: clicking '\(sendSelector)'")
-            try await bridge.click(selector: sendSelector)
-            logger.log("BrowserAutomation: clicked send button")
+            logger.log("BrowserAutomation: typing into '\(inputSelector)' (no Enter — button-driven)")
+            // Round 30: no synthetic Enter. On qwen.ai it CLEARS the input
+            // instead of submitting; the verified button click below sends.
+            try await bridge.typeText(message, into: inputSelector, humanized: false, pressEnter: false)
+            logger.log("BrowserAutomation: typed, settling 700ms for framework state")
+            try? await Task.sleep(nanoseconds: 700_000_000)
+
+            // Round 30: a click is an attempt, not proof. Verify the vendor
+            // page actually submitted (URL gains a remote chat id); retry the
+            // click within budget — fresh pages may bind handlers late.
+            let beforeURL = (try? await bridge.currentURL()) ?? ""
+            var verified = false
+            for attempt in 1...SendSubmissionPolicy.maxClickAttempts {
+                logger.log("BrowserAutomation: click attempt \(attempt)/\(SendSubmissionPolicy.maxClickAttempts) on '\(sendSelector)'")
+                try await bridge.click(selector: sendSelector)
+                try? await Task.sleep(nanoseconds: UInt64(SendSubmissionPolicy.verifyDelayMs) * 1_000_000)
+                let afterURL = (try? await bridge.currentURL()) ?? beforeURL
+                if SendSubmissionPolicy.submissionDetected(beforeURL: beforeURL, afterURL: afterURL) {
+                    verified = true
+                    logger.log("BrowserAutomation: submission verified via URL change")
+                    break
+                }
+                logger.log("BrowserAutomation: submission not verified yet (url unchanged)")
+            }
+            guard verified else {
+                let duration = Date().timeIntervalSince(startTime)
+                logger.log("BrowserAutomation: FAILED — page never confirmed submission after \(SendSubmissionPolicy.maxClickAttempts) clicks")
+                return SendAttempt(
+                    method: "browserAutomation",
+                    success: false,
+                    duration: duration,
+                    error: "the provider page did not confirm sending (no remote chat id appeared)",
+                    response: nil,
+                    confidence: 0.0
+                )
+            }
 
             let duration = Date().timeIntervalSince(startTime)
             return SendAttempt(
