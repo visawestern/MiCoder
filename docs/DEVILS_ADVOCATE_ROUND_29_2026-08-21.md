@@ -142,6 +142,22 @@ swift test    # 2229 tests / 350 suites — all green
   MainActor task is independent, worst case is the explicit 30s timeout response.
 - R5: no test added deliberately; recorded as config correction to avoid fake coverage.
 
+## Quality Pass (2026-08-21, same round)
+
+Every fix was re-audited manually chain-by-chain. Scorecard after the pass:
+
+| Item | Claim | Re-verification | Score |
+|------|-------|-----------------|-------|
+| R1 | no shell injection via git args | execute() wiring read line-by-line (all five mutating verbs use builders; git_status/diff take no model args); real-repo proof extended from git_commit to git_checkout (`b1$(touch …)` → marker absent, literal name reaches git) | 100% |
+| R2 | grep never truncates silently | GAP FOUND: >500-file scan with zero matches returned bare `(no matches)`, hiding the truncation. FIXED — warning appended to the empty result | 100% |
+| R3 | glob truthful for slash patterns | semantics verified (`*` no cross-`/`, `**` spans, classes pass through, cap+warning); preserved pre-existing semantics documented: directories may match a pattern, `{a,b}` braces are NOT expanded (literal) | 100% |
+| R4 | /api/send echoes post-mutation state | all server handlers swept: handleSelect echoes nothing (safe); handleAddAccount touches only disk-backed store; webviews/save-session/inspect already MainActor-synchronized. Accepted trade-off (documented): GET handlers still READ @Published state off-main — blocking them on MainActor would risk API stalls when the UI is busy; the SIGSEGV class was write-driven (objectWillChange→AppKit), reads do not trigger it | 100% |
+| R5 | SSE uses configured timeouts | verified connect() is the only bytes() call site | 100% |
+
+New tests this pass: `maliciousCheckoutDoesNotExecuteSideEffects`, `grepFileLimitNoMatchesStillWarns`.
+
+Full suite: **2231 tests / 350 suites — all green**.
+
 ## Next Round Candidates
 
 1. `receiveHTTPRequest` reads at most 64KB per request — large POST bodies truncate silently

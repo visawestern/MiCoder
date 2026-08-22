@@ -181,7 +181,7 @@ Full suite: **2215 tests / 348 suites** (25 pre-existing failures in web selecto
 | ID | Area | Severity | Status |
 |----|------|----------|--------|
 | R1 | `git_commit/checkout/push/pull/log` interpolated model-controlled `message`/`branch`/`remote`/`limit` raw into `/bin/zsh -c` → arbitrary shell execution beyond the approved operation | HIGH | FIXED — `shellQuoted`/`sanitizedNumber`; command builders extracted + tested; end-to-end red test on a real repo proves no side-effect file |
-| R2 | grep early-returned at the 100-match limit with NO truncation warning (bypassed Round-28 warning logic) | MED | FIXED — single-exit flags; hit-limit warning appended |
+| R2 | grep early-returned at the 100-match limit with NO truncation warning (bypassed Round-28 warning logic); zero-match truncated scans also hid the truncation | MED | FIXED — single-exit flags; hit-limit warning; `(no matches)` over a truncated scan now carries the file-truncation warning too |
 | R3 | glob matched lastPathComponent only → every pattern containing "/" (`src/*.swift`, `**/*.swift`) answered "(no matches)" | MED | FIXED — proper glob→regex (`*`, `**`, `?`, `[...]`) matched against root-relative path; sorted; 500-entry cap + warning; symlink-mismatch latent bug also fixed |
 | R4 | `/api/send` built its response from values captured BEFORE the async main-thread mutation block → stale chatId/providerId/modelId (new chat answered with old/empty id) | HIGH | FIXED — `resolveSendTargets` (@MainActor) returns post-mutation state; semaphore pattern like existing handlers; explicit timeout error instead of stale data |
 | R5 | Round-28 P4 set SSE timeouts on `sharedSession` but `connect()` still used `URLSession.shared` — fix had zero runtime effect | LOW | FIXED — connect uses the configured session |
@@ -189,4 +189,4 @@ Full suite: **2215 tests / 348 suites** (25 pre-existing failures in web selecto
 Baseline note: the "25 pre-existing failures" left by Round 28 were already closed by commit
 `d421aa4`; this round audited green code and still found five defects.
 
-Full suite after fixes: **2229 tests / 350 suites, all green**. Details: `docs/DEVILS_ADVOCATE_ROUND_29_2026-08-21.md`.
+Full suite after fixes: **2231 tests / 350 suites, all green** (incl. quality pass: checkout injection proof + grep zero-match truncation warning). Details: `docs/DEVILS_ADVOCATE_ROUND_29_2026-08-21.md`.

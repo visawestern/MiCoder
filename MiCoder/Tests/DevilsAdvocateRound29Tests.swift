@@ -184,4 +184,45 @@ struct DevilsAdvocateRound29Tests {
                                                arguments: ["pattern": "gen_*.txt", "path": "."]))
         #expect(g.contains("Truncated"), "got tail: \(g.suffix(120))")
     }
+
+    // MARK: - Quality pass: end-to-end injection proof beyond git_commit
+
+    @Test("malicious checkout branch cannot spawn extra commands in a real repo")
+    func maliciousCheckoutDoesNotExecuteSideEffects() async throws {
+        let root = try makeRoot()
+        let exec = makeExecutor(root: root)
+        _ = await exec.execute(WebToolCall(name: "write_file",
+                                           arguments: ["path": "README.md", "content": "# t"]))
+        #expect(runGit(["init", "-q"], in: root) == 0)
+        _ = runGit(["config", "user.email", "test@example.com"], in: root)
+        _ = runGit(["config", "user.name", "tester"], in: root)
+        _ = runGit(["add", "."], in: root)
+        _ = runGit(["commit", "-qm", "init"], in: root)
+        #expect(runGit(["branch", "b1"], in: root) == 0)
+
+        let marker = root.appendingPathComponent("pwned_checkout.marker")
+        let result = await exec.execute(WebToolCall(name: "git_checkout",
+                                                    arguments: ["branch": "b1$(touch pwned_checkout.marker)"]))
+        #expect(!FileManager.default.fileExists(atPath: marker.path),
+                "command substitution in branch must NOT execute; got: \(result)")
+        #expect(result.contains("b1"), "literal branch name should reach git, got: \(result)")
+    }
+
+    // MARK: - Quality pass: grep file-limit warning with zero matches
+
+    @Test("grep reports file-limit truncation even when no matches were found")
+    func grepFileLimitNoMatchesStillWarns() async throws {
+        let root = try makeRoot()
+        let exec = makeExecutor(root: root)
+        for i in 0..<505 {
+            _ = await exec.execute(WebToolCall(name: "write_file",
+                                               arguments: ["path": "gen_\(String(format: "%04d", i)).txt",
+                                                           "content": "unrelated \(i)"]))
+        }
+        let g = await exec.execute(WebToolCall(name: "grep",
+                                               arguments: ["pattern": "NEVER_MATCHES_XYZ_42", "path": "."]))
+        #expect(g.contains("(no matches)"), "got: \(g.suffix(160))")
+        #expect(g.contains("Truncated"),
+                "silent (no matches) over a truncated scan is a data lie, got: \(g)")
+    }
 }

@@ -320,7 +320,14 @@ struct ProjectWebToolExecutor: WebToolExecutor {
                 }
             }
         }
-        if hits.isEmpty { return "(no matches)" }
+        if hits.isEmpty {
+            // Quality pass R29b: a bare "(no matches)" over a truncated scan
+            // would hide the fact that files beyond the cap were never read.
+            if truncatedFiles {
+                return "(no matches)\n⚠️ Truncated: scanned \(fileLimit) of \(scanned.count) files"
+            }
+            return "(no matches)"
+        }
         var result = hits.joined(separator: "\n")
         if truncatedFiles {
             result += "\n⚠️ Truncated: scanned \(fileLimit) of \(scanned.count) files"
