@@ -50,5 +50,58 @@ struct SendSubmissionPolicyTests {
         #expect(SendSubmissionPolicy.maxClickAttempts <= 5)
         #expect(SendSubmissionPolicy.verifyDelayMs >= 800)
         #expect(SendSubmissionPolicy.verifyDelayMs <= 3000)
+        #expect(SendSubmissionPolicy.maxMatchRetries >= 2)
+        #expect(SendSubmissionPolicy.maxMatchRetries <= 5)
+        #expect(SendSubmissionPolicy.matchRetryDelayMs >= 400)
+        #expect(SendSubmissionPolicy.matchRetryDelayMs <= 2000)
+    }
+
+    @Test("qwen effort candidates cover the live English menu and legacy labels")
+    @MainActor
+    func qwenEffortLabelsAdaptedToLiveDOM() throws {
+        // Round 30b: the live qwen.ai menu renders "Auto"/"Think"/"Fast";
+        // the old hardcoded Chinese-only labels could never match it.
+        let driver = try makeDriver(vendor: .qwen)
+        #expect(driver.effortCandidates(for: .medium)?.contains("Auto") == true,
+                "medium must map to the live 'Auto' item")
+        #expect(driver.effortCandidates(for: .high)?.contains("Think") == true,
+                "high must map to the live 'Think' item")
+        #expect(driver.effortCandidates(for: .low)?.contains("Fast") == true,
+                "low must map to the live 'Fast' item")
+        #expect(driver.effortCandidates(for: .high)?.contains("深度思考") == true,
+                "legacy Chinese label retained as fallback")
+    }
+}
+
+extension SendSubmissionPolicyTests {
+    @MainActor
+    private func makeDriver(vendor: WebChatVendor) throws -> WebChatDriver {
+        var config = WebProviderConfig(vendor: vendor, toolCallDelayMs: 0, acknowledgedToS: true)
+        config.selectedModel = ""
+        return WebChatDriver(
+            bridge: ThrowingBridge(),
+            executor: ProjectWebToolExecutor(projectRoot: "/tmp"),
+            selectors: WebVendorSelectors(input: "textarea", sendButton: "button",
+                                          responseContainer: "div", stopButton: "button"),
+            config: config, projectRoot: "/tmp", accessLevel: .fullAccess)
+    }
+
+    private final class ThrowingBridge: BrowserAutomationBridge {
+        struct Err: Error {}
+        func navigate(to url: String) async throws { throw Err() }
+        func typeText(_ text: String, into selector: String, humanized: Bool, pressEnter: Bool) async throws { throw Err() }
+        func click(selector: String) async throws { throw Err() }
+        @discardableResult func clickByText(selector: String, text: String) async throws -> Bool { false }
+        func readText(selector: String) async throws -> String { "" }
+        func responseFingerprint(selector: String) async throws -> String { "" }
+        func exists(selector: String) async throws -> Bool { false }
+        func pageText() async throws -> String { "" }
+        func currentURL() async throws -> String { "" }
+        func cookies() async throws -> [BrowserCookie] { [] }
+        func setCookies(_ cookies: [BrowserCookie]) async throws {}
+        func setLocalStorage(_ values: [String: String]) async throws {}
+        func screenshot(selector: String?) async throws -> Data { Data() }
+        func stopGeneration() async throws {}
+        func wait(ms: Int) async {}
     }
 }

@@ -29,4 +29,27 @@ struct QwenSendSelectorTests {
         #expect(selector.contains(".message-input-right-button-send"),
                 "old wrapper must remain as a later fallback")
     }
+
+    // MARK: - Round 30b: live DOM adaptation (2026-08-23)
+
+    private func qwenEntry() throws -> (effortDropdown: String, effortItem: String) {
+        let entry = try WebProviderCatalog.loadBundled().selectors(for: "qwen")
+        return (entry?.effortDropdown ?? "", entry?.effortItem ?? "")
+    }
+
+    @Test("effort trigger targets the inner dropdown-menu trigger first")
+    func effortTriggerTargetsInnerTrigger() throws {
+        let e = try qwenEntry()
+        let first = e.effortDropdown.split(separator: ",").first
+            .map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
+        #expect(first.contains("dropdown-menu-trigger"),
+                "wrapper .qwen-thinking-selector click() does not open the menu; got '\(first)'")
+    }
+
+    @Test("effort item selector covers the v2 menu items")
+    func effortItemCoversMenuItems() throws {
+        let e = try qwenEntry()
+        #expect(e.effortItem.contains("qwen-chat-v2-dropdown-menu-item"),
+                "live options render as .qwen-chat-v2-dropdown-menu-item[role=menuitem]; got '\(e.effortItem)'")
+    }
 }

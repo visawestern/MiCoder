@@ -1336,6 +1336,11 @@ struct ChatPanelView: View {
         // AFTER the page is loaded and ready. If it succeeds, the message was
         // already sent, so we skip the standard driver.runTurn() typing/clicking
         // but still need to wait for the response.
+        // Round 30b: capture the response fingerprint BEFORE submitting — the
+        // answer may be fully rendered by the time the driver reads its
+        // baseline (binding + injection take seconds), and a post-send baseline
+        // would make awaitResponse wait for changes that never come.
+        let preSendFingerprint = (try? await bridge.responseFingerprint(selector: selectors.responseContainer)) ?? ""
         let smartSendResult = await trySmartSendFallback(
             config: effectiveConfig, bridge: bridge, message: text
         )
@@ -1453,7 +1458,9 @@ struct ChatPanelView: View {
             }
         }
         print("🔄 [ChatPanelView] Calling driver.runTurn with skipSend=\(skipDriverSend)")
-        await driver.runTurn(userMessage: text, isFirstMessage: isFirst, emit: presentEvent, skipSend: skipDriverSend)
+        await driver.runTurn(userMessage: text, isFirstMessage: isFirst, emit: presentEvent,
+                             skipSend: skipDriverSend,
+                             preSendFingerprint: skipDriverSend ? preSendFingerprint : nil)
         print("🔄 [ChatPanelView] driver.runTurn completed")
         guard !WebChatCancellationLogic.shouldStopAfterDriver(isCancelled: Task.isCancelled) else {
             finishWebTurn()

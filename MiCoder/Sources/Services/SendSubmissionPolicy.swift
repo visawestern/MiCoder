@@ -12,6 +12,12 @@ enum SendSubmissionPolicy {
     static let maxClickAttempts = 3
     static let verifyDelayMs = 1200
 
+    /// Round 30b: bounded retries for model/effort menu matching. Menus can
+    /// render late (fresh page, post-submission navigation), so a failed match
+    /// re-opens the menu and tries again instead of one-shot failing.
+    static let maxMatchRetries = 3
+    static let matchRetryDelayMs = 800
+
     /// True only when the URL CHANGED and now carries a chat id segment.
     static func submissionDetected(beforeURL: String, afterURL: String) -> Bool {
         guard afterURL != beforeURL else { return false }

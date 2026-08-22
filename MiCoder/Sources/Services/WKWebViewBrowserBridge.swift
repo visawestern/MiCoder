@@ -247,15 +247,38 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         (function(){
           var wanted = String(\(Self.jsString(text))).trim().toLowerCase().replace(/\\s+/g,' ');
           var els = document.querySelectorAll(\(Self.jsString(selector)));
-          for (var i = 0; i < els.length; i++) {
-            var el = els[i];
+          function visible(el){
             var style = window.getComputedStyle(el);
-            if (style.display === 'none' || style.visibility === 'hidden') { continue; }
-            var actual = String(el.innerText || el.textContent || '').trim().toLowerCase().replace(/\\s+/g,' ');
-            if (actual !== wanted) { continue; }
+            return style.display !== 'none' && style.visibility !== 'hidden';
+          }
+          function norm(el){
+            return String(el.innerText || el.textContent || '').trim().toLowerCase().replace(/\\s+/g,' ');
+          }
+          function clickThrough(el){
             var target = el.closest('[role="option"], [role="menuitem"], button, a, [tabindex]') || el;
             target.click();
-            return true;
+          }
+          var i, el;
+          // Pass 1: exact normalized equality.
+          for (i = 0; i < els.length; i++) {
+            el = els[i];
+            if (!visible(el)) { continue; }
+            if (norm(el) === wanted) { clickThrough(el); return true; }
+          }
+          // Round 30 pass 2: vendor menus often render "Name<description>"
+          // inside ONE option element ("Qwen3.7-Plus The high-performance…"),
+          // which broke exact matching. Accept a prefix ONLY when the next
+          // character is a space, so "…Plus-Max" can never satisfy "…Plus".
+          for (i = 0; i < els.length; i++) {
+            el = els[i];
+            if (!visible(el)) { continue; }
+            var actual = norm(el);
+            if (actual.length > wanted.length &&
+                actual.charAt(wanted.length) === ' ' &&
+                actual.lastIndexOf(wanted, 0) === 0) {
+              clickThrough(el);
+              return true;
+            }
           }
           return false;
         })();

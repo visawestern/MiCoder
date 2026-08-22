@@ -29,7 +29,7 @@ struct WebChatDriver {
     /// Run one user turn: inject the message, then loop tool-calls until the
     /// model produces a final answer or hits the iteration limit. Emits events
     /// (streaming/toolCall/toolResult/captcha/final) via `emit`.
-    func runTurn(userMessage: String, isFirstMessage: Bool, emit: (WebChatEvent) -> Void, skipSend: Bool = false) async {
+    func runTurn(userMessage: String, isFirstMessage: Bool, emit: (WebChatEvent) -> Void, skipSend: Bool = false, preSendFingerprint: String? = nil) async {
         print("🔄 [WebChatDriver] runTurn started, skipSend=\(skipSend)")
         do {
             try Task.checkCancellation()
@@ -72,8 +72,19 @@ struct WebChatDriver {
             var responseBaseline: ResponseBaseline
             if skipSend {
                 print("🔄 [WebChatDriver] skipSend=true, getting baseline response")
-                let baselineText = (try? await readLatestResponse()) ?? ""
-                let baselineFingerprint = (try? await bridge.responseFingerprint(selector: selectors.responseContainer)) ?? baselineText
+                let baselineText: String
+                let baselineFingerprint: String
+                if let preSendFingerprint {
+                    // Round 30b: the answer may ALREADY be fully rendered by the
+                    // time we get here (binding + injection took seconds). Use
+                    // the fingerprint captured BEFORE SmartSend submitted so any
+                    // post-send content counts as new.
+                    baselineText = ""
+                    baselineFingerprint = preSendFingerprint
+                } else {
+                    baselineText = (try? await readLatestResponse()) ?? ""
+                    baselineFingerprint = (try? await bridge.responseFingerprint(selector: selectors.responseContainer)) ?? baselineText
+                }
                 print("🔄 [WebChatDriver] baseline: text_len=\(baselineText.count), fingerprint_len=\(baselineFingerprint.count)")
                 responseBaseline = ResponseBaseline(text: baselineText, fingerprint: baselineFingerprint)
             } else {
@@ -344,6 +355,8 @@ struct WebChatDriver {
     /// Returns false when a requested model/effort could not be confirmed. The
     /// caller must abort before typing so a recovery retry cannot duplicate text.
     private func injectModelAndEffort(emit: (WebChatEvent) -> Void) async -> Bool {
+        // Round 30b: let post-submission navigation settle first.
+        await waitForPageURLStability()
         // Resolve vendor-specific selectors from the catalog. A custom provider
         // may have no bundled entry, but can still be safe when the user saved a
         // custom model selector. A selected model without either route is a hard
@@ -382,7 +395,19 @@ struct WebChatDriver {
                 await bridge.wait(ms: 500)
                 let modelText = config.selectedModel
                 let itemSelector = catalogEntry?.modelItem ?? "[role='option'], [class*='option']"
-                let clicked = (try? await bridge.clickVisibleTextExact(selector: itemSelector, text: modelText)) == true
+                // Round 30b: menus can render late; re-open and re-match within
+                // a small bounded budget instead of one-shot failing.
+                var clicked = false
+                for attempt in 1...SendSubmissionPolicy.maxMatchRetries {
+                    if attempt > 1 {
+                        try? await bridge.click(selector: openedSelector)
+                        await bridge.wait(ms: SendSubmissionPolicy.matchRetryDelayMs)
+                        try? await bridge.waitForSelector(selector: "div.model-item, [class*='model-item'], [role='option']", timeout: 5000)
+                        await bridge.wait(ms: SendSubmissionPolicy.matchRetryDelayMs)
+                    }
+                    clicked = (try? await bridge.clickVisibleTextExact(selector: itemSelector, text: modelText)) == true
+                    if clicked { break }
+                }
                 if clicked {
                     // Let the model menu close and the provider commit its state
                     // before touching the independent effort control.
@@ -420,7 +445,8 @@ struct WebChatDriver {
             guard let selectedModel else { return nil }
             return selectedModel.availableEfforts.contains(config.effort) ? config.effort : nil
         }()
-        if let effortLabel = effortToInject.flatMap(effortLabel), let catalogEntry {
+        if let candidates = effortToInject.flatMap({ effortCandidates(for: $0) }), !candidates.isEmpty,
+           let catalogEntry {
             let selectors = (catalogEntry.effortDropdown?.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) } ?? [])
                 .filter { !$0.isEmpty }
             var anySuccess = false
@@ -434,15 +460,26 @@ struct WebChatDriver {
                     try? await bridge.waitForSelector(selector: "[class*='effort'], [class*='thinking'], [role='option'], [class*='option']", timeout: 5000)
                     await bridge.wait(ms: 500)
                     let itemSelector = catalogEntry.effortItem ?? "[role='option'], [class*='option']"
-                    let clicked = (try? await bridge.clickVisibleTextExact(selector: itemSelector, text: effortLabel)) == true
-                    guard clicked else {
-                        lastError = "effort option not found"
-                        continue
+                    // Round 30b: match ANY known label variant, retrying with a
+                    // re-opened menu within the bounded budget.
+                    for attempt in 1...SendSubmissionPolicy.maxMatchRetries {
+                        if attempt > 1 {
+                            try? await bridge.click(selector: selector)
+                            await bridge.wait(ms: SendSubmissionPolicy.matchRetryDelayMs)
+                        }
+                        var labelClicked = false
+                        for candidate in candidates where !labelClicked {
+                            labelClicked = (try? await bridge.clickVisibleTextExact(selector: itemSelector, text: candidate)) == true
+                        }
+                        if labelClicked {
+                            // Keep effort injection isolated from the model menu.
+                            await bridge.wait(ms: 800)
+                            anySuccess = true
+                            break
+                        }
                     }
-                    // Keep effort injection isolated from the model menu.
-                    await bridge.wait(ms: 800)
-                    anySuccess = true
-                    break
+                    if anySuccess { break }
+                    lastError = "effort option not found"
                 } catch {
                     lastError = error.localizedDescription
                 }
@@ -654,24 +691,31 @@ struct WebChatDriver {
 
     /// Select thinking/effort level.
     func selectThinking(_ level: WebEffort) async throws {
-        let label = effortLabel(for: level) ?? level.displayName
+        // Round 30b: try live menu labels first, legacy fallbacks after.
+        let labels = effortCandidates(for: level) ?? [level.displayName]
         switch config.vendor {
         case .qwen:
-            try await bridge.click(selector: ".qwen-thinking-selector")
-            try await bridge.waitForSelector(selector: ".ant-select-item-option", timeout: 5000)
-            let clicked = try await bridge.clickByText(
-                selector: ".ant-select-item-option-content",
-                text: label
-            )
-            if !clicked { throw WebChatError.effortNotFound(label) }
+            try await bridge.click(selector: ".qwen-thinking-selector .qwen-chat-v2-dropdown-menu-trigger, .qwen-thinking-selector")
+            try? await bridge.waitForSelector(selector: ".qwen-chat-v2-dropdown-menu-item, .ant-select-item-option", timeout: 5000)
+            var clicked = false
+            for label in labels where !clicked {
+                clicked = try await bridge.clickByText(
+                    selector: ".qwen-chat-v2-dropdown-menu-item, .ant-select-item-option-content",
+                    text: label
+                )
+            }
+            if !clicked { throw WebChatError.effortNotFound(labels.first ?? "") }
         case .kimi:
             try await bridge.click(selector: "[class*='effort']")
             try await bridge.waitForSelector(selector: "[class*='effort-option'], [role='option']", timeout: 5000)
-            let clicked = try await bridge.clickByText(
-                selector: "[class*='effort-option'], [role='option']",
-                text: label
-            )
-            if !clicked { throw WebChatError.effortNotFound(label) }
+            var kimiClicked = false
+            for candidate in labels where !kimiClicked {
+                kimiClicked = try await bridge.clickByText(
+                    selector: "[class*='effort-option'], [role='option']",
+                    text: candidate
+                )
+            }
+            if !kimiClicked { throw WebChatError.effortNotFound(labels.first ?? "") }
         default:
             break
         }
@@ -690,25 +734,48 @@ struct WebChatDriver {
     }
 
     /// Map a WebEffort to a vendor-specific label for matching in the dropdown.
-    private func effortLabel(for effort: WebEffort) -> String? {
+    /// Round 30b: right after a verified SmartSend submission the page is still
+    /// navigating to its remote chat URL; the model/effort DOM may be mid-reload
+    /// and a single immediate injection pass races against it. Wait until the
+    /// location has stopped changing before touching vendor menus.
+    private func waitForPageURLStability(maxMs: Int = 6000) async {
+        var last = (try? await bridge.currentURL()) ?? ""
+        var stableReads = 0
+        let start = Date()
+        while Date().timeIntervalSince(start) * 1000 < Double(maxMs) {
+            await bridge.wait(ms: 300)
+            let now = (try? await bridge.currentURL()) ?? last
+            if now == last {
+                stableReads += 1
+                if stableReads >= 2 { return }
+            } else {
+                last = now
+                stableReads = 0
+            }
+        }
+    }
+
+    func effortCandidates(for effort: WebEffort) -> [String]? {
         switch config.vendor {
         case .kimi:
             switch effort {
-            case .low: return "快"
-            case .medium: return "标准"
-            case .high: return "深度思考"
+            case .low: return ["快"]
+            case .medium: return ["标准"]
+            case .high: return ["深度思考"]
             }
         case .qwen:
+            // Round 30b: live menu renders English items ("Auto"/"Think"/"Fast");
+            // legacy Chinese labels kept as fallbacks for older locales.
             switch effort {
-            case .low: return "快"
-            case .medium: return "标准"
-            case .high: return "深度思考"
+            case .low: return ["Fast", "快"]
+            case .medium: return ["Auto", "标准"]
+            case .high: return ["Think", "深度思考"]
             }
         case .chatgpt:
             switch effort {
-            case .low: return "low"
-            case .medium: return "medium"
-            case .high: return "high"
+            case .low: return ["low"]
+            case .medium: return ["medium"]
+            case .high: return ["high"]
             }
         case .custom:
             return nil

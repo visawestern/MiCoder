@@ -49,8 +49,8 @@
         "modelDropdown": ".ant-dropdown-trigger",
         "modelButton": ".ant-dropdown-trigger",
         "modelItem": ".wms-list__item",
-        "effortDropdown": ".qwen-thinking-selector",
-        "effortItem": "[class*='effort-option'], [class*='thinking-option'], [role='option']",
+        "effortDropdown": ".qwen-thinking-selector .qwen-chat-v2-dropdown-menu-trigger, .qwen-thinking-selector",
+        "effortItem": ".qwen-chat-v2-dropdown-menu-item, [class*='effort-option'], [class*='thinking-option'], [role='option']",
         "newChatTexts": [
           "Начать",
           "Start",

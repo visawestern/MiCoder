@@ -86,11 +86,55 @@ conversation with a chat id is REUSED first.
 4. `handleDiscoverModels` debug endpoint targets the most-recent webview, not
    the selected provider's — pre-existing; use `/api/refresh-models`.
 
+## Round 30b (2026-08-23) — live selector adaptation: FULL PIPELINE CLOSED
+
+The "honest remainder" from the first part was worked through by probing the
+LIVE qwen.ai DOM via `/api/evaluate` and adapting code/catalog until the entire
+user pipeline succeeded through the API alone.
+
+### Findings & fixes (all verified on the running app)
+
+| Issue | Live-DOM evidence | Fix |
+|-------|-------------------|-----|
+| Model menu items render "Name<description>" in ONE element (`qwen3.7-plus the high-performance…`) → exact matcher never matched | probe: `.wms-list__item` norm-text ≠ wanted | `clickVisibleTextExact` pass 2: prefix match with a mandatory space boundary ("…Plus-Max" can never satisfy "…Plus") |
+| Effort trigger click was a no-op | wrapper `.qwen-thinking-selector` ignores programmatic click; inner `.qwen-chat-v2-dropdown-menu-trigger` opens it | catalog `effortDropdown` targets the inner trigger first |
+| Effort options moved | live items are `.qwen-chat-v2-dropdown-menu-item[role=menuitem]` with texts "Auto"/"Think"/"Fast"; old selectors matched nothing | catalog `effortItem` updated |
+| Effort labels were stale Chinese-only (快/标准/深度思考) | live menu renders English "Auto"/"Think"/"Fast" | `effortCandidates(for:)` returns [live label, legacy label]; both tried; same for `selectThinking` |
+| Injection raced post-submission navigation | first attempt always failed right after SmartSend while page reloaded to /c/{uuid} | `waitForPageURLStability()` before injection + bounded re-open/re-match retries (`maxMatchRetries`) |
+| Answer capture raced generation: baseline read AFTER binding+injection found the already-rendered answer → awaitResponse waited forever | assistant bubble stayed at status line despite visible answer on page | ChatPanelView captures `preSendFingerprint` BEFORE SmartSend submits and passes it to `runTurn(skipSend:preSendFingerprint:)`; anything rendered after submission counts as new |
+
+### Final end-to-end proof (API-only, no UI)
+
+```json
+// POST /api/send {"message":"Какой сейчас год? Ответь цифрами."}
+user:      "Какой сейчас год? Ответь цифрами."
+assistant: "2026
+
+Browser route: Qwen · local chat 840A143E-… · remote chat 0241b5e5-… ·
+model Qwen3.7-Plus · effort Средний"
+```
+
+Delivery verified (URL gained `/c/{uuid}`), model+effort injected without
+errors, remote chat bound, answer captured and persisted.
+
+### Known limitations (documented, not masked)
+
+1. A degenerate one-word prompt once produced an EMPTY qwen answer (reasoning
+   completed, no text). Provider-side behavior; a follow-up manual send on the
+   same page answered normally («привет»).
+2. Effort labels are locale-dependent on qwen.ai; candidates cover English +
+   legacy Chinese. Other locales would need catalog additions.
+3. Kimi still requires a one-time manual login; W1 ensures the kimi.ai handoff
+   now works inside that login surface.
+
+Tests: **2252 / 355 suites — all green** (new: effort-candidate coverage,
+match-retry bounds).
+
 ## Verification
 
 ```bash
 swift build    # green
-swift test     # 2249 tests / 355 suites — all green
+swift test     # 2252 tests / 355 suites — all green
 ```
 
 Live pipeline evidence: `~/.micoder/logs/api-server.log`, `smartsend.log`

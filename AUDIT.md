@@ -206,4 +206,19 @@ App launched and driven via its own HTTP API against real providers. Findings ve
 
 Honest remainder (documented, not masked): qwen model-injection false-negative vs current DOM (models ARE visible; selectors drifted), which then routes into a catalog-refresh that navigates away before final capture; Kimi honestly gated at manual login. Full report: `docs/DEVILS_ADVOCATE_ROUND_30_2026-08-22.md`.
 
-Full suite after Round 30: **2249 tests / 355 suites, all green**.
+### Round 30b (2026-08-23) — live selector adaptation, FULL PIPELINE CLOSED
+
+Every remainder item was resolved by probing the live qwen.ai DOM via the API:
+
+| ID | Issue | Fix |
+|----|-------|-----|
+| W7 | Menu items render "Name<description>" in one element → exact matcher failed | prefix match with space boundary in `clickVisibleTextExact` |
+| W8 | Effort trigger wrapper click was a no-op; options moved to `.qwen-chat-v2-dropdown-menu-item[role=menuitem]` | catalog effortDropdown/effortItem updated to live DOM |
+| W9 | Effort labels stale Chinese-only vs live "Auto"/"Think"/"Fast" | `effortCandidates` [live, legacy] both tried |
+| W10 | Injection raced post-submission navigation | `waitForPageURLStability` + bounded re-open/re-match retries |
+| W11 | Answer capture raced generation (baseline read after answer rendered) | `preSendFingerprint` captured before SmartSend, passed into runTurn |
+
+**END-TO-END PROOF (API-only)**: send «Какой сейчас год?» → assistant captured
+«2026» with remote chat bound and model Qwen3.7-Plus / effort applied.
+
+Full suite: **2252 tests / 355 suites, all green**.
