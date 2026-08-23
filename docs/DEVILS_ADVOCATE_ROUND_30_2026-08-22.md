@@ -130,11 +130,36 @@ errors, remote chat bound, answer captured and persisted.
 Tests: **2252 / 355 suites — all green** (new: effort-candidate coverage,
 match-retry bounds).
 
+## Round 30c (2026-08-23) — user-reported UI regressions
+
+### W12 — "Add account" button was dead/missing
+The vendor tile in Settings ran `guard !providers.contains(vendor) else { return }`
+— once a vendor had ANY config the tile silently did nothing and there was no
+other way to add a second account from the UI (`POST /api/add-account` could).
+
+**Fix**: new pure `WebAccountCloneLogic.next(for:in:)` — first click creates the
+default config; every next click clones the LAST account of that vendor with a
+fresh id, "(Account N)" display name (suffix de-duplicated for clones of
+clones) and NO copied session/cookies/model binding. Tile caption becomes
+"+ Account" (10 locales). Red→green tests caught a real bug during TDD: ICU
+regex required escaped parentheses for the suffix strip.
+
+### W13 — model/effort ("brain") detection must run BEFORE session capture
+Detection was a manual button press after login. The live DOM proves it never
+needed cookies (models are public). **Fix**: `WebProviderLoginView.task` now
+auto-runs `findModelsBuiltIn()` as soon as the login sheet opens — while the
+page loads and before any cookie capture; the manual button remains as a
+re-run affordance.
+
+Tests: **2255 / 356 suites — all green** (3 new clone-logic tests).
+Live check: `POST /api/add-account {"vendor":"qwen"}` → "Qwen (Account 2)"
+with a fresh id appears in `/api/providers`.
+
 ## Verification
 
 ```bash
 swift build    # green
-swift test     # 2252 tests / 355 suites — all green
+swift test     # 2255 tests / 356 suites — all green
 ```
 
 Live pipeline evidence: `~/.micoder/logs/api-server.log`, `smartsend.log`

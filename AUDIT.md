@@ -221,4 +221,11 @@ Every remainder item was resolved by probing the live qwen.ai DOM via the API:
 **END-TO-END PROOF (API-only)**: send «Какой сейчас год?» → assistant captured
 «2026» with remote chat bound and model Qwen3.7-Plus / effort applied.
 
-Full suite: **2252 tests / 355 suites, all green**.
+### Round 30c (2026-08-23) — user-reported UI regressions
+
+| ID | Issue | Fix |
+|----|-------|-----|
+| W12 | "Add account" tile was a dead button once a vendor existed (silent return); no second-account UI | `WebAccountCloneLogic` — clone last account (fresh id, "(Account N)" name, NO session/cookies copied); "+ Account" caption, 10 locales; red→green tests incl. ICU regex escape fix |
+| W13 | Model/effort ("brain") detection required a manual button after login | auto-runs on login-sheet open via `.task`, BEFORE cookie capture |
+
+Full suite: **2255 tests / 356 suites, all green**.

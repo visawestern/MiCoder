@@ -287,6 +287,7 @@ enum AppLocalizationKey: String, CaseIterable {
     case locActiveChats
     case locActiveDays
     case locAdd
+    case locAddAnotherAccount
     case locAddFilesMicodercommands
     case locAddProvider
     case locAddProvider1
@@ -957,6 +958,7 @@ enum AppLocalization {
         "locActiveChats": ["en": "Active chats", "ru": "Активные чаты", "es": "Chats activos", "fr": "Conversations actives", "de": "Aktive Chats", "zh": "活跃聊天", "ja": "アクティブチャット", "ko": "활성 채팅", "pt": "Conversas ativas", "ar": "المحادثات النشطة"],
         "locActiveDays": ["en": "Active days", "ru": "Активные дни", "es": "Días activos", "fr": "Jours actifs", "de": "Aktive Tage", "zh": "活跃天数", "ja": "アクティブ日数", "ko": "활성 일수", "pt": "Dias ativos", "ar": "الأيام النشطة"],
         "locAdd": ["en": "Add", "ru": "Добавить", "es": "Agregar", "fr": "Ajouter", "de": "Hinzufügen", "zh": "添加", "ja": "追加", "ko": "추가", "pt": "Adicionar", "ar": "إضافة"],
+        "locAddAnotherAccount": ["en": "+ Account", "ru": "+ Аккаунт", "es": "+ Cuenta", "fr": "+ Compte", "de": "+ Konto", "zh": "+ 账号", "ja": "+ アカウント", "ko": "+ 계정", "pt": "+ Conta", "ar": "+ حساب"],
         "locAddFilesMicodercommands": ["en": "Add .md files to ~/.micoder/commands", "ru": "Добавьте .md файлы в ~/.micoder/commands", "es": "Agregar archivos .md a ~/.micoder/commands", "fr": "Ajouter des fichiers .md dans ~/.micoder/commands", "de": ".md-Dateien zu ~/.micoder/commands hinzufügen", "zh": "将 .md 文件添加到 ~/.micoder/commands", "ja": "~/.micoder/commands に .md ファイルを追加", "ko": "~/.micoder/commands에 .md 파일 추가", "pt": "Adicionar arquivos .md em ~/.micoder/commands", "ar": "إضافة ملفات .md إلى ~/.micoder/commands"],
         "locAddProvider": ["en": "Add Provider", "ru": "Добавить провайдер", "es": "Agregar proveedor", "fr": "Ajouter un fournisseur", "de": "Anbieter hinzufügen", "zh": "添加提供商", "ja": "プロバイダーを追加", "ko": "공급자 추가", "pt": "Adicionar provedor", "ar": "إضافة مزود"],
         "locAddProvider1": ["en": "Add provider", "ru": "Добавить провайдер", "es": "Agregar proveedor", "fr": "Ajouter un fournisseur", "de": "Anbieter hinzufügen", "zh": "添加提供商", "ja": "プロバイダーを追加", "ko": "공급자 추가", "pt": "Adicionar provedor", "ar": "إضافة مزود"],

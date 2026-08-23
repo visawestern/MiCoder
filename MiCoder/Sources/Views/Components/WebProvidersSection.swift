@@ -36,9 +36,9 @@ struct WebProvidersSection: View {
                             Text(vendor.displayName)
                                 .interfaceFont(size: 12, weight: .medium)
                                 .foregroundColor(Color.mimo.textPrimary)
-                            Text(providers.contains { $0.vendor == vendor } ? L.t(AppLocalizationKey.locConfigured) : L.t(AppLocalizationKey.locAdd))
+                            Text(providers.contains { $0.vendor == vendor } ? L.t(AppLocalizationKey.locAddAnotherAccount) : L.t(AppLocalizationKey.locAdd))
                                 .interfaceFont(size: 10)
-                                .foregroundColor(providers.contains { $0.vendor == vendor } ? Color.mimo.success : Color.mimo.textMuted)
+                                .foregroundColor(providers.contains { $0.vendor == vendor } ? Color.mimo.brand : Color.mimo.textMuted)
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 12)
                         .background(Color.mimo.surface)
@@ -87,8 +87,8 @@ struct WebProvidersSection: View {
     }
 
     private func addVendor(_ vendor: WebChatVendor) {
-        guard !providers.contains(where: { $0.vendor == vendor }) else { return }
-        providers.append(WebProviderConfig(vendor: vendor))
+        let outcome = WebAccountCloneLogic.next(for: vendor, in: providers)
+        providers.append(outcome.config)
         save()
     }
 
@@ -769,8 +769,11 @@ struct WebProviderLoginView: View {
                                                       sessionID: sessionID) {
                 capturedCookies = store.cookies
             }
-            // Model discovery is explicit: the user can choose fast DOM scraping
-            // or the separate free-AI-assisted mode above.
+            // Round 30b: model/effort detection must happen AUTOMATICALLY and
+            // immediately — the login page is already loading here, BEFORE the
+            // user captures any cookies. It never required a session, so it
+            // should not wait for one (or for a manual button press).
+            findModelsBuiltIn()
         }
     }
 
