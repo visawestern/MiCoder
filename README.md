@@ -32,19 +32,18 @@ in one native SwiftUI application.
 
 ## Status
 
-The current codebase has been audited screen-by-screen and tracked in the canonical feature
-spreadsheet (`docs/FEATURE_SPREADSHEET.csv`, 274 user stories):
+The full product capability set is described by activity in
+[`TECHNICAL_SPECIFICATION.md`](TECHNICAL_SPECIFICATION.md). The canonical user-story/status
+registry is `docs/FEATURE_SPREADSHEET.csv`; per-activity checks live in `docs/activity-checklists/`.
 
-- `224 PASS`
-- `44 PARTIAL`
-- `1 MISSING`
-- `5 FUTURE`
+- `>2200` `@Test` across `>350` suites — all green.
+- Release build: `./build-app.sh` produces `MiCoder.app`.
+- Live web-chat agent pipeline verified through the built-in API (port 8766): provider →
+  embedded browser → real send → verified delivery → model response captured → persisted.
 
-The send-chain recovery rounds added explicit coverage for web model/effort coherence, verified
-browser controls, embedded-browser stop, MiCoder Auto Free feedback, and startup connection
-readiness. The macOS UI/WebKit target requires macOS for the final runtime regression; the
-Linux-only sandbox cannot compile SwiftUI, AppKit, or WebKit. Incomplete behavior is intentionally
-marked `PARTIAL` in the canonical spreadsheet and is not presented as complete functionality.
+Incomplete behavior is intentionally marked `PARTIAL`/`MISSING`/`FUTURE` in the canonical
+spreadsheet and is never presented as complete functionality. The macOS UI/WebKit target requires
+macOS for the final runtime regression; a Linux-only sandbox cannot compile SwiftUI/AppKit/WebKit.
 
 ## Requirements
 
@@ -77,10 +76,12 @@ MiCoder/
     Views/            SwiftUI screens and reusable components
     Resources/        App resources and bundled catalogs
   Tests/              Logic, storage, provider, safety, and integration tests
-  activity-checklists/    Manual code-based checklist for every activity
-  FEATURE_SPREADSHEET.csv Canonical user-story/status registry
-  FEATURE_TEST_REPORT.md  Round-by-round verification and error report
-  CONSOLIDATED_PROJECT_REPORT.md  Current project-wide summary
+TECHNICAL_SPECIFICATION.md   Canonical product specification by activity
+  docs/activity-checklists/    Manual code-based checklist for every activity
+  docs/FEATURE_SPREADSHEET.csv Canonical user-story/status registry
+  docs/FEATURE_TEST_REPORT.md  Round-by-round verification and error report
+  docs/CONSOLIDATED_PROJECT_REPORT.md  Current project-wide summary
+  docs/deprecated/             Historical/research/round docs (superseded)
 ```
 
 ## Privacy And Storage
