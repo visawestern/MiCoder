@@ -301,8 +301,10 @@ enum WebProviderStore {
     }
 
     /// Removes stale UI labels from catalogs persisted by older discovery
-    /// versions. The list remains visible only for validated model labels; an
-    /// invalid selected model is cleared rather than silently sent.
+    /// versions. Only scraped `discoveredModels` go through the DOM-label
+    /// validator; explicit `manuallyAddedModels` and the stored selection are
+    /// user data and are preserved. An out-of-list selected model falls back
+    /// to the first known model only when the list is non-empty.
     static func sanitize(_ config: WebProviderConfig) -> WebProviderConfig {
         var updated = config
         var seen = Set<String>()
@@ -313,14 +315,26 @@ enum WebProviderStore {
             model.name = normalized
             return model
         }
+        // Manually added models are explicit user input, NOT scraped DOM text:
+        // they must survive verbatim (trimmed, deduped). Running them through
+        // the scraped-label validator drops legitimate names like
+        // "another-model" that carry no version digit.
+        var seenManual = Set<String>()
         updated.manuallyAddedModels = config.manuallyAddedModels.compactMap { raw in
-            guard let normalized = WebModelListParser.normalize(raw, vendor: config.vendor) else { return nil }
-            return normalized
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, trimmed.count <= 80,
+                  seenManual.insert(trimmed).inserted else { return nil }
+            return trimmed
         }
         updated.discoveredEffortLevels = Array(Set(updated.discoveredModels.flatMap(\.availableEfforts)))
             .sorted { $0.rawValue < $1.rawValue }
         if !updated.allModels.contains(updated.selectedModel) {
-            updated.selectedModel = updated.allModels.first ?? ""
+            // Fall back only when there is something to fall back to. With an
+            // empty list there is no valid alternative, so the stored explicit
+            // selection is preserved instead of being destroyed.
+            if let first = updated.allModels.first {
+                updated.selectedModel = first
+            }
         }
         return updated
     }

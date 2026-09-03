@@ -18,10 +18,15 @@ struct E12RunCommandGateTests {
         #expect(WebToolAccessGate.permission(for: runCommandCall(), accessLevel: .fullAccess) == .allow)
     }
 
-    @Test("editAutomatically and askBeforeChanges require approval for run_command")
+    @Test("editAutomatically and askBeforeChanges require approval for a mutating run_command")
     func lowerLevelsRequireApproval() {
-        #expect(WebToolAccessGate.permission(for: runCommandCall(), accessLevel: .editAutomatically) == .requireApproval)
-        #expect(WebToolAccessGate.permission(for: runCommandCall(), accessLevel: .askBeforeChanges) == .requireApproval)
+        // A mutating command (here: touch) must be gated below fullAccess.
+        let mutating = WebToolCall(name: "run_command", arguments: ["command": "touch x.txt"])
+        #expect(WebToolAccessGate.permission(for: mutating, accessLevel: .editAutomatically) == .requireApproval)
+        #expect(WebToolAccessGate.permission(for: mutating, accessLevel: .askBeforeChanges) == .requireApproval)
+        // A read-only command (ls) is allowed at every level.
+        #expect(WebToolAccessGate.permission(for: runCommandCall(), accessLevel: .editAutomatically) == .allow)
+        #expect(WebToolAccessGate.permission(for: runCommandCall(), accessLevel: .askBeforeChanges) == .allow)
     }
 
     @Test("read-only tools never require approval at any level")

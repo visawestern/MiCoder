@@ -21,6 +21,7 @@ struct MiCoderAutoFreeProviderTests {
         #expect(MiCoderAutoFreeClient.freeModelIDs.first == "big-pickle")
         #expect(MiCoderAutoFreeClient.freeModelIDs.contains("deepseek-v4-flash-free"))
         #expect(MiCoderAutoFreeClient.freeModelIDs.contains("mimo-v2.5-free"))
+        #expect(MiCoderAutoFreeClient.freeModelIDs.contains("muse-spark-1.3-contributor-free"))
         #expect(!MiCoderAutoFreeClient.freeModelIDs.contains("claude-opus-5"))
         #expect(!MiCoderAutoFreeClient.freeModelIDs.contains("gpt-5.5"))
     }

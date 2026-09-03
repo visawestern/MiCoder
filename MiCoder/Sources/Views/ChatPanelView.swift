@@ -741,8 +741,17 @@ struct ChatPanelView: View {
                         }
                         return nil
                     }
+                // Tool-protocol preamble with the full tool list must reach ANY
+                // delivery path as the SYSTEM message, otherwise free/API models
+                // reply "I have no file access" because they never saw a tool list.
+                let projectRoot = appState.selectedWorkspace?.path ?? FileManager.default.currentDirectoryPath
+                let sysPrompt = WebToolProtocolEmulator.systemPreamble(
+                    userSystemPrompt: params.systemPrompt ?? "",
+                    projectRoot: projectRoot,
+                    isGitRepo: (try? GitRepository.repositoryRoot(for: projectRoot)) != nil
+                )
                 let msgs = ChatHistoryBuilder.messages(
-                    systemPrompt: params.systemPrompt, priorTurns: prior, userText: text,
+                    systemPrompt: sysPrompt, priorTurns: prior, userText: text,
                     parts: directParts.isEmpty ? nil : directParts
                 )
                 // Round 8 P4: show a visible waiting state (the old flow left an

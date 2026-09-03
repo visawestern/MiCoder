@@ -1,8 +1,8 @@
 import Foundation
 
 /// Anonymous OpenCode Zen client for MiCoder Auto Free.
-/// Only the official temporary free-model IDs are eligible; paid catalog models
-/// are never selected automatically.
+/// Eligible models are the trusted temporary free-model IDs plus any live
+/// `-free`-suffixed route; paid catalog models are never selected automatically.
 final class MiCoderAutoFreeClient {
     static let shared = MiCoderAutoFreeClient()
 
@@ -12,13 +12,16 @@ final class MiCoderAutoFreeClient {
 
     /// Ordered by preference. The list is intersected with the live `/models`
     /// response so a retired free model can never be selected accidentally.
+    /// Kept in sync with the live catalog (verified 2026-09-04: 8 `-free`
+    /// routes live; `hy3-free` and `ling-3.0-tiny-free` retired by the server).
     static let freeModelIDs = [
         "big-pickle",
+        "muse-spark-1.3-contributor-free",
         "deepseek-v4-flash-free",
         "mimo-v2.5-free",
-        "hy3-free",
+        "muse-spark-1.2-contributor-free",
+        "ling-3.0-flash-fin-free",
         "laguna-s-2.1-free",
-        "ling-3.0-tiny-free",
         "nemotron-3-ultra-free",
         "nemotron-3.5-lightning-free"
     ]
@@ -81,6 +84,24 @@ final class MiCoderAutoFreeClient {
         "mimo-v2.5-free": ModelProfile(
             id: "mimo-v2.5-free",
             displayName: "MiMo V2.5 Free",
+            summary: "Temporary OpenCode free route.",
+            capabilities: ["Free", "Anonymous", "SSE"]
+        ),
+        "muse-spark-1.3-contributor-free": ModelProfile(
+            id: "muse-spark-1.3-contributor-free",
+            displayName: "Muse Spark 1.3 Contributor Free",
+            summary: "Temporary OpenCode free route.",
+            capabilities: ["Free", "Anonymous", "SSE"]
+        ),
+        "muse-spark-1.2-contributor-free": ModelProfile(
+            id: "muse-spark-1.2-contributor-free",
+            displayName: "Muse Spark 1.2 Contributor Free",
+            summary: "Temporary OpenCode free route.",
+            capabilities: ["Free", "Anonymous", "SSE"]
+        ),
+        "ling-3.0-flash-fin-free": ModelProfile(
+            id: "ling-3.0-flash-fin-free",
+            displayName: "Ling 3.0 Flash Fin Free",
             summary: "Temporary OpenCode free route.",
             capabilities: ["Free", "Anonymous", "SSE"]
         ),
@@ -158,7 +179,8 @@ final class MiCoderAutoFreeClient {
         }
     }
 
-    /// Fetch the anonymous live catalog and return only known temporary free models.
+    /// Fetch the anonymous live catalog and return eligible free models:
+    /// trusted IDs first (preference order), then any other live `-free` route.
     func listModels() async throws -> [Model] {
         var request = URLRequest(url: Self.providerBaseURL.appendingPathComponent("models"))
         request.timeoutInterval = 20
@@ -180,8 +202,13 @@ final class MiCoderAutoFreeClient {
         return models
     }
 
+    /// A model is eligible when it is a trusted temporary free route OR any
+    /// live `-free`-suffixed route. The suffix is OpenCode Zen's own marker for
+    /// free routes, so newly published free models (e.g. a future
+    /// `*-contributor-free`) appear after refresh without an app update, while
+    /// paid models (never `-free`-suffixed) stay unreachable anonymously.
     static func isEligibleFreeModel(_ modelID: String) -> Bool {
-        freeModelIDs.contains(modelID)
+        freeModelIDs.contains(modelID) || modelID.hasSuffix("-free")
     }
 
     /// Stream a completion without an API key. The selected model must be in

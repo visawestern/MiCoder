@@ -74,4 +74,24 @@ struct ChatHistoryBuilderTests {
     @Test func emptyHistoryProducesJustUser() {
         #expect(ChatHistoryBuilder.history(from: []).isEmpty)
     }
+
+    @Test func systemPreambleCarriesToolListToAPIModel() {
+        // The full tool list must reach API models as a system message, so a
+        // free/API model replies with tools instead of "I have no file access".
+        let preamble = WebToolProtocolEmulator.systemPreamble(
+            userSystemPrompt: "Be the assistant.",
+            projectRoot: "/tmp/proj",
+            isGitRepo: false
+        )
+        let msgs = ChatHistoryBuilder.messages(
+            systemPrompt: preamble, priorTurns: [], userText: "hi"
+        )
+        #expect(msgs.first?.role == "system")
+        let sys = msgs.first?.content ?? ""
+        #expect(sys.contains("Available tools:"))
+        #expect(sys.contains("run_command"))
+        #expect(sys.contains("read_file"))
+        // User-derived system prompt is folded in at the top.
+        #expect(sys.hasPrefix("Be the assistant."))
+    }
 }

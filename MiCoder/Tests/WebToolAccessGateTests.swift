@@ -16,18 +16,20 @@ struct WebToolAccessGateTests {
         }
     }
 
-    @Test("edit-automatically allows file mutations but not shell execution")
-    func editAutomaticallyKeepsShellGuarded() {
+    @Test("edit-automatically allows file mutations and read-only shell, guards mutating shell")
+    func editAutomaticallyKeepsMutatingShellGuarded() {
         let write = WebToolCall(name: "write_file", arguments: ["path": "a.txt", "content": "x"])
-        let command = WebToolCall(name: "run_command", arguments: ["command": "echo x"])
+        let readOnlyShell = WebToolCall(name: "run_command", arguments: ["command": "echo x"])
+        let mutatingShell = WebToolCall(name: "run_command", arguments: ["command": "rm x.txt"])
         #expect(WebToolAccessGate.permission(for: write, accessLevel: .editAutomatically) == .allow)
-        #expect(WebToolAccessGate.permission(for: command, accessLevel: .editAutomatically) == .requireApproval)
+        #expect(WebToolAccessGate.permission(for: readOnlyShell, accessLevel: .editAutomatically) == .allow)
+        #expect(WebToolAccessGate.permission(for: mutatingShell, accessLevel: .editAutomatically) == .requireApproval)
     }
 
     @Test("full access allows file and shell mutations")
     func fullAccessAllowsMutations() {
         let write = WebToolCall(name: "write_file", arguments: ["path": "a.txt", "content": "x"])
-        let command = WebToolCall(name: "run_command", arguments: ["command": "echo x"])
+        let command = WebToolCall(name: "run_command", arguments: ["command": "rm x.txt"])
         #expect(WebToolAccessGate.permission(for: write, accessLevel: .fullAccess) == .allow)
         #expect(WebToolAccessGate.permission(for: command, accessLevel: .fullAccess) == .allow)
     }

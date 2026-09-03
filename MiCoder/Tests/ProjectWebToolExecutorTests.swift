@@ -65,8 +65,17 @@ struct ProjectWebToolExecutorTests {
     @Test func runCommandRequiresApproval() async throws {
         let root = try makeRoot()
         let exec = ProjectWebToolExecutor(projectRoot: root.path, accessLevel: .askBeforeChanges)
-        let r = await exec.execute(WebToolCall(name: "run_command", arguments: ["command": "ls"]))
+        // Mutating shell still gated below fullAccess (read-only `ls`/`echo`
+        // intentionally run at any level — see runCommandReadOnlyRunsAnyLevel).
+        let r = await exec.execute(WebToolCall(name: "run_command", arguments: ["command": "touch probe.txt"]))
         #expect(r.contains("requires approval"))
+    }
+
+    @Test func runCommandReadOnlyRunsAnyLevel() async throws {
+        let root = try makeRoot()
+        let exec = ProjectWebToolExecutor(projectRoot: root.path, accessLevel: .askBeforeChanges)
+        let r = await exec.execute(WebToolCall(name: "run_command", arguments: ["command": "ls"]))
+        #expect(!r.contains("requires approval"))
     }
 
     @Test func unknownToolErrors() async throws {
