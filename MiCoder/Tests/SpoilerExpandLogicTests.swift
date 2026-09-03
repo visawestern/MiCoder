@@ -28,4 +28,14 @@ struct SpoilerExpandLogicTests {
         let height = SpoilerExpandLogic.contentHeight(isExpanded: true, measuredHeight: 0)
         #expect(height == SpoilerExpandLogic.contentMaxHeight)
     }
+
+    @Test("Collapsed preview shows a fixed 4-line slice of reasoning")
+    func collapsedPreviewShowsFourLines() {
+        #expect(SpoilerExpandLogic.collapsedPreviewLineCount == 4)
+        let height = SpoilerExpandLogic.collapsedPreviewHeight()
+        #expect(height == 72) // 4 lines × 18pt
+        // A reasonable preview must be taller than zero but well under the max.
+        #expect(height > 0)
+        #expect(height < SpoilerExpandLogic.contentMaxHeight)
+    }
 }

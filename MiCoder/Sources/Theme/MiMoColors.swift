@@ -66,6 +66,9 @@ extension Color {
         static let cyan = Color(red: 0.0, green: 0.72, blue: 0.88)
         static let violet = Color(red: 0.45, green: 0.38, blue: 0.95)
         static let mint = Color(red: 0.20, green: 0.82, blue: 0.72)
+
+        // Thinking / reasoning appears in the purple "thinking" tone.
+        static let thinking = violet
         
         // Text - high contrast for light theme
         static var textPrimary: Color {

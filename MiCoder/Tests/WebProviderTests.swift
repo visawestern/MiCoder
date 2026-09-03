@@ -126,6 +126,44 @@ struct WebToolProtocolEmulatorTests {
         #expect(calls.first?.arguments["path"] == "README.md")
     }
 
+    @Test func parsesTaggedToolCallXML() {
+        // The exact format big-pickle / MiMo-style models emit (observed in a
+        // real session): <tool_call>NAME<arg_key>k</arg_key><arg_value>v</arg_value></tool_call>.
+        let response = """
+        ## ТЕСТ 1: pwd
+        **Цель:** проверить окружение<tool_call>execute_command<arg_key>command</arg_key><arg_value>pwd</arg_value></tool_call>
+        """
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+        #expect(calls.count == 1)
+        #expect(calls.first?.name == "run_command")
+        #expect(calls.first?.arguments["command"] == "pwd")
+    }
+
+    @Test func parsesTaggedToolCallMultipleArgs() {
+        let response = "<tool_call>read_file<arg_key>path</arg_key><arg_value>src/main.swift</arg_value></tool_call>"
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+        #expect(calls.count == 1)
+        #expect(calls.first?.name == "read_file")
+        #expect(calls.first?.arguments["path"] == "src/main.swift")
+    }
+
+    @Test func taggedToolCallIsNotFinalResponse() {
+        // A <tool_call> block must not be treated as a plain-text final answer,
+        // otherwise the agentic loop stops and never executes the tool.
+        let response = "Работаю<tool_call>run_command<arg_key>command</arg_key><arg_value>ls -la</arg_value></tool_call>"
+        #expect(!WebToolProtocolEmulator.isFinalResponse(response))
+    }
+
+    @Test func systemPreambleTeachesBothFormatsAndTools() {
+        let preamble = WebToolProtocolEmulator.systemPreamble(projectRoot: "/proj", isGitRepo: true)
+        #expect(preamble.contains("```tool"))
+        #expect(preamble.contains("<tool_call>"))
+        #expect(preamble.contains("Working directory: /proj"))
+        #expect(preamble.contains("Is directory a git repo: yes"))
+        #expect(preamble.contains("read_file"))
+        #expect(preamble.contains("run_command"))
+    }
+
     @Test func toolNameAliasesAreCaseInsensitive() {
         #expect(WebToolProtocolEmulator.canonicalToolName("LS") == "list_dir")
         #expect(WebToolProtocolEmulator.canonicalToolName("ls") == "list_dir")

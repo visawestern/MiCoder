@@ -166,4 +166,34 @@ struct DatabaseBridgeProjectRoutingTests {
         let types = parts.map(\.type)
         #expect(types == ["text", "reasoning", "tool_call", "step_start", "step_finish", "image"])
     }
+
+    // MARK: - Temp/global session persistence (Round: tools must survive reload).
+
+    @Test("a temporary session persists its parts and a tool_call part into the global database")
+    func tempSessionPersistsPartsIncludingToolCall() throws {
+        let unique = UUID().uuidString
+        let sessionID = "temp-\(unique)"
+        let messageID = "m-temp-\(unique)"
+
+        // No project is ever registered for this session, so saveMessage routes
+        // to the global DatabaseManager (the legacy/temp path).
+        var msg = Message(id: messageID, role: .assistant, content: "checking...", isFinished: true)
+        msg.parts = [
+            .text("Запускаю проверку"),
+            .toolCall(name: "run_command", args: "{\"command\":\"pwd\"}", result: "/Users/x", callID: "call-\(unique)")
+        ]
+
+        DatabaseBridge.shared.saveMessage(msg, sessionId: sessionID)
+
+        let loaded = DatabaseBridge.shared.loadMessages(sessionId: sessionID)
+        let restored = loaded.first(where: { $0.id == messageID })
+        #expect(restored != nil, "temporary message must be readable back after save")
+
+        let db = DatabaseManager.shared
+        let parts = try db.getMessageParts(messageId: messageID)
+        #expect(parts.count == 2, "temp session must persist its parts, not just the text content")
+        #expect(parts.map(\.type) == ["text", "tool_call"])
+        #expect(parts.last?.toolName == "run_command")
+        #expect(parts.last?.toolCallId == "call-\(unique)")
+    }
 }

@@ -255,7 +255,13 @@ class DatabaseBridge: ObservableObject {
                     reasoning: message.reasoning.isEmpty ? nil : message.reasoning,
                     usage: message.usage
                 )
-                MiCoderAPIServer.appendLog("💾 saveMessage: insertMessage succeeded")
+                // Persist every part (text, reasoning, tool_call, steps, images)
+                // exactly like project sessions, so temp sessions reload with
+                // their tool calls intact instead of losing them.
+                for (index, part) in message.parts.enumerated() {
+                    try saveMessagePart(part, messageId: message.id, sequenceOrder: index, insert: db.insertMessagePart)
+                }
+                MiCoderAPIServer.appendLog("💾 saveMessage: insertMessage + \(message.parts.count) parts succeeded")
             } catch {
                 MiCoderAPIServer.appendLog("❌ Failed to save temporary message: \(error)")
             }
@@ -331,11 +337,13 @@ class DatabaseBridge: ObservableObject {
             do {
                 let records = try db.getMessagesBySession(sessionId: sessionId, limit: limit)
                 return records.map { record in
-                    Message(
+                    let parts = (try? db.getMessageParts(messageId: record.id)) ?? []
+                    return Message(
                         id: record.id,
                         role: stringToRole(record.role),
                         content: record.content,
                         isStreaming: false,
+                        parts: parts.map { convertPartRecord($0) },
                         reasoning: record.reasoning ?? "",
                         isFinished: record.isFinished
                     )

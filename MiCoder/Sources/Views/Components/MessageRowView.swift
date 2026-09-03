@@ -327,22 +327,28 @@ struct ThinkingSpoilerView: View {
     let duration: TimeInterval?
     let isThinking: Bool
     @State private var isExpanded = false
-    @State private var measuredContentHeight: CGFloat = 0
 
     private var canExpand: Bool {
         !reasoning.isEmpty
+    }
+
+    /// While the reply is still streaming the reasoning grows, so keep it fully
+    /// visible. Only once the message is finished and the user has not expanded
+    /// it do we collapse to the short preview.
+    private var showsFull: Bool {
+        isExpanded || isThinking
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button(action: {
                 guard canExpand else { return }
-                isExpanded.toggle()
+                withAnimation(SpoilerExpandLogic.animation) { isExpanded.toggle() }
             }) {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.right")
                         .interfaceFont(size: 10, weight: .semibold)
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .rotationEffect(.degrees(showsFull ? 90 : 0))
                         .opacity(canExpand ? 1 : 0)
                         .frame(width: 10)
 
@@ -366,7 +372,7 @@ struct ThinkingSpoilerView: View {
 
                     Spacer(minLength: 0)
                 }
-                .foregroundColor(Color.mimo.textSecondary)
+                .foregroundColor(Color.mimo.thinking)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
                 .contentShape(Rectangle())
@@ -375,49 +381,24 @@ struct ThinkingSpoilerView: View {
             .disabled(!canExpand && !isThinking)
 
             if canExpand {
-                ScrollView {
-                    MarkdownText(text: reasoning, fontSize: 12)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 12)
-                        .padding(.top, 2)
-                        .padding(.bottom, 10)
-                        .background(
-                            GeometryReader { geo in
-                                Color.clear.preference(
-                                    key: SpoilerContentHeightKey.self,
-                                    value: geo.size.height
-                                )
-                            }
-                        )
-                }
-                .onPreferenceChange(SpoilerContentHeightKey.self) { measuredContentHeight = $0 }
-                .frame(
-                    height: SpoilerExpandLogic.contentHeight(
-                        isExpanded: isExpanded,
-                        measuredHeight: measuredContentHeight
-                    ),
-                    alignment: .top
-                )
-                .opacity(SpoilerExpandLogic.contentOpacity(isExpanded: isExpanded))
-                .clipped()
-                .allowsHitTesting(isExpanded)
+                MarkdownText(text: reasoning, fontSize: 12, textColor: Color.mimo.thinking)
+                    .lineLimit(showsFull ? nil : SpoilerExpandLogic.collapsedPreviewLineCount)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 2)
+                    .padding(.bottom, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .clipped()
             }
         }
-        .background(Color.mimo.codeBg.opacity(0.55))
+        .background(Color.mimo.thinking.opacity(0.06))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.mimo.border.opacity(0.45), lineWidth: 1)
+                .stroke(Color.mimo.thinking.opacity(0.35), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .animation(SpoilerExpandLogic.animation, value: isExpanded)
-    }
-}
-
-private struct SpoilerContentHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
+        .animation(SpoilerExpandLogic.animation, value: isThinking)
     }
 }
 
@@ -525,8 +506,8 @@ struct SplitToolInspectorView: View {
                         }
                         Spacer(minLength: 0)
                     }
-                    .frame(width: 140, alignment: .top)
-                    .frame(minHeight: 210, alignment: .top)
+                    .frame(width: 120, alignment: .top)
+                    .frame(minHeight: 120, alignment: .top)
                     .background(Color.mimo.surface.opacity(0.55))
 
                     Divider()
@@ -549,7 +530,7 @@ struct SplitToolInspectorView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
                     }
-                    .frame(maxWidth: .infinity, minHeight: 210, maxHeight: 380)
+                    .frame(maxWidth: .infinity, minHeight: 120, maxHeight: 320)
                 }
 
                 Divider()
@@ -639,7 +620,7 @@ struct SplitToolInspectorView: View {
         }
         .foregroundColor(Color.mimo.textSecondary)
         .padding(.horizontal, 8)
-        .frame(height: 34)
+        .frame(height: 26)
         .background(isSelected ? Color.mimo.brand.opacity(0.12) : Color.clear)
         .contentShape(Rectangle())
     }

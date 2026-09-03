@@ -63,7 +63,12 @@ struct WebChatDriver {
             // On the first message of a session, prepend the tool-protocol preamble.
             var message = userMessage
             if isFirstMessage {
-                let preamble = WebToolProtocolEmulator.systemPreamble(userSystemPrompt: config.systemPrompt)
+                let preamble = WebToolProtocolEmulator.systemPreamble(
+                    userSystemPrompt: config.systemPrompt,
+                    projectRoot: projectRoot,
+                    directory: projectRoot,
+                    isGitRepo: (try? GitRepository.repositoryRoot(for: projectRoot)) != nil
+                )
                 message = preamble + "\n\n---\n\n" + userMessage
             }
 
@@ -243,7 +248,12 @@ struct WebChatDriver {
     private func restartSessionWithCarryOver(lastResponse: String, emit: (WebChatEvent) -> Void) async throws -> ResponseBaseline {
         try await bridge.navigate(to: config.chatURL)
         await bridge.wait(ms: max(config.toolCallDelayMs, 500))
-        let preamble = WebToolProtocolEmulator.systemPreamble(userSystemPrompt: config.systemPrompt)
+        let preamble = WebToolProtocolEmulator.systemPreamble(
+            userSystemPrompt: config.systemPrompt,
+            projectRoot: projectRoot,
+            directory: projectRoot,
+            isGitRepo: (try? GitRepository.repositoryRoot(for: projectRoot)) != nil
+        )
         // Recent summary = the last response minus the limit notice; the caller's
         // system prompt / goal carry the durable intent. No fabricated content.
         let recent = WebSessionLimitLogic.limitMarkers.reduce(lastResponse) { acc, marker in

@@ -87,45 +87,68 @@ enum WebEmulatedTool: String, CaseIterable {
 enum WebToolProtocolEmulator {
 
     /// System preamble teaching the model the strict tool-call format.
+    /// Mirrors the OpenCode (anomalyco/opencode) system-prompt structure: an
+    /// identity + role line, environment context (working directory, git, date),
+    /// a tool-usage policy, the exact tool-call wire format, and the full tool
+    /// list. Web chat has no native tool API, so the host emulates one and the
+    /// model must announce each tool call in a parseable block.
     static func systemPreamble(tools: [WebEmulatedTool] = WebEmulatedTool.allCases,
-                               userSystemPrompt: String = "") -> String {
+                               userSystemPrompt: String = "",
+                               projectRoot: String = "",
+                               directory: String = "",
+                               isGitRepo: Bool = false,
+                               date: Date = Date()) -> String {
         var lines: [String] = []
         if !userSystemPrompt.isEmpty {
             lines.append(userSystemPrompt)
             lines.append("")
         }
-        lines.append("You are a local coding agent operating through a web chat model.")
-        lines.append("The host application, not the web model, executes tools against the opened project.")
+        lines.append("You are MiCoder, a local coding agent operating through a web chat model.")
+        lines.append("The host application, not the web model, executes all tools against the opened project.")
         lines.append("Never claim that a file changed or a command ran until you receive its tool_result.")
         lines.append("")
-        lines.append("To use a tool, reply with ONLY this exact fenced block:")
+        // Environment context (OpenCode-style).
+        let dir = directory.isEmpty ? (projectRoot.isEmpty ? "." : projectRoot) : directory
+        lines.append("Here is some useful information about the environment you are running in:")
+        lines.append(" Working directory: \(dir)")
+        lines.append(" Is directory a git repo: \(isGitRepo ? "yes" : "no")")
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        lines.append(" Today's date: \(fmt.string(from: date))")
+        lines.append("")
+        lines.append("You have access to a set of tools to help answer the user's question. You can")
+        lines.append("invoke tools by emitting a tool-call block. To execute a tool, reply with ONE of")
+        lines.append("these two exact forms and then WAIT for the host's result before continuing:")
+        lines.append("")
+        lines.append("Form A (JSON fenced block):")
         lines.append("```tool")
         lines.append(#"{"name": "<tool_name>", "args": { ... }}"#)
         lines.append("```")
+        lines.append("")
+        lines.append("Form B (XML tags):")
+        lines.append("<tool_call><tool_name><arg_key>key1</arg_key><arg_value>value1</arg_value><arg_key>key2</arg_key><arg_value>value2</arg_value></tool_call>")
+        lines.append("")
         lines.append("Wait for the host's ```tool_result block after every call, then continue from that result.")
         lines.append("If a command needs approval, explain the approval requirement; do not pretend it ran.")
         lines.append("When the task is done, reply normally WITHOUT a tool block and summarize actual results.")
         lines.append("")
-        lines.append("Available tools and current access:")
-        lines.append("- read_file, list_dir, grep, glob: read-only project inspection; available immediately.")
-        lines.append("- write_file, edit_file: modify project files; governed by the selected access level and undo history.")
-        lines.append("- run_command: executes in the opened project directory only at full access; otherwise approval is returned and nothing runs.")
-        lines.append("- git_status, git_diff, git_log, git_branch, git_checkout: inspect or switch project Git state.")
-        lines.append("- git_commit, git_push, git_pull: Git operations; use only when explicitly requested and report the result.")
-        lines.append("- todo_read, todo_write: maintain the task checklist for this session.")
-        lines.append("- task: delegate a complex subtask and wait for its returned result.")
-        lines.append("")
-        lines.append("For shell work, call run_command with the command. Do not ask the user to copy a command unless the host reports that approval is required.")
-        lines.append("")
-        lines.append("A large prompt may arrive split across several messages. If a message")
-        lines.append("starts with \"[PART x/N — do not answer yet…]\", acknowledge briefly and")
-        lines.append("WAIT. Only when you receive \"[FINAL PART N/N — you may now respond]\"")
-        lines.append("should you process the whole prompt and reply.")
+        lines.append("Tool usage policy:")
+        lines.append("- Use read_file, list_dir, grep, glob to inspect the project before writing or guessing.")
+        lines.append("- Use write_file, edit_file to modify project files; governed by the selected access level and undo history.")
+        lines.append("- Use run_command for shell work, passing the command; it executes in the opened project directory only at full access, otherwise approval is returned and nothing runs.")
+        lines.append("- Use git_status, git_diff, git_log, git_branch, git_checkout to inspect or switch project Git state; git_commit, git_push, git_pull only when explicitly requested.")
+        lines.append("- Use todo_read, todo_write to maintain the task checklist for this session.")
+        lines.append("- Prefer dedicated tools over shell commands when a purpose-built tool exists; never pretend a tool ran without its result.")
         lines.append("")
         lines.append("Available tools:")
         for tool in tools {
             lines.append("- \(tool.rawValue): \(tool.description) args: \(tool.argumentSchema)")
         }
+        lines.append("")
+        lines.append("A large prompt may arrive split across several messages. If a message")
+        lines.append("starts with \"[PART x/N — do not answer yet…]\", acknowledge briefly and")
+        lines.append("WAIT. Only when you receive \"[FINAL PART N/N — you may now respond]\"")
+        lines.append("should you process the whole prompt and reply.")
         return lines.joined(separator: "\n")
     }
 
@@ -150,6 +173,36 @@ enum WebToolProtocolEmulator {
         }
         // Then the informal `[tool call: NAME ...]` variant.
         calls.append(contentsOf: parseInformalCalls(from: responseText))
+        // Then the XML `<tool_call>NAME<arg_key>k</arg_key><arg_value>v</arg_value></tool_call>`
+        // variant that big-pickle / MiMo-style models emit natively.
+        calls.append(contentsOf: parseTaggedToolCalls(from: responseText))
+        return calls
+    }
+
+    /// Parse the XML tool-call format that big-pickle / MiMo-style models emit:
+    /// `<tool_call>execute_command<arg_key>command</arg_key><arg_value>pwd</arg_value></tool_call>`.
+    private static func parseTaggedToolCalls(from text: String) -> [WebToolCall] {
+        let scanner = text as NSString
+        let pattern = "<tool_call>\\s*([A-Za-z_][A-Za-z0-9_.-]*)((?:\\s*<arg_key>[\\s\\S]*?</arg_key>\\s*<arg_value>[\\s\\S]*?</arg_value>)*)</tool_call>"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        var calls: [WebToolCall] = []
+        for match in regex.matches(in: text, range: NSRange(location: 0, length: scanner.length)) where match.numberOfRanges >= 3 {
+            let name = scanner.substring(with: match.range(at: 1))
+            guard let canonical = canonicalToolName(name) else { continue }
+            let pairsBody = scanner.substring(with: match.range(at: 2))
+            let argPattern = "<arg_key>([\\s\\S]*?)</arg_key>\\s*<arg_value>([\\s\\S]*?)</arg_value>"
+            var args: [String: String] = [:]
+            if let pairRegex = try? NSRegularExpression(pattern: argPattern) {
+                let body = pairsBody as NSString
+                for pm in pairRegex.matches(in: pairsBody, range: NSRange(location: 0, length: body.length)) where pm.numberOfRanges >= 3 {
+                    if let k = substring(in: pm, at: 1, of: body),
+                       let v = substring(in: pm, at: 2, of: body) {
+                        args[k.trimmingCharacters(in: .whitespacesAndNewlines)] = v
+                    }
+                }
+            }
+            calls.append(WebToolCall(name: canonical, arguments: args))
+        }
         return calls
     }
 
@@ -225,7 +278,7 @@ enum WebToolProtocolEmulator {
             return WebEmulatedTool.editFile.rawValue
         case "grep", "search", "find":
             return WebEmulatedTool.grep.rawValue
-        case "run_command", "run", "execute", "shell":
+        case "run_command", "run", "execute", "execute_command", "shell":
             return WebEmulatedTool.runCommand.rawValue
         // Git operations
         case "git_status", "status", "gs":
