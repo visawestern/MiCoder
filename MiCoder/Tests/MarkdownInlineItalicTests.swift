@@ -63,4 +63,22 @@ struct MarkdownInlineItalicTests {
         }
         #expect(t == "no markers at all")
     }
+
+    @Test("Markdown link is parsed with title and url")
+    func markdownLink() {
+        let parts = parse("see [docs](https://example.com/page)")
+        guard case .text(let head) = parts[0], case .link(let title, let url) = parts[1] else {
+            Issue.record("Unexpected parts: \(parts)")
+            return
+        }
+        #expect(head == "see ")
+        #expect(title == "docs")
+        #expect(url == "https://example.com/page")
+    }
+
+    @Test("Bare URL inside text becomes a link")
+    func bareUrlBecomesLink() {
+        let parts = parse("visit https://example.com now")
+        #expect(parts.contains { if case .link = $0 { return true }; return false })
+    }
 }

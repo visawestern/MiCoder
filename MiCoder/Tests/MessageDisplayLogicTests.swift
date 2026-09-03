@@ -952,6 +952,36 @@ struct MarkdownTextScaleAndParsingTests {
         }
     }
 
+    @Test("parseMarkdown parses checklist items as checkboxes")
+    func parseChecklistItems() {
+        let view = MarkdownText(text: "- [x] done\n- [ ] pending")
+        let blocks = view.parseMarkdown()
+        #expect(blocks.count == 2)
+        if case .checkbox(let checked, let content) = blocks[0] {
+            #expect(checked)
+            #expect(content == "done")
+        } else {
+            #expect(Bool(false), "Expected .checkbox")
+        }
+        if case .checkbox(let checked, let content) = blocks[1] {
+            #expect(!checked)
+            #expect(content == "pending")
+        } else {
+            #expect(Bool(false), "Expected .checkbox")
+        }
+    }
+
+    @Test("parseMarkdown treats non-list-dash as checkbox only when bracket present")
+    func parsePlainDashIsNotCheckbox() {
+        let view = MarkdownText(text: "- just a bullet")
+        let blocks = view.parseMarkdown()
+        if case .bulletItem = blocks[0] {
+            // pass
+        } else {
+            #expect(Bool(false), "Expected .bulletItem, got \(blocks[0])")
+        }
+    }
+
     @Test("parseMarkdown parses code block")
     func parseCodeBlock() {
         let view = MarkdownText(text: "```swift\nlet x = 1\n```")
@@ -974,6 +1004,19 @@ struct MarkdownTextScaleAndParsingTests {
             #expect(lang.isEmpty)
             #expect(code == "plain code")
         }
+    }
+
+    @Test("diff block detected from language and from markers")
+    func diffBlockDetection() {
+        // Explicit diff language
+        #expect(MarkdownText.isDiffBlock("+a\n-b\n", language: "diff"))
+        #expect(MarkdownText.isDiffBlock("", language: "patch"))
+        // Auto-detected from markers with no language
+        #expect(MarkdownText.isDiffBlock("@@ -1,3 +1,3 @@\n+hello\n-goodbye\n", language: ""))
+        #expect(MarkdownText.isDiffBlock("+++ b/file\n--- a/file\n", language: ""))
+        // Plain code is not a diff
+        #expect(!MarkdownText.isDiffBlock("let x = 1\nprint(x)\n", language: "swift"))
+        #expect(!MarkdownText.isDiffBlock("plain text line\n", language: ""))
     }
 
     @Test("parseMarkdown parses blockquote")

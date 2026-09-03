@@ -382,7 +382,7 @@ struct ThinkingSpoilerView: View {
 
             if canExpand {
                 MarkdownText(text: reasoning, fontSize: 12, textColor: Color.mimo.thinking)
-                    .lineLimit(showsFull ? nil : SpoilerExpandLogic.collapsedPreviewLineCount)
+                    .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 12)
                     .padding(.top, 2)

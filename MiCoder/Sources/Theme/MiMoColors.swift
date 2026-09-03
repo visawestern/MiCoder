@@ -69,6 +69,9 @@ extension Color {
 
         // Thinking / reasoning appears in the purple "thinking" tone.
         static let thinking = violet
+
+        // Clickable inline links.
+        static let link = Color(red: 0.20, green: 0.55, blue: 0.95)
         
         // Text - high contrast for light theme
         static var textPrimary: Color {

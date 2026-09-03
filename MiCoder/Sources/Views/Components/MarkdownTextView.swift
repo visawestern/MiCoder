@@ -23,9 +23,9 @@ struct MarkdownText: View {
                 case .codeBlock(let language, let code):
                     VStack(alignment: .leading, spacing: 0) {
                         CodeBlockHeader(language: language, code: code)
-                        Text(code)
-                            .font(.system(size: max(10, scaledFontSize - 1), design: .monospaced))
-                            .foregroundColor(textColor)
+                        MarkdownText.highlightedCode(code, language: language,
+                                                     baseColor: textColor,
+                                                     fontSize: max(10, scaledFontSize - 1))
                             .textSelection(.enabled)
                             .padding(10)
                     }
@@ -71,6 +71,15 @@ struct MarkdownText: View {
                     }
                     .padding(.leading, 4)
 
+                case .checkbox(let isChecked, let content):
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: isChecked ? "checkmark.square.fill" : "square")
+                            .interfaceFont(size: scaledFontSize)
+                            .foregroundColor(isChecked ? Color.mimo.thinking : Color.mimo.textMuted)
+                            .frame(width: max(16, scaledFontSize + 4), alignment: .center)
+                        MarkdownInline(text: content, fontSize: scaledFontSize, textColor: textColor)
+                    }
+
                 case .horizontalRule:
                     Rectangle()
                         .fill(Color.mimo.border)
@@ -114,6 +123,124 @@ struct MarkdownText: View {
         }
     }
 
+    /// Render a code block with light syntax highlighting (K) and diff (+/-/@@)
+    /// line coloring (C). Keeps the same monospaced font; only colors change.
+    static func highlightedCode(_ code: String, language: String,
+                                baseColor: Color, fontSize: CGFloat) -> Text {
+        let mono = Font.system(size: fontSize, design: .monospaced)
+        let lower = language.lowercased()
+        let diffMode = isDiffBlock(code, language: lower)
+        let keywords = keywords(for: lower)
+        var result = Text("")
+        let lines = code.components(separatedBy: "\n")
+        for (idx, line) in lines.enumerated() {
+            if idx > 0 { result = result + Text("\n") }
+            let piece = diffMode ? diffLine(line, baseColor: baseColor)
+                                 : tokenizeLine(line, keywords: keywords, baseColor: baseColor)
+            result = result + piece
+        }
+        return result.font(mono)
+    }
+
+    /// Whether a code block should be rendered as a unified diff (colors the
+    /// +/-/@@ prefixes). True for `diff`/`patch` fenced blocks or any block
+    /// whose lines carry diff markers.
+    static func isDiffBlock(_ code: String, language: String) -> Bool {
+        let lower = language.lowercased()
+        if lower == "diff" || lower == "patch" { return true }
+        return code.components(separatedBy: "\n").contains { l in
+            l.hasPrefix("+++") || l.hasPrefix("---") || l.hasPrefix("@@")
+                || l.hasPrefix("diff --git") || l.hasPrefix("index ")
+        }
+    }
+
+    private static func diffLine(_ line: String, baseColor: Color) -> Text {
+        if line.hasPrefix("+++") || line.hasPrefix("---")
+            || line.hasPrefix("diff ") || line.hasPrefix("index ")
+            || line.hasPrefix("new file") || line.hasPrefix("deleted file")
+            || line.hasPrefix("similarity") || line.hasPrefix("rename") {
+            return Text(line).foregroundColor(Color.mimo.cyan)
+        }
+        if line.hasPrefix("@@") {
+            return Text(line).foregroundColor(Color.mimo.thinking)
+        }
+        if line.hasPrefix("+") {
+            return Text(line).foregroundColor(Color.mimo.mint)
+        }
+        if line.hasPrefix("-") {
+            return Text(line).foregroundColor(Color.mimo.error)
+        }
+        return Text(line).foregroundColor(baseColor)
+    }
+
+    /// Very light tokenizer: strings, line comments, numbers and known keywords
+    /// get a color; everything else stays in the base color.
+    private static func tokenizeLine(_ line: String, keywords: Set<String>,
+                                     baseColor: Color) -> Text {
+        let kwColor = Color.mimo.thinking
+        let strColor = Color.mimo.mint
+        let numColor = Color.mimo.cyan
+        let comColor = Color.mimo.textMuted
+        let pattern = #"("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`[^`]*`)|(//[^\n]*|#[^\n]*)|(\b\d+(?:\.\d+)?\b)|(\b[A-Za-z_][A-Za-z0-9_]*\b)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              !line.isEmpty else {
+            return Text(line).foregroundColor(baseColor)
+        }
+        let ns = line as NSString
+        let matches = regex.matches(in: line, range: NSRange(location: 0, length: ns.length))
+        var result = Text("")
+        var pos = 0
+        for m in matches {
+            let mRange = m.range(at: 0)
+            if mRange.location > pos {
+                let gap = ns.substring(with: NSRange(location: pos, length: mRange.location - pos))
+                result = result + Text(gap).foregroundColor(baseColor)
+            }
+            let text = ns.substring(with: mRange)
+            let color: Color
+            if m.range(at: 1).location != NSNotFound {
+                color = strColor
+            } else if m.range(at: 2).location != NSNotFound {
+                color = comColor
+            } else if m.range(at: 3).location != NSNotFound {
+                color = numColor
+            } else {
+                color = keywords.contains(text) ? kwColor : baseColor
+            }
+            result = result + Text(text).foregroundColor(color)
+            pos = mRange.location + mRange.length
+        }
+        if pos < ns.length {
+            result = result + Text(ns.substring(with: NSRange(location: pos, length: ns.length - pos)))
+                .foregroundColor(baseColor)
+        }
+        return result
+    }
+
+    private static func keywords(for language: String) -> Set<String> {
+        let base: Set<String> = [
+            "let", "var", "func", "return", "if", "else", "for", "while", "in",
+            "class", "struct", "enum", "extension", "import", "guard", "switch",
+            "case", "break", "continue", "nil", "true", "false", "self", "static",
+            "public", "private", "internal", "override", "new", "void", "int",
+            "string", "bool", "double", "float", "const", "def", "async", "await",
+            "try", "catch", "throw", "throws",
+        ]
+        let lower = language.lowercased()
+        if lower.contains("python") || lower.contains("py") {
+            return base.union(["print", "lambda", "None", "with", "as", "elif",
+                               "yield", "from", "raise", "del", "global", "not"])
+        }
+        if lower.contains("js") || lower.contains("ts")
+            || lower.contains("javascript") || lower.contains("typescript") {
+            return base.union(["function", "export", "default", "=>"])
+        }
+        if lower == "json" || lower == "yaml" || lower == "yml" || lower == "toml" {
+            return []
+        }
+        return base
+    }
+
     enum Block {
         case heading(Int, String)
         case codeBlock(String, String)
@@ -121,6 +248,7 @@ struct MarkdownText: View {
         case bold(String)
         case bulletItem(String)
         case numberedItem(Int, String)
+        case checkbox(Bool, String)
         case blockquote(String)
         case horizontalRule
         case table([[String]])
@@ -153,6 +281,13 @@ struct MarkdownText: View {
                 i += 1
             } else if line.hasPrefix("### ") {
                 blocks.append(.heading(3, String(line.dropFirst(4))))
+                i += 1
+            } else if line.hasPrefix("- [") {
+                let rest = String(line.dropFirst(2).dropFirst()) // skip "- ["
+                let checked = rest.hasPrefix("x") || rest.hasPrefix("X")
+                let content = String(rest.dropFirst().dropFirst()) // skip "x] "
+                    .trimmingCharacters(in: .whitespaces)
+                blocks.append(.checkbox(checked, content))
                 i += 1
             } else if line.hasPrefix("- ") || line.hasPrefix("* ") {
                 blocks.append(.bulletItem(String(line.dropFirst(2))))
@@ -335,16 +470,18 @@ struct MarkdownInline: View {
         case bold(String)
         case italic(String)
         case code(String)
+        case link(String, String)
     }
 
     private enum InlineToken {
-        case bold, italic, code
+        case bold, italic, code, link
 
         var pattern: String {
             switch self {
             case .bold: return #"\*\*(.+?)\*\*"#
             case .italic: return #"(?<!\*)\*([^*\n]+?)\*(?!\*)|(?<!_)_([^_\n]+?)_(?!_)"#
             case .code: return #"`(.+?)`"#
+            case .link: return #"\[([^\]\n]+)\]\((https?://[^)\s]+)\)"#
             }
         }
 
@@ -356,27 +493,74 @@ struct MarkdownInline: View {
                 return .italic(String(matched.dropFirst().dropLast()))
             case .code:
                 return .code(String(matched.dropFirst().dropLast()))
+            case .link:
+                let groups = MarkdownInline.captureGroups(matched, pattern: #"\[([^\]\n]+)\]\((https?://[^)\s]+)\)"#)
+                if groups.count >= 2, !groups[0].isEmpty, !groups[1].isEmpty {
+                    return .link(groups[0], groups[1])
+                }
+                return .text(matched)
             }
         }
+    }
+
+    static func captureGroups(_ s: String, pattern: String) -> [String] {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        let range = NSRange(s.startIndex..., in: s)
+        guard let match = regex.firstMatch(in: s, range: range) else { return [] }
+        var groups: [String] = []
+        for i in 1..<match.numberOfRanges {
+            if let r = Range(match.range(at: i), in: s) {
+                groups.append(String(s[r]))
+            } else {
+                groups.append("")
+            }
+        }
+        return groups
     }
 
     func parseInline(_ s: String) -> [InlinePart] {
         var parts: [InlinePart] = []
         var remaining = s
+        let bareURLPattern = #"https?://[^\s)\]]+"#
 
         while !remaining.isEmpty {
             // Pick the earliest match so parts come out in source order.
             var earliest: (token: InlineToken, range: Range<String.Index>)?
-            for token in [InlineToken.code, .bold, .italic] {
+            for token in [InlineToken.code, .bold, .italic, .link] {
                 guard let range = remaining.range(of: token.pattern, options: .regularExpression) else { continue }
                 if earliest == nil || range.lowerBound < earliest!.range.lowerBound {
                     earliest = (token, range)
                 }
             }
 
+            // A bare http(s) URL not wrapped in [title](url).
+            let bareRange = remaining.range(of: bareURLPattern, options: .regularExpression)
+
             guard let match = earliest else {
+                // No structured token: emit leading text then a bare URL if present.
+                if let r = bareRange, r.lowerBound >= remaining.startIndex {
+                    if r.lowerBound > remaining.startIndex {
+                        parts.append(.text(String(remaining[..<r.lowerBound])))
+                    }
+                    let url = String(remaining[r])
+                    parts.append(.link(url, url))
+                    remaining = String(remaining[r.upperBound...])
+                    continue
+                }
                 parts.append(.text(remaining))
                 break
+            }
+
+            // A bare URL starting before the earliest structured token wins,
+            // so `visit https://x.com then **bold**` keeps source order.
+            if let r = bareRange, r.lowerBound < match.range.lowerBound {
+                if r.lowerBound > remaining.startIndex {
+                    parts.append(.text(String(remaining[..<r.lowerBound])))
+                }
+                let url = String(remaining[r])
+                parts.append(.link(url, url))
+                remaining = String(remaining[r.upperBound...])
+                continue
             }
 
             if match.range.lowerBound > remaining.startIndex {
@@ -408,6 +592,10 @@ struct FlowLayout: View {
                 return result + Text(" \(t) ")
                     .font(.system(size: max(10, fontSize - 1), design: .monospaced))
                     .foregroundColor(Color.mimo.brand)
+            case .link(let title, let url):
+                return result + Text("[\(title)](\(url))")
+                    .underline()
+                    .foregroundColor(Color.mimo.link)
             }
         }
         .font(.system(size: fontSize))

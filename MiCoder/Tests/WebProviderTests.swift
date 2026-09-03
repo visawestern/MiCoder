@@ -147,6 +147,24 @@ struct WebToolProtocolEmulatorTests {
         #expect(calls.first?.arguments["path"] == "src/main.swift")
     }
 
+    @Test func parsesTaggedToolCallAfterFenceWithAmpersandCommand() {
+        // Real observed output: prose + a fenced bash block, then a <tool_call>
+        // whose command argValue contains `&&`, spaces and quotes. The XML
+        // parser must still pick it up and canonicalize execute_command.
+        let response = """
+        ### 🔹 Тест 1: Проверка текущей директории
+        ```bash
+        pwd
+        ```
+        *(Безопасно — просто показывает путь)*<tool_call>execute_command<arg_key>command</arg_key><arg_value>pwd && echo "---" && whoami && echo "---" && uname -a</arg_value></tool_call>
+        """
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+        #expect(calls.count == 1)
+        #expect(calls.first?.name == "run_command")
+        #expect(calls.first?.arguments["command"] == #"pwd && echo "---" && whoami && echo "---" && uname -a"#)
+        #expect(!WebToolProtocolEmulator.isFinalResponse(response))
+    }
+
     @Test func taggedToolCallIsNotFinalResponse() {
         // A <tool_call> block must not be treated as a plain-text final answer,
         // otherwise the agentic loop stops and never executes the tool.
@@ -283,5 +301,30 @@ struct WebSessionLogicTests {
 
     @Test func antiBanDelayZeroBaseIsZero() {
         #expect(WebAntiBanTiming.delayMs(base: 0, randomUnit: 0.5) == 0)
+    }
+
+    @Test func readOnlyCommandRunsAtAnyAccessLevel() {
+        // The exact command from the real session must run even though the
+        // user's access level is below fullAccess.
+        let call = WebToolCall(name: "run_command",
+                               arguments: ["command": #"pwd && echo "---" && whoami && uname -a"#])
+        #expect(WebToolAccessGate.permission(for: call, accessLevel: .askBeforeChanges) == .allow)
+        #expect(WebToolAccessGate.permission(for: call, accessLevel: .editAutomatically) == .allow)
+        #expect(WebToolAccessGate.permission(for: call, accessLevel: .fullAccess) == .allow)
+    }
+
+    @Test func mutatingCommandStillRequiresApprovalBelowFull() {
+        let rm = WebToolCall(name: "run_command", arguments: ["command": "rm -rf build"])
+        #expect(WebToolAccessGate.permission(for: rm, accessLevel: .askBeforeChanges) == .requireApproval)
+        #expect(WebToolAccessGate.permission(for: rm, accessLevel: .editAutomatically) == .requireApproval)
+        #expect(WebToolAccessGate.permission(for: rm, accessLevel: .fullAccess) == .allow)
+    }
+
+    @Test func readOnlyGitSubcommandsAllowedMutatingGitGated() {
+        let log = WebToolCall(name: "run_command", arguments: ["command": "git log --oneline -5"])
+        #expect(WebToolAccessGate.permission(for: log, accessLevel: .askBeforeChanges) == .allow)
+        let checkout = WebToolCall(name: "run_command", arguments: ["command": "git checkout main"])
+        #expect(WebToolAccessGate.permission(for: checkout, accessLevel: .editAutomatically) == .requireApproval)
+        #expect(WebToolAccessGate.permission(for: checkout, accessLevel: .fullAccess) == .allow)
     }
 }
