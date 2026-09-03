@@ -49,3 +49,11 @@ node_modules/
 package-lock.json
 package.json
 scrape_models.js
+
+# MiCoder per-project runtime DB (local state, not source)
+.micoder/
+
+# Tooling / profiling artifacts
+*.profraw
+FETCH_HEAD
+
