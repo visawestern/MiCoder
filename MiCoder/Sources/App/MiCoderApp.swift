@@ -161,9 +161,11 @@ class AppState: ObservableObject {
                 }
             }
 
-            guard !isNavigatingHistory else { return }
-
             navigationLock.lock()
+            guard !isNavigatingHistory else {
+                navigationLock.unlock()
+                return
+            }
             if navigationHistory.isEmpty || navigationHistory.last?.id != workspace.id {
                 // Atomically recompute the safe truncation point under the lock:
                 // both the bounds check AND the mutation now happen on the same
@@ -943,10 +945,12 @@ class AppState: ObservableObject {
         }
         navigationIndex -= 1
         let ws = navigationHistory[navigationIndex]
-        navigationLock.unlock()
         isNavigatingHistory = true
+        navigationLock.unlock()
         selectWorkspace(ws)
+        navigationLock.lock()
         isNavigatingHistory = false
+        navigationLock.unlock()
     }
 
     func navigateForward() {
@@ -957,10 +961,12 @@ class AppState: ObservableObject {
         }
         navigationIndex += 1
         let ws = navigationHistory[navigationIndex]
-        navigationLock.unlock()
         isNavigatingHistory = true
+        navigationLock.unlock()
         selectWorkspace(ws)
+        navigationLock.lock()
         isNavigatingHistory = false
+        navigationLock.unlock()
     }
 
     var canNavigateBack: Bool {
@@ -1806,23 +1812,24 @@ class AppState: ObservableObject {
     }
     
     func stopServe() {
-        Task { @MainActor in
-            serverConnected = false
-        }
-        notificationService.serverDisconnected()
-        serverProviders = []
-        if !customProviders.contains(where: { $0.id == selectedProviderID && $0.isEnabled }) {
-            if let firstCustom = customProviders.first(where: { $0.isEnabled }) {
-                selectProvider(firstCustom.id)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.serverConnected = false
+            self.notificationService.serverDisconnected()
+            self.serverProviders = []
+            if !self.customProviders.contains(where: { $0.id == self.selectedProviderID && $0.isEnabled }) {
+                if let firstCustom = self.customProviders.first(where: { $0.isEnabled }) {
+                    self.selectProvider(firstCustom.id)
+                } else {
+                    self.selectedProviderID = ""
+                    self.selectedModel = ""
+                    self.selectedVariant = ""
+                    self.defaults.set("", forKey: "com.micoder.selectedProviderID")
+                    self.defaults.set("", forKey: "com.micoder.selectedModel")
+                }
             } else {
-                selectedProviderID = ""
-                selectedModel = ""
-                selectedVariant = ""
-                defaults.set("", forKey: "com.micoder.selectedProviderID")
-                defaults.set("", forKey: "com.micoder.selectedModel")
+                self.validateAndReconcileSelections()
             }
-        } else {
-            validateAndReconcileSelections()
         }
     }
     

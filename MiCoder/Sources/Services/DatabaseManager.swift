@@ -496,6 +496,16 @@ class DatabaseManager {
         try db.run(project.update(projectLastOpenedAt <- now))
     }
     
+    /// Updates mutable fields (name, gitRemote, gitBranch) on an existing project.
+    func updateProject(id: String, name: String, gitRemote: String? = nil, gitBranch: String? = nil) throws {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        let project = projects.filter(projectId == id)
+        var assignments: [Setter] = [projectName <- name]
+        if let remote = gitRemote { assignments.append(projectGitRemote <- remote) }
+        if let branch = gitBranch { assignments.append(projectGitBranch <- branch) }
+        try db.run(project.update(assignments))
+    }
+    
     func toggleProjectPin(id: String) throws {
         guard let db = db else { throw DatabaseError.notInitialized }
         

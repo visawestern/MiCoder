@@ -68,7 +68,17 @@ class DatabaseBridge: ObservableObject {
             // Проверяем существование
             let existing = try? db.getAllProjects().first(where: { $0.id == id })
             
-            if existing == nil {
+            if let existing {
+                // Update mutable fields on existing records (name, branch, remote)
+                // instead of silently ignoring changes.
+                try db.updateProject(
+                    id: id,
+                    name: name,
+                    gitRemote: gitRemote ?? existing.gitRemote,
+                    gitBranch: gitBranch ?? existing.gitBranch
+                )
+                try db.updateProjectLastOpened(id: id)
+            } else {
                 try db.insertProject(
                     id: id,
                     name: name,
@@ -76,9 +86,6 @@ class DatabaseBridge: ObservableObject {
                     gitRemote: gitRemote,
                     gitBranch: gitBranch
                 )
-            } else {
-                // Update last opened
-                try db.updateProjectLastOpened(id: id)
             }
         } catch {
             print("❌ Failed to upsert project: \(error)")
