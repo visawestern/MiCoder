@@ -86,15 +86,32 @@ final class MiCoderAutoFreeStore: ObservableObject {
         }
     }
 
+    /// Manual model choice (settings list, API control, user tap). Pins the
+    /// model so in-chat failover never overrides it — unlock explicitly via
+    /// the lock toggle to re-enable automatic fallback.
     func selectModel(_ modelID: String) {
         guard provider.models.contains(where: { $0.id == modelID }) else { return }
         provider.selectedModel = modelID
         provider.modelStatuses[modelID] = "Healthy"
-        provider.isModelLocked = false
+        provider.isModelLocked = true
         provider.consecutiveFailures = 0
+        provider.statusMessage = "Pinned to \(modelID). Automatic fallback is off."
+        defaults.set(modelID, forKey: "com.micoder.autoFree.model")
+        defaults.set(true, forKey: "com.micoder.autoFree.locked")
+    }
+
+    /// Lock-preserving mirror of the app-level selection for the send path.
+    /// Called on every chat send — must NOT touch isModelLocked, otherwise a
+    /// manually pinned model would be silently unpinned mid-conversation and
+    /// failover would override the user's choice.
+    func syncModel(_ modelID: String) {
+        guard !modelID.isEmpty,
+              provider.models.contains(where: { $0.id == modelID }),
+              provider.selectedModel != modelID else { return }
+        provider.selectedModel = modelID
+        provider.modelStatuses[modelID] = "Healthy"
         provider.statusMessage = "Using \(modelID)."
         defaults.set(modelID, forKey: "com.micoder.autoFree.model")
-        defaults.set(false, forKey: "com.micoder.autoFree.locked")
     }
 
     func modelStatus(for modelID: String) -> String {

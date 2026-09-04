@@ -295,8 +295,11 @@ struct MiCoderAutoFreeSection: View {
     }
 
     private func toggleLock(for modelID: String) {
-        if !isSelected(modelID) {
+        // Tapping lock on another model pins THAT model (selectModel already
+        // locks); only toggle when it's already the selected one.
+        guard isSelected(modelID) else {
             selectModel(modelID)
+            return
         }
         store.setModelLocked(!store.provider.isModelLocked)
     }

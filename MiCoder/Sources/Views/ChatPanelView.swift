@@ -795,7 +795,7 @@ struct ChatPanelView: View {
             if case .autoFree = route {
                 let store = MiCoderAutoFreeStore.shared
                 let model = appState.effectiveSelectedModel()
-                await MainActor.run { store.selectModel(model) }
+                await MainActor.run { store.syncModel(model) }
                 let priorTurns = await MainActor.run { () -> [MiCoderAutoFreeHistoryLogic.Turn] in
                     let priorMessages = messageStore.messages.count >= 2
                         ? Array(messageStore.messages.dropLast(2))
