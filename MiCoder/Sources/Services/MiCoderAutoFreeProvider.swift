@@ -148,7 +148,9 @@ final class MiCoderAutoFreeStore: ObservableObject {
                 while true {
                     let modelParameters = ModelCallParametersStore.parameters(for: currentModel)
                     var effectiveMessages = messages
+                    let toolPreamble = MiCoderAutoFreeClient.toolUsagePreamble()
                     let systemPrompts = [
+                        toolPreamble,
                         provider.systemPrompt,
                         modelParameters.systemPrompt ?? ""
                     ].filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }

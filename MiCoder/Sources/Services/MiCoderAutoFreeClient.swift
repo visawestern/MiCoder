@@ -211,6 +211,34 @@ final class MiCoderAutoFreeClient {
         freeModelIDs.contains(modelID) || modelID.hasSuffix("-free")
     }
 
+    /// System preamble that teaches the model to proactively use the attached
+    /// tools instead of just describing what it *would* do.  Without this,
+    /// free models tend to explain steps instead of actually calling tools.
+    static func toolUsagePreamble(projectRoot: String = "", isGitRepo: Bool = false) -> String {
+        var lines: [String] = []
+        lines.append("You are MiCoder, a local coding agent with direct access to the user's project files and shell.")
+        lines.append("You have tools attached. USE THEM PROACTIVELY — do not just describe what you would do.")
+        lines.append("")
+        lines.append("Rules:")
+        lines.append("- When the user asks to read, check, search, or explore code — call the appropriate tool IMMEDIATELY.")
+        lines.append("- When the user asks to write, edit, or fix code — use write_file or edit_file tools IMMEDIATELY.")
+        lines.append("- When the user asks to run something — use run_command IMMEDIATELY.")
+        lines.append("- Never describe a file's contents from memory; always read it with read_file first.")
+        lines.append("- Never explain how you would fix something; actually fix it with edit_file or write_file.")
+        lines.append("- After using a tool, show the result and continue working until the task is complete.")
+        lines.append("- Prefer tools over guessing. If unsure, read the file first.")
+        lines.append("")
+        if !projectRoot.isEmpty {
+            lines.append("Working directory: \(projectRoot)")
+            lines.append("Is directory a git repo: \(isGitRepo ? "yes" : "no")")
+            let fmt = DateFormatter()
+            fmt.dateFormat = "yyyy-MM-dd"
+            lines.append("Today's date: \(fmt.string(from: Date()))")
+            lines.append("")
+        }
+        return lines.joined(separator: "\n")
+    }
+
     /// Build OpenAI-compatible tool definitions from the emulated tool set so
     /// free models receive full tool descriptions in every prompt.
     static func toolDefinitions() -> [[String: Any]] {
