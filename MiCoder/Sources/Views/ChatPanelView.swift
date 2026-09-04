@@ -810,32 +810,62 @@ struct ChatPanelView: View {
                 }
                 let history = MiCoderAutoFreeHistoryLogic.history(from: priorTurns)
                 let autoFreePayload = autoFreeMessageParts(text: modelText, files: files, images: images)
-                let priorMessages = history.map {
+                var conversationMessages: [MiCoderAutoFreeClient.Message] = history.map {
                     MiCoderAutoFreeClient.Message(role: $0.role, content: $0.content)
                 }
-                let messages = priorMessages + [MiCoderAutoFreeClient.Message(
+                conversationMessages.append(MiCoderAutoFreeClient.Message(
                     role: "user",
                     parts: autoFreePayload.parts
-                )]
+                ))
                 let attachmentNotice = autoFreePayload.warnings.joined(separator: "\n")
+                let projectRoot = appState.selectedWorkspace?.path ?? ""
+                let executor = ProjectWebToolExecutor(
+                    projectRoot: projectRoot,
+                    accessLevel: appState.accessLevel
+                )
+                let maxIterations = 15
+                var streamedContent = ""
                 do {
-                    var streamedContent = ""
-                    for try await chunk in store.streamChat(messages: messages) {
-                        streamedContent += chunk
+                    for iteration in 0..<maxIterations {
+                        var response = ""
+                        for try await chunk in store.streamChat(messages: conversationMessages) {
+                            response += chunk
+                            let display = [attachmentNotice, response].filter { !$0.isEmpty }.joined(separator: "\n\n")
+                            await MainActor.run {
+                                self.messageStore.update(id: assistantID) { m in
+                                    m.content = display
+                                    m.isStreaming = true
+                                }
+                            }
+                        }
+                        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+                        if calls.isEmpty || WebToolProtocolEmulator.shouldStopLoop(iteration: iteration, maxIterations: maxIterations, lastResponse: response) {
+                            streamedContent = response
+                            break
+                        }
+                        var resultsBlock = ""
+                        for call in calls {
+                            if let validationError = WebToolProtocolEmulator.validate(call, projectRoot: projectRoot, accessLevel: appState.accessLevel) {
+                                let msg = "validation error: \(validationError)"
+                                resultsBlock += WebToolProtocolEmulator.formatToolResult(name: call.name, result: msg) + "\n"
+                                continue
+                            }
+                            let result = await executor.execute(call)
+                            resultsBlock += WebToolProtocolEmulator.formatToolResult(name: call.name, result: result) + "\n"
+                        }
+                        conversationMessages.append(MiCoderAutoFreeClient.Message(role: "assistant", content: response))
+                        conversationMessages.append(MiCoderAutoFreeClient.Message(role: "user", content: resultsBlock))
                         await MainActor.run {
                             self.messageStore.update(id: assistantID) { m in
-                                m.content = [attachmentNotice, streamedContent]
-                                    .filter { !$0.isEmpty }
-                                    .joined(separator: "\n\n")
+                                m.content = [attachmentNotice, response, "\n\n⏳ Running tools..."].filter { !$0.isEmpty }.joined(separator: "\n\n")
                                 m.isStreaming = true
                             }
                         }
                     }
-                    guard !streamedContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                        throw MiCoderAutoFreeError.apiError("MiCoder Auto Free returned an empty response. Retry once; the provider will switch after repeated failures.")
-                    }
+                    let finalDisplay = [attachmentNotice, streamedContent].filter { !$0.isEmpty }.joined(separator: "\n\n")
                     await MainActor.run {
                         self.messageStore.update(id: assistantID) { m in
+                            m.content = finalDisplay
                             m.isFinished = true
                             m.isStreaming = false
                         }
