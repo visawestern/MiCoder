@@ -159,9 +159,10 @@ enum WebToolProtocolEmulator {
     /// agentic loop never stalls on a well-meant but non-strict call.
     static func parseToolCalls(from responseText: String) -> [WebToolCall] {
         var calls: [WebToolCall] = []
-        // Find ```tool ... ``` fenced blocks.
+        // Find ```tool ... ``` fenced blocks. The closing fence may directly
+        // follow the JSON (no trailing newline) — tolerate that too.
         let scanner = responseText as NSString
-        let pattern = "```tool\\s*\\n(.*?)\\n```"
+        let pattern = "```tool\\s*\\n(.*?)\\s*```"
         if let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) {
             let matches = regex.matches(in: responseText, range: NSRange(location: 0, length: scanner.length))
             for match in matches where match.numberOfRanges >= 2 {
@@ -181,9 +182,13 @@ enum WebToolProtocolEmulator {
 
     /// Parse the XML tool-call format that big-pickle / MiMo-style models emit:
     /// `<tool_call>execute_command<arg_key>command</arg_key><arg_value>pwd</arg_value></tool_call>`.
+    /// Live models pretty-print the block across lines (newline after the name,
+    /// between arg tags, and before </tool_call>), so every boundary tolerates
+    /// whitespace — otherwise the calls are silently dropped and the agentic
+    /// loop stalls showing raw unexecuted tool calls.
     private static func parseTaggedToolCalls(from text: String) -> [WebToolCall] {
         let scanner = text as NSString
-        let pattern = "<tool_call>\\s*([A-Za-z_][A-Za-z0-9_.-]*)((?:\\s*<arg_key>[\\s\\S]*?</arg_key>\\s*<arg_value>[\\s\\S]*?</arg_value>)*)</tool_call>"
+        let pattern = "<tool_call>\\s*([A-Za-z_][A-Za-z0-9_.-]*)((?:\\s*<arg_key>[\\s\\S]*?</arg_key>\\s*<arg_value>[\\s\\S]*?</arg_value>)*)\\s*</tool_call>"
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         var calls: [WebToolCall] = []
         for match in regex.matches(in: text, range: NSRange(location: 0, length: scanner.length)) where match.numberOfRanges >= 3 {

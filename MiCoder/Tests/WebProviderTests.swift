@@ -172,6 +172,37 @@ struct WebToolProtocolEmulatorTests {
         #expect(!WebToolProtocolEmulator.isFinalResponse(response))
     }
 
+    @Test func parsesMultilineTaggedToolCalls() {
+        // Live MiMo-style models pretty-print the XML across lines (observed in
+        // a real session). The parser must not silently drop these, otherwise
+        // the agentic loop stalls showing raw unexecuted tool calls.
+        let response = """
+        Начинаю! Сначала найдём файл технического задания в текущей папке проекта.
+        <tool_call>list_dir<arg_key>path</arg_key>
+        <arg_value>.</arg_value>
+        </tool_call>
+        <tool_call>glob
+        <arg_key>pattern</arg_key>
+        <arg_value>**/*.{txt,md}</arg_value>
+        </tool_call>
+        """
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+        #expect(calls.count == 2)
+        #expect(calls[0].name == "list_dir")
+        #expect(calls[0].arguments["path"] == ".")
+        #expect(calls[1].name == "glob")
+        #expect(calls[1].arguments["pattern"] == "**/*.{txt,md}")
+        #expect(!WebToolProtocolEmulator.isFinalResponse(response))
+    }
+
+    @Test func parsesFencedToolCallWithoutTrailingNewline() {
+        let response = "Смотрю файл.\n```tool\n{\"name\": \"read_file\", \"args\": {\"path\": \"README.md\"}}```"
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+        #expect(calls.count == 1)
+        #expect(calls.first?.name == "read_file")
+        #expect(calls.first?.arguments["path"] == "README.md")
+    }
+
     @Test func systemPreambleTeachesBothFormatsAndTools() {
         let preamble = WebToolProtocolEmulator.systemPreamble(projectRoot: "/proj", isGitRepo: true)
         #expect(preamble.contains("```tool"))
