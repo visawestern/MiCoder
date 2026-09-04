@@ -110,6 +110,49 @@ struct DatabaseBridgeProjectRoutingTests {
         #expect(DatabaseBridge.shared.loadSessions(projectId: bogus).isEmpty)
     }
 
+    // MARK: - History tail paging (initial load must show the NEWEST page;
+    // oldest-first + limit hid every new message once a session outgrew it).
+
+    @Test("tail load returns newest page and older page is disjoint")
+    func tailLoadAndOlderPageAreDisjoint() throws {
+        let unique = UUID().uuidString
+        let projectPath = try makeTempProjectDir("tail-\(unique)")
+        defer { try? FileManager.default.removeItem(atPath: projectPath) }
+        ProjectDatabaseManager.evictProject(projectPath: projectPath)
+
+        let sessionID = "s-tail-\(unique)"
+        DatabaseBridge.shared.createSession(id: sessionID, projectId: projectPath, title: "Chat", directory: projectPath)
+        var allIDs: [String] = []
+        for i in 0..<25 {
+            let id = "m-tail-\(unique)-\(i)"
+            allIDs.append(id)
+            DatabaseBridge.shared.saveMessage(Message(id: id, role: i % 2 == 0 ? .user : .assistant, content: "msg \(i)"), sessionId: sessionID)
+        }
+
+        #expect(DatabaseBridge.shared.messageCount(sessionId: sessionID) == 25)
+
+        let tail = DatabaseBridge.shared.loadMessageTail(sessionId: sessionID, take: 20)
+        #expect(tail.count == 20)
+        #expect(Set(tail.map(\.id)).count == 20, "tail ids must be distinct")
+        #expect(Set(tail.map(\.id)).isSubset(of: Set(allIDs)))
+
+        let older = DatabaseBridge.shared.loadOlderPage(sessionId: sessionID, loadedCount: tail.count, pageSize: 20)
+        #expect(older.messages.count == 5)
+        #expect(older.hasMore == false)
+        let tailIDs = Set(tail.map(\.id))
+        let olderIDs = Set(older.messages.map(\.id))
+        #expect(olderIDs.isDisjoint(with: tailIDs), "older page must not repeat tail rows")
+        #expect(tailIDs.union(olderIDs) == Set(allIDs), "tail + older page must cover the whole session")
+    }
+
+    @Test("messageCount is zero for unknown sessions and tail is empty")
+    func countAndTailHandleUnknownSession() {
+        let bogus = "nope-\(UUID().uuidString)"
+        #expect(DatabaseBridge.shared.messageCount(sessionId: bogus) == 0)
+        #expect(DatabaseBridge.shared.loadMessageTail(sessionId: bogus, take: 20).isEmpty)
+        #expect(DatabaseBridge.shared.loadOlderPage(sessionId: bogus, loadedCount: 0, pageSize: 20).messages.isEmpty)
+    }
+
     // MARK: - saveMessagePart routing (audit: stepStart used to bypass the
     // injected inserter and write to the legacy global DB instead of the
     // active project DB).

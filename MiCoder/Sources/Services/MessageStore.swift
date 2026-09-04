@@ -69,19 +69,39 @@ class MessageStore: ObservableObject {
         currentHistoryLimit = MessageHistoryPaginationLogic.initialLimit
     }
     
-    /// Загрузить сообщения сессии из локальной БД (вместо API)
+    /// Загрузить сообщения сессии из локальной БД (вместо API).
+    /// Грузит ХВОСТ (новейшие `limit`) — oldest-first прятал бы все новые
+    /// сообщения, как только сессия перерастает страницу.
     @MainActor
     func loadFromDatabase(sessionId: String, limit: Int? = nil) {
         self.currentSessionID = sessionId
-        let loadedMessages = dbBridge.loadMessages(sessionId: sessionId, limit: limit)
-        
+        let loadedMessages = dbBridge.loadMessageTail(sessionId: sessionId, take: limit)
+
         if !loadedMessages.isEmpty {
             self.messages = loadedMessages
-            self.hasMoreMessages = (limit != nil) && loadedMessages.count >= (limit ?? 0)
+            self.hasMoreMessages = dbBridge.messageCount(sessionId: sessionId) > loadedMessages.count
         } else {
             self.messages = []
             self.hasMoreMessages = false
         }
+    }
+
+    /// Догрузить одну страницу более старых сообщений из локальной БД
+    /// (для сессий без серверной истории: local/auto-free). Дубликаты по id
+    /// пропускаются — хвост мог сдвинуться живыми дописываниями.
+    @MainActor
+    @discardableResult
+    func loadOlderFromDatabase(sessionId: String, pageSize: Int = 20) -> Bool {
+        let page = dbBridge.loadOlderPage(sessionId: sessionId, loadedCount: messages.count, pageSize: pageSize)
+        let existingIDs = Set(messages.map(\.id))
+        let fresh = page.messages.filter { !existingIDs.contains($0.id) }
+        guard !fresh.isEmpty else {
+            hasMoreMessages = page.hasMore
+            return false
+        }
+        messages = fresh + messages
+        hasMoreMessages = page.hasMore
+        return true
     }
     
     /// Hysteresis pruning: the feed may grow `pruneBuffer` messages past

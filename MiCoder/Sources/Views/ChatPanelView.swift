@@ -1240,6 +1240,12 @@ struct ChatPanelView: View {
         Task {
             canLoadOlderMessages = false
             _ = await messageStore.loadHistory(sessionID: sessionID, client: appState.mimoClient)
+            // Local/auto-free sessions have no server history — page the local
+            // DB when the server yielded nothing, otherwise older messages are
+            // unreachable after the initial tail load.
+            if !messageStore.hasMoreMessages {
+                await MainActor.run { _ = messageStore.loadOlderFromDatabase(sessionId: sessionID) }
+            }
             await MainActor.run {
                 canLoadOlderMessages = messageStore.hasMoreMessages
             }

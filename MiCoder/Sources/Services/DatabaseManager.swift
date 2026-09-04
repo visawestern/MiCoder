@@ -1054,6 +1054,13 @@ class DatabaseManager {
         return try db.scalar(messages.count)
     }
 
+    /// Count messages of one session. Used for tail-paging the history
+    /// (newest-N initial load + older pages) without fetching everything.
+    func countMessages(sessionId sessionIdValue: String) throws -> Int {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        return try db.scalar(messages.filter(messageSessionId == sessionIdValue).count)
+    }
+
     /// Read real per-message usage data points for statistics (plan Раздел 10
     /// Блок 2 п.13-14). Uses the existing model_id/provider_id/prompt_tokens/
     /// completion_tokens/cost_usd columns. costUSD is nil only when the

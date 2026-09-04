@@ -1008,4 +1008,11 @@ final class ProjectDatabaseManager {
     func messageCount() throws -> Int {
         try db.scalar(messages.count)
     }
+
+    /// Count messages of one session. Used for tail-paging the history
+    /// (newest-N initial load + older pages) without fetching everything.
+    func countMessages(sessionId sessionIdValue: String) throws -> Int {
+        touch()
+        return try db.scalar(messages.filter(messageSessionId == sessionIdValue).count)
+    }
 }

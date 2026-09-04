@@ -338,11 +338,14 @@ class DatabaseBridge: ObservableObject {
     }
     
     /// Загрузить сообщения только из базы проекта, зарегистрированной для сессии.
-    func loadMessages(sessionId: String, limit: Int? = nil) -> [Message] {
+    /// `offset` отсчитывается от начала (ASC). Для начальной загрузки истории
+    /// используйте `loadMessageTail` — oldest-first + limit прячет новые
+    /// сообщения, как только сессия перерастает размер страницы.
+    func loadMessages(sessionId: String, limit: Int? = nil, offset: Int = 0) -> [Message] {
         // For temporary sessions, use global database
         if isTemporarySession(sessionId) {
             do {
-                let records = try db.getMessagesBySession(sessionId: sessionId, limit: limit)
+                let records = try db.getMessagesBySession(sessionId: sessionId, limit: limit, offset: offset)
                 return records.map { record in
                     let parts = (try? db.getMessageParts(messageId: record.id)) ?? []
                     return Message(
@@ -366,7 +369,7 @@ class DatabaseBridge: ObservableObject {
             return []
         }
         do {
-            let records = try projectDB.getMessages(sessionId: sessionId, limit: limit)
+            let records = try projectDB.getMessages(sessionId: sessionId, limit: limit, offset: offset)
             return records.map { record in
                 let parts = (try? projectDB.getMessageParts(messageId: record.id)) ?? []
                 return Message(
@@ -383,6 +386,40 @@ class DatabaseBridge: ObservableObject {
             print("❌ Failed to load messages from project database: \(error)")
             return []
         }
+    }
+
+    /// Total persisted messages of a session in its routed store.
+    func messageCount(sessionId: String) -> Int {
+        if isTemporarySession(sessionId) {
+            return (try? db.countMessages(sessionId: sessionId)) ?? 0
+        }
+        guard let projectDB = resolveProjectDatabase(forSessionID: sessionId) else { return 0 }
+        return (try? projectDB.countMessages(sessionId: sessionId)) ?? 0
+    }
+
+    /// Newest `take` messages in ASC display order (`nil` = all). The initial
+    /// history load MUST use the tail: oldest-first + limit hides every new
+    /// message once a session grows past the page size, and nothing can page
+    /// to them afterwards.
+    func loadMessageTail(sessionId: String, take: Int?) -> [Message] {
+        guard let take else { return loadMessages(sessionId: sessionId, limit: nil) }
+        let total = messageCount(sessionId: sessionId)
+        let bounded = min(max(take, 0), total)
+        guard bounded > 0 else { return [] }
+        return loadMessages(sessionId: sessionId, limit: bounded, offset: total - bounded)
+    }
+
+    /// One older page preceding the currently displayed tail. `loadedCount` is
+    /// how many messages are already shown. Returns the page (ASC) plus whether
+    /// even older rows remain.
+    func loadOlderPage(sessionId: String, loadedCount: Int, pageSize: Int) -> (messages: [Message], hasMore: Bool) {
+        let total = messageCount(sessionId: sessionId)
+        let olderCount = total - max(loadedCount, 0)
+        guard olderCount > 0, pageSize > 0 else { return ([], false) }
+        let take = min(pageSize, olderCount)
+        let offset = olderCount - take
+        let page = loadMessages(sessionId: sessionId, limit: take, offset: offset)
+        return (page, offset > 0)
     }
     
     /// Конвертировать MessagePartRecord (общая БД) в MessagePartContent

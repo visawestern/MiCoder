@@ -57,3 +57,8 @@ scrape_models.js
 *.profraw
 FETCH_HEAD
 
+# Stray local sqlite files (test debris / runtime state, never source)
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
