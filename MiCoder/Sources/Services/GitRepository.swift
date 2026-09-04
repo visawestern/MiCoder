@@ -42,8 +42,8 @@ struct GitRepository {
         }
     }
 
-    static func currentBranch(in repoPath: String) throws -> String {
-        try run(["rev-parse", "--abbrev-ref", "HEAD"], in: repoPath)
+    static func currentBranch(in repoPath: String) -> String {
+        (try? run(["rev-parse", "--abbrev-ref", "HEAD"], in: repoPath)) ?? "main"
     }
 
     static func branches(in repoPath: String) throws -> [String] {

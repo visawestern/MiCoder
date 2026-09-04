@@ -211,12 +211,113 @@ final class MiCoderAutoFreeClient {
         freeModelIDs.contains(modelID) || modelID.hasSuffix("-free")
     }
 
+    /// Build OpenAI-compatible tool definitions from the emulated tool set so
+    /// free models receive full tool descriptions in every prompt.
+    static func toolDefinitions() -> [[String: Any]] {
+        WebEmulatedTool.allCases.map { tool in
+            var parameters: [String: Any] = [:]
+            var properties: [String: Any] = [:]
+            var required: [String] = []
+            switch tool {
+            case .readFile:
+                properties["path"] = ["type": "string", "description": "Relative file path"]
+                required = ["path"]
+            case .writeFile:
+                properties["path"] = ["type": "string", "description": "Relative file path"]
+                properties["content"] = ["type": "string", "description": "File content"]
+                required = ["path", "content"]
+            case .editFile:
+                properties["path"] = ["type": "string", "description": "Relative file path"]
+                properties["old"] = ["type": "string", "description": "Exact text to replace"]
+                properties["new"] = ["type": "string", "description": "Replacement text"]
+                required = ["path", "old", "new"]
+            case .listDir:
+                properties["path"] = ["type": "string", "description": "Relative directory path"]
+                required = ["path"]
+            case .grep:
+                properties["pattern"] = ["type": "string", "description": "Regex pattern"]
+                properties["path"] = ["type": "string", "description": "Relative path to search in"]
+                required = ["pattern"]
+            case .runCommand:
+                properties["command"] = ["type": "string", "description": "Shell command to execute"]
+                required = ["command"]
+            case .gitStatus:
+                properties["path"] = ["type": "string", "description": "Repository path"]
+                required = []
+            case .gitDiff:
+                properties["path"] = ["type": "string", "description": "Repository path"]
+                properties["staged"] = ["type": "boolean", "description": "Show staged changes"]
+                required = []
+            case .gitLog:
+                properties["path"] = ["type": "string", "description": "Repository path"]
+                properties["limit"] = ["type": "integer", "description": "Max commits to show"]
+                required = []
+            case .gitBranch:
+                properties["branch"] = ["type": "string", "description": "Branch name"]
+                properties["create"] = ["type": "boolean", "description": "Create if missing"]
+                required = []
+            case .gitCheckout:
+                properties["branch"] = ["type": "string", "description": "Branch name to switch to"]
+                required = ["branch"]
+            case .gitCommit:
+                properties["message"] = ["type": "string", "description": "Commit message"]
+                properties["addAll"] = ["type": "boolean", "description": "Stage all changes"]
+                required = ["message"]
+            case .gitPush:
+                properties["remote"] = ["type": "string", "description": "Remote name"]
+                properties["branch"] = ["type": "string", "description": "Branch name"]
+                required = []
+            case .gitPull:
+                properties["remote"] = ["type": "string", "description": "Remote name"]
+                properties["branch"] = ["type": "string", "description": "Branch name"]
+                required = []
+            case .glob:
+                properties["pattern"] = ["type": "string", "description": "Glob pattern"]
+                properties["path"] = ["type": "string", "description": "Relative path"]
+                required = ["pattern"]
+            case .todoRead:
+                break
+            case .todoWrite:
+                properties["todos"] = [
+                    "type": "array",
+                    "items": [
+                        "type": "object",
+                        "properties": [
+                            "id": ["type": "string"],
+                            "content": ["type": "string"],
+                            "status": ["type": "string", "enum": ["pending", "in_progress", "completed"]]
+                        ]
+                    ]
+                ]
+                required = ["todos"]
+            case .task:
+                properties["description"] = ["type": "string", "description": "Task description"]
+                properties["prompt"] = ["type": "string", "description": "Detailed prompt"]
+                properties["subagentType"] = ["type": "string", "description": "Agent type"]
+                required = ["description", "prompt"]
+            }
+            return [
+                "type": "function",
+                "function": [
+                    "name": tool.rawValue,
+                    "description": tool.description,
+                    "parameters": [
+                        "type": "object",
+                        "properties": properties,
+                        "required": required
+                    ]
+                ] as [String: Any]
+            ]
+        }
+    }
+
     /// Stream a completion without an API key. The selected model must be in
     /// the live temporary free catalog; this prevents accidental paid usage.
     func chatCompletion(
         model: String = MiCoderAutoFreeClient.defaultModelID,
         messages: [Message],
         parameters: ModelCallParameters = ModelCallParameters(),
+        tools: [[String: Any]]? = nil,
         stream: Bool = true
     ) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
@@ -232,9 +333,14 @@ final class MiCoderAutoFreeClient {
                     request.timeoutInterval = 180
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                     request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-                    request.httpBody = try JSONEncoder().encode(
-                        CompletionRequest(model: effectiveModel, messages: messages, parameters: parameters, stream: stream)
+                    let completionBody = CompletionRequest(
+                        model: effectiveModel,
+                        messages: messages,
+                        parameters: parameters,
+                        tools: tools,
+                        stream: stream
                     )
+                    request.httpBody = try JSONEncoder().encode(completionBody)
 
                     if stream {
                         let (bytes, response) = try await session.bytes(for: request)
@@ -332,10 +438,11 @@ private struct CompletionRequest: Encodable {
     let model: String
     let messages: [MiCoderAutoFreeClient.Message]
     let parameters: ModelCallParameters
+    let tools: [[String: Any]]?
     let stream: Bool
 
     enum CodingKeys: String, CodingKey {
-        case model, messages, stream, temperature, maxTokens = "max_tokens", topP = "top_p"
+        case model, messages, stream, temperature, maxTokens = "max_tokens", topP = "top_p", tools
     }
 
     func encode(to encoder: Encoder) throws {
@@ -346,6 +453,41 @@ private struct CompletionRequest: Encodable {
         try container.encodeIfPresent(parameters.temperature, forKey: .temperature)
         try container.encodeIfPresent(parameters.maxTokens, forKey: .maxTokens)
         try container.encodeIfPresent(parameters.topP, forKey: .topP)
+        if let tools, !tools.isEmpty {
+            let toolsData = try JSONSerialization.data(withJSONObject: tools)
+            let toolsArray = try JSONDecoder().decode([AnyCodable].self, from: toolsData)
+            try container.encode(toolsArray, forKey: .tools)
+        }
+    }
+}
+
+private struct AnyCodable: Codable {
+    let value: Any
+
+    init(_ value: Any) { self.value = value }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let int = try? container.decode(Int.self) { value = int }
+        else if let double = try? container.decode(Double.self) { value = double }
+        else if let bool = try? container.decode(Bool.self) { value = bool }
+        else if let string = try? container.decode(String.self) { value = string }
+        else if let array = try? container.decode([AnyCodable].self) { value = array.map(\.value) }
+        else if let dict = try? container.decode([String: AnyCodable].self) { value = dict.mapValues(\.value) }
+        else { value = NSNull() }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch value {
+        case let int as Int: try container.encode(int)
+        case let double as Double: try container.encode(double)
+        case let bool as Bool: try container.encode(bool)
+        case let string as String: try container.encode(string)
+        case let array as [Any]: try container.encode(array.map { AnyCodable($0) })
+        case let dict as [String: Any]: try container.encode(dict.mapValues { AnyCodable($0) })
+        default: try container.encodeNil()
+        }
     }
 }
 

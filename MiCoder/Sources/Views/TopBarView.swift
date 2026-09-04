@@ -68,17 +68,21 @@ struct TopBarView: View {
                     .tracking(0.5)
             }
 
-            // Session goal badge (set via /goal)
-            if let goal = appState.currentSessionGoal,
-               let badge = SessionGoalLogic.badgeLabel(for: SessionGoal(text: goal)) {
-                Text(badge)
-                    .interfaceFont(size: 11, weight: .medium)
-                    .foregroundColor(Color.mimo.textSecondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.mimo.brand.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                    .help(goal)
+            // Session goal badge with live checklist progress (roadmap G).
+            if HeaderGoalProgressLogic.shouldShow(
+                selectedSession: appState.selectedSession,
+                goal: appState.currentSessionGoal,
+                steps: appState.currentSteps
+            ),
+               let badge = HeaderGoalProgressLogic.badgeText(
+                goal: appState.currentSessionGoal,
+                steps: appState.currentSteps
+               ) {
+                HeaderGoalChecklistBadge(
+                    badge: badge,
+                    goal: appState.currentSessionGoal,
+                    steps: appState.currentSteps
+                )
             }
 
             if let notice = appState.shellActionNotice {
@@ -175,6 +179,53 @@ struct TopBarButton: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Goal badge with live `n/m` progress and an expandable step checklist
+/// (roadmap item G). Without steps it renders as the plain goal badge.
+struct HeaderGoalChecklistBadge: View {
+    let badge: String
+    let goal: String?
+    let steps: [TaskStep]
+    @State private var showSteps = false
+
+    var body: some View {
+        Button(action: { if !steps.isEmpty { showSteps.toggle() } }) {
+            HStack(spacing: 6) {
+                Text(badge)
+                    .interfaceFont(size: 11, weight: .medium)
+                if let fraction = HeaderGoalProgressLogic.progressFraction(steps: steps) {
+                    ProgressView(value: fraction)
+                        .progressViewStyle(.linear)
+                        .frame(width: 44)
+                }
+            }
+            .foregroundColor(Color.mimo.textSecondary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.mimo.brand.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+        .buttonStyle(.plain)
+        .help(goal ?? badge)
+        .popover(isPresented: $showSteps, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(steps) { step in
+                    HStack(spacing: 6) {
+                        Image(systemName: HeaderGoalProgressLogic.stepIconName(for: step.status))
+                            .interfaceFont(size: 10)
+                            .foregroundColor(step.status == .completed ? Color.mimo.success : Color.mimo.textSecondary)
+                        Text(step.title)
+                            .interfaceFont(size: 12)
+                            .foregroundColor(Color.mimo.textPrimary)
+                            .lineLimit(2)
+                    }
+                }
+            }
+            .padding(12)
+            .frame(minWidth: 220, maxWidth: 340)
+        }
     }
 }
 

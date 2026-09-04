@@ -557,7 +557,7 @@ struct GitPanelView: View {
         Task {
             do {
                 let changes = try GitRepository.workingTreeChanges(in: repoPath)
-                let branch = try? GitRepository.currentBranch(in: repoPath)
+                let branch = GitRepository.currentBranch(in: repoPath)
                 let branches = try? GitRepository.branches(in: repoPath)
                 let additions = changes.reduce(0) { $0 + $1.additions }
                 let deletions = changes.reduce(0) { $0 + $1.deletions }
@@ -565,7 +565,7 @@ struct GitPanelView: View {
                 await MainActor.run {
                     appState.vcsChanges = GitRepository.toVcsFileDiffs(changes)
                     appState.sessionGitTotals = SessionGitTotals(additions: additions, deletions: deletions)
-                    if let branch { appState.gitBranch = branch }
+                    appState.gitBranch = branch
                     if let branches { appState.gitBranches = branches }
                 }
             } catch {

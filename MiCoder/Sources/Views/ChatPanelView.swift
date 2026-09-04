@@ -656,7 +656,16 @@ struct ChatPanelView: View {
             localProviders: localProviders,
             webProviderIDs: appState.webProviderIDs
         )
-                let preparedSessionID: String?
+        // A/B: host-side project auto-search. Gather files matching the request
+        // from the stored index and prepend them to the MODEL-BOUND text only;
+        // the displayed bubble keeps the raw user text. A missing/stale index
+        // simply yields no block (never blocks the send).
+        let autoContextRecords = appState.selectedWorkspace.map {
+            ProjectFileIndexStore.load(projectPath: $0.path)
+        } ?? []
+        let autoContextBlock = ProjectContextGatherLogic.block(query: text, records: autoContextRecords)
+        let modelText = autoContextBlock.isEmpty ? text : autoContextBlock + "\n\n" + text
+        let preparedSessionID: String?
         if let retryPlan {
             preparedSessionID = retryPlan.sessionID
             await MainActor.run { messageStore.currentSessionID = retryPlan.sessionID }
@@ -678,7 +687,7 @@ struct ChatPanelView: View {
                 appState.selectedSession = preparedSession
             }
         }
-        let parts = MessagePartsBuilder.build(text: text, files: files, images: images)
+        let parts = MessagePartsBuilder.build(text: modelText, files: files, images: images)
         await MainActor.run {
             currentAssistantMessageID = assistantID
             if retryPlan == nil {
@@ -728,7 +737,7 @@ struct ChatPanelView: View {
                 }
                 // E01 (Раздел 9 п.10(c)): carry REAL image bytes to the direct
                 // OpenAI-compatible path — they used to be silently dropped.
-                let directParts = MessagePartsBuilder.build(text: text, files: files, images: images)
+                let directParts = MessagePartsBuilder.build(text: modelText, files: files, images: images)
                     .compactMap { part -> [String: Any]? in
                         if part["type"] as? String == "text" {
                             return ["type": "text", "text": part["text"] as? String ?? ""]
@@ -751,7 +760,7 @@ struct ChatPanelView: View {
                     isGitRepo: (try? GitRepository.repositoryRoot(for: projectRoot)) != nil
                 )
                 let msgs = ChatHistoryBuilder.messages(
-                    systemPrompt: sysPrompt, priorTurns: prior, userText: text,
+                    systemPrompt: sysPrompt, priorTurns: prior, userText: modelText,
                     parts: directParts.isEmpty ? nil : directParts
                 )
                 // Round 8 P4: show a visible waiting state (the old flow left an
@@ -800,7 +809,7 @@ struct ChatPanelView: View {
                     }
                 }
                 let history = MiCoderAutoFreeHistoryLogic.history(from: priorTurns)
-                let autoFreePayload = autoFreeMessageParts(text: text, files: files, images: images)
+                let autoFreePayload = autoFreeMessageParts(text: modelText, files: files, images: images)
                 let priorMessages = history.map {
                     MiCoderAutoFreeClient.Message(role: $0.role, content: $0.content)
                 }
@@ -869,7 +878,7 @@ struct ChatPanelView: View {
                 }
                 let chatID = messageStore.currentSessionID ?? appState.selectedSession?.id ?? assistantID
                 activeWebChatID = chatID
-                await runWebChatTurn(config: cfg, text: text, assistantID: assistantID, chatID: chatID)
+                await runWebChatTurn(config: cfg, text: modelText, assistantID: assistantID, chatID: chatID)
                 return
             }
 
@@ -887,7 +896,7 @@ struct ChatPanelView: View {
             }
             if let acpClient = acpClient {
                 // Build ACP request messages from user text + files
-                let acpMessages = buildACPMessages(text: text, files: files, images: images)
+                let acpMessages = buildACPMessages(text: modelText, files: files, images: images)
                 let acpAgent = SessionSendLogic.sendMode(for: agentModeOverride ?? appState.agentMode)
                 let acpVariant = appState.selectedVariant.isEmpty ? nil : appState.selectedVariant
 

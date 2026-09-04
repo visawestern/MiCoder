@@ -1970,7 +1970,7 @@ class AppState: ObservableObject {
         let snapshot = await Task.detached(priority: .utility) { () -> (result: GitRefreshResult, payload: GitRefreshPayload?) in
             do {
                 let root = try GitRepository.repositoryRoot(for: workspacePath)
-                let branch = try GitRepository.currentBranch(in: root)
+                let branch = GitRepository.currentBranch(in: root)
                 let branches = try GitRepository.branches(in: root)
                 let localChanges = try GitRepository.workingTreeChanges(in: root)
                 let vcs = GitRepository.toVcsFileDiffs(localChanges)

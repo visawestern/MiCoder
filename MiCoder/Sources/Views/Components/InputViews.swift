@@ -620,7 +620,8 @@ struct BottomInputBar: View {
                 }
             }
 
-            if let reason = sendReason, !isLoading {
+            if let reason = sendReason, !isLoading,
+               reason != "Type a message or attach a file to send." {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.circle.fill")
                         .interfaceFont(size: 10)
