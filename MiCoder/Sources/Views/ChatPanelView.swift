@@ -825,15 +825,24 @@ struct ChatPanelView: View {
                 )
                 let maxIterations = 15
                 var streamedContent = ""
+                var streamedReasoning = ""
                 do {
                     for iteration in 0..<maxIterations {
                         var response = ""
-                        for try await chunk in store.streamChat(messages: conversationMessages) {
-                            response += chunk
+                        var reasoning = ""
+                        for try await event in store.streamChat(messages: conversationMessages) {
+                            let e: StreamEvent = event
+                            switch e {
+                            case .content(let text):
+                                response += text
+                            case .reasoning(let text):
+                                reasoning += text
+                            }
                             let display = [attachmentNotice, response].filter { !$0.isEmpty }.joined(separator: "\n\n")
                             await MainActor.run {
                                 self.messageStore.update(id: assistantID) { m in
                                     m.content = display
+                                    m.reasoning = reasoning
                                     m.isStreaming = true
                                 }
                             }
@@ -855,9 +864,12 @@ struct ChatPanelView: View {
                         }
                         conversationMessages.append(MiCoderAutoFreeClient.Message(role: "assistant", content: response))
                         conversationMessages.append(MiCoderAutoFreeClient.Message(role: "user", content: resultsBlock))
+                        streamedContent = response
+                        streamedReasoning = reasoning
                         await MainActor.run {
                             self.messageStore.update(id: assistantID) { m in
                                 m.content = [attachmentNotice, response, "\n\n⏳ Running tools..."].filter { !$0.isEmpty }.joined(separator: "\n\n")
+                                m.reasoning = reasoning
                                 m.isStreaming = true
                             }
                         }
@@ -866,6 +878,7 @@ struct ChatPanelView: View {
                     await MainActor.run {
                         self.messageStore.update(id: assistantID) { m in
                             m.content = finalDisplay
+                            m.reasoning = streamedReasoning
                             m.isFinished = true
                             m.isStreaming = false
                         }

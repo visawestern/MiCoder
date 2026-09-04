@@ -1,5 +1,18 @@
 import Foundation
 
+/// Distinguishes between content and reasoning chunks from the streaming response.
+enum StreamEvent: Equatable {
+    case content(String)
+    case reasoning(String)
+
+    var text: String {
+        switch self {
+        case .content(let s): return s
+        case .reasoning(let s): return s
+        }
+    }
+}
+
 /// Anonymous OpenCode Zen client for MiCoder Auto Free.
 /// Eligible models are the trusted temporary free-model IDs plus any live
 /// `-free`-suffixed route; paid catalog models are never selected automatically.
@@ -377,7 +390,7 @@ final class MiCoderAutoFreeClient {
         messages: [Message],
         parameters: ModelCallParameters = ModelCallParameters(),
         stream: Bool = true
-    ) -> AsyncThrowingStream<String, Error> {
+    ) -> AsyncThrowingStream<StreamEvent, Error> {
         AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -411,11 +424,11 @@ final class MiCoderAutoFreeClient {
                             if let chunk = try? JSONDecoder().decode(StreamChunk.self, from: data) {
                                 if let content = chunk.choices.first?.delta.content, !content.isEmpty {
                                     emitted = true
-                                    continuation.yield(content)
+                                    continuation.yield(.content(content))
                                 }
                                 if let reasoning = chunk.choices.first?.delta.reasoningContent, !reasoning.isEmpty {
                                     emitted = true
-                                    continuation.yield(reasoning)
+                                    continuation.yield(.reasoning(reasoning))
                                 }
                             }
                         }
@@ -428,7 +441,7 @@ final class MiCoderAutoFreeClient {
                               !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                             throw MiCoderAutoFreeError.emptyResponse
                         }
-                        continuation.yield(content)
+                        continuation.yield(.content(content))
                     }
                     continuation.finish()
                 } catch {

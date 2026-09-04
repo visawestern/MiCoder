@@ -916,8 +916,10 @@ struct WebProviderLoginView: View {
                     ),
                     MiCoderAutoFreeClient.Message(role: "user", content: prompt)
                 ]
-                for try await chunk in MiCoderAutoFreeStore.shared.streamChat(messages: messages) {
-                    answer += chunk
+                for try await event in MiCoderAutoFreeStore.shared.streamChat(messages: messages) {
+                    if case .content(let text) = event {
+                        answer += text
+                    }
                 }
                 let aiModels = parseAIDetectedModels(answer)
                 let merged = mergeDetectedModels(liveModels: liveModels, aiModels: aiModels)

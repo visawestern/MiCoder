@@ -137,7 +137,7 @@ final class MiCoderAutoFreeStore: ObservableObject {
 
     func streamChat(
         messages: [MiCoderAutoFreeClient.Message]
-    ) -> AsyncThrowingStream<String, Error> {
+    ) -> AsyncThrowingStream<StreamEvent, Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 if provider.models.isEmpty {
@@ -178,13 +178,13 @@ final class MiCoderAutoFreeStore: ObservableObject {
                         )
                     }
                     do {
-                        for try await chunk in MiCoderAutoFreeClient.shared.chatCompletion(
+                        for try await event in MiCoderAutoFreeClient.shared.chatCompletion(
                             model: currentModel,
                             messages: effectiveMessages,
                             parameters: modelParameters,
                             stream: true
                         ) {
-                            continuation.yield(chunk)
+                            continuation.yield(event)
                         }
                         provider.consecutiveFailures = 0
                         if provider.statusMessage.isEmpty || provider.statusMessage.hasPrefix("OpenCode model") {
@@ -245,7 +245,7 @@ final class MiCoderAutoFreeStore: ObservableObject {
                             ]
                         )
                         defaults.set(nextModel.id, forKey: "com.micoder.autoFree.model")
-                        continuation.yield("\n\n[MiCoder Auto Free switched to \(nextModel.id): \(reason)]\n\n")
+                        continuation.yield(.content("\n\n[MiCoder Auto Free switched to \(nextModel.id): \(reason)]\n\n"))
                         currentModel = nextModel.id
                     }
                 }
