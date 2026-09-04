@@ -161,12 +161,10 @@ final class MiCoderAutoFreeStore: ObservableObject {
                         )
                     }
                     do {
-                        let toolDefs = MiCoderAutoFreeClient.toolDefinitions()
                         for try await chunk in MiCoderAutoFreeClient.shared.chatCompletion(
                             model: currentModel,
                             messages: effectiveMessages,
                             parameters: modelParameters,
-                            tools: toolDefs.isEmpty ? nil : toolDefs,
                             stream: true
                         ) {
                             continuation.yield(chunk)

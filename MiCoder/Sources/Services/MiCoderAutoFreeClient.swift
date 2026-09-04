@@ -345,7 +345,6 @@ final class MiCoderAutoFreeClient {
         model: String = MiCoderAutoFreeClient.defaultModelID,
         messages: [Message],
         parameters: ModelCallParameters = ModelCallParameters(),
-        tools: [[String: Any]]? = nil,
         stream: Bool = true
     ) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
@@ -365,14 +364,13 @@ final class MiCoderAutoFreeClient {
                         model: effectiveModel,
                         messages: messages,
                         parameters: parameters,
-                        tools: tools,
                         stream: stream
                     )
                     request.httpBody = try JSONEncoder().encode(completionBody)
 
                     if stream {
                         let (bytes, response) = try await session.bytes(for: request)
-                        try validate(response, data: Data(), operation: "OpenCode chat request")
+                        try validate(response, data: Data(), operation: "Free model streaming")
                         var emitted = false
                         for try await line in bytes.lines {
                             guard line.hasPrefix("data: ") else { continue }
@@ -393,7 +391,7 @@ final class MiCoderAutoFreeClient {
                         guard emitted else { throw MiCoderAutoFreeError.emptyResponse }
                     } else {
                         let (data, response) = try await session.data(for: request)
-                        try validate(response, data: data, operation: "OpenCode chat request")
+                        try validate(response, data: data, operation: "Free model chat")
                         let decoded = try JSONDecoder().decode(NonStreamResponse.self, from: data)
                         guard let content = decoded.choices.first?.message.content,
                               !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -430,18 +428,21 @@ final class MiCoderAutoFreeClient {
 
     private func validate(_ response: URLResponse, data: Data, operation: String) throws {
         guard let http = response as? HTTPURLResponse else {
-            throw MiCoderAutoFreeError.apiError("\(operation) returned an invalid response")
+            throw MiCoderAutoFreeError.apiError("Invalid response from free model server")
         }
         guard (200..<300).contains(http.statusCode) else {
             let body = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let suffix = body.isEmpty ? "" : ": \(String(body.prefix(400)))"
             if http.statusCode == 429 {
-                throw MiCoderAutoFreeError.rateLimited("OpenCode rate limit reached")
+                throw MiCoderAutoFreeError.rateLimited("Free model rate limit reached. Try again later or switch model.")
+            }
+            if http.statusCode == 503 {
+                throw MiCoderAutoFreeError.rateLimited("Free model server is temporarily unavailable (503). Try again in a moment.")
             }
             if [400, 403, 404, 410].contains(http.statusCode) {
-                throw MiCoderAutoFreeError.modelUnavailable("unknown", "\(operation) failed (HTTP \(http.statusCode))\(suffix)")
+                throw MiCoderAutoFreeError.modelUnavailable("unknown", "Free model unavailable (HTTP \(http.statusCode))\(suffix)")
             }
-            throw MiCoderAutoFreeError.apiError("\(operation) failed (HTTP \(http.statusCode))\(suffix)")
+            throw MiCoderAutoFreeError.apiError("Free model request failed (HTTP \(http.statusCode))\(suffix)")
         }
     }
 }
@@ -466,11 +467,10 @@ private struct CompletionRequest: Encodable {
     let model: String
     let messages: [MiCoderAutoFreeClient.Message]
     let parameters: ModelCallParameters
-    let tools: [[String: Any]]?
     let stream: Bool
 
     enum CodingKeys: String, CodingKey {
-        case model, messages, stream, temperature, maxTokens = "max_tokens", topP = "top_p", tools
+        case model, messages, stream, temperature, maxTokens = "max_tokens", topP = "top_p"
     }
 
     func encode(to encoder: Encoder) throws {
@@ -481,41 +481,6 @@ private struct CompletionRequest: Encodable {
         try container.encodeIfPresent(parameters.temperature, forKey: .temperature)
         try container.encodeIfPresent(parameters.maxTokens, forKey: .maxTokens)
         try container.encodeIfPresent(parameters.topP, forKey: .topP)
-        if let tools, !tools.isEmpty {
-            let toolsData = try JSONSerialization.data(withJSONObject: tools)
-            let toolsArray = try JSONDecoder().decode([AnyCodable].self, from: toolsData)
-            try container.encode(toolsArray, forKey: .tools)
-        }
-    }
-}
-
-private struct AnyCodable: Codable {
-    let value: Any
-
-    init(_ value: Any) { self.value = value }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if let int = try? container.decode(Int.self) { value = int }
-        else if let double = try? container.decode(Double.self) { value = double }
-        else if let bool = try? container.decode(Bool.self) { value = bool }
-        else if let string = try? container.decode(String.self) { value = string }
-        else if let array = try? container.decode([AnyCodable].self) { value = array.map(\.value) }
-        else if let dict = try? container.decode([String: AnyCodable].self) { value = dict.mapValues(\.value) }
-        else { value = NSNull() }
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch value {
-        case let int as Int: try container.encode(int)
-        case let double as Double: try container.encode(double)
-        case let bool as Bool: try container.encode(bool)
-        case let string as String: try container.encode(string)
-        case let array as [Any]: try container.encode(array.map { AnyCodable($0) })
-        case let dict as [String: Any]: try container.encode(dict.mapValues { AnyCodable($0) })
-        default: try container.encodeNil()
-        }
     }
 }
 
