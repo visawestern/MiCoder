@@ -741,6 +741,10 @@ class AppState: ObservableObject {
         if persistPreference {
             defaults.set(modelID, forKey: "com.micoder.preferredModelID")
         }
+        // For auto-free provider, also sync the store so effectiveSelectedModel() reflects the choice
+        if selectedProviderID == MiCoderAutoFreeProvider.builtInID {
+            MiCoderAutoFreeStore.shared.syncModel(modelID)
+        }
         if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID) {
             updateWebProvider(webID, modelID: modelID)
             if let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID }) {
