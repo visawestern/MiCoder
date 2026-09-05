@@ -826,6 +826,7 @@ struct ChatPanelView: View {
                 let maxIterations = 15
                 var streamedContent = ""
                 var streamedReasoning = ""
+                var allToolCallParts: [MessagePartContent] = []
                 do {
                     for iteration in 0..<maxIterations {
                         var response = ""
@@ -864,14 +865,23 @@ struct ChatPanelView: View {
                             }
                             let result = await executor.execute(call)
                             resultsBlock += WebToolProtocolEmulator.formatToolResult(name: call.name, result: result) + "\n"
+                            // Store tool call as part for UI spoiler
+                            allToolCallParts.append(.toolCall(
+                                name: call.name,
+                                args: call.arguments.reduce(into: "") { $0 += "\($1.key)=\($1.value) " },
+                                result: result,
+                                callID: UUID().uuidString
+                            ))
                         }
                         conversationMessages.append(MiCoderAutoFreeClient.Message(role: "assistant", content: response))
                         conversationMessages.append(MiCoderAutoFreeClient.Message(role: "user", content: resultsBlock))
                         streamedContent = response
+                        // Add tool call parts to message for UI spoilers
                         await MainActor.run {
                             self.messageStore.update(id: assistantID) { m in
                                 m.content = [attachmentNotice, response, "\n\n⏳ Running tools..."].filter { !$0.isEmpty }.joined(separator: "\n\n")
                                 m.reasoning = streamedReasoning
+                                m.parts = allToolCallParts
                                 m.isStreaming = true
                             }
                         }
@@ -881,6 +891,7 @@ struct ChatPanelView: View {
                         self.messageStore.update(id: assistantID) { m in
                             m.content = finalDisplay
                             m.reasoning = streamedReasoning
+                            m.parts = allToolCallParts
                             m.isFinished = true
                             m.isStreaming = false
                         }
