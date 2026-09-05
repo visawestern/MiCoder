@@ -829,24 +829,27 @@ struct ChatPanelView: View {
                 do {
                     for iteration in 0..<maxIterations {
                         var response = ""
-                        var reasoning = ""
+                        var iterationReasoning = ""
                         for try await event in store.streamChat(messages: conversationMessages) {
                             let e: StreamEvent = event
                             switch e {
                             case .content(let text):
                                 response += text
                             case .reasoning(let text):
-                                reasoning += text
+                                iterationReasoning += text
                             }
                             let display = [attachmentNotice, response].filter { !$0.isEmpty }.joined(separator: "\n\n")
+                            let currentReasoning = streamedReasoning + iterationReasoning
                             await MainActor.run {
                                 self.messageStore.update(id: assistantID) { m in
                                     m.content = display
-                                    m.reasoning = reasoning
+                                    m.reasoning = currentReasoning
                                     m.isStreaming = true
                                 }
                             }
                         }
+                        // Accumulate reasoning across iterations
+                        streamedReasoning += iterationReasoning
                         let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
                         if calls.isEmpty || WebToolProtocolEmulator.shouldStopLoop(iteration: iteration, maxIterations: maxIterations, lastResponse: response) {
                             streamedContent = response
@@ -865,11 +868,10 @@ struct ChatPanelView: View {
                         conversationMessages.append(MiCoderAutoFreeClient.Message(role: "assistant", content: response))
                         conversationMessages.append(MiCoderAutoFreeClient.Message(role: "user", content: resultsBlock))
                         streamedContent = response
-                        streamedReasoning = reasoning
                         await MainActor.run {
                             self.messageStore.update(id: assistantID) { m in
                                 m.content = [attachmentNotice, response, "\n\n⏳ Running tools..."].filter { !$0.isEmpty }.joined(separator: "\n\n")
-                                m.reasoning = reasoning
+                                m.reasoning = streamedReasoning
                                 m.isStreaming = true
                             }
                         }
