@@ -329,6 +329,11 @@ enum WebToolProtocolEmulator {
                 if let s = v as? String { args[k] = s }
                 else { args[k] = "\(v)" }
             }
+        } else if let rawArgs = obj["arguments"] as? [String: Any] {
+            for (k, v) in rawArgs {
+                if let s = v as? String { args[k] = s }
+                else { args[k] = "\(v)" }
+            }
         }
         return WebToolCall(name: name, arguments: args)
     }
