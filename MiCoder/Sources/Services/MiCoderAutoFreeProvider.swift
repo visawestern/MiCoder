@@ -90,7 +90,8 @@ final class MiCoderAutoFreeStore: ObservableObject {
     /// model so in-chat failover never overrides it — unlock explicitly via
     /// the lock toggle to re-enable automatic fallback.
     func selectModel(_ modelID: String) {
-        guard provider.models.contains(where: { $0.id == modelID }) else { return }
+        let allKnownModels = Set(provider.models.map { $0.id } + MiCoderAutoFreeClient.freeModelIDs)
+        guard allKnownModels.contains(modelID) else { return }
         provider.selectedModel = modelID
         provider.modelStatuses[modelID] = "Healthy"
         provider.isModelLocked = true
@@ -105,8 +106,9 @@ final class MiCoderAutoFreeStore: ObservableObject {
     /// manually pinned model would be silently unpinned mid-conversation and
     /// failover would override the user's choice.
     func syncModel(_ modelID: String) {
+        let allKnownModels = Set(provider.models.map { $0.id } + MiCoderAutoFreeClient.freeModelIDs)
         guard !modelID.isEmpty,
-              provider.models.contains(where: { $0.id == modelID }),
+              allKnownModels.contains(modelID),
               provider.selectedModel != modelID else { return }
         provider.selectedModel = modelID
         provider.modelStatuses[modelID] = "Healthy"

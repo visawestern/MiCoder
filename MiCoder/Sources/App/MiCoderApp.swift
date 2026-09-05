@@ -528,7 +528,9 @@ class AppState: ObservableObject {
     var modelsForSelectedProvider: [String] {
         // Built-in MiCoder Auto Free provider.
         if selectedProviderID == MiCoderAutoFreeProvider.builtInID {
-            return MiCoderAutoFreeStore.shared.provider.models.map { $0.id }
+            let storeModels = MiCoderAutoFreeStore.shared.provider.models.map { $0.id }
+            // Fallback to known free model IDs if catalog isn't ready yet.
+            return storeModels.isEmpty ? MiCoderAutoFreeClient.freeModelIDs : storeModels
         }
         // Web provider selected → its real (discovered) models (plan Раздел 13 п.4).
         if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
