@@ -138,7 +138,9 @@ final class MiCoderAutoFreeStore: ObservableObject {
     }
 
     func streamChat(
-        messages: [MiCoderAutoFreeClient.Message]
+        messages: [MiCoderAutoFreeClient.Message],
+        projectRoot: String = "",
+        isGitRepo: Bool = false
     ) -> AsyncThrowingStream<StreamEvent, Error> {
         return AsyncThrowingStream { continuation in
             Task {
@@ -167,7 +169,14 @@ final class MiCoderAutoFreeStore: ObservableObject {
                 while true {
                     let modelParameters = ModelCallParametersStore.parameters(for: currentModel)
                     var effectiveMessages = messages
-                    let toolPreamble = MiCoderAutoFreeClient.toolUsagePreamble()
+                    // BUG-30-01: the tool preamble must carry the project
+                    // environment (working dir, git, date) exactly like the web
+                    // branch — a free model with no working directory cannot
+                    // resolve relative tool paths.
+                    let toolPreamble = MiCoderAutoFreeClient.toolUsagePreamble(
+                        projectRoot: projectRoot,
+                        isGitRepo: isGitRepo
+                    )
                     let systemPrompts = [
                         toolPreamble,
                         provider.systemPrompt,

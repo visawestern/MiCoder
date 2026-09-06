@@ -398,14 +398,69 @@ enum WebToolProtocolEmulator {
     }
 
     static func isPathInsideRoot(_ path: String, root: String) -> Bool {
-        let normalizedRoot = URL(fileURLWithPath: root).standardizedFileURL.path
+        let normalizedRoot = resolvedPath(root)
         let candidate: String
         if path.hasPrefix("/") {
-            candidate = URL(fileURLWithPath: path).standardizedFileURL.path
+            candidate = resolvedPath(path)
         } else {
-            candidate = URL(fileURLWithPath: root).appendingPathComponent(path).standardizedFileURL.path
+            candidate = resolvedPath(URL(fileURLWithPath: root).appendingPathComponent(path).path)
         }
         return candidate == normalizedRoot || candidate.hasPrefix(normalizedRoot + "/")
+    }
+
+    /// Resolve symlinks so a symlink placed inside the project root cannot
+    /// escape the root check and point at, e.g., /etc/passwd (audit ARCH-06).
+    /// Strategy: (1) `realpath` for existing paths; (2) lexical `..`/`.`
+    /// resolution + `realpath` for write-targets whose only missing component
+    /// is the file itself; (3) as a last resort resolve the longest EXISTING
+    /// ancestor via realpath and append the missing tail. `..` must be
+    /// resolved lexically first — `URL.deletingLastPathComponent()` is a
+    /// no-op on a trailing `..`, which made an earlier walk-up spin forever.
+    private static func resolvedPath(_ path: String) -> String {
+        var buffer = [CChar](repeating: 0, count: Int(PATH_MAX))
+        if path.withCString({ realpath($0, &buffer) }) != nil {
+            return String(cString: buffer)
+        }
+        let lexical = lexicallyResolved(path)
+        if lexical.withCString({ realpath($0, &buffer) }) != nil {
+            return String(cString: buffer)
+        }
+        // Split into the longest existing ancestor + missing tail.
+        var components = Array(
+            URL(fileURLWithPath: lexical).pathComponents.filter { $0 != "/" && !$0.isEmpty }
+        )
+        var missingTail: [String] = []
+        var resolvedAncestor: String?
+        while !components.isEmpty {
+            let ancestor = "/" + components.joined(separator: "/")
+            if ancestor.withCString({ realpath($0, &buffer) }) != nil {
+                resolvedAncestor = String(cString: buffer)
+                break
+            }
+            missingTail.insert(components.removeLast(), at: 0)
+        }
+        if let resolvedAncestor {
+            let trimmed = resolvedAncestor == "/" ? "" : resolvedAncestor
+            return missingTail.isEmpty ? resolvedAncestor : trimmed + "/" + missingTail.joined(separator: "/")
+        }
+        return lexical
+    }
+
+    /// Textual resolution of `.`/`..` without touching the filesystem.
+    private static func lexicallyResolved(_ path: String) -> String {
+        let components = URL(fileURLWithPath: path).pathComponents
+        var stack: [String] = []
+        for component in components {
+            switch component {
+            case "..":
+                if !stack.isEmpty { stack.removeLast() }
+            case ".", "", "/":
+                continue
+            default:
+                stack.append(component)
+            }
+        }
+        return stack.isEmpty ? "/" : "/" + stack.joined(separator: "/")
     }
 }
 

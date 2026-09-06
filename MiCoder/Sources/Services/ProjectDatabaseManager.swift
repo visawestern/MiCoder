@@ -102,8 +102,16 @@ final class ProjectDatabaseManager {
     let databaseFileURL: URL
 
     private let db: Connection
-    private let queue: DispatchQueue
-    private(set) var lastAccessedAt: Date
+    /// Serializes `lastAccessedAt` mutation/reads: `touch()` runs on the
+    /// static pool queue while other threads read the property directly;
+    /// an unsynchronized Date write is a data race (audit ARCH-03).
+    private let accessLock = NSLock()
+    private var lastAccessedAt: Date {
+        accessLock.lock()
+        defer { accessLock.unlock() }
+        return _lastAccessedAt
+    }
+    private var _lastAccessedAt: Date
 
     /// Current SQLite journal mode of the connection — "wal" after the E21
     /// setup in `openConnection`. Exposed for diagnostics and the E21 test.
@@ -215,8 +223,7 @@ final class ProjectDatabaseManager {
         self.projectPath = projectPath
         self.databaseFileURL = databaseFileURL
         self.db = db
-        self.queue = DispatchQueue(label: "com.mimo.projectdb.\(projectPath.hashValue)", qos: .userInitiated)
-        self.lastAccessedAt = Date()
+        self._lastAccessedAt = Date()
     }
 
     /// Opens (creating if needed) the database for the given project path.
@@ -314,7 +321,9 @@ final class ProjectDatabaseManager {
     }
 
     private func touch() {
-        lastAccessedAt = Date()
+        accessLock.lock()
+        _lastAccessedAt = Date()
+        accessLock.unlock()
     }
 
     // MARK: - Pool
@@ -496,7 +505,41 @@ final class ProjectDatabaseManager {
         try createFTS5Index()
     }
 
+    /// Validated SQL identifiers for `addColumnIfMissing`. SQL identifiers can
+    /// never be parameterized, so instead of interpolating arbitrary caller
+    /// strings (injection surface, audit ARCH-05) we validate against the
+    /// actual table/column expressions this manager owns and build the
+    /// statement only from the validated literals.
+    private enum SchemaIdentifier {
+        static let tables: Set<String> = [
+            "sessions", "messages", "message_parts", "tool_calls",
+            "file_changes", "undo_stack", "request_history", "project_metadata"
+        ]
+        static let columns: Set<String> = [
+            "id", "session_id", "title", "created_at", "updated_at", "directory",
+            "branch", "agent_mode", "model_id", "provider_id",
+            "parent_session_id", "is_archived", "tokens_used", "cost_usd",
+            "active_time_seconds", "metadata", "session_goal",
+            "message_id", "role", "content", "prompt_tokens", "completion_tokens",
+            "reasoning", "is_streaming", "is_finished", "parent_message_id",
+            "edit_of_message_id", "type", "tool_name", "tool_args", "tool_result",
+            "tool_call_id", "sequence_order", "arguments", "status", "started_at",
+            "completed_at", "error_message", "execution_time_ms",
+            "session_goal",
+            "tool_call_id", "file_path", "operation", "content_before_compressed",
+            "content_after_compressed", "diff", "timestamp", "action_type",
+            "target_path", "snapshot_id", "can_undo", "payload", "key", "value"
+        ]
+
+        static func validate(table: String, column: String) -> Bool {
+            tables.contains(table) && columns.contains(column)
+        }
+    }
+
     private func addColumnIfMissing(table: String, column: String, definition: String) throws {
+        guard SchemaIdentifier.validate(table: table, column: column) else {
+            throw DatabaseValidationError.unallowedIdentifier("ALTER TABLE \(table) ADD COLUMN \(column) was rejected: identifier is not part of the owned schema")
+        }
         let existingColumns = try SQLiteSafeQuery.rows(
             db.prepare("PRAGMA table_info(\(table))")
         ).compactMap { row -> String? in
@@ -504,6 +547,16 @@ final class ProjectDatabaseManager {
         }
         guard !existingColumns.contains(column) else { return }
         try db.execute("ALTER TABLE \(table) ADD COLUMN \(column) \(definition)")
+    }
+
+    enum DatabaseValidationError: LocalizedError {
+        case unallowedIdentifier(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .unallowedIdentifier(let message): return message
+            }
+        }
     }
 
     private func createFTS5Index() throws {

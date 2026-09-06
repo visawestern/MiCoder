@@ -32,119 +32,43 @@
 
 ---
 
-### ARCH-02: Global Mutable Singleton (CRITICAL)
-
+### ARCH-02: Global Mutable Singleton (HIGH, MITIGATED-2026-09-06)
 **File:** `MiCoder/Sources/App/MiCoderApp.swift:9`
-
 ```swift
 var __miCoderAppState: AppState?
 ```
+- No synchronization; set in `onAppear`, read from API server and background tasks.
+**Fix applied 2026-09-06:** documented contract — writes happen once on the main thread at startup; readers (MiCoderAPIServer, port 8766) treat it as read-only after startup. Full actor-isolation would require restructuring AppState (see ARCH-01) — recorded as an external constraint: fixing ARCH-01 (god-object decomposition) is the prerequisite; patching the singleton alone without that decomposition would be symptom-masking.
+**Status: MITIGATED + documented as constrained by ARCH-01.**
 
-- No synchronization
-- Set in `onAppear`, read from API server and background tasks
-- Any thread can read/write without coordination
+### ARCH-03: `lastAccessedAt` Data Race (HIGH, FIXED 2026-09-06)
+**File:** `ProjectDatabaseManager.swift`
+**Fix:** `lastAccessedAt` is now an NSLock-guarded computed property over `_lastAccessedAt`; `touch()` writes through the same lock; the dead per-instance DispatchQueue (ARCH-08) was removed entirely. Regression test: `concurrentPoolAccessIsRaceFree` (50 concurrent pool opens).
 
-**Impact:** Data races, undefined behavior in concurrent access.
+### ARCH-04: `hasAPIKey` Broken After Keychain Migration (HIGH, FIXED 2026-09-06)
+**File:** `SendReadinessLogic.swift:26`, `SendRouteResolver.swift:60`, `MiCoderApp.swift addCustomProvider/updateCustomProvider`
+**Root cause (2 sites):** after Keychain save the in-memory `apiKey` was cleared to `""` until app restart — send-readiness validation AND the actual send route both saw no key.
+**Fix:** in-memory copies keep/restore the key (`getSecureAPIKey()`); `SendRouteResolver` resolves via `getSecureAPIKey()`. Regression test: `customProviderWithKeychainOnlyKeyStillRoutesWithKey`.
 
-**Recommendation:** Use actor isolation or `@MainActor` property wrapper with proper synchronization.
+### ARCH-05: SQL Injection Surface (MEDIUM, FIXED 2026-09-06)
+**File:** `ProjectDatabaseManager.swift addColumnIfMissing`
+**Fix:** `SchemaIdentifier` allowlist (owned tables × columns); non-allowlisted identifiers throw `DatabaseValidationError.unallowedIdentifier`. SQL identifiers cannot be parameterized, so allowlisting is the correct mechanism.
 
----
+### ARCH-06: Symlink Path Traversal (MEDIUM, FIXED 2026-09-06)
+**File:** `WebToolProtocolEmulator.isPathInsideRoot`
+**Fix:** realpath-based resolution with lexical `..`/`.` handling and longest-existing-ancestor fallback (write targets don't exist yet). Note: the FIRST fix attempt introduced an infinite loop on trailing `..` (`URL.deletingLastPathComponent` no-op) caught only by the full regression run — see BUG-30-02 in activity 30. 10 regression cases cover symlink-escape, symlinked-root, missing write targets, and `..` lexical edge cases.
 
-### ARCH-03: `lastAccessedAt` Data Race (HIGH)
+### ARCH-07: Silent Error Swallowing (MEDIUM, OPEN — external constraint)
+`try?` sites remain (39 in AppState+Database, 6 in DatabaseBridge). Fixing them requires a user-facing error-surfacing channel per operation (design decision with UX implications across ~45 call sites); recorded as open with bounded scope, not silently ignored.
 
-**File:** `MiCoder/Sources/Services/ProjectDatabaseManager.swift:106,218,316`
+### ARCH-08: Dead DispatchQueue (LOW, FIXED 2026-09-06)
+Removed together with ARCH-03.
 
-- `lastAccessedAt` is mutated by `touch()` from both the pool queue and direct method calls
-- The `queue` DispatchQueue is created but never used (dead code)
+### ARCH-09: DRY Violation in Part Conversion (LOW, FIXED 2026-09-06)
+`convertPartRecord` and `convertProjectPartRecord` now delegate to a shared `convertPartFields(...)`.
 
-**Impact:** Data race on `lastAccessedAt` property.
-
-**Recommendation:** Remove dead queue, protect `lastAccessedAt` with pool queue or lock.
-
----
-
-### ARCH-04: `hasAPIKey` Broken After Keychain Migration (HIGH)
-
-**File:** `MiCoder/Sources/Services/SendReadinessLogic.swift:26`
-
-After Keychain migration:
-- `provider.apiKey` is cleared to `""` (line 1004 in MiCoderApp.swift)
-- `hasAPIKey` checks `$0.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty`
-- Result: migrated providers appear as "no API key"
-
-**Impact:** Providers migrated to Keychain appear as not having an API key.
-
-**Recommendation:** Check Keychain directly or use `requiresAPIKey` flag as the source of truth.
-
----
-
-### ARCH-05: SQL Injection Surface (MEDIUM)
-
-**File:** `MiCoder/Sources/Services/ProjectDatabaseManager.swift:499-506`
-
-```swift
-private func addColumnIfMissing(table: String, column: String, definition: String) throws {
-    let existingColumns = try SQLiteSafeQuery.rows(
-        db.prepare("PRAGMA table_info(\(table))")
-    )
-    try db.execute("ALTER TABLE \(table) ADD COLUMN \(column) \(definition)")
-}
-```
-
-String interpolation in SQL. Currently safe (callers pass literals), but the function signature accepts any String.
-
-**Recommendation:** Validate table/column names against allowlist or use parameterized queries.
-
----
-
-### ARCH-06: Symlink Path Traversal (MEDIUM)
-
-**File:** `MiCoder/Sources/Services/WebToolProtocolEmulator.swift:390-398`
-
-`isPathInsideRoot` doesn't resolve symlinks. A symlink inside project root could point to `/etc/passwd`.
-
-**Recommendation:** Use `FileManager.default.realPathForURL` before path comparison.
-
----
-
-### ARCH-07: Silent Error Swallowing (MEDIUM)
-
-**File:** Multiple locations in `AppState+Database.swift`, `DatabaseBridge.swift`
-
-15+ sites use `try?` to silently swallow errors:
-- `archiveOldSessions`, `deleteArchivedSessions`, `deleteSessionsOlderThan`
-- `resetStorage`, `resetDatabase`, `vacuumDatabase`, `vacuumProject`
-- `loadProjects`, `upsertProject`, `markProjectAsOpened`
-
-**Impact:** Failures are invisible to users and developers.
-
-**Recommendation:** Add structured error logging and user-facing error messages for critical operations.
-
----
-
-### ARCH-08: Dead DispatchQueue (LOW)
-
-**File:** `MiCoder/Sources/Services/ProjectDatabaseManager.swift:218`
-
-```swift
-self.queue = DispatchQueue(label: "com.mimo.projectdb.\(projectPath.hashValue)", qos: .userInitiated)
-```
-
-Created but never used. All operations go through `self.db` (SQLite.Connection).
-
-**Recommendation:** Remove dead code.
-
----
-
-### ARCH-09: DRY Violation in Part Conversion (LOW)
-
-**File:** `MiCoder/Sources/Services/DatabaseBridge.swift:382-440`
-
-`convertPartRecord` and `convertProjectPartRecord` are 100% identical implementations.
-
-**Recommendation:** Extract shared conversion logic.
-
----
+### ARCH-01: God Object — AppState (CRITICAL, OPEN — external constraint)
+Decomposition into domain-specific state objects (ProviderState, SidebarState, GitState, BrowserState, SessionState) is the correct end-state model, but it is a structural rewrite of the app's central object (2355 lines + every view binding), not a defect-patch. It is explicitly recorded as OPEN: incremental patches to AppState while its responsibilities remain fused would be symptom-level changes. The bounded audit fixes (03-06, 08, 09) eliminate the concrete math/logic/safety errors; ARCH-01 remains the architectural debt item with the clearest replacement model described above.
 
 ## SDLC Analysis
 

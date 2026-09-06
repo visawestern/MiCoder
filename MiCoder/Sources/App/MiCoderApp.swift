@@ -1013,7 +1013,14 @@ class AppState: ObservableObject {
             DatabaseBridge.shared.saveProviderAPIKey(providerId: provider.id, apiKey: provider.apiKey)
         }
         var cleanProvider = provider
-        cleanProvider.apiKey = ""
+        // In-memory copy keeps the working key (restored from Keychain) so
+        // send-readiness validation sees the truth — the plain-key strip only
+        // matters for the UserDefaults serialization below. Without this, a
+        // freshly added/edited provider blocks sending with "requires an API
+        // key" until the app restarts (audit ARCH-04).
+        cleanProvider.apiKey = provider.apiKey.isEmpty
+            ? (DatabaseBridge.shared.getProviderAPIKey(providerId: provider.id) ?? "")
+            : provider.apiKey
         if let index = customProviders.firstIndex(where: { $0.id == provider.id }) {
             customProviders[index] = cleanProvider
         } else {
@@ -1039,7 +1046,12 @@ class AppState: ObservableObject {
             DatabaseBridge.shared.saveProviderAPIKey(providerId: updated.id, apiKey: updated.apiKey)
         }
         var cleanProvider = updated
-        cleanProvider.apiKey = ""
+        // Same ARCH-04 fix as addCustomProvider: the in-memory copy must
+        // reflect the Keychain-resident key so readiness checks pass and the
+        // OpenAI-compatible send route can resolve it without a restart.
+        cleanProvider.apiKey = updated.apiKey.isEmpty
+            ? (DatabaseBridge.shared.getProviderAPIKey(providerId: updated.id) ?? "")
+            : updated.apiKey
         customProviders[index] = cleanProvider
         saveCustomProviders()
         if updated.isEnabled {

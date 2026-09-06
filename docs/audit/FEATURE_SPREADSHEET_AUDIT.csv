@@ -1,273 +1,286 @@
 area,id,name,user_story,expected_behavior,activity,status,severity,bugs_found,fix_applied,test_result
 App,APP-01,Window Management,"As a user, I want the app to open with proper window sizing and layout","Window opens at 1200x750 default, min 900x600",01-app-shell,PASS,NONE,,NONE,GREEN
-App,APP-02,Menu Bar Commands,"As a user, I want standard keyboard shortcuts for Cut/Copy/Paste/Select All","Cmd+X/C/V/A work in all text fields",01-app-shell,PASS,NONE,,NONE,GREEN
-App,APP-03,New Task Command,"As a user, I want Cmd+N to create a new task","Cmd+N calls startNewTask and clears the chat",01-app-shell,PASS,NONE,,NONE,GREEN
-App,APP-04,Search Command,"As a user, I want Cmd+K to open search palette","Cmd+K opens SearchPaletteView sheet",01-app-shell,PASS,NONE,,NONE,GREEN
+App,APP-02,Menu Bar Commands,"As a user, I want standard keyboard shortcuts for Cut/Copy/Paste/Select All",Cmd+X/C/V/A work in all text fields,01-app-shell,PASS,NONE,,NONE,GREEN
+App,APP-03,New Task Command,"As a user, I want Cmd+N to create a new task",Cmd+N calls startNewTask and clears the chat,01-app-shell,PASS,NONE,,NONE,GREEN
+App,APP-04,Search Command,"As a user, I want Cmd+K to open search palette",Cmd+K opens SearchPaletteView sheet,01-app-shell,PASS,NONE,,NONE,GREEN
 App,APP-05,Rebrand to MiCoder,"As a user, I want the app branded MiCoder, not MiMo","App name, ~/.micoder paths, com.micoder keys",01-app-shell,PASS,NONE,,NONE,GREEN
 App,APP-06,Serve Send Feedback,"As a user, I want direct provider sending to show progress and clear failure","Thinking placeholder, robust response decoding, typed empty-response failure",03-chat-panel,PARTIAL,MEDIUM,,NONE,GREEN
-App,APP-07,Startup Connection Readiness,"As a user, I want MiCoder to reach usable composer even without server","Auto Free available; server models load after health check",01-app-shell,PASS,NONE,,NONE,GREEN
+App,APP-07,Startup Connection Readiness,"As a user, I want MiCoder to reach usable composer even without server",Auto Free available; server models load after health check,01-app-shell,PASS,NONE,,NONE,GREEN
 Sidebar,SID-01,Workspace List Display,"As a user, I want to see all my workspaces in the left sidebar","Workspaces displayed in list or grid view, sorted, filtered",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-02,Workspace Section Header,"As a user, I want to expand/collapse the workspaces section","Click chevron toggles expanded",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-03,Workspace Sort,"As a user, I want to sort workspaces by name/recent/task count","Sort menu cycles WorkspaceSortOrder",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-04,Workspace Filter,"As a user, I want to search/filter workspaces by name","Search field filters via SidebarWorkspaceLogic.filtered",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-05,Workspace View Mode,"As a user, I want to toggle between list and grid view","Toggle switches workspaceViewMode .list/.grid",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-06,Workspace Selection,"As a user, I want to click a workspace to select it","Clicking workspace sets selectedWorkspace",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-07,Session List per Workspace,"As a user, I want to see sessions/tasks under each workspace","Expanded workspace shows up to 12 sessions",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-08,Session Selection,"As a user, I want to click a session to open it in chat","Tap session row calls selectSession",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-09,New Task from Sidebar,"As a user, I want to create a new task from the sidebar","New Task row (Cmd+N)",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-10,New Project,"As a user, I want to create a new project from the sidebar","New Project (Cmd+Shift+P) opens NewProjectSheet",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-11,Navigation History,"As a user, I want back/forward navigation between workspaces","Chevron buttons navigate workspace history stack",02-sidebar,PASS,NONE,"FIX-02: isNavigatingHistory data race",FIX-02,GREEN
-Sidebar,SID-12,Sidebar Toggle,"As a user, I want to show/hide the sidebar","Sidebar icon toggles appState.sidebarVisible",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-13,User Profile,"As a user, I want to see my avatar/initials and name in sidebar footer","Circle with initials + displayName",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-14,Notifications Button,"As a user, I want to open notifications from sidebar footer","Bell icon opens NotificationsSheet",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-15,Settings Button,"As a user, I want to open settings from sidebar footer","Gear icon opens settings",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-16,Workspace Hover Actions,"As a user, I want + and ... buttons on workspace hover","Hover shows New task and context menu",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-17,Session Hover Actions,"As a user, I want + and ... buttons on session hover","Hover shows plus button and context menu",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-18,Workspaces Overview,"As a user, I want to see all workspaces in an overview sheet","Button opens WorkspacesOverviewSheet",02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-02,Workspace Section Header,"As a user, I want to expand/collapse the workspaces section",Click chevron toggles expanded,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-03,Workspace Sort,"As a user, I want to sort workspaces by name/recent/task count",Sort menu cycles WorkspaceSortOrder,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-04,Workspace Filter,"As a user, I want to search/filter workspaces by name",Search field filters via SidebarWorkspaceLogic.filtered,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-05,Workspace View Mode,"As a user, I want to toggle between list and grid view",Toggle switches workspaceViewMode .list/.grid,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-06,Workspace Selection,"As a user, I want to click a workspace to select it",Clicking workspace sets selectedWorkspace,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-07,Session List per Workspace,"As a user, I want to see sessions/tasks under each workspace",Expanded workspace shows up to 12 sessions,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-08,Session Selection,"As a user, I want to click a session to open it in chat",Tap session row calls selectSession,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-09,New Task from Sidebar,"As a user, I want to create a new task from the sidebar",New Task row (Cmd+N),02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-10,New Project,"As a user, I want to create a new project from the sidebar",New Project (Cmd+Shift+P) opens NewProjectSheet,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-11,Navigation History,"As a user, I want back/forward navigation between workspaces",Chevron buttons navigate workspace history stack,02-sidebar,PASS,NONE,FIX-02: isNavigatingHistory data race,FIX-02,GREEN
+Sidebar,SID-12,Sidebar Toggle,"As a user, I want to show/hide the sidebar",Sidebar icon toggles appState.sidebarVisible,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-13,User Profile,"As a user, I want to see my avatar/initials and name in sidebar footer",Circle with initials + displayName,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-14,Notifications Button,"As a user, I want to open notifications from sidebar footer",Bell icon opens NotificationsSheet,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-15,Settings Button,"As a user, I want to open settings from sidebar footer",Gear icon opens settings,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-16,Workspace Hover Actions,"As a user, I want + and ... buttons on workspace hover",Hover shows New task and context menu,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-17,Session Hover Actions,"As a user, I want + and ... buttons on session hover",Hover shows plus button and context menu,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-18,Workspaces Overview,"As a user, I want to see all workspaces in an overview sheet",Button opens WorkspacesOverviewSheet,02-sidebar,PASS,NONE,,NONE,GREEN
 Sidebar,SID-19,Resizable Sidebar,"As a user, I want to drag the sidebar edge to resize it","Drag 200..420, double-click reset 260",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-20,Group/Project Pill,"As a user, I want to switch sidebar grouping","SidebarGroupingPill toggles mode",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-21,Sidebar Archive Popover,"As a user, I want quick access to archived projects","archivebox icon opens ArchivedProjectsPopover",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-22,Workspaces Overview Title,"As a user, I want the overview sheet titled per reference","Sidebar section header removed; overview titled Overview",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-23,Notifications Mark All Read,"As a user, I want to mark all notifications read","Bell opens NotificationsSheet; Mark All Read resets badge",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-24,Archive Visibility Coherence,"As a user, I want archive/restore to update sidebar immediately","Archived hidden from active; restored reappear without relaunch",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-25,Session List Limit,"As a user, I want sidebar to show canonical 12 most recent sessions","maximumVisible=12 contract",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-26,Selection and Action Routing,"As a user, I want selecting workspace to reveal sessions","Selecting expands section; notification actions complete visibly",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-27,Stable Sidebar Drag,"As a user, I want sidebar dragging to follow pointer smoothly","Every drag sample applies translation at gesture start",02-sidebar,PASS,NONE,,NONE,GREEN
-Sidebar,SID-28,Responsive Workspace Toolbar,"As a user, I want workspace actions usable when sidebar narrow","Toolbar shows individual actions or vertical-dots menu",02-sidebar,PASS,NONE,,NONE,GREEN
-Content,CON-01,Chat Panel Layout,"As a user, I want the chat area to show messages or empty state","Empty state or scrollable message list",03-chat-panel,PASS,NONE,,NONE,GREEN
-Content,CON-02,Empty State Logo,"As a user, I want to see the MiCoder code mark on initial screen","MiCoderLogoMark(size: 140) centered when no messages",03-chat-panel,PASS,NONE,,NONE,GREEN
-Content,CON-03,Empty State Title,"As a user, I want contextual text on the empty screen","Session title > workspace name > Select a workspace",03-chat-panel,PASS,NONE,,NONE,GREEN
+Sidebar,SID-20,Group/Project Pill,"As a user, I want to switch sidebar grouping",SidebarGroupingPill toggles mode,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-21,Sidebar Archive Popover,"As a user, I want quick access to archived projects",archivebox icon opens ArchivedProjectsPopover,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-22,Workspaces Overview Title,"As a user, I want the overview sheet titled per reference",Sidebar section header removed; overview titled Overview,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-23,Notifications Mark All Read,"As a user, I want to mark all notifications read",Bell opens NotificationsSheet; Mark All Read resets badge,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-24,Archive Visibility Coherence,"As a user, I want archive/restore to update sidebar immediately",Archived hidden from active; restored reappear without relaunch,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-25,Session List Limit,"As a user, I want sidebar to show canonical 12 most recent sessions",maximumVisible=12 contract,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-26,Selection and Action Routing,"As a user, I want selecting workspace to reveal sessions",Selecting expands section; notification actions complete visibly,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-27,Stable Sidebar Drag,"As a user, I want sidebar dragging to follow pointer smoothly",Every drag sample applies translation at gesture start,02-sidebar,PASS,NONE,,NONE,GREEN
+Sidebar,SID-28,Responsive Workspace Toolbar,"As a user, I want workspace actions usable when sidebar narrow",Toolbar shows individual actions or vertical-dots menu,02-sidebar,PASS,NONE,,NONE,GREEN
+Content,CON-01,Chat Panel Layout,"As a user, I want the chat area to show messages or empty state",Empty state or scrollable message list,03-chat-panel,PASS,NONE,,NONE,GREEN
+Content,CON-02,Empty State Logo,"As a user, I want to see the MiCoder code mark on initial screen",MiCoderLogoMark(size: 140) centered when no messages,03-chat-panel,PASS,NONE,,NONE,GREEN
+Content,CON-03,Empty State Title,"As a user, I want contextual text on the empty screen",Session title > workspace name > Select a workspace,03-chat-panel,PASS,NONE,,NONE,GREEN
 Content,CON-04,Message List Display,"As a user, I want to see all messages in a scrollable chat","LazyVStack with work-time separators, auto-scroll",03-chat-panel,PASS,NONE,,NONE,GREEN
-Content,CON-05,Work Time Separators,"As a user, I want time separators between messages >5s apart","Worked for Xm Ys label",03-chat-panel,PASS,NONE,,NONE,GREEN
-Content,CON-06,Auto-scroll to Bottom,"As a user, I want the chat to auto-scroll on new messages","Scrolls to bottom when at bottom",03-chat-panel,PASS,NONE,,NONE,GREEN
-Content,CON-07,Scroll-to-Bottom Button,"As a user, I want a floating button to jump to latest","Chevron-down button when scrolled up",03-chat-panel,PASS,NONE,,NONE,GREEN
-Content,CON-08,Load Older Messages,"As a user, I want to load older messages","Load earlier messages button / pagination",03-chat-panel,PASS,NONE,,NONE,GREEN
-Input,INP-01,Centered Input Card,"As a user, I want a centered input card on initial screen","Rounded capsule with workspace header",04-chat-input,PASS,NONE,,NONE,GREEN
-Input,INP-02,Auto-Growing Text Field,"As a user, I want the text field to grow as I type","CompactMessageTextField grows via NSTextView",04-chat-input,PASS,NONE,,NONE,GREEN
-Input,INP-03,Workspace Dropdown,"As a user, I want to change workspace from the input card","Workspace header opens searchable dropdown",04-chat-input,PASS,NONE,,NONE,GREEN
-Input,INP-04,Access Level Menu,"As a user, I want to set the access level","Menu with icons/descriptions; persists",04-chat-input,PASS,NONE,,NONE,GREEN
-Input,INP-05,Agent Mode Menu,"As a user, I want to switch Build/Plan/Compose modes","Menu shows modes; Plan disabled if unsupported",04-chat-input,PASS,NONE,,NONE,GREEN
-Input,INP-06,Provider Selector,"As a user, I want to select a provider","Menu with server/custom/local/web providers",04-chat-input,PASS,NONE,,NONE,GREEN
-Input,INP-07,Model Selector,"As a user, I want to select a model","Menu shows models; checkmark on current",04-chat-input,PASS,NONE,,NONE,GREEN
-Input,INP-08,Variant Selector,"As a user, I want to select reasoning effort","Variants shown when capabilities.reasoning",04-chat-input,PASS,NONE,,NONE,GREEN
-Input,INP-09,Plus Menu (Attachments),"As a user, I want to add files and images via + button","Popover with File/Photo/@/#/command",04-chat-input,PASS,NONE,,NONE,GREEN
-Input,INP-10,Send Button,"As a user, I want to send or stop generation","Arrow (send) / stop square (loading)",04-chat-input,PARTIAL,MEDIUM,"Native keyboard/accessibility unverified",NONE,GREEN
-Input,INP-11,Message Queue Indicator,"As a user, I want to see queued messages when sending while loading","Pending messages shown as numbered list",04-chat-input,PASS,NONE,,NONE,GREEN
-Input,INP-12,Attachment Preview,"As a user, I want to see attached files/images before sending","ComposerAttachmentPreview shows names/thumbnails",04-chat-input,PASS,NONE,,NONE,GREEN
+Content,CON-05,Work Time Separators,"As a user, I want time separators between messages >5s apart",Worked for Xm Ys label,03-chat-panel,PASS,NONE,,NONE,GREEN
+Content,CON-06,Auto-scroll to Bottom,"As a user, I want the chat to auto-scroll on new messages",Scrolls to bottom when at bottom,03-chat-panel,PASS,NONE,,NONE,GREEN
+Content,CON-07,Scroll-to-Bottom Button,"As a user, I want a floating button to jump to latest",Chevron-down button when scrolled up,03-chat-panel,PASS,NONE,,NONE,GREEN
+Content,CON-08,Load Older Messages,"As a user, I want to load older messages",Load earlier messages button / pagination,03-chat-panel,PASS,NONE,,NONE,GREEN
+Input,INP-01,Centered Input Card,"As a user, I want a centered input card on initial screen",Rounded capsule with workspace header,04-chat-input,PASS,NONE,,NONE,GREEN
+Input,INP-02,Auto-Growing Text Field,"As a user, I want the text field to grow as I type",CompactMessageTextField grows via NSTextView,04-chat-input,PASS,NONE,,NONE,GREEN
+Input,INP-03,Workspace Dropdown,"As a user, I want to change workspace from the input card",Workspace header opens searchable dropdown,04-chat-input,PASS,NONE,,NONE,GREEN
+Input,INP-04,Access Level Menu,"As a user, I want to set the access level",Menu with icons/descriptions; persists,04-chat-input,PASS,NONE,,NONE,GREEN
+Input,INP-05,Agent Mode Menu,"As a user, I want to switch Build/Plan/Compose modes",Menu shows modes; Plan disabled if unsupported,04-chat-input,PASS,NONE,,NONE,GREEN
+Input,INP-06,Provider Selector,"As a user, I want to select a provider",Menu with server/custom/local/web providers,04-chat-input,PASS,NONE,,NONE,GREEN
+Input,INP-07,Model Selector,"As a user, I want to select a model",Menu shows models; checkmark on current,04-chat-input,PASS,NONE,,NONE,GREEN
+Input,INP-08,Variant Selector,"As a user, I want to select reasoning effort",Variants shown when capabilities.reasoning,04-chat-input,PASS,NONE,,NONE,GREEN
+Input,INP-09,Plus Menu (Attachments),"As a user, I want to add files and images via + button",Popover with File/Photo/@/#/command,04-chat-input,PASS,NONE,,NONE,GREEN
+Input,INP-10,Send Button,"As a user, I want to send or stop generation",Arrow (send) / stop square (loading),04-chat-input,PARTIAL,MEDIUM,Native keyboard/accessibility unverified,NONE,GREEN
+Input,INP-11,Message Queue Indicator,"As a user, I want to see queued messages when sending while loading",Pending messages shown as numbered list,04-chat-input,PASS,NONE,,NONE,GREEN
+Input,INP-12,Attachment Preview,"As a user, I want to see attached files/images before sending",ComposerAttachmentPreview shows names/thumbnails,04-chat-input,PASS,NONE,,NONE,GREEN
 Input,INP-13,Bottom Input Bar,"As a user, I want the input bar at the bottom","Compact bar, single-line until typing",04-chat-input,PASS,NONE,,NONE,GREEN
-Input,INP-14,Model Parameters Dialog,"As a user, I want temperature/max_tokens/top_p/system","ModelParametersButton popover; validated per-model",04-chat-input,PARTIAL,MEDIUM,"Native popover unverified",NONE,GREEN
-Input,INP-15,Command Dropdown (/ @ # $),"As a user, I want an in-input dropdown triggered by / @ #","InputCommandTriggerLogic detects triggers",04-chat-input,PASS,NONE,,NONE,GREEN
-Input,INP-16,Dropdown $ MCP Trigger,"As a user, I want $ to suggest MCP servers","Symbol mapped in logic; MCP source returns items",04-chat-input,PASS,NONE,,NONE,GREEN
-Input,INP-17,Dropdown Enable Toggle,"As a user, I want to enable/disable the input dropdown","appState.inputDropdownEnabled gates overlay",04-chat-input,PASS,NONE,,NONE,GREEN
-Message,MSG-01,User Message Sending,"As a user, I want to send a text message and see it appear","Message appended to store; sent via client",03-chat-panel,PASS,NONE,,NONE,GREEN
-Message,MSG-02,Assistant Streaming Response,"As a user, I want to see the assistant response stream","SSE events update message content incrementally",03-chat-panel,PASS,NONE,,NONE,GREEN
-Message,MSG-03,Stop Generation,"As a user, I want to stop the assistant response","Stop button aborts session",03-chat-panel,PASS,NONE,,NONE,GREEN
-Message,MSG-04,Message Edit,"As a user, I want to edit a sent message","Edit loads draft into composer",03-chat-panel,PASS,NONE,,NONE,GREEN
-Message,MSG-05,Message Resend,"As a user, I want to resend a message","Resend triggers sendDirectly with same content",03-chat-panel,PASS,NONE,,NONE,GREEN
-Message,MSG-06,Message Retry,"As a user, I want to retry the last assistant message","Retry finds preceding user message and resends",03-chat-panel,PASS,NONE,,NONE,GREEN
-Message,MSG-07,Copy Entire Chat,"As a user, I want to copy the conversation transcript","copyEntireChat generates transcript",03-chat-panel,PASS,NONE,,NONE,GREEN
-Message,MSG-08,Message Sanitization,"As a user, I want system-reminder tags stripped","MessageContentSanitizerLogic removes blocks",03-chat-panel,PASS,NONE,,NONE,GREEN
-Message,MSG-09,Thinking Spoiler,"As a user, I want to see thinking in expandable spoiler","ThinkingSpoilerView toggles reasoning",03-chat-panel,PASS,NONE,,NONE,GREEN
-Message,MSG-10,Tool Call Display,"As a user, I want to see tool calls with status/args/results","ToolCallPresentationLogic formats",03-chat-panel,PASS,NONE,,NONE,GREEN
-Message,MSG-11,Tool Inspector,"As a user, I want to inspect tool call details","SplitToolInspectorView shows details",03-chat-panel,PASS,NONE,,NONE,GREEN
-Message,MSG-12,Image Display in Chat,"As a user, I want to see images inline","TappableChatImage thumbnail; full-size on click",03-chat-panel,PASS,NONE,,NONE,GREEN
-Message,MSG-13,Markdown Rendering,"As a user, I want messages rendered with Markdown","MarkdownTextView renders bold/italic/code",03-chat-panel,PASS,NONE,,NONE,GREEN
-Message,MSG-14,Question/Answer Cards,"As a user, I want to answer plan-agent questions","PlanQuestionCardView with options",03-chat-panel,PASS,NONE,,NONE,GREEN
-Provider,PROV-01,Server Provider Discovery,"As a user, I want models loaded from the server","loadModelsFromServer fetches providers",09-settings,PASS,NONE,,NONE,GREEN
-Provider,PROV-02,Custom Provider Configuration,"As a user, I want to add custom providers","AddProviderSheet form; saved to UserDefaults",09-settings,PASS,NONE,,NONE,GREEN
+Input,INP-14,Model Parameters Dialog,"As a user, I want temperature/max_tokens/top_p/system",ModelParametersButton popover; validated per-model,04-chat-input,PARTIAL,MEDIUM,Native popover unverified,NONE,GREEN
+Input,INP-15,Command Dropdown (/ @ # $),"As a user, I want an in-input dropdown triggered by / @ #",InputCommandTriggerLogic detects triggers,04-chat-input,PASS,NONE,,NONE,GREEN
+Input,INP-16,Dropdown $ MCP Trigger,"As a user, I want $ to suggest MCP servers",Symbol mapped in logic; MCP source returns items,04-chat-input,PASS,NONE,,NONE,GREEN
+Input,INP-17,Dropdown Enable Toggle,"As a user, I want to enable/disable the input dropdown",appState.inputDropdownEnabled gates overlay,04-chat-input,PASS,NONE,,NONE,GREEN
+Message,MSG-01,User Message Sending,"As a user, I want to send a text message and see it appear",Message appended to store; sent via client,03-chat-panel,PASS,NONE,,NONE,GREEN
+Message,MSG-02,Assistant Streaming Response,"As a user, I want to see the assistant response stream",SSE events update message content incrementally,03-chat-panel,PASS,NONE,,NONE,GREEN
+Message,MSG-03,Stop Generation,"As a user, I want to stop the assistant response",Stop button aborts session,03-chat-panel,PASS,NONE,,NONE,GREEN
+Message,MSG-04,Message Edit,"As a user, I want to edit a sent message",Edit loads draft into composer,03-chat-panel,PASS,NONE,,NONE,GREEN
+Message,MSG-05,Message Resend,"As a user, I want to resend a message",Resend triggers sendDirectly with same content,03-chat-panel,PASS,NONE,,NONE,GREEN
+Message,MSG-06,Message Retry,"As a user, I want to retry the last assistant message",Retry finds preceding user message and resends,03-chat-panel,PASS,NONE,,NONE,GREEN
+Message,MSG-07,Copy Entire Chat,"As a user, I want to copy the conversation transcript",copyEntireChat generates transcript,03-chat-panel,PASS,NONE,,NONE,GREEN
+Message,MSG-08,Message Sanitization,"As a user, I want system-reminder tags stripped",MessageContentSanitizerLogic removes blocks,03-chat-panel,PASS,NONE,,NONE,GREEN
+Message,MSG-09,Thinking Spoiler,"As a user, I want to see thinking in expandable spoiler",ThinkingSpoilerView toggles reasoning,03-chat-panel,PASS,NONE,,NONE,GREEN
+Message,MSG-10,Tool Call Display,"As a user, I want to see tool calls with status/args/results",ToolCallPresentationLogic formats,03-chat-panel,PASS,NONE,,NONE,GREEN
+Message,MSG-11,Tool Inspector,"As a user, I want to inspect tool call details",SplitToolInspectorView shows details,03-chat-panel,PASS,NONE,,NONE,GREEN
+Message,MSG-12,Image Display in Chat,"As a user, I want to see images inline",TappableChatImage thumbnail; full-size on click,03-chat-panel,PASS,NONE,,NONE,GREEN
+Message,MSG-13,Markdown Rendering,"As a user, I want messages rendered with Markdown",MarkdownTextView renders bold/italic/code,03-chat-panel,PASS,NONE,,NONE,GREEN
+Message,MSG-14,Question/Answer Cards,"As a user, I want to answer plan-agent questions",PlanQuestionCardView with options,03-chat-panel,PASS,NONE,,NONE,GREEN
+Provider,PROV-01,Server Provider Discovery,"As a user, I want models loaded from the server",loadModelsFromServer fetches providers,09-settings,PASS,NONE,,NONE,GREEN
+Provider,PROV-02,Custom Provider Configuration,"As a user, I want to add custom providers",AddProviderSheet form; saved to UserDefaults,09-settings,PASS,NONE,,NONE,GREEN
 Provider,PROV-03,RequiresAPIKey Toggle,"As a user, I want to mark provider as not requiring API key","Toggle; when off, serve not required",09-settings,PASS,NONE,,NONE,GREEN
-Provider,PROV-04,Provider Cascade/Resolution,"As a user, I want the system to resolve the right provider","resolveProviderID searches server then custom",09-settings,PASS,NONE,,NONE,GREEN
-Provider,PROV-05,Capability Gates,"As a user, I want UI to show only compatible models","ProviderCapabilityGates checks reasoning/toolcall/plan",09-settings,PASS,NONE,,NONE,GREEN
-Provider,PROV-06,Model Variants,"As a user, I want to select reasoning effort","Variants shown when model has reasoning capability",09-settings,PASS,NONE,,NONE,GREEN
-Provider,PROV-07,API Key Management,"As a user, I want API keys stored securely","KeychainManager store/retrieve/delete; file fallback",09-settings,PASS,NONE,,NONE,GREEN
-Provider,PROV-08,Connection Validation,"As a user, I want clear errors without valid provider/model","SendReadinessLogic returns descriptive errors",09-settings,PARTIAL,MEDIUM,"hasAPIKey broken after Keychain migration",BUG-01,GREEN
-Provider,PROV-09,Test Connection,"As a user, I want to test if my provider URL/key works","Test Connection hits /models with Bearer auth",09-settings,PASS,NONE,,NONE,GREEN
-Provider,PROV-10,Local Providers,"As a user, I want to add local providers","LocalProviderConfig with defaults; quick-add cards",09-settings,PASS,NONE,,NONE,GREEN
-Provider,PROV-11,Auto-Detect by IP:Port,"As a user, I want to enter one address and auto-detect","ProviderAutoDetector probes multiple endpoints",09-settings,PASS,NONE,,NONE,GREEN
-Provider,PROV-12,Unified Providers Tab,"As a user, I want one Providers settings tab",".modelSettings hidden via visibleCases",09-settings,PASS,NONE,,NONE,GREEN
-Provider,PROV-13,OpenCode Zen Big Pickle,"As a user, I want Auto Free to use Big Pickle","Requests use opencode.ai/zen/v1",15-micoder-auto-free,PASS,NONE,,NONE,GREEN
-Provider,PROV-14,Anonymous Free-Model Discovery,"As a user, I want only free models returned","GET /models anonymously; intersected with trusted IDs",15-micoder-auto-free,PASS,NONE,,NONE,GREEN
-Provider,PROV-15,Anonymous Free-Model Failover,"As a user, I want Auto Free to continue when model fails","Big Pickle preferred; 5 failures switch model",15-micoder-auto-free,PASS,NONE,,NONE,GREEN
-Provider,PROV-16,Live Free Catalog Refresh,"As a user, I want to refresh the free-model catalog","Re-reads /models; updates visible list",15-micoder-auto-free,PASS,NONE,,NONE,GREEN
-Provider,PROV-17,OpenCode Zen Provider Preset,"As a user, I want OpenCode Zen as named provider","Preset at opencode.ai/zen/v1; loads live catalog",09-settings,PASS,NONE,,NONE,GREEN
-Provider,PROV-18,OpenCode Zen Access Modes,"As a user, I want OpenCode Zen anonymous and key modes","Without key: free only; with key: paid IDs added",09-settings,PASS,NONE,,NONE,GREEN
-Provider,PROV-19,Provider-Local Edit and Delete,"As a user, I want edit/delete beside each mutable provider","Pencil and trash actions per row",09-settings,PASS,NONE,,NONE,GREEN
-Provider,PROV-20,Rate-Limit Notification Severity,"As a user, I want rate-limited switch to be red","429/rate-limit → error notification",15-micoder-auto-free,PASS,NONE,,NONE,GREEN
-Database,DB-01,SQLite Database Init,"As a user, I want the app to create/manage SQLite database","DatabaseManager creates tables on first launch",16-database,PASS,NONE,,NONE,GREEN
-Database,DB-02,Schema Migrations,"As a user, I want the DB schema to update automatically","schema_version + runMigrationsIfNeeded",16-database,PASS,NONE,,NONE,GREEN
-Database,DB-03,FTS5 Full-Text Search,"As a user, I want to search messages via full-text index","messages_fts with BM25",16-database,PASS,NONE,,NONE,GREEN
-Database,DB-04,Database VACUUM,"As a user, I want the database to stay compact","Weekly auto-VACUUM",16-database,PASS,NONE,,NONE,GREEN
-Database,DB-05,Project/Session CRUD,"As a user, I want projects and sessions persisted","DatabaseBridge CRUD backed by SQLite",16-database,PASS,NONE,,NONE,GREEN
-Database,DB-06,Undo/Redo Stack,"As a user, I want to undo file operations","UndoRedoManager with executeWithUndo",16-database,PASS,NONE,,NONE,GREEN
-Database,DB-07,New Project Path Validation,"As a user, I want new project to fail clearly on invalid path","Trim name/path; reject blank/relative/nonexistent",16-database,PASS,NONE,,NONE,GREEN
-Database,DB-08,Workspace Switch Reloads Sessions,"As a user, I want switching projects to show only that project's sessions","selectWorkspace clears stale state; loads from DB",16-database,PASS,NONE,,NONE,GREEN
-Database,DB-09,Explicit Project Session Routing,"As a user, I want sessions stored in owning project DB","Resolve explicit project ID before DatabaseBridge",16-database,PASS,NONE,,NONE,GREEN
-Storage,STO-01,Per-Project Database,"As a user, I want each project to have its own DB","ProjectDatabaseManager.open creates/opens per-project DB",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-02,Unassigned Sessions Bucket,"As a user, I want sessions without a directory not lost","unassigned.db bucket in ~/.micoder",17-storage,PASS,NONE,,NONE,GREEN
+Provider,PROV-04,Provider Cascade/Resolution,"As a user, I want the system to resolve the right provider",resolveProviderID searches server then custom,09-settings,PASS,NONE,,NONE,GREEN
+Provider,PROV-05,Capability Gates,"As a user, I want UI to show only compatible models",ProviderCapabilityGates checks reasoning/toolcall/plan,09-settings,PASS,NONE,,NONE,GREEN
+Provider,PROV-06,Model Variants,"As a user, I want to select reasoning effort",Variants shown when model has reasoning capability,09-settings,PASS,NONE,,NONE,GREEN
+Provider,PROV-07,API Key Management,"As a user, I want API keys stored securely",KeychainManager store/retrieve/delete; file fallback,09-settings,PASS,NONE,,NONE,GREEN
+Provider,PROV-08,Connection Validation,"As a user, I want clear errors without valid provider/model",SendReadinessLogic returns descriptive errors,09-settings,PASS,MEDIUM,ARCH-04 hasAPIKey after Keychain migration,ARCH-04-FIX: in-memory key preserved/restored from Keychain in add/updateCustomProvider; SendRouteResolver resolves via getSecureAPIKey(),GREEN
+Provider,PROV-09,Test Connection,"As a user, I want to test if my provider URL/key works",Test Connection hits /models with Bearer auth,09-settings,PASS,NONE,,NONE,GREEN
+Provider,PROV-10,Local Providers,"As a user, I want to add local providers",LocalProviderConfig with defaults; quick-add cards,09-settings,PASS,NONE,,NONE,GREEN
+Provider,PROV-11,Auto-Detect by IP:Port,"As a user, I want to enter one address and auto-detect",ProviderAutoDetector probes multiple endpoints,09-settings,PASS,NONE,,NONE,GREEN
+Provider,PROV-12,Unified Providers Tab,"As a user, I want one Providers settings tab",.modelSettings hidden via visibleCases,09-settings,PASS,NONE,,NONE,GREEN
+Provider,PROV-13,OpenCode Zen Big Pickle,"As a user, I want Auto Free to use Big Pickle",Requests use opencode.ai/zen/v1,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
+Provider,PROV-14,Anonymous Free-Model Discovery,"As a user, I want only free models returned",GET /models anonymously; intersected with trusted IDs,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
+Provider,PROV-15,Anonymous Free-Model Failover,"As a user, I want Auto Free to continue when model fails",Big Pickle preferred; 5 failures switch model,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
+Provider,PROV-16,Live Free Catalog Refresh,"As a user, I want to refresh the free-model catalog",Re-reads /models; updates visible list,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
+Provider,PROV-17,OpenCode Zen Provider Preset,"As a user, I want OpenCode Zen as named provider",Preset at opencode.ai/zen/v1; loads live catalog,09-settings,PASS,NONE,,NONE,GREEN
+Provider,PROV-18,OpenCode Zen Access Modes,"As a user, I want OpenCode Zen anonymous and key modes",Without key: free only; with key: paid IDs added,09-settings,PASS,NONE,,NONE,GREEN
+Provider,PROV-19,Provider-Local Edit and Delete,"As a user, I want edit/delete beside each mutable provider",Pencil and trash actions per row,09-settings,PASS,NONE,,NONE,GREEN
+Provider,PROV-20,Rate-Limit Notification Severity,"As a user, I want rate-limited switch to be red",429/rate-limit → error notification,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
+Database,DB-01,SQLite Database Init,"As a user, I want the app to create/manage SQLite database",DatabaseManager creates tables on first launch,16-database,PASS,NONE,,NONE,GREEN
+Database,DB-02,Schema Migrations,"As a user, I want the DB schema to update automatically",schema_version + runMigrationsIfNeeded,16-database,PASS,NONE,,NONE,GREEN
+Database,DB-03,FTS5 Full-Text Search,"As a user, I want to search messages via full-text index",messages_fts with BM25,16-database,PASS,NONE,,NONE,GREEN
+Database,DB-04,Database VACUUM,"As a user, I want the database to stay compact",Weekly auto-VACUUM,16-database,PASS,NONE,,NONE,GREEN
+Database,DB-05,Project/Session CRUD,"As a user, I want projects and sessions persisted",DatabaseBridge CRUD backed by SQLite,16-database,PASS,NONE,,NONE,GREEN
+Database,DB-06,Undo/Redo Stack,"As a user, I want to undo file operations",UndoRedoManager with executeWithUndo,16-database,PASS,NONE,,NONE,GREEN
+Database,DB-07,New Project Path Validation,"As a user, I want new project to fail clearly on invalid path",Trim name/path; reject blank/relative/nonexistent,16-database,PASS,NONE,,NONE,GREEN
+Database,DB-08,Workspace Switch Reloads Sessions,"As a user, I want switching projects to show only that project's sessions",selectWorkspace clears stale state; loads from DB,16-database,PASS,NONE,,NONE,GREEN
+Database,DB-09,Explicit Project Session Routing,"As a user, I want sessions stored in owning project DB",Resolve explicit project ID before DatabaseBridge,16-database,PASS,NONE,,NONE,GREEN
+Storage,STO-01,Per-Project Database,"As a user, I want each project to have its own DB",ProjectDatabaseManager.open creates/opens per-project DB,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-02,Unassigned Sessions Bucket,"As a user, I want sessions without a directory not lost",unassigned.db bucket in ~/.micoder,17-storage,PASS,NONE,,NONE,GREEN
 Storage,STO-03,Connection Pool with Eviction,"As a user, I want many projects without exhausting handles","LRU pool, idle eviction 600s",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-04,Project History Export/Import,"As a user, I want to export/import project history","ProjectHistoryExporter export/importBundle",17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-04,Project History Export/Import,"As a user, I want to export/import project history",ProjectHistoryExporter export/importBundle,17-storage,PASS,NONE,,NONE,GREEN
 Storage,STO-05,File Scanner,"As a user, I want project files scanned with excludes","ProjectFileScanner recursive, excludes, 5MB cap",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-06,File Index Logic,"As a user, I want file index delta by hash+mtime","ProjectFileIndexLogic computes changed/removed",17-storage,PARTIAL,MEDIUM,"FSEvents live runtime unverified",NONE,GREEN
-Storage,STO-07,FSEvents Dynamic Reindexing,"As a user, I want index to update when files change","CoreServices FSEvents watcher with debounce",17-storage,PARTIAL,MEDIUM,"Live macOS FSEvents unverified",NONE,GREEN
-Storage,STO-08,WAL Journal Mode,"As a user, I want concurrent writes without lock errors","PRAGMA journal_mode=WAL",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-09,Request History Logging,"As a user, I want edits/commands logged","request_history table + API",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-10,Project Undo with Snapshots,"As a user, I want to undo a file change per project","ProjectUndoManager + ProjectSnapshotManager",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-12,Project Registry,"As a user, I want a lightweight registry of known projects","ProjectRegistryLogic at ~/.micoder/projects.json",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-13,Storage Reset,"As a user, I want reset to clear app cache","StorageResetScope.appCacheOnly",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-14,Safe Reset,"As a user, I want reset to never touch data outside scope","resetStorage accepts injectable home/resetDatabase",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-15,Storage Admin Panel,"As a user, I want Settings>Storage>Projects","projectsAdminSection; archive/restore/delete/VACUUM",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-16,Typed-Name Delete Confirmation,"As a user, I want to type project name before delete","ProjectDeleteConfirmation.isConfirmed",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-17,Per-Project VACUUM,"As a user, I want to compact a single project's DB","VACUUM button with pre-backup",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-18,Project Backup Export/Import,"As a user, I want to back up/restore a project","ProjectBackupLogic uses ditto; evict-before-restore",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-19,Orphaned Project Relink,"As a user, I want to re-link or remove orphaned projects","orphaned() detection; NSOpenPanel relink",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-20,Bulk Archive Inactive,"As a user, I want to archive all projects not opened in N days","archiveAllInactive bulk action",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-21,Storage Quota Warning,"As a user, I want warning when DBs exceed 2GB","quotaStatus aggregate; warning banner",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-22,Storage Audit Log,"As a user, I want storage operations logged","StorageAuditLog appends timestamped lines",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-23,Registry Dedup on Migration,"As a user, I want duplicate registry records collapsed","deduplicated/deduplicateRegistry at startup",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-24,Per-Project Integrity Check,"As a user, I want DB corruption detected at open","integrityCheck via PRAGMA at open",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-25,Auto-Before Destructive Ops,"As a user, I want DB backup before reset/VACUUM/delete","ProjectAutoBackupLogic createBackup/prune",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-26,Read-Only Path Fallback,"As a user, I want projects on read-only paths to work","Fallback to ~/.micoder/projects/<hash>/",17-storage,PASS,NONE,,NONE,GREEN
-Storage,STO-27,Registry+Settings Export/Import,"As a user, I want to migrate registry+settings","Versioned AppConfigurationBackupBundle",17-storage,PARTIAL,MEDIUM,"Cross-machine relinking unverified",NONE,GREEN
-Storage,STO-28,Chunked Big-Project Delete,"As a user, I want deleting huge project to not freeze UI","ProjectDeletionExecutor bounded chunks + progress",17-storage,PARTIAL,MEDIUM,"Native filesystem unverified",NONE,GREEN
-Storage,STO-30,Project-Scoped Session Maintenance,"As a user, I want archive/delete to affect project DBs","Maintenance covers legacy + project DBs",17-storage,PARTIAL,MEDIUM,"macOS SQLite runtime unverified",NONE,GREEN
-Storage,STO-31,Project-Aware Storage Statistics,"As a user, I want Storage statistics to include project data","Aggregate legacy + project DB sizes",17-storage,PARTIAL,MEDIUM,"Live SQLite/UI runtime unverified",NONE,GREEN
-Search,SRCH-01,Search Palette UI,"As a user, I want to search tasks via a palette","SearchPaletteView sheet",18-search,PASS,NONE,,NONE,GREEN
-Search,SRCH-02,FTS5 Search Logic,"As a user, I want FTS5 search across sessions","matchingSessions uses FTS5 with title fallback",18-search,PASS,NONE,,NONE,GREEN
-Search,SRCH-03,Search Result Opens Session,"As a user, I want to click a result to open session","selectSession + dismiss sheet",18-search,PASS,NONE,,NONE,GREEN
-Git,GIT-01,Git Repo Detection,"As a user, I want the app to detect git repos","repositoryRoot finds .git",10-git-operations,PASS,NONE,,NONE,GREEN
-Git,GIT-02,Git Status Display,"As a user, I want to see working tree changes","vcsChanges from workingTreeChanges",10-git-operations,PASS,NONE,,NONE,GREEN
-Git,GIT-03,Branch Display & Switching,"As a user, I want to see and switch branches","checkoutGitBranch; gitBranches",10-git-operations,PASS,NONE,,NONE,GREEN
-Git,GIT-04,Commit Changes,"As a user, I want to commit working tree changes","commitGitChanges with user message",10-git-operations,PASS,NONE,,NONE,GREEN
-Git,GIT-05,Push Changes,"As a user, I want to push commits to remote","pushGitChanges; upstream setup",10-git-operations,PASS,NONE,,NONE,GREEN
-Git,GIT-06,Auto Git Refresh,"As a user, I want git status refreshed automatically","GitRefreshCoalescer dedup",10-git-operations,PASS,NONE,,NONE,GREEN
-Git,GIT-07,Auto-Commit,"As a user, I want optional auto-commit","BottomPanelView toggle",10-git-operations,PASS,NONE,,NONE,GREEN
-Git,GIT-08,Git Publish / PR Flow,"As a user, I want to publish a branch and open PR","GitPublishFlowLogic + GitHubCLIService",10-git-operations,PASS,NONE,,NONE,GREEN
-Settings,SET-01,Settings Overlay,"As a user, I want settings as overlay with backdrop","ZStack overlay; click outside dismisses; Escape closes",09-settings,PASS,NONE,,NONE,GREEN
-Settings,SET-02,General Settings Tab,"As a user, I want theme and language config","Appearance with theme picker + language selector",09-settings,PASS,NONE,,NONE,GREEN
-Settings,SET-03,Providers Tab,"As a user, I want to configure providers and models","Unified view: model + local + web + providers",09-settings,PASS,NONE,,NONE,GREEN
-Settings,SET-04,Skills Management Tab,"As a user, I want to see and install agent skills","SkillsSettingsView with installed + library",09-settings,PARTIAL,MEDIUM,"Bulk actions unverified",NONE,GREEN
-Settings,SET-05,MCP Server Management,"As a user, I want to configure MCP servers","MCP list with health dot, enable/disable/remove",09-settings,PARTIAL,MEDIUM,"MCP edit form unverified",NONE,GREEN
-Settings,SET-06,Plugin Management,"As a user, I want to see installed plugins","Plugins list",09-settings,PASS,NONE,,NONE,GREEN
-Settings,SET-07,User Commands,"As a user, I want to see available slash commands","Commands section listing .md files",09-settings,PASS,NONE,,NONE,GREEN
-Settings,SET-08,Remote Connection,"As a user, I want to connect to remote serve","RemoteConnectionSheet hostname/port",09-settings,PASS,NONE,,NONE,GREEN
-Settings,SET-09,Storage Tab,"As a user, I want full per-project storage admin","projectsAdminSection + usage + reset + quota",09-settings,PASS,NONE,,NONE,GREEN
-Settings,SET-10,Onboarding Tab Removed,"As a user, I want no empty Onboard stub tab","SettingsTab has no .onboard case",09-settings,PASS,NONE,,NONE,GREEN
-Settings,SET-11,Local Provider Model Chip,"As a user, I want to click a model chip to select it","Only active provider's model marked",09-settings,PASS,NONE,,NONE,GREEN
+Storage,STO-06,File Index Logic,"As a user, I want file index delta by hash+mtime",ProjectFileIndexLogic computes changed/removed,17-storage,PARTIAL,MEDIUM,FSEvents live runtime unverified,NONE,GREEN
+Storage,STO-07,FSEvents Dynamic Reindexing,"As a user, I want index to update when files change",CoreServices FSEvents watcher with debounce,17-storage,PARTIAL,MEDIUM,Live macOS FSEvents unverified,NONE,GREEN
+Storage,STO-08,WAL Journal Mode,"As a user, I want concurrent writes without lock errors",PRAGMA journal_mode=WAL,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-09,Request History Logging,"As a user, I want edits/commands logged",request_history table + API,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-10,Project Undo with Snapshots,"As a user, I want to undo a file change per project",ProjectUndoManager + ProjectSnapshotManager,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-12,Project Registry,"As a user, I want a lightweight registry of known projects",ProjectRegistryLogic at ~/.micoder/projects.json,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-13,Storage Reset,"As a user, I want reset to clear app cache",StorageResetScope.appCacheOnly,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-14,Safe Reset,"As a user, I want reset to never touch data outside scope",resetStorage accepts injectable home/resetDatabase,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-15,Storage Admin Panel,"As a user, I want Settings>Storage>Projects",projectsAdminSection; archive/restore/delete/VACUUM,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-16,Typed-Name Delete Confirmation,"As a user, I want to type project name before delete",ProjectDeleteConfirmation.isConfirmed,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-17,Per-Project VACUUM,"As a user, I want to compact a single project's DB",VACUUM button with pre-backup,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-18,Project Backup Export/Import,"As a user, I want to back up/restore a project",ProjectBackupLogic uses ditto; evict-before-restore,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-19,Orphaned Project Relink,"As a user, I want to re-link or remove orphaned projects",orphaned() detection; NSOpenPanel relink,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-20,Bulk Archive Inactive,"As a user, I want to archive all projects not opened in N days",archiveAllInactive bulk action,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-21,Storage Quota Warning,"As a user, I want warning when DBs exceed 2GB",quotaStatus aggregate; warning banner,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-22,Storage Audit Log,"As a user, I want storage operations logged",StorageAuditLog appends timestamped lines,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-23,Registry Dedup on Migration,"As a user, I want duplicate registry records collapsed",deduplicated/deduplicateRegistry at startup,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-24,Per-Project Integrity Check,"As a user, I want DB corruption detected at open",integrityCheck via PRAGMA at open,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-25,Auto-Before Destructive Ops,"As a user, I want DB backup before reset/VACUUM/delete",ProjectAutoBackupLogic createBackup/prune,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-26,Read-Only Path Fallback,"As a user, I want projects on read-only paths to work",Fallback to ~/.micoder/projects/<hash>/,17-storage,PASS,NONE,,NONE,GREEN
+Storage,STO-27,Registry+Settings Export/Import,"As a user, I want to migrate registry+settings",Versioned AppConfigurationBackupBundle,17-storage,PARTIAL,MEDIUM,Cross-machine relinking unverified,NONE,GREEN
+Storage,STO-28,Chunked Big-Project Delete,"As a user, I want deleting huge project to not freeze UI",ProjectDeletionExecutor bounded chunks + progress,17-storage,PARTIAL,MEDIUM,Native filesystem unverified,NONE,GREEN
+Storage,STO-30,Project-Scoped Session Maintenance,"As a user, I want archive/delete to affect project DBs",Maintenance covers legacy + project DBs,17-storage,PARTIAL,MEDIUM,macOS SQLite runtime unverified,NONE,GREEN
+Storage,STO-31,Project-Aware Storage Statistics,"As a user, I want Storage statistics to include project data",Aggregate legacy + project DB sizes,17-storage,PARTIAL,MEDIUM,Live SQLite/UI runtime unverified,NONE,GREEN
+Search,SRCH-01,Search Palette UI,"As a user, I want to search tasks via a palette",SearchPaletteView sheet,18-search,PASS,NONE,,NONE,GREEN
+Search,SRCH-02,FTS5 Search Logic,"As a user, I want FTS5 search across sessions",matchingSessions uses FTS5 with title fallback,18-search,PASS,NONE,,NONE,GREEN
+Search,SRCH-03,Search Result Opens Session,"As a user, I want to click a result to open session",selectSession + dismiss sheet,18-search,PASS,NONE,,NONE,GREEN
+Git,GIT-01,Git Repo Detection,"As a user, I want the app to detect git repos",repositoryRoot finds .git,10-git-operations,PASS,NONE,,NONE,GREEN
+Git,GIT-02,Git Status Display,"As a user, I want to see working tree changes",vcsChanges from workingTreeChanges,10-git-operations,PASS,NONE,,NONE,GREEN
+Git,GIT-03,Branch Display & Switching,"As a user, I want to see and switch branches",checkoutGitBranch; gitBranches,10-git-operations,PASS,NONE,,NONE,GREEN
+Git,GIT-04,Commit Changes,"As a user, I want to commit working tree changes",commitGitChanges with user message,10-git-operations,PASS,NONE,,NONE,GREEN
+Git,GIT-05,Push Changes,"As a user, I want to push commits to remote",pushGitChanges; upstream setup,10-git-operations,PASS,NONE,,NONE,GREEN
+Git,GIT-06,Auto Git Refresh,"As a user, I want git status refreshed automatically",GitRefreshCoalescer dedup,10-git-operations,PASS,NONE,,NONE,GREEN
+Git,GIT-07,Auto-Commit,"As a user, I want optional auto-commit",BottomPanelView toggle,10-git-operations,PASS,NONE,,NONE,GREEN
+Git,GIT-08,Git Publish / PR Flow,"As a user, I want to publish a branch and open PR",GitPublishFlowLogic + GitHubCLIService,10-git-operations,PASS,NONE,,NONE,GREEN
+Settings,SET-01,Settings Overlay,"As a user, I want settings as overlay with backdrop",ZStack overlay; click outside dismisses; Escape closes,09-settings,PASS,NONE,,NONE,GREEN
+Settings,SET-02,General Settings Tab,"As a user, I want theme and language config",Appearance with theme picker + language selector,09-settings,PASS,NONE,,NONE,GREEN
+Settings,SET-03,Providers Tab,"As a user, I want to configure providers and models",Unified view: model + local + web + providers,09-settings,PASS,NONE,,NONE,GREEN
+Settings,SET-04,Skills Management Tab,"As a user, I want to see and install agent skills",SkillsSettingsView with installed + library,09-settings,PARTIAL,MEDIUM,Bulk actions unverified,NONE,GREEN
+Settings,SET-05,MCP Server Management,"As a user, I want to configure MCP servers","MCP list with health dot, enable/disable/remove",09-settings,PARTIAL,MEDIUM,MCP edit form unverified,NONE,GREEN
+Settings,SET-06,Plugin Management,"As a user, I want to see installed plugins",Plugins list,09-settings,PASS,NONE,,NONE,GREEN
+Settings,SET-07,User Commands,"As a user, I want to see available slash commands",Commands section listing .md files,09-settings,PASS,NONE,,NONE,GREEN
+Settings,SET-08,Remote Connection,"As a user, I want to connect to remote serve",RemoteConnectionSheet hostname/port,09-settings,PASS,NONE,,NONE,GREEN
+Settings,SET-09,Storage Tab,"As a user, I want full per-project storage admin",projectsAdminSection + usage + reset + quota,09-settings,PASS,NONE,,NONE,GREEN
+Settings,SET-10,Onboarding Tab Removed,"As a user, I want no empty Onboard stub tab",SettingsTab has no .onboard case,09-settings,PASS,NONE,,NONE,GREEN
+Settings,SET-11,Local Provider Model Chip,"As a user, I want to click a model chip to select it",Only active provider's model marked,09-settings,PASS,NONE,,NONE,GREEN
 Settings,SET-12,Provider Endpoint and Form Defaults,"As a user, I want provider setup to normalize endpoints","HTTP(S) trimmed, trailing slashes removed",09-settings,PASS,NONE,,NONE,GREEN
-Settings,SET-13,Plugin Enable Disable Action,"As a user, I want to enable/disable plugins","Each row has Enable/Disable action",09-settings,PASS,NONE,,NONE,GREEN
-Security,SEC-01,Keychain API Key Storage,"As a user, I want API keys in macOS Keychain","KeychainManager save/get/delete; file fallback",22-security,PASS,NONE,,NONE,GREEN
-Security,SEC-02,Access Level Permissions,"As a user, I want tool access restricted by level","AccessLevelPermissionLogic maps level→permissions",22-security,PASS,NONE,,NONE,GREEN
-Security,SEC-03,Message Sanitization,"As a user, I want system messages filtered","MessageContentSanitizerLogic strips system-reminder",22-security,PASS,NONE,,NONE,GREEN
-Security,SEC-04,Data Retention (VACUUM),"As a user, I want old data cleaned up","Weekly VACUUM",22-security,PASS,NONE,,NONE,GREEN
-Security,SEC-05,Privacy Mode (Future),"As a user, I want to hide message content","NOT IMPLEMENTED",22-security,FUTURE,NONE,,NONE,N/A
-Security,SEC-06,DB Encryption (Future),"As a user, I want DB at-rest encryption","NOT IMPLEMENTED - FileVault covers",22-security,FUTURE,NONE,,NONE,N/A
-Terminal,TERM-01,Terminal Panel,"As a user, I want a terminal at the bottom","BottomPanelView with input/output/history",06-bottom-panel,PASS,NONE,,NONE,GREEN
-Terminal,TERM-02,Command Execution,"As a user, I want to run bash commands","TerminalLine .command/.output/.error; runs via Process",06-bottom-panel,PASS,NONE,,NONE,GREEN
-Terminal,TERM-03,Command Timeout,"As a user, I want commands to timeout after 30s","30s timeout; auto-cancels",06-bottom-panel,PASS,NONE,,NONE,GREEN
-Terminal,TERM-04,Terminal History,"As a user, I want to see previous command output","Terminal lines preserved; scrolled display",06-bottom-panel,PASS,NONE,,NONE,GREEN
-Terminal,TERM-05,Terminal Built-in Helpers,"As a user, I want clear/sleep/help shortcuts","clear/help/sleep with safeSeconds cap",06-bottom-panel,PASS,NONE,,NONE,GREEN
-RightPanel,RTP-01,Plan/Goal Panel,"As a user, I want to see execution steps in right panel","RightPanelView displays currentSteps",07-right-panel,PASS,NONE,,NONE,GREEN
-RightPanel,RTP-02,Task Step Display,"As a user, I want step-by-step progress","Steps with status; ExecutionStepSyncLogic",07-right-panel,PASS,NONE,,NONE,GREEN
-Clipboard,CLP-01,Image Paste,"As a user, I want to paste images from clipboard","ChatPasteCoordinator detects images",23-clipboard,PASS,NONE,,NONE,GREEN
-Clipboard,CLP-02,File Paste,"As a user, I want to paste files from clipboard","PasteboardAttachmentDetector detects file URLs",23-clipboard,PASS,NONE,,NONE,GREEN
-Clipboard,CLP-03,Paste Routing,"As a user, I want paste to go to the right text field","ChatPasteRoutingLogic routes by focus",23-clipboard,PASS,NONE,,NONE,GREEN
-Theme,THE-01,Dark/Light Theme,"As a user, I want to switch dark/light/system","appTheme; stored; sets colors",24-theme,PASS,NONE,,NONE,GREEN
-Theme,THE-02,Font Scaling,"As a user, I want to adjust font size","fontScale via interfaceFontScale",24-theme,PASS,NONE,,NONE,GREEN
-AgentResources,AGR-01,Skill Library (Catalog),"As a user, I want to browse available skills","AgentResourceLibraryView shows 52 skills",25-agent-resources,PASS,NONE,,NONE,GREEN
-AgentResources,AGR-02,Skill Installation,"As a user, I want to install skills","AgentResourceInstaller copies to ~/.micoder/skills",25-agent-resources,PASS,NONE,,NONE,GREEN
+Settings,SET-13,Plugin Enable Disable Action,"As a user, I want to enable/disable plugins",Each row has Enable/Disable action,09-settings,PASS,NONE,,NONE,GREEN
+Security,SEC-01,Keychain API Key Storage,"As a user, I want API keys in macOS Keychain",KeychainManager save/get/delete; file fallback,22-security,PASS,NONE,,NONE,GREEN
+Security,SEC-02,Access Level Permissions,"As a user, I want tool access restricted by level",AccessLevelPermissionLogic maps level→permissions,22-security,PASS,NONE,,NONE,GREEN
+Security,SEC-03,Message Sanitization,"As a user, I want system messages filtered",MessageContentSanitizerLogic strips system-reminder,22-security,PASS,NONE,,NONE,GREEN
+Security,SEC-04,Data Retention (VACUUM),"As a user, I want old data cleaned up",Weekly VACUUM,22-security,PASS,NONE,,NONE,GREEN
+Security,SEC-05,Privacy Mode (Future),"As a user, I want to hide message content",NOT IMPLEMENTED,22-security,FUTURE,NONE,,NONE,N/A
+Security,SEC-06,DB Encryption (Future),"As a user, I want DB at-rest encryption",NOT IMPLEMENTED - FileVault covers,22-security,FUTURE,NONE,,NONE,N/A
+Terminal,TERM-01,Terminal Panel,"As a user, I want a terminal at the bottom",BottomPanelView with input/output/history,06-bottom-panel,PASS,NONE,,NONE,GREEN
+Terminal,TERM-02,Command Execution,"As a user, I want to run bash commands",TerminalLine .command/.output/.error; runs via Process,06-bottom-panel,PASS,NONE,,NONE,GREEN
+Terminal,TERM-03,Command Timeout,"As a user, I want commands to timeout after 30s",30s timeout; auto-cancels,06-bottom-panel,PASS,NONE,,NONE,GREEN
+Terminal,TERM-04,Terminal History,"As a user, I want to see previous command output",Terminal lines preserved; scrolled display,06-bottom-panel,PASS,NONE,,NONE,GREEN
+Terminal,TERM-05,Terminal Built-in Helpers,"As a user, I want clear/sleep/help shortcuts",clear/help/sleep with safeSeconds cap,06-bottom-panel,PASS,NONE,,NONE,GREEN
+RightPanel,RTP-01,Plan/Goal Panel,"As a user, I want to see execution steps in right panel",RightPanelView displays currentSteps,07-right-panel,PASS,NONE,,NONE,GREEN
+RightPanel,RTP-02,Task Step Display,"As a user, I want step-by-step progress",Steps with status; ExecutionStepSyncLogic,07-right-panel,PASS,NONE,,NONE,GREEN
+Clipboard,CLP-01,Image Paste,"As a user, I want to paste images from clipboard",ChatPasteCoordinator detects images,23-clipboard,PASS,NONE,,NONE,GREEN
+Clipboard,CLP-02,File Paste,"As a user, I want to paste files from clipboard",PasteboardAttachmentDetector detects file URLs,23-clipboard,PASS,NONE,,NONE,GREEN
+Clipboard,CLP-03,Paste Routing,"As a user, I want paste to go to the right text field",ChatPasteRoutingLogic routes by focus,23-clipboard,PASS,NONE,,NONE,GREEN
+Theme,THE-01,Dark/Light Theme,"As a user, I want to switch dark/light/system",appTheme; stored; sets colors,24-theme,PASS,NONE,,NONE,GREEN
+Theme,THE-02,Font Scaling,"As a user, I want to adjust font size",fontScale via interfaceFontScale,24-theme,PASS,NONE,,NONE,GREEN
+AgentResources,AGR-01,Skill Library (Catalog),"As a user, I want to browse available skills",AgentResourceLibraryView shows 52 skills,25-agent-resources,PASS,NONE,,NONE,GREEN
+AgentResources,AGR-02,Skill Installation,"As a user, I want to install skills",AgentResourceInstaller copies to ~/.micoder/skills,25-agent-resources,PASS,NONE,,NONE,GREEN
 AgentResources,AGR-03,MCP Catalog,"As a user, I want to browse MCP servers","26 MCP entries; browser=4, design=4",25-agent-resources,PASS,NONE,,NONE,GREEN
-AgentResources,AGR-04,Catalog Bundle Resolution,"As a user, I want the catalog to load in built .app","locateResource probes multiple paths",25-agent-resources,PASS,NONE,,NONE,GREEN
-AgentResources,AGR-05,Skill Enable/Disable/Remove,"As a user, I want to enable, disable, or remove skills","InstalledSkillRow toggle + Remove",25-agent-resources,PASS,NONE,,NONE,GREEN
-AgentResources,AGR-06,Skill Update,"As a user, I want to update a skill","updateSkill + Update badge",25-agent-resources,PASS,NONE,,NONE,GREEN
-AgentResources,AGR-07,Dependency Resolver,"As a user, I want one-click install with dependencies","installSkillWithDependencies; resolver-driven hints",25-agent-resources,PASS,NONE,,NONE,GREEN
-AgentResources,AGR-08,MCP Health Check,"As a user, I want real health status for MCP servers","MCPHealthCheckLogic probe + HTTP prober",25-agent-resources,PASS,NONE,,NONE,GREEN
-AgentResources,AGR-09,Runtime Dependency Detection,"As a user, I want dynamic Requires badges","Resolver-driven Requires hints",25-agent-resources,PASS,NONE,,NONE,GREEN
-Commands,CMD-01,Slash Command Registry,"As a user, I want 15 built-in slash commands","BuiltInSlashCommand enum + custom .md merge",26-slash-commands,PASS,NONE,,NONE,GREEN
-Commands,CMD-02,/goal sessionGoal,"As a user, I want /goal to set session goal","sessionGoal field + TopBar badge",26-slash-commands,PASS,NONE,,NONE,GREEN
-Commands,CMD-03,Real Command Execution,"As a user, I want /plan /commit /pr /review /context to work","SlashCommandDispatcher maps actions→effects",26-slash-commands,PASS,NONE,,NONE,GREEN
-Commands,CMD-04,Unknown Command Handling,"As a user, I want helpful message for unknown commands","ChatPanelView handles unknown with available list",26-slash-commands,PASS,NONE,,NONE,GREEN
-Session,SES-01,Session Creation,"As a user, I want a new session on first message","SessionSendLogic.shouldCreateNewSession",27-session-management,PASS,NONE,,NONE,GREEN
-Session,SES-02,Session Persistence,"As a user, I want sessions remembered between launches","Loaded from local DB or server",27-session-management,PASS,NONE,,NONE,GREEN
-Session,SES-03,Session Archiving,"As a user, I want to archive old sessions","archiveSession sets isArchived",27-session-management,PASS,NONE,,NONE,GREEN
-Session,SES-04,Send Selections Restore,"As a user, I want last provider/model remembered per session","restoreSelections from last message",27-session-management,PASS,NONE,,NONE,GREEN
-Performance,PERF-01,Message Feed Hysteresis,"As a user, I want smooth message list","MessageStore pruning; hysteresis threshold",21-performance,PASS,NONE,,NONE,GREEN
-Performance,PERF-02,Incremental Message Merge,"As a user, I want new messages merged without re-rendering","mergeLatestMessages only updates changed",21-performance,PASS,NONE,,NONE,GREEN
+AgentResources,AGR-04,Catalog Bundle Resolution,"As a user, I want the catalog to load in built .app",locateResource probes multiple paths,25-agent-resources,PASS,NONE,,NONE,GREEN
+AgentResources,AGR-05,Skill Enable/Disable/Remove,"As a user, I want to enable, disable, or remove skills",InstalledSkillRow toggle + Remove,25-agent-resources,PASS,NONE,,NONE,GREEN
+AgentResources,AGR-06,Skill Update,"As a user, I want to update a skill",updateSkill + Update badge,25-agent-resources,PASS,NONE,,NONE,GREEN
+AgentResources,AGR-07,Dependency Resolver,"As a user, I want one-click install with dependencies",installSkillWithDependencies; resolver-driven hints,25-agent-resources,PASS,NONE,,NONE,GREEN
+AgentResources,AGR-08,MCP Health Check,"As a user, I want real health status for MCP servers",MCPHealthCheckLogic probe + HTTP prober,25-agent-resources,PASS,NONE,,NONE,GREEN
+AgentResources,AGR-09,Runtime Dependency Detection,"As a user, I want dynamic Requires badges",Resolver-driven Requires hints,25-agent-resources,PASS,NONE,,NONE,GREEN
+Commands,CMD-01,Slash Command Registry,"As a user, I want 15 built-in slash commands",BuiltInSlashCommand enum + custom .md merge,26-slash-commands,PASS,NONE,,NONE,GREEN
+Commands,CMD-02,/goal sessionGoal,"As a user, I want /goal to set session goal",sessionGoal field + TopBar badge,26-slash-commands,PASS,NONE,,NONE,GREEN
+Commands,CMD-03,Real Command Execution,"As a user, I want /plan /commit /pr /review /context to work",SlashCommandDispatcher maps actions→effects,26-slash-commands,PASS,NONE,,NONE,GREEN
+Commands,CMD-04,Unknown Command Handling,"As a user, I want helpful message for unknown commands",ChatPanelView handles unknown with available list,26-slash-commands,PASS,NONE,,NONE,GREEN
+Session,SES-01,Session Creation,"As a user, I want a new session on first message",SessionSendLogic.shouldCreateNewSession,27-session-management,PASS,NONE,,NONE,GREEN
+Session,SES-02,Session Persistence,"As a user, I want sessions remembered between launches",Loaded from local DB or server,27-session-management,PASS,NONE,,NONE,GREEN
+Session,SES-03,Session Archiving,"As a user, I want to archive old sessions",archiveSession sets isArchived,27-session-management,PASS,NONE,,NONE,GREEN
+Session,SES-04,Send Selections Restore,"As a user, I want last provider/model remembered per session",restoreSelections from last message,27-session-management,PASS,NONE,,NONE,GREEN
+Performance,PERF-01,Message Feed Hysteresis,"As a user, I want smooth message list",MessageStore pruning; hysteresis threshold,21-performance,PASS,NONE,,NONE,GREEN
+Performance,PERF-02,Incremental Message Merge,"As a user, I want new messages merged without re-rendering",mergeLatestMessages only updates changed,21-performance,PASS,NONE,,NONE,GREEN
 Performance,PERF-03,Lazy Loading / Pagination,"As a user, I want messages loaded in batches","MessageHistoryPaginationLogic initialLimit 50, page 30",21-performance,PASS,NONE,,NONE,GREEN
-Performance,PERF-04,Git Refresh Coalescing,"As a user, I want git refreshes debounced","GitRefreshCoalescer dedup by key",21-performance,PASS,NONE,,NONE,GREEN
-Error Handling,ERR-01,Session Busy Recovery,"As a user, I want retry when server is busy","sessionBusy → abort → retry 500ms",19-error-handling,PARTIAL,MEDIUM,"Live Serve 409 unverified",NONE,GREEN
-Error Handling,ERR-02,Server Disconnected Error,"As a user, I want clear message when serve is down","Route-aware connectionValidationError",19-error-handling,PARTIAL,MEDIUM,"Native display unverified",NONE,GREEN
-Error Handling,ERR-03,Send Validation Errors,"As a user, I want guidance if model/provider not selected","sendValidationError reports blockers",19-error-handling,PARTIAL,MEDIUM,"Native rendering unverified",NONE,GREEN
-Localization,L10-01,10 App Languages,"As a user, I want UI in 10 languages","AppLanguage 10 cases; AppLocalization switch",20-localization,PASS,NONE,,NONE,GREEN
-Localization,L10-02,Language Picker Dropdown,"As a user, I want a flag-based language dropdown","LanguagePickerDropdown with emoji flags",20-localization,PASS,NONE,,NONE,GREEN
-Localization,L10-03,Full New-UI Translation,"As a user, I want every new string translated","All 800 typed keys have complete 10-language rows",20-localization,PASS,NONE,,NONE,GREEN
+Performance,PERF-04,Git Refresh Coalescing,"As a user, I want git refreshes debounced",GitRefreshCoalescer dedup by key,21-performance,PASS,NONE,,NONE,GREEN
+Error Handling,ERR-01,Session Busy Recovery,"As a user, I want retry when server is busy",sessionBusy → abort → retry 500ms,19-error-handling,PARTIAL,MEDIUM,Live Serve 409 unverified,NONE,GREEN
+Error Handling,ERR-02,Server Disconnected Error,"As a user, I want clear message when serve is down",Route-aware connectionValidationError,19-error-handling,PARTIAL,MEDIUM,Native display unverified,NONE,GREEN
+Error Handling,ERR-03,Send Validation Errors,"As a user, I want guidance if model/provider not selected",sendValidationError reports blockers,19-error-handling,PARTIAL,MEDIUM,Native rendering unverified,NONE,GREEN
+Localization,L10-01,10 App Languages,"As a user, I want UI in 10 languages",AppLanguage 10 cases; AppLocalization switch,20-localization,PASS,NONE,,NONE,GREEN
+Localization,L10-02,Language Picker Dropdown,"As a user, I want a flag-based language dropdown",LanguagePickerDropdown with emoji flags,20-localization,PASS,NONE,,NONE,GREEN
+Localization,L10-03,Full New-UI Translation,"As a user, I want every new string translated",All 800 typed keys have complete 10-language rows,20-localization,PASS,NONE,,NONE,GREEN
 Web,WEB-01,Web Provider Config,"As a user, I want to add web providers","WebProviderConfig with vendors, transport, systemPrompt",11-web-chat,PASS,NONE,,NONE,GREEN
-Web,WEB-02,Tool Protocol Emulator,"As a user, I want web models to call tools","WebToolProtocolEmulator systemPreamble/parse/format/validate",11-web-chat,PASS,NONE,,NONE,GREEN
-Web,WEB-03,Agentic Chat Driver,"As a user, I want web chat to run full agent loop","WebChatDriver loop; prompt chunking; anti-ban delay",11-web-chat,PASS,NONE,,NONE,GREEN
-Web,WEB-04,Session/Cookie Persistence,"As a user, I want web session to survive restarts","WebSessionManager cookies.json + expiry",11-web-chat,PASS,NONE,,NONE,GREEN
-Web,WEB-05,Browser Transport (WKWebView),"As a user, I want browser automation for web providers","In-app WKWebView send path",11-web-chat,PARTIAL,MEDIUM,"Live WebKit runtime unverified",NONE,GREEN
-Web,WEB-06,Web Providers in Chat Input,"As a user, I want connected web providers selectable","providerOptions requires valid session + real models",11-web-chat,PARTIAL,MEDIUM,"Native SwiftUI/WebKit unverified",NONE,GREEN
-Web,WEB-07,Captcha Display in Chat,"As a user, I want captcha shown in chat","Captcha screenshot plus interactive solver sheet",11-web-chat,PARTIAL,MEDIUM,"Third-party captcha unverified",NONE,GREEN
-Web,WEB-08,run_command Approval Gate,"As a user, I want destructive commands approved per AccessLevel","WebToolAccessGate gates run_command",11-web-chat,PASS,NONE,,NONE,GREEN
-Web,WEB-09,Web Selection Coherence,"As a user, I want model/effort to match between composer and browser","Composer writes config; driver consumes effectiveConfig",11-web-chat,PARTIAL,MEDIUM,"Native WebKit unverified",NONE,GREEN
-Web,WEB-10,Verified Browser Send,"As a user, I want send to fail clearly on state issues","Session/input/send selectors checked before typing",11-web-chat,PARTIAL,MEDIUM,"Native WebKit runtime unverified",NONE,GREEN
-Web,WEB-11,Embedded Browser Stop,"As a user, I want Stop to stop in provider page","Stop button clicked through WKWebView bridge",11-web-chat,PASS,NONE,,NONE,GREEN
-Web,WEB-12,Visible Web Response,"As a user, I want last visible response instead of empty bubble","WKWebView readText skips hidden/empty wrappers",11-web-chat,PASS,NONE,,NONE,GREEN
-Web,WEB-13,Optional Effort Control,"As a user, I want send to continue without effort control","Missing optional effort selectors ignored",11-web-chat,PASS,NONE,,NONE,GREEN
-Web,WEB-14,Honest Browser Model Detection,"As a user, I want to choose between DOM and AI detection","Detect models for DOM; Ask free AI for extraction",11-web-chat,PASS,NONE,,NONE,GREEN
-Web,WEB-15,Verified Background Browser Submit,"As a user, I want message inserted/submitted via hidden WKWebView","Bridge uses native value setter + Enter events",11-web-chat,PASS,NONE,,NONE,GREEN
+Web,WEB-02,Tool Protocol Emulator,"As a user, I want web models to call tools",WebToolProtocolEmulator systemPreamble/parse/format/validate,11-web-chat,PASS,NONE,,NONE,GREEN
+Web,WEB-03,Agentic Chat Driver,"As a user, I want web chat to run full agent loop",WebChatDriver loop; prompt chunking; anti-ban delay,11-web-chat,PASS,NONE,,NONE,GREEN
+Web,WEB-04,Session/Cookie Persistence,"As a user, I want web session to survive restarts",WebSessionManager cookies.json + expiry,11-web-chat,PASS,NONE,,NONE,GREEN
+Web,WEB-05,Browser Transport (WKWebView),"As a user, I want browser automation for web providers",In-app WKWebView send path,11-web-chat,PARTIAL,MEDIUM,Live WebKit runtime unverified,NONE,GREEN
+Web,WEB-06,Web Providers in Chat Input,"As a user, I want connected web providers selectable",providerOptions requires valid session + real models,11-web-chat,PARTIAL,MEDIUM,Native SwiftUI/WebKit unverified,NONE,GREEN
+Web,WEB-07,Captcha Display in Chat,"As a user, I want captcha shown in chat",Captcha screenshot plus interactive solver sheet,11-web-chat,PARTIAL,MEDIUM,Third-party captcha unverified,NONE,GREEN
+Web,WEB-08,run_command Approval Gate,"As a user, I want destructive commands approved per AccessLevel",WebToolAccessGate gates run_command,11-web-chat,PASS,NONE,,NONE,GREEN
+Web,WEB-09,Web Selection Coherence,"As a user, I want model/effort to match between composer and browser",Composer writes config; driver consumes effectiveConfig,11-web-chat,PARTIAL,MEDIUM,Native WebKit unverified,NONE,GREEN
+Web,WEB-10,Verified Browser Send,"As a user, I want send to fail clearly on state issues",Session/input/send selectors checked before typing,11-web-chat,PARTIAL,MEDIUM,Native WebKit runtime unverified,NONE,GREEN
+Web,WEB-11,Embedded Browser Stop,"As a user, I want Stop to stop in provider page",Stop button clicked through WKWebView bridge,11-web-chat,PASS,NONE,,NONE,GREEN
+Web,WEB-12,Visible Web Response,"As a user, I want last visible response instead of empty bubble",WKWebView readText skips hidden/empty wrappers,11-web-chat,PASS,NONE,,NONE,GREEN
+Web,WEB-13,Optional Effort Control,"As a user, I want send to continue without effort control",Missing optional effort selectors ignored,11-web-chat,PASS,NONE,,NONE,GREEN
+Web,WEB-14,Honest Browser Model Detection,"As a user, I want to choose between DOM and AI detection",Detect models for DOM; Ask free AI for extraction,11-web-chat,PASS,NONE,,NONE,GREEN
+Web,WEB-15,Verified Background Browser Submit,"As a user, I want message inserted/submitted via hidden WKWebView",Bridge uses native value setter + Enter events,11-web-chat,PASS,NONE,,NONE,GREEN
 Web,WEB-16,Recursive Live Web Model Catalog,"As a user, I want every model behind Expand more","Detect opens live selector, recursively expands",11-web-chat,PASS,NONE,,NONE,GREEN
-Web,WEB-17,Project and Chat Browser Isolation,"As a user, I want each project/chat/provider to use correct browser","WKWebView keyed by project/chat/provider",11-web-chat,PASS,NONE,,NONE,GREEN
-Web,WEB-18,Web Action Routing Journal,"As a user, I want every browser action to state routing","Selection/send actions append journal records",11-web-chat,PASS,NONE,,NONE,GREEN
-Web,WEB-19,Per-Model Parameter Profile,"As a user, I want each model to expose its parameter profile","Live capability detection records controls",11-web-chat,PASS,NONE,,NONE,GREEN
-Web,WEB-20,Refresh Before Retry,"As a user, I want injection failure to refresh before retry","Typed failure triggers one bounded refresh",11-web-chat,PASS,NONE,,NONE,GREEN
-Web,WEB-21,Named Independent Web Login Sessions,"As a user, I want to capture/switch independent logins","Change login creates new session; active persisted",12-web-session,PASS,NONE,,NONE,GREEN
-Web,WEB-22,Strict Web Model Candidate Validation,"As a user, I want headings/actions rejected from catalog","Only visible selectable leaf options enter catalog",11-web-chat,PARTIAL,MEDIUM,"Live vendor DOM unverified",NONE,GREEN
-Web,WEB-23,Recursive Nested Model Expansion,"As a user, I want every model behind Expand more discovered","Exact expansion controls traversed until exhausted",11-web-chat,PARTIAL,MEDIUM,"Live Qwen menu unverified",NONE,GREEN
-Web,WEB-24,Per-Model Capability Status,"As a user, I want active/inactive/unsupported model states","Each model stores status, isSelectable, efforts",11-web-chat,PARTIAL,MEDIUM,"Live capability probe unverified",NONE,GREEN
-Web,WEB-25,Remote Chat UUID Routing,"As a user, I want local project/chat to map to verified remote UUID","New mapping creates exact New Chat; existing navigates",12-web-session,PARTIAL,MEDIUM,"Live provider routing unverified",NONE,GREEN
-Web,WEB-26,Automatic Safe Catalog Retry,"As a user, I want injection failure refreshed and retried","Pre-send abort; one-shot refresh/retry",11-web-chat,PARTIAL,MEDIUM,"Live WebKit failure unverified",NONE,GREEN
-Web,WEB-27,AI Detection Isolation,"As a user, I want AI detection separate from DOM","AI output uses strict validation; DOM is only activation path",11-web-chat,PARTIAL,MEDIUM,"Live AI/browser comparison unverified",NONE,GREEN
+Web,WEB-17,Project and Chat Browser Isolation,"As a user, I want each project/chat/provider to use correct browser",WKWebView keyed by project/chat/provider,11-web-chat,PASS,NONE,,NONE,GREEN
+Web,WEB-18,Web Action Routing Journal,"As a user, I want every browser action to state routing",Selection/send actions append journal records,11-web-chat,PASS,NONE,,NONE,GREEN
+Web,WEB-19,Per-Model Parameter Profile,"As a user, I want each model to expose its parameter profile",Live capability detection records controls,11-web-chat,PASS,NONE,,NONE,GREEN
+Web,WEB-20,Refresh Before Retry,"As a user, I want injection failure to refresh before retry",Typed failure triggers one bounded refresh,11-web-chat,PASS,NONE,,NONE,GREEN
+Web,WEB-21,Named Independent Web Login Sessions,"As a user, I want to capture/switch independent logins",Change login creates new session; active persisted,12-web-session,PASS,NONE,,NONE,GREEN
+Web,WEB-22,Strict Web Model Candidate Validation,"As a user, I want headings/actions rejected from catalog",Only visible selectable leaf options enter catalog,11-web-chat,PARTIAL,MEDIUM,Live vendor DOM unverified,NONE,GREEN
+Web,WEB-23,Recursive Nested Model Expansion,"As a user, I want every model behind Expand more discovered",Exact expansion controls traversed until exhausted,11-web-chat,PARTIAL,MEDIUM,Live Qwen menu unverified,NONE,GREEN
+Web,WEB-24,Per-Model Capability Status,"As a user, I want active/inactive/unsupported model states","Each model stores status, isSelectable, efforts",11-web-chat,PARTIAL,MEDIUM,Live capability probe unverified,NONE,GREEN
+Web,WEB-25,Remote Chat UUID Routing,"As a user, I want local project/chat to map to verified remote UUID",New mapping creates exact New Chat; existing navigates,12-web-session,PARTIAL,MEDIUM,Live provider routing unverified,NONE,GREEN
+Web,WEB-26,Automatic Safe Catalog Retry,"As a user, I want injection failure refreshed and retried",Pre-send abort; one-shot refresh/retry,11-web-chat,PARTIAL,MEDIUM,Live WebKit failure unverified,NONE,GREEN
+Web,WEB-27,AI Detection Isolation,"As a user, I want AI detection separate from DOM",AI output uses strict validation; DOM is only activation path,11-web-chat,PARTIAL,MEDIUM,Live AI/browser comparison unverified,NONE,GREEN
 Usage,USG-01,Usage Statistics Aggregator,"As a user, I want per-model/per-provider token stats","UsageStatisticsAggregator: date filter, model normalization",09-settings,PASS,NONE,,NONE,GREEN
-Usage,USG-02,Usage Screen with Real Data,"As a user, I want Usage tab to show real token counts","UsageSettingsView renders range-filtered stats",09-settings,PARTIAL,MEDIUM,"Synchronous large-DB loading unverified",NONE,GREEN
-Usage,USG-03,Cost per Model,"As a user, I want spend per model","AppState merges legacy + per-project UsageDataPoint",09-settings,PARTIAL,MEDIUM,"Direct gateways may report cost; web remain N/A",NONE,GREEN
+Usage,USG-02,Usage Screen with Real Data,"As a user, I want Usage tab to show real token counts",UsageSettingsView renders range-filtered stats,09-settings,PARTIAL,MEDIUM,Synchronous large-DB loading unverified,NONE,GREEN
+Usage,USG-03,Cost per Model,"As a user, I want spend per model",AppState merges legacy + per-project UsageDataPoint,09-settings,PARTIAL,MEDIUM,Direct gateways may report cost; web remain N/A,NONE,GREEN
 Indexing,IDX-01,Project File Scan,"As a user, I want project files indexed","ProjectFileScanner recursive, SHA-256, excludes, 5MB cap",28-file-indexing,PASS,NONE,,NONE,GREEN
-Indexing,IDX-02,@-Mention File Search,"As a user, I want @ to find files from project index","ProjectFilesCacheLogic 30s TTL cache feeds @ dropdown",28-file-indexing,PASS,NONE,,NONE,GREEN
-Indexing,IDX-03,Persistent File Index + FTS,"As a user, I want searchable persistent file index","file_index.json persists bounded metadata",28-file-indexing,PARTIAL,MEDIUM,"SQLite FTS unverified",NONE,GREEN
-WebTools,WET-01,Web Tool Executor,"As a user, I want emulated tools to run against real project","ProjectWebToolExecutor read/write/edit/list/grep on disk",14-web-tools,PASS,NONE,,NONE,GREEN
-Danger,DNG-01,Dangerous Command Detection,"As a user, I want warnings before dangerous commands","NOT IMPLEMENTED",19-error-handling,FUTURE,NONE,,NONE,N/A
-Regression,BUG-01,MiCoder Auto Free Default,"As a new user, I want built-in free provider to use Big Pickle","micoder-auto-free is renamed built-in route",15-micoder-auto-free,PASS,NONE,,NONE,GREEN
-Regression,BUG-02,Web Model Picker,"As a user, I want web models selected in shared flow","browser no longer exposes second manual model editor",11-web-chat,PASS,NONE,,NONE,GREEN
-Regression,BUG-03,ChatGPT Stale Models,"As a ChatGPT user, I want only live models","WebModelRefreshLogic replaces stale models",11-web-chat,PARTIAL,MEDIUM,"Live ChatGPT discovery unverified",NONE,GREEN
-Regression,BUG-04,Qwen Model Discovery,"As a Qwen user, I want all current model options","Qwen discovery merges primary and additional selectors",11-web-chat,PASS,NONE,,NONE,GREEN
-Regression,BUG-05,Web Effort Status,"As a web-provider user, I want to see effort detected status","Provider card shows detected levels",11-web-chat,PASS,NONE,,NONE,GREEN
-Regression,BUG-06,Failed First Send Persistence,"As a user, I want failed first send retained","Local session bootstrapped before first append",03-chat-panel,PASS,NONE,,NONE,GREEN
-MiMo,MIMO-04,MiMo Auto Sunset Migration,"As an existing MiMo Auto user, I want stop selecting defunct route","Legacy mimo-auto migrated to micoder-auto-free",15-micoder-auto-free,PASS,NONE,,NONE,GREEN
-MiMo,MIMO-05,Honest MiCoder Auto Free Readiness,"As a user, I want Auto Free shown as ready only when eligible","Provider not connected when no trusted free IDs",15-micoder-auto-free,PASS,NONE,,NONE,GREEN
-MiMo,MIMO-06,Limited-Time Free Provider Feedback,"As a user, I want clear explanation when free catalog unavailable","Settings states no eligible free model; offers refresh",15-micoder-auto-free,PASS,NONE,,NONE,GREEN
-UX,UX-04,No ToS Checkbox Gating,"As a user, I want provider setup without confusing ToS checkbox","Provider cards contain no acknowledgement Toggle",11-web-chat,PASS,NONE,,NONE,GREEN
-UX,UX-05,Honest Effort Menu,"As a user, I want only effort levels current page supports","Effort menu hidden until live discovery returns levels",11-web-chat,PASS,NONE,,NONE,GREEN
+Indexing,IDX-02,@-Mention File Search,"As a user, I want @ to find files from project index",ProjectFilesCacheLogic 30s TTL cache feeds @ dropdown,28-file-indexing,PASS,NONE,,NONE,GREEN
+Indexing,IDX-03,Persistent File Index + FTS,"As a user, I want searchable persistent file index",file_index.json persists bounded metadata,28-file-indexing,PARTIAL,MEDIUM,SQLite FTS unverified,NONE,GREEN
+WebTools,WET-01,Web Tool Executor,"As a user, I want emulated tools to run against real project",ProjectWebToolExecutor read/write/edit/list/grep on disk,14-web-tools,PASS,NONE,,NONE,GREEN
+Danger,DNG-01,Dangerous Command Detection,"As a user, I want warnings before dangerous commands",NOT IMPLEMENTED,19-error-handling,FUTURE,NONE,,NONE,N/A
+Regression,BUG-01,MiCoder Auto Free Default,"As a new user, I want built-in free provider to use Big Pickle",micoder-auto-free is renamed built-in route,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
+Regression,BUG-02,Web Model Picker,"As a user, I want web models selected in shared flow",browser no longer exposes second manual model editor,11-web-chat,PASS,NONE,,NONE,GREEN
+Regression,BUG-03,ChatGPT Stale Models,"As a ChatGPT user, I want only live models",WebModelRefreshLogic replaces stale models,11-web-chat,PARTIAL,MEDIUM,Live ChatGPT discovery unverified,NONE,GREEN
+Regression,BUG-04,Qwen Model Discovery,"As a Qwen user, I want all current model options",Qwen discovery merges primary and additional selectors,11-web-chat,PASS,NONE,,NONE,GREEN
+Regression,BUG-05,Web Effort Status,"As a web-provider user, I want to see effort detected status",Provider card shows detected levels,11-web-chat,PASS,NONE,,NONE,GREEN
+Regression,BUG-06,Failed First Send Persistence,"As a user, I want failed first send retained",Local session bootstrapped before first append,03-chat-panel,PASS,NONE,,NONE,GREEN
+MiMo,MIMO-04,MiMo Auto Sunset Migration,"As an existing MiMo Auto user, I want stop selecting defunct route",Legacy mimo-auto migrated to micoder-auto-free,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
+MiMo,MIMO-05,Honest MiCoder Auto Free Readiness,"As a user, I want Auto Free shown as ready only when eligible",Provider not connected when no trusted free IDs,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
+MiMo,MIMO-06,Limited-Time Free Provider Feedback,"As a user, I want clear explanation when free catalog unavailable",Settings states no eligible free model; offers refresh,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
+UX,UX-04,No ToS Checkbox Gating,"As a user, I want provider setup without confusing ToS checkbox",Provider cards contain no acknowledgement Toggle,11-web-chat,PASS,NONE,,NONE,GREEN
+UX,UX-05,Honest Effort Menu,"As a user, I want only effort levels current page supports",Effort menu hidden until live discovery returns levels,11-web-chat,PASS,NONE,,NONE,GREEN
 UX,UX-06,OpenCode Anonymous Free State,"As a user, I want clear setup state for OpenCode","Settings labels provider, shows live list, offers refresh",09-settings,PASS,NONE,,NONE,GREEN
-UX,UX-08,Provider Disclosure Sections,"As a user, I want provider types in collapsible sections","DisclosureGroup sections with independent state",09-settings,PASS,NONE,,NONE,GREEN
-UX,UX-09,Connection Result Alert,"As a user, I want connection-test success/failure unmistakable","Explicit Boolean; large green/red banner",09-settings,PASS,NONE,,NONE,GREEN
-UX,UX-10,OpenCode Zen Provider Status,"As a user, I want to see whether anonymous or key-enabled","Provider status shows active access mode and model count",09-settings,PASS,NONE,,NONE,GREEN
-UX,UX-11,Unified Chat Header,"As a user, I want one consistent top header","TopBarView is only header rendered",05-topbar,PASS,NONE,,NONE,GREEN
-UX,UX-12,Full-Width Accordion Spoilers,"As a user, I want full-width expand/collapse bars","Group headers are full-width buttons",09-settings,PASS,NONE,,NONE,GREEN
-Model,MODEL-16,Editable Model Parameters,"As a user, I want to inspect/override call parameters","Panel loads metadata; validates temperature/tokens/topP",09-settings,PASS,NONE,,NONE,GREEN
+UX,UX-08,Provider Disclosure Sections,"As a user, I want provider types in collapsible sections",DisclosureGroup sections with independent state,09-settings,PASS,NONE,,NONE,GREEN
+UX,UX-09,Connection Result Alert,"As a user, I want connection-test success/failure unmistakable",Explicit Boolean; large green/red banner,09-settings,PASS,NONE,,NONE,GREEN
+UX,UX-10,OpenCode Zen Provider Status,"As a user, I want to see whether anonymous or key-enabled",Provider status shows active access mode and model count,09-settings,PASS,NONE,,NONE,GREEN
+UX,UX-11,Unified Chat Header,"As a user, I want one consistent top header",TopBarView is only header rendered,05-topbar,PASS,NONE,,NONE,GREEN
+UX,UX-12,Full-Width Accordion Spoilers,"As a user, I want full-width expand/collapse bars",Group headers are full-width buttons,09-settings,PASS,NONE,,NONE,GREEN
+Model,MODEL-16,Editable Model Parameters,"As a user, I want to inspect/override call parameters",Panel loads metadata; validates temperature/tokens/topP,09-settings,PASS,NONE,,NONE,GREEN
 Model,MODEL-17,Model List Controls,"As a user, I want to filter and sort models","Text filtering, sorting by name/context/reasoning/tools",09-settings,PASS,NONE,,NONE,GREEN
-Model,MODEL-18,Custom Model Removal,"As a user, I want to remove unwanted custom-provider model","Trash icon on custom-provider model rows",09-settings,PASS,NONE,,NONE,GREEN
-Model,MODEL-19,Compact Free Model Catalog,"As a user, I want compact free-model catalog","Selected model summary + dense switch list",09-settings,PARTIAL,MEDIUM,"Live catalog contents unverified",NONE,GREEN
-Model,MODEL-20,Model-Specific Effort Capability,"As a user, I want effort control only when model supports it","Discovery profiles effort after selecting each model",11-web-chat,PASS,NONE,,NONE,GREEN
-Prompt,PROMPT-04,AutoFree System Prompt,"As a user, I want my AutoFree system prompt applied","Saved prompt sent as system message before user messages",15-micoder-auto-free,PASS,NONE,,NONE,GREEN
-Chat,CHAT-19,MiCoder Auto Free Attachment Payload,"As a user, I want images/files to reach Auto Free or receive warning","Images as data URLs; text files bounded; binary blocked",15-micoder-auto-free,PARTIAL,MEDIUM,"macOS picker unverified",NONE,GREEN
-Chat,CHAT-20,MiCoder Auto Free Conversation History,"As a user, I want ordinary Auto Free turns to remember visible conversation","Prior turns prepended; in-flight excluded; history capped",15-micoder-auto-free,PARTIAL,MEDIUM,"Live anonymous request unverified",NONE,GREEN
-Web Login,WEB-LOGIN-11,Authenticated Cookie Capture Guard,"As a user, I want Capture Session to save only real authenticated session","Empty cookie snapshots remain with actionable message",12-web-session,PASS,NONE,,NONE,GREEN
-Web Login,WEB-LOGIN-12,Honest Detection Mode Labels,"As a user, I want interface to distinguish DOM from AI detection","Built-in names MiCoder; second names Auto Free",11-web-chat,PASS,NONE,,NONE,GREEN
-Web Chat,WEB-CHAT-11,Web Agent Access-Level Gate,"As a user, I want Ask before changes to protect web-agent mutations","write/edit/todo/git/shell stop at Ask before changes",14-web-tools,PARTIAL,MEDIUM,"Native approval UX unverified",NONE,GREEN
-Web Chat,WEB-CHAT-12,Visible Web Agent Approval Interruption,"As a user, I want blocked mutation explained in chat","Driver emits approvalRequired; presenter renders status",14-web-chat,PARTIAL,MEDIUM,"SwiftUI approval interaction unverified",NONE,GREEN
-Web Chat,WEB-CHAT-13,Named Session Origin-State Restoration,"As a user, I want named web login to restore cookies and origin","Login captures localStorage; restores on send",12-web-session,PARTIAL,MEDIUM,"WKWebView cookies unverified",NONE,GREEN
-Web Chat,WEB-CHAT-14,Custom Web Model Injection,"As a user, I want custom web provider to confirm model","customModelSelector used when no bundled catalog",11-web-chat,PARTIAL,MEDIUM,"Custom live DOM unverified",NONE,GREEN
-Web Chat,WEB-CHAT-15,Complete Destructive Tool Classification,"As a user, I want every mutating tool classified","requiresApproval covers all mutations",14-web-tools,PARTIAL,MEDIUM,"Live provider/runtime unverified",NONE,GREEN
-Release,REL-01,Single Explicit Version Bump,"As a maintainer, I want one normal release bump","build-app.sh updates CFBundle once per version",01-app-shell,PASS,NONE,,NONE,GREEN
-Shell,SHELL-01,Project-Aware Shell Context,"As a user, I want top shell to show active project context","Workspace badge; session goal from project DB",05-topbar,PARTIAL,MEDIUM,"SwiftUI visual unverified",NONE,GREEN
-Shell,SHELL-02,Route-Specific Provider and Model Status,"As a user, I want status bar to describe actual provider/model","Connection state evaluated by selected route",08-statusbar,PARTIAL,MEDIUM,"Live provider/WebKit unverified",NONE,GREEN
-Shell,SHELL-03,Shell Actions and Endpoint Feedback,"As a user, I want shell actions and endpoint labels explicit","Only Serve routes show host:port; Cmd+Option+Z reports status",08-statusbar,PARTIAL,MEDIUM,"AppKit menu/clipboard unverified",NONE,GREEN
+Model,MODEL-18,Custom Model Removal,"As a user, I want to remove unwanted custom-provider model",Trash icon on custom-provider model rows,09-settings,PASS,NONE,,NONE,GREEN
+Model,MODEL-19,Compact Free Model Catalog,"As a user, I want compact free-model catalog",Selected model summary + dense switch list,09-settings,PARTIAL,MEDIUM,Live catalog contents unverified,NONE,GREEN
+Model,MODEL-20,Model-Specific Effort Capability,"As a user, I want effort control only when model supports it",Discovery profiles effort after selecting each model,11-web-chat,PASS,NONE,,NONE,GREEN
+Prompt,PROMPT-04,AutoFree System Prompt,"As a user, I want my AutoFree system prompt applied",Saved prompt sent as system message before user messages,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
+Chat,CHAT-19,MiCoder Auto Free Attachment Payload,"As a user, I want images/files to reach Auto Free or receive warning",Images as data URLs; text files bounded; binary blocked,15-micoder-auto-free,PARTIAL,MEDIUM,macOS picker unverified,NONE,GREEN
+Chat,CHAT-20,MiCoder Auto Free Conversation History,"As a user, I want ordinary Auto Free turns to remember visible conversation",Prior turns prepended; in-flight excluded; history capped,15-micoder-auto-free,PARTIAL,MEDIUM,Live anonymous request unverified,NONE,GREEN
+Web Login,WEB-LOGIN-11,Authenticated Cookie Capture Guard,"As a user, I want Capture Session to save only real authenticated session",Empty cookie snapshots remain with actionable message,12-web-session,PASS,NONE,,NONE,GREEN
+Web Login,WEB-LOGIN-12,Honest Detection Mode Labels,"As a user, I want interface to distinguish DOM from AI detection",Built-in names MiCoder; second names Auto Free,11-web-chat,PASS,NONE,,NONE,GREEN
+Web Chat,WEB-CHAT-11,Web Agent Access-Level Gate,"As a user, I want Ask before changes to protect web-agent mutations",write/edit/todo/git/shell stop at Ask before changes,14-web-tools,PARTIAL,MEDIUM,Native approval UX unverified,NONE,GREEN
+Web Chat,WEB-CHAT-12,Visible Web Agent Approval Interruption,"As a user, I want blocked mutation explained in chat",Driver emits approvalRequired; presenter renders status,14-web-chat,PARTIAL,MEDIUM,SwiftUI approval interaction unverified,NONE,GREEN
+Web Chat,WEB-CHAT-13,Named Session Origin-State Restoration,"As a user, I want named web login to restore cookies and origin",Login captures localStorage; restores on send,12-web-session,PARTIAL,MEDIUM,WKWebView cookies unverified,NONE,GREEN
+Web Chat,WEB-CHAT-14,Custom Web Model Injection,"As a user, I want custom web provider to confirm model",customModelSelector used when no bundled catalog,11-web-chat,PARTIAL,MEDIUM,Custom live DOM unverified,NONE,GREEN
+Web Chat,WEB-CHAT-15,Complete Destructive Tool Classification,"As a user, I want every mutating tool classified",requiresApproval covers all mutations,14-web-tools,PARTIAL,MEDIUM,Live provider/runtime unverified,NONE,GREEN
+Release,REL-01,Single Explicit Version Bump,"As a maintainer, I want one normal release bump",build-app.sh updates CFBundle once per version,01-app-shell,PASS,NONE,,NONE,GREEN
+Shell,SHELL-01,Project-Aware Shell Context,"As a user, I want top shell to show active project context",Workspace badge; session goal from project DB,05-topbar,PARTIAL,MEDIUM,SwiftUI visual unverified,NONE,GREEN
+Shell,SHELL-02,Route-Specific Provider and Model Status,"As a user, I want status bar to describe actual provider/model",Connection state evaluated by selected route,08-statusbar,PARTIAL,MEDIUM,Live provider/WebKit unverified,NONE,GREEN
+Shell,SHELL-03,Shell Actions and Endpoint Feedback,"As a user, I want shell actions and endpoint labels explicit",Only Serve routes show host:port; Cmd+Option+Z reports status,08-statusbar,PARTIAL,MEDIUM,AppKit menu/clipboard unverified,NONE,GREEN
+AutoFree,AF-40,Agentic Tool Loop,"As a user, I want the free model to act as a full agent in my project","Send starts max-15-iteration loop: parse tool blocks (JSON args/arguments, XML, informal), validate, execute, feed results back; final answer without tool block ends the loop",30-agentic-tool-loop,PASS,NONE,BUG-30-01: tool preamble lacked projectRoot,BUG-30-01-FIX: streamChat(projectRoot:isGitRepo:) passes environment context,GREEN
+AutoFree,AF-41,Multi-format Tool Call Parsing,"As a model, I can call tools in the format natural to me","```tool JSON with args|arguments keys, XML tags with whitespace tolerance, informal [tool call: X with k=""v""] all parse to canonical tool calls",30-agentic-tool-loop,PASS,NONE,,NONE,GREEN
+AutoFree,AF-42,Tool Access-Level Gate,"As a user, I want no tool to mutate beyond my access level",Read-only always run; write tools at askBeforeChanges return approval message without executing; run_command executes only read-only commands below fullAccess,30-agentic-tool-loop,PASS,NONE,,NONE,GREEN
+AutoFree,AF-43,Symlink-Safe Path Boundary,"As a user, I want tools unable to escape the project root via symlinks",Relative paths resolve inside root; ../ and absolute out-of-root rejected; in-root symlink pointing outside is rejected; legit symlinked roots still work; missing write targets pass,30-agentic-tool-loop,PASS,MEDIUM,ARCH-06: isPathInsideRoot did not resolve symlinks; first fix introduced BUG-30-02 (infinite loop on trailing .. via URL.deletingLastPathComponent no-op; also wrong lexical .. guard stack.count>1 and tail loss),ARCH-06-FIX v2: realpath + lexical resolution (lexicallyResolved with !stack.isEmpty guard) + longest-existing-ancestor walk-up; 10 regression cases all verified,GREEN
+AutoFree,AF-44,Reasoning Accumulation,"As a user, I want full reasoning across all loop iterations",Reasoning streams and accumulates per-iteration then across iterations; never replaced mid-stream,30-agentic-tool-loop,PASS,NONE,,NONE,GREEN
+AutoFree,AF-45,Tool Call Spoiler Parts,"As a user, I want to see executed tool calls in the response",Each executed call appends a tool_call part with name/args/result; parts persist with the message,30-agentic-tool-loop,PASS,NONE,,NONE,GREEN
+AutoFree,AF-46,Auto-Free Conversation History,"As a user, I want the free model to remember the conversation",Finished non-empty prior turns (max 20) sent with each request; attachments stay on the current turn only,30-agentic-tool-loop,PASS,NONE,,NONE,GREEN
+Context,CTX-01,Host-Side Project Auto-Context,"As a user, I want relevant project files sent to the model automatically","Matching files (max 5, 4000 chars, 2x160-char excerpts) prepended as <project-context> to model-bound text only; displayed bubble keeps raw text; missing index never blocks send",31-project-auto-context,PASS,NONE,,NONE,GREEN
+Header,HDR-01,Header Goal Progress,"As a user, I want the session goal and live step progress in the top bar",Badge shows goal + n/m from currentSteps; hides without session/goal/steps; progress fraction 0...1 for ProgressView,32-header-goal-progress,PASS,NONE,,NONE,GREEN
+Database,DB-50,History Tail Paging,"As a user with a long session, I want the newest messages first and older pages on demand",Initial load = newest tail ASC; older page loads before displayed; hasMore reflects remaining; growing sessions never hide new messages,33-history-tail-paging,PASS,NONE,Pre-fix: oldest-first+limit hid all new messages past page size,Replaced with tail+offset model (commit 00f8781),GREEN
+Architecture,ARCH-03,Pool Access Race,"As a user, I want pooled project DBs to be thread-safe",lastAccessedAt reads/writes serialized behind NSLock; dead DispatchQueue removed,29-architecture,PASS,MEDIUM,ARCH-03/08: unsynchronized lastAccessedAt + dead queue,ARCH-03-FIX: NSLock-guarded property; queue removed; regression test,GREEN
+Architecture,ARCH-05,SQL Identifier Allowlist,"As a user, I want no SQL injection surface in schema migration",addColumnIfMissing validates table+column against owned-schema allowlist and throws DatabaseValidationError otherwise,29-architecture,PASS,MEDIUM,ARCH-05: string interpolation into PRAGMA/ALTER,ARCH-05-FIX: SchemaIdentifier allowlist + typed error,GREEN
+Architecture,ARCH-09,Part Conversion DRY,"As a developer, I want one canonical part-record converter",Identical global/project converters replaced by shared convertPartFields,29-architecture,PASS,LOW,ARCH-09: 100% duplicated converters,"ARCH-09-FIX: shared implementation, both call sites",GREEN

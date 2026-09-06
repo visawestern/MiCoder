@@ -187,7 +187,10 @@ struct ProjectDatabaseManagerTests {
         #expect(ProjectDatabaseManager.isPooled(projectPath: normalized),
                 "Manager must be in the pool before eviction is tested")
 
-        ProjectDatabaseManager.evictIdle(olderThan: 1, now: manager.lastAccessedAt.addingTimeInterval(2))
+        // `lastAccessedAt` is now lock-protected and private; use a timestamp
+        // strictly after open (touch happens on pool access) for the idle cutoff.
+        let cutoff = Date().addingTimeInterval(2)
+        ProjectDatabaseManager.evictIdle(olderThan: 1, now: cutoff)
         #expect(!ProjectDatabaseManager.isPooled(projectPath: normalized))
     }
 
@@ -231,6 +234,30 @@ struct ProjectDatabaseManagerTests {
         let result = try db.integrityCheck()
         #expect(result == nil)
     }
+
+    // MARK: - Audit ARCH-03: lastAccessedAt is serialized behind a lock
+
+    @Test("Concurrent pool access does not corrupt lastAccessedAt tracking")
+    func concurrentPoolAccessIsRaceFree() throws {
+        let projectPath = try makeTempProjectDir()
+        defer { try? FileManager.default.removeItem(atPath: projectPath) }
+        let group = DispatchGroup()
+        for i in 0..<50 {
+            group.enter()
+            DispatchQueue.global().async {
+                defer { group.leave() }
+                if let manager = try? ProjectDatabaseManager.manager(forProjectPath: projectPath) {
+                    _ = try? manager.insertSession(id: "s\(i)", title: "s", directory: projectPath)
+                }
+            }
+        }
+        _ = group.wait(timeout: .now() + 10)
+        // If the lock were absent this would be a data race flagged by TSan;
+        // functionally we assert the pooled manager still answers correctly.
+        let manager = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
+        #expect(try manager.sessionCount() == 50)
+    }
+
 }
 
 @Suite("ProjectDatabaseManager — project-scoped session maintenance")

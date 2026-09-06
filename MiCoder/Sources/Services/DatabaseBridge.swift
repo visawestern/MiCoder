@@ -422,26 +422,34 @@ class DatabaseBridge: ObservableObject {
         return (page, offset > 0)
     }
     
-    /// Конвертировать MessagePartRecord (общая БД) в MessagePartContent
-    private func convertPartRecord(_ record: MessagePartRecord) -> MessagePartContent {
-        switch record.type {
+    /// Shared conversion for every part-record shape (global + per-project
+    /// DBs use identical column sets). Audit ARCH-09: the two previous
+    /// converters were byte-identical — one canonical implementation now
+    /// serves both call sites.
+    private func convertPartFields(type: String,
+                                   content: String?,
+                                   toolName: String?,
+                                   toolArgs: String?,
+                                   toolResult: String?,
+                                   toolCallId: String?) -> MessagePartContent {
+        switch type {
         case "text":
-            return .text(record.content ?? "")
+            return .text(content ?? "")
         case "reasoning":
-            return .reasoning(record.content ?? "")
+            return .reasoning(content ?? "")
         case "tool_call":
             return .toolCall(
-                name: record.toolName ?? "",
-                args: record.toolArgs ?? "{}",
-                result: record.toolResult,
-                callID: record.toolCallId
+                name: toolName ?? "",
+                args: toolArgs ?? "{}",
+                result: toolResult,
+                callID: toolCallId
             )
         case "step_start":
             return .stepStart
         case "step_finish":
             return .stepFinish
         case "image":
-            if let content = record.content {
+            if let content {
                 let parts = content.split(separator: "|", maxSplits: 1)
                 let mimeType = parts.count > 0 ? String(parts[0]) : "image/png"
                 let base64 = parts.count > 1 ? String(parts[1]) : ""
@@ -453,35 +461,24 @@ class DatabaseBridge: ObservableObject {
         }
     }
 
+    /// Конвертировать MessagePartRecord (общая БД) в MessagePartContent
+    private func convertPartRecord(_ record: MessagePartRecord) -> MessagePartContent {
+        convertPartFields(type: record.type,
+                          content: record.content,
+                          toolName: record.toolName,
+                          toolArgs: record.toolArgs,
+                          toolResult: record.toolResult,
+                          toolCallId: record.toolCallId)
+    }
+
     /// Конвертировать ProjectMessagePartRecord (per-project БД) в MessagePartContent
     private func convertProjectPartRecord(_ record: ProjectMessagePartRecord) -> MessagePartContent {
-        switch record.type {
-        case "text":
-            return .text(record.content ?? "")
-        case "reasoning":
-            return .reasoning(record.content ?? "")
-        case "tool_call":
-            return .toolCall(
-                name: record.toolName ?? "",
-                args: record.toolArgs ?? "{}",
-                result: record.toolResult,
-                callID: record.toolCallId
-            )
-        case "step_start":
-            return .stepStart
-        case "step_finish":
-            return .stepFinish
-        case "image":
-            if let content = record.content {
-                let parts = content.split(separator: "|", maxSplits: 1)
-                let mimeType = parts.count > 0 ? String(parts[0]) : "image/png"
-                let base64 = parts.count > 1 ? String(parts[1]) : ""
-                return .image(base64: base64, mimeType: mimeType)
-            }
-            return .text("")
-        default:
-            return .text("")
-        }
+        convertPartFields(type: record.type,
+                          content: record.content,
+                          toolName: record.toolName,
+                          toolArgs: record.toolArgs,
+                          toolResult: record.toolResult,
+                          toolCallId: record.toolCallId)
     }
     
     // MARK: - Provider & API Key Management

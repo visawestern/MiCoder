@@ -831,7 +831,11 @@ struct ChatPanelView: View {
                     for iteration in 0..<maxIterations {
                         var response = ""
                         var iterationReasoning = ""
-                        for try await event in store.streamChat(messages: conversationMessages) {
+                        for try await event in store.streamChat(
+                            messages: conversationMessages,
+                            projectRoot: projectRoot,
+                            isGitRepo: (try? GitRepository.repositoryRoot(for: projectRoot)) != nil
+                        ) {
                             let e: StreamEvent = event
                             switch e {
                             case .content(let text):

@@ -1,8 +1,8 @@
 # MiCoder Audit — Master Index
 
-Дата: 2026-09-04
-Версия: v2.119.0 (build 117)
-Тесты: 2288 tests / 359 suites — ALL GREEN
+Дата: 2026-09-06 (дельта-аудит пост-аудитных коммитов 6062877..HEAD)
+Версия: v2.119.1 (build 118)
+Тесты: 2298 tests / 359 suites — ALL GREEN (финальный регрессионный прогон после всех фиксов)
 Сборка: `swift build` — GREEN
 
 ## Audit Scope
@@ -48,7 +48,11 @@
 | 26 | [26-slash-commands.md](26-slash-commands.md) | Built-in and custom commands | AUDITED |
 | 27 | [27-session-management.md](27-session-management.md) | Creation, persistence, archiving | AUDITED |
 | 28 | [28-file-indexing.md](28-file-indexing.md) | File scanning, @-mention, FSEvents | AUDITED |
-| 29 | [29-architecture.md](29-architecture.md) | SRP, race conditions, memory issues | AUDITED |
+| 29 | [29-architecture.md](29-architecture.md) | SRP, race conditions, memory issues | AUDITED (03/04/05/06/08/09 FIXED 2026-09-06; 01/02/07 OPEN-constrained) |
+| 30 | [30-agentic-tool-loop.md](30-agentic-tool-loop.md) | Auto-free agentic loop, tool protocol, gates | AUDITED 2026-09-06 |
+| 31 | [31-project-auto-context.md](31-project-auto-context.md) | Host-side project auto-context | AUDITED 2026-09-06 |
+| 32 | [32-header-goal-progress.md](32-header-goal-progress.md) | Header goal + step progress | AUDITED 2026-09-06 |
+| 33 | [33-history-tail-paging.md](33-history-tail-paging.md) | History tail + older paging | AUDITED 2026-09-06 |
 
 ## Canonical Spreadsheet
 
@@ -62,6 +66,18 @@
 | FIX-02 | CRITICAL | `isNavigatingHistory` data race — not protected by navigationLock | MiCoderApp.swift:132,164,947,961 | FIXED |
 | FIX-03 | HIGH | `upsertProject` never updated existing records (name/branch/remote) | DatabaseBridge.swift:66 | FIXED |
 | FIX-04 | HIGH | Missing `updateProject` method in DatabaseManager | DatabaseManager.swift | FIXED |
+
+## Delta Audit 2026-09-06 — Bugs Fixed (commits 6062877..HEAD + this session)
+
+| ID | Severity | Description | File | Status |
+|---|---|---|---|---|
+| ARCH-03/08 | HIGH | `lastAccessedAt` data race + dead DispatchQueue | ProjectDatabaseManager.swift | FIXED (NSLock; queue removed; regression test) |
+| ARCH-04 | HIGH | hasAPIKey/send-route lost the key after Keychain migration until restart | MiCoderApp.swift, SendRouteResolver.swift | FIXED (in-memory restore + getSecureAPIKey route; regression test) |
+| ARCH-05 | MEDIUM | SQL identifier interpolation in addColumnIfMissing | ProjectDatabaseManager.swift | FIXED (SchemaIdentifier allowlist + typed error) |
+| ARCH-06 | MEDIUM | Symlink path traversal in isPathInsideRoot | WebToolProtocolEmulator.swift | FIXED v2 (realpath + lexical resolution; 10 regression cases) |
+| ARCH-09 | LOW | 100% duplicated part converters | DatabaseBridge.swift | FIXED (shared convertPartFields) |
+| BUG-30-01 | MEDIUM | Auto-free tool preamble missing projectRoot/git context | MiCoderAutoFreeProvider.swift, ChatPanelView.swift | FIXED (streamChat(projectRoot:isGitRepo:)) |
+| BUG-30-02 | HIGH | Infinite loop in ARCH-06 fix v1 on trailing `..` (URL no-op) | WebToolProtocolEmulator.swift | FIXED v2 + regression test; caught ONLY by full-suite rerun |
 
 ## Architecture Defects (Documented, Not Fixed — External Constraints)
 

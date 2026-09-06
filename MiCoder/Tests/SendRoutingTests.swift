@@ -94,6 +94,29 @@ struct SendRoutingTests {
         #expect(route == .openAICompatible(baseURL: "https://api.x.ai/v1", apiKey: "k", model: "m"))
     }
 
+    // MARK: - Audit ARCH-04: the key must resolve even when the in-memory
+    // copy was stripped because it lives in the Keychain.
+
+    @Test func customProviderWithKeychainOnlyKeyStillRoutesWithKey() {
+        // In-memory copy has apiKey stripped (post-Keychain-migration state),
+        // but the Keychain holds the real key under the provider id.
+        DatabaseBridge.shared.saveProviderAPIKey(providerId: "kc1", apiKey: "keychain-key")
+        defer { DatabaseBridge.shared.deleteProviderAPIKey(providerId: "kc1") }
+        let stripped = CustomProvider(id: "kc1", name: "KC", type: .openAI,
+                                      baseURL: "https://api.x.ai/v1", apiKey: "", models: ["m"])
+        let route = SendRouteResolver.route(
+            selectedProviderID: "kc1", selectedModel: "m",
+            serverConnected: false, isACP: false,
+            customProviders: [stripped], localProviders: [], webProviderIDs: []
+        )
+        guard case .openAICompatible(_, let apiKey, _) = route else {
+            Issue.record("Expected openAICompatible route, got \(route)")
+            return
+        }
+        #expect(apiKey == "keychain-key",
+                "A provider whose key lives only in the Keychain must still route with it")
+    }
+
     @Test func acpTakesPriorityWhenFlagged() {
         let route = SendRouteResolver.route(
             selectedProviderID: "acp1", selectedModel: "m",

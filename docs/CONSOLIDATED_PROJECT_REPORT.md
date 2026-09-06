@@ -90,3 +90,58 @@ storage localization, interactive captcha bridge и опасные команд�
 /goal → code-based user stories → canonical spreadsheet → real/error testing
 → fix logistics and UX → repeat every behavior → devil's-advocate review
 ```
+
+---
+
+## Дельта-аудит 2026-09-06 (коммиты 6062877..HEAD + фиксы сессии)
+
+**Контекст:** аудит от 2026-09-04 не покрывал 14 пост-аудитных коммитов
+(~820 строк: agentic tool loop, auto-context, goal progress, history paging,
+tool-call JSON). Проведён дельта-аудит по циклу: обнаружение → фиксация →
+user story → ожидаемое поведение → тест → первопричина → фикс → повторный
+тест → регрессия.
+
+**Новые activity-чеклисты:** 30-agentic-tool-loop, 31-project-auto-context,
+32-header-goal-progress, 33-history-tail-paging (docs/audit/).
+
+**Исправлено в этой сессии (все — первопричинно, без обходных путей):**
+
+1. **ARCH-03/08 (HIGH)** — data race на `lastAccessedAt` + мёртвая
+   DispatchQueue в ProjectDatabaseManager. NSLock-сериализация; очередь
+   удалена. Регрессионный тест: 50 конкурентных открытий пула.
+2. **ARCH-04 (HIGH)** — провайдер с валидным ключом блокировался/уходил без
+   Authorization до перезапуска после Keychain-миграции (2 независимых
+   сайта: readiness-валидация и route-resolver). Ключ восстанавливается
+   in-memory; route резолвится через getSecureAPIKey(). Регрессионный тест.
+3. **ARCH-05 (MEDIUM)** — SQL-интерполяция в addColumnIfMissing заменена
+   allowlist'ом owned-идентификаторов + типизированной ошибкой.
+4. **ARCH-06 (MEDIUM)** — symlink path traversal: realpath + лексическая
+   резолюция `..`/`.` + walk-up по longest-existing-ancestor. ВАЖНО: первая
+   версия фикса вводила бесконечный цикл (URL.deletingLastPathComponent —
+   no-op на trailing `..`) и неверный lexical guard; поймано ТОЛЬКО полным
+   регрессионным прогоном (hang на 200% CPU). 10 регрессионных кейсов.
+5. **ARCH-09 (LOW)** — дублированные конвертеры parts → общий
+   convertPartFields.
+6. **BUG-30-01 (MEDIUM)** — tool-преамбула auto-free без projectRoot/git
+   контекста (модель не могла резолвить относительные пути инструментов).
+
+**Финальная регрессия:** 2298 tests / 359 suites — 0 failures, GREEN.
+
+**SDLC-вывод (подтверждён эмпирически):** компиляция и targeted-тесты
+недостаточны — BUG-30-02 прошёл все быстрые проверки и был поймат только
+полным прогоном. Контур качества обязан замыкаться на независимую
+валидацию (полный прогон + ручные edge-case проверки), а не на скорость
+генерации фикса. Ускорение Code без переноса контроля в Review+Tests
+перемещает узкое место дальше по потоку.
+
+**Канонический spreadsheet:** docs/FEATURE_SPREADSHEET.csv — 286 записей
+(все user stories, включая дельту); docs/audit/FEATURE_SPREADSHEET_AUDIT.csv
+— 285 записей с полным трекингом severity/bugs/fix/test.
+
+**Остаточные внешние ограничения (зафиксированы явно, не скрыты):**
+- ARCH-01 (god-object AppState) — требует структурного разложения; является
+  предусловием для полного устранения ARCH-02. Инкрементальные патчи без
+  разложения = маскирование симптомов; записан как долг с моделью замены.
+- ARCH-07 (39 `try?`) — требует дизайна канала ошибок UX (~45 сайтов).
+- Native-macOS-only проверки (Keychain live, WKWebView runtime, FSEvents) —
+  вне достижимости текущего окружения; помечены UNVERIFIED, не PASS.

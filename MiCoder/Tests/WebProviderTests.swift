@@ -279,6 +279,62 @@ struct WebToolProtocolEmulatorTests {
         #expect(!WebToolProtocolEmulator.isPathInsideRoot("/etc/passwd", root: "/proj"))
         #expect(!WebToolProtocolEmulator.isPathInsideRoot("../x", root: "/proj"))
     }
+
+    // MARK: - Audit ARCH-06: symlink traversal must not escape the project root
+
+    private func makeTempSymlinkProject() throws -> (root: String, cleanup: () -> Void) {
+        let fm = FileManager.default
+        let base = NSTemporaryDirectory() + "/micoder-symlink-\(UUID().uuidString)"
+        let root = base + "/root"
+        let outside = base + "/outside"
+        try fm.createDirectory(atPath: root, withIntermediateDirectories: true)
+        try fm.createDirectory(atPath: outside, withIntermediateDirectories: true)
+        try fm.createDirectory(atPath: root + "/src", withIntermediateDirectories: true)
+        // A symlink INSIDE the project root pointing OUTSIDE of it.
+        try fm.createSymbolicLink(atPath: root + "/escape", withDestinationPath: outside)
+        let cleanup: () -> Void = { try? fm.removeItem(atPath: base) }
+        return (root, cleanup)
+    }
+
+    @Test func symlinkInsideRootPointingOutsideIsRejected() throws {
+        let (root, cleanup) = try makeTempSymlinkProject()
+        defer { cleanup() }
+        #expect(!WebToolProtocolEmulator.isPathInsideRoot("escape/secret.txt", root: root),
+                "A symlink inside the root must not smuggle an out-of-root target past the check")
+        #expect(!WebToolProtocolEmulator.isPathInsideRoot("escape", root: root))
+    }
+
+    @Test func symlinkedRootItselfStillResolves() throws {
+        let (root, cleanup) = try makeTempSymlinkProject()
+        defer { cleanup() }
+        let fm = FileManager.default
+        // A symlink TO the project root (e.g. /tmp -> /private/tmp) must keep
+        // legitimate in-root paths working.
+        let link = NSTemporaryDirectory() + "/micoder-rootlink-\(UUID().uuidString)"
+        try fm.createSymbolicLink(atPath: link, withDestinationPath: root)
+        defer { try? fm.removeItem(atPath: link) }
+        #expect(WebToolProtocolEmulator.isPathInsideRoot("src/a.swift", root: link))
+        #expect(!WebToolProtocolEmulator.isPathInsideRoot("../x", root: link))
+    }
+
+    @Test func missingWriteTargetInsideRootStillPasses() throws {
+        let (root, cleanup) = try makeTempSymlinkProject()
+        defer { cleanup() }
+        // write_file targets do not exist yet; resolution must not break them.
+        #expect(WebToolProtocolEmulator.isPathInsideRoot("src/new-file.swift", root: root))
+    }
+
+    // MARK: - Audit regression: lexical `..` resolution must terminate and
+    // be correct (URL.deletingLastPathComponent is a no-op on trailing "..",
+    // which spun the first ARCH-06 fix in an infinite loop).
+
+    @Test func dotDotPathsRejectOrAcceptLexically() {
+        // `..` escaping a non-existent root must be rejected, not accepted.
+        #expect(!WebToolProtocolEmulator.isPathInsideRoot("../x", root: "/proj"))
+        #expect(!WebToolProtocolEmulator.isPathInsideRoot("a/../../x", root: "/proj"))
+        // `..` that stays inside after lexical resolution is still inside.
+        #expect(WebToolProtocolEmulator.isPathInsideRoot("a/../b.swift", root: "/proj"))
+    }
 }
 
 @Suite("Web session + anti-ban logic (plan Раздел 12 Блок 3)")

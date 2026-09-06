@@ -55,9 +55,14 @@ enum SendRouteResolver {
         // 3) ACP provider.
         if isACP { return .acp }
         // 4) Custom cloud provider (OpenAI-compatible) selected while serve is off
-        //    or the provider has its own endpoint/key.
+        //    or the provider has its own endpoint/key. The key may live in the
+        //    Keychain while the in-memory copy carries it too (see AppState
+        //    addCustomProvider/updateCustomProvider); resolve via the secure
+        //    accessor so a freshly saved key routes correctly without a restart
+        //    (audit ARCH-04).
         if let custom = customProviders.first(where: { $0.id == selectedProviderID && $0.isEnabled }) {
-            let normalizedKey = custom.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            let normalizedKey = (custom.getSecureAPIKey() ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             return .openAICompatible(baseURL: custom.baseURL,
                                      apiKey: normalizedKey.isEmpty ? nil : normalizedKey,
                                      model: selectedModel)
