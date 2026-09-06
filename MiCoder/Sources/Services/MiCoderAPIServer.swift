@@ -115,6 +115,18 @@ final class MiCoderAPIServer {
             return handleDiscoverModels()
         case ("POST", "/api/add-account"):
             return handleAddAccount(body: body)
+        case ("POST", "/api/add-vendor"):
+            return handleAddVendor(body: body)
+        case ("POST", "/api/web-login-check"):
+            return handleWebLoginCheck(body: body)
+        case ("GET", "/api/web-login-status"):
+            return handleWebLoginStatus()
+        case ("POST", "/api/open-login"):
+            return handleOpenLogin(body: body)
+        case ("POST", "/api/send-and-wait"):
+            return handleSendAndWait(body: body)
+        case ("POST", "/api/update-provider-url"):
+            return handleUpdateProviderURL(body: body)
         default:
             return notFound()
         }
@@ -344,10 +356,16 @@ final class MiCoderAPIServer {
         let semaphore = DispatchSemaphore(value: 0)
         var result: String = "timeout"
         Task { @MainActor in
-            result = await appState.refreshWebModels(for: config)
+            // When the live page sits in the login webview (fresh manual
+            // login), refresh THERE so discovery probes the hydrated page
+            // instead of an about:blank default slot.
+            let chatID = appState.debugWebviewURLs().contains(where: { $0.key.contains("provider-login::\(config.id)") && !$0.value.isEmpty && $0.value != "about:blank" })
+                ? "provider-login"
+                : nil
+            result = await appState.refreshWebModels(for: config, chatID: chatID)
             semaphore.signal()
         }
-        _ = semaphore.wait(timeout: .now() + 60)
+        _ = semaphore.wait(timeout: .now() + 180)
         let updated = WebProviderStore.load()
         let updatedConfig = updated.first(where: { $0.id == config.id })
         return jsonResponse(["message": result, "models": updatedConfig?.allModels ?? []])
@@ -362,10 +380,17 @@ final class MiCoderAPIServer {
         guard let appState = __miCoderAppState else {
             return jsonResponse(["error": "app not ready"])
         }
+        // Optional target: run the script on a SPECIFIC webview key
+        // (from GET /api/webviews) instead of the last-used one.
+        let targetKey = json["webview"] as? String
         let semaphore = DispatchSemaphore(value: 0)
         var result: Any?
         Task { @MainActor in
-            result = await appState.debugEvaluateJS(script)
+            if let targetKey {
+                result = await appState.debugEvaluateJS(script, webviewKey: targetKey)
+            } else {
+                result = await appState.debugEvaluateJS(script)
+            }
             semaphore.signal()
         }
         _ = semaphore.wait(timeout: .now() + 15)
@@ -617,7 +642,7 @@ final class MiCoderAPIServer {
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let vendorStr = json["vendor"] as? String,
               let vendor = WebChatVendor(rawValue: vendorStr) else {
-            return jsonResponse(["error": "vendor required (kimi, qwen, chatgpt)"])
+            return jsonResponse(["error": "vendor required (kimi, qwen, chatgpt, claude)"])
         }
         var configs = WebProviderStore.load()
         // Find existing config for this vendor to clone settings from
@@ -640,5 +665,270 @@ final class MiCoderAPIServer {
         configs.append(newConfig)
         WebProviderStore.save(configs)
         return jsonResponse(["status": "added", "id": newConfig.id, "name": newConfig.displayName])
+    }
+
+    // MARK: - Web-provider debug endpoints (audit 2026-09-06)
+
+    /// Creates the FIRST config for a vendor (the UI's "Add Kimi/Qwen/…"
+    /// button). `add-account` clones an existing config; this endpoint covers
+    /// the bootstrap case so the debug API can provision every vendor alone.
+    private func handleAddVendor(body: String) -> String {
+        guard __miCoderAppState != nil else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        guard let data = body.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let vendorStr = json["vendor"] as? String,
+              let vendor = WebChatVendor(rawValue: vendorStr) else {
+            return jsonResponse(["error": "vendor required (kimi, qwen, chatgpt, claude)"])
+        }
+        let configs = WebProviderStore.load()
+        let outcome = WebAccountCloneLogic.next(for: vendor, in: configs)
+        var updated = configs
+        updated.append(outcome.config)
+        WebProviderStore.save(updated)
+        return jsonResponse([
+            "status": outcome.isNewDefault ? "added" : "added-clone",
+            "id": outcome.config.id,
+            "name": outcome.config.displayName,
+            "providerId": "web:\(outcome.config.id)",
+            "chatURL": outcome.config.chatURL,
+            "action": "now open /api/open-login and log in inside the app"
+        ])
+    }
+
+    /// Shared resolution of a web provider config from "web:<id>" or raw id.
+    private func webConfig(for providerId: String) -> WebProviderConfig? {
+        let configs = WebProviderStore.load()
+        let rawID = providerId.hasPrefix("web:")
+            ? String(providerId.dropFirst(4))
+            : providerId
+        return configs.first { $0.id == rawID }
+            ?? configs.first { $0.vendor.rawValue == rawID } // vendor name fallback
+    }
+
+    /// Opens the provider's login page in the app's embedded webview pool and
+    /// reports whether the stored session is authenticated. When `login` is
+    /// false the caller must log in manually in the app UI.
+    private func handleWebLoginCheck(body: String) -> String {
+        guard __miCoderAppState != nil else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        guard let data = body.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let providerId = json["providerId"] as? String else {
+            return jsonResponse(["error": "providerId required"])
+        }
+        guard let config = webConfig(for: providerId) else {
+            return jsonResponse(["error": "web provider not found", "providerId": providerId])
+        }
+        let connected = WebProviderConnectivity.isConnected(
+            config,
+            homeDirectory: FileManager.default.homeDirectoryForCurrentUser
+        )
+        let vendorConfigured = WebProviderStore.load().contains { $0.vendor == config.vendor }
+        return jsonResponse([
+            "providerId": "web:\(config.id)",
+            "vendor": config.vendor.rawValue,
+            "displayName": config.displayName,
+            "configured": vendorConfigured,
+            "connected": connected,
+            "chatURL": config.chatURL,
+            "selectedModel": config.selectedModel,
+            "models": config.allModels,
+            "sessionSaved": WebSessionManager.list(
+                providerId: config.id,
+                homeDirectory: FileManager.default.homeDirectoryForCurrentUser
+            ).map { ["id": $0.id, "name": $0.name] },
+            "action": connected ? "ready" : "open /api/open-login, log in inside the app, then POST /api/save-session"
+        ])
+    }
+
+    /// Aggregated login/connectivity state for every configured web provider.
+    private func handleWebLoginStatus() -> String {
+        guard __miCoderAppState != nil else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        var result: [[String: Any]] = []
+        for config in WebProviderStore.load() {
+            result.append([
+                "providerId": "web:\(config.id)",
+                "vendor": config.vendor.rawValue,
+                "displayName": config.displayName,
+                "connected": WebProviderConnectivity.isConnected(
+                    config,
+                    homeDirectory: FileManager.default.homeDirectoryForCurrentUser
+                ),
+                "selectedModel": config.selectedModel,
+                "modelCount": config.allModels.count
+            ])
+        }
+        return jsonResponse(["providers": result])
+    }
+
+    /// Opens the provider's login screen in the app's webview pool so the user
+    /// can log in manually. Returns immediately with the opened state; the
+    /// caller polls /api/web-login-check or /api/webviews afterwards.
+    private func handleOpenLogin(body: String) -> String {
+        guard let appState = __miCoderAppState else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        guard let data = body.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let providerId = json["providerId"] as? String else {
+            return jsonResponse(["error": "providerId required"])
+        }
+        guard let config = webConfig(for: providerId) else {
+            return jsonResponse(["error": "web provider not found", "providerId": providerId])
+        }
+        let semaphore = DispatchSemaphore(value: 0)
+        var opened = false
+        var url = ""
+        Task { @MainActor in
+            let webView = appState.webView(for: config, projectID: "global", chatID: "provider-login")
+            let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)
+            let selectors = WebVendorSelectors(
+                input: catalogEntry?.input ?? "textarea, div[contenteditable='true']",
+                sendButton: catalogEntry?.sendButton ?? "button[type='submit']",
+                responseContainer: catalogEntry?.responseContainer ?? "div[class*='markdown']",
+                stopButton: catalogEntry?.stopButton ?? "button[aria-label*='stop']"
+            )
+            let bridge = WKWebViewBrowserBridge(webView: webView, selectors: selectors)
+            do {
+                // Restore saved cookies first, then land on the login page.
+                let sessionID = config.activeSessionID ?? WebSessionManager.defaultSessionID
+                if let store = WebSessionManager.restore(providerId: config.id,
+                                                         homeDirectory: FileManager.default.homeDirectoryForCurrentUser,
+                                                         sessionID: sessionID),
+                   !store.cookies.isEmpty {
+                    let payload = WebSessionRestorationLogic.payload(from: store)
+                    try await bridge.setCookies(payload.cookies)
+                }
+                let loginURL = (try? WebProviderCatalog.loadBundled().loginURL(for: config.vendor.id))
+                    ?? config.chatURL
+                try await bridge.navigate(to: loginURL)
+                url = loginURL
+                opened = true
+            } catch {
+                opened = false
+            }
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 30)
+        return opened
+            ? jsonResponse(["status": "opened", "url": url,
+                            "note": "log in inside the MiCoder window, then POST /api/save-session and re-check"])
+            : jsonResponse(["error": "failed to open login page"])
+    }
+
+    /// Updates a web provider's chatURL (e.g. kimi.com → kimi.ai for
+    /// non-CN accounts, or a vendor region change) without recreating the
+    /// config and losing the saved session/models.
+    private func handleUpdateProviderURL(body: String) -> String {
+        guard __miCoderAppState != nil else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        guard let data = body.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let providerId = json["providerId"] as? String,
+              let chatURL = json["chatURL"] as? String,
+              !chatURL.isEmpty else {
+            return jsonResponse(["error": "providerId and chatURL required"])
+        }
+        guard let config = webConfig(for: providerId) else {
+            return jsonResponse(["error": "web provider not found", "providerId": providerId])
+        }
+        var updated = config
+        updated.chatURL = chatURL
+        let stored = WebProviderStore.upsert(updated, in: WebProviderStore.load())
+        WebProviderStore.save(stored)
+        return jsonResponse([
+            "status": "updated",
+            "providerId": "web:\(updated.id)",
+            "chatURL": updated.chatURL,
+            "vendor": updated.vendor.rawValue
+        ])
+    }
+
+    /// Sends a message like /api/send, then polls the target session's
+    /// messages until the assistant turn finishes (bounded wait) and returns
+    /// the conversation tail. This is the debug contract for "ask every
+    /// provider a question and compare the answer".
+    private func handleSendAndWait(body: String) -> String {
+        guard let data = body.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let message = json["message"] as? String else {
+            return jsonResponse(["error": "message is required"])
+        }
+        guard let appState = __miCoderAppState else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        let providerId = json["providerId"] as? String
+        let modelId = json["modelId"] as? String
+        let timeoutSec = (json["timeoutSec"] as? Int) ?? 180
+
+        // Resolve target + post the send exactly like /api/send.
+        let resolveSemaphore = DispatchSemaphore(value: 0)
+        var target: ResolvedSendTarget?
+        Task { @MainActor in
+            let t = Self.resolveSendTargets(appState: appState,
+                                             providerId: providerId,
+                                             modelId: modelId,
+                                             chatId: json["chatId"] as? String)
+            NotificationCenter.default.post(
+                name: Notification.Name("apiSendRequested"),
+                object: nil,
+                userInfo: ["message": message, "chatId": t.chatID]
+            )
+            target = t
+            resolveSemaphore.signal()
+        }
+        _ = resolveSemaphore.wait(timeout: .now() + 30)
+        guard let target else {
+            return jsonResponse(["error": "send timed out waiting for main thread"])
+        }
+
+        // Poll messages until the last assistant message finishes.
+        let deadline = Date().addingTimeInterval(TimeInterval(timeoutSec))
+        while Date() < deadline {
+            Thread.sleep(forTimeInterval: 1.5)
+            let messages = DatabaseBridge.shared.loadMessages(sessionId: target.chatID)
+            if let last = messages.last, last.role == .assistant, last.isFinished, !last.content.isEmpty {
+                let tail = messages.suffix(4).map { msg in
+                    [
+                        "role": msg.role == .user ? "user" : "assistant",
+                        "content": String(msg.content.prefix(2000)),
+                        "isFinished": msg.isFinished
+                    ] as [String: Any]
+                }
+                return jsonResponse([
+                    "status": "answered",
+                    "chatId": target.chatID,
+                    "providerId": target.providerID,
+                    "modelId": target.modelID,
+                    "messages": tail
+                ])
+            }
+            // A visible error message also completes the turn.
+            if let last = messages.last, last.role == .assistant, last.isFinished,
+               last.content.hasPrefix("MiCoder Auto Free error:")
+                || last.content.hasPrefix("Web chat was not sent") {
+                return jsonResponse([
+                    "status": "error",
+                    "chatId": target.chatID,
+                    "providerId": target.providerID,
+                    "modelId": target.modelID,
+                    "error": String(last.content.prefix(1000)),
+                    "messages": messages.suffix(2).map { ["role": $0.role == .user ? "user" : "assistant", "content": String($0.content.prefix(1000))] as [String: Any] }
+                ])
+            }
+        }
+        return jsonResponse([
+            "status": "timeout",
+            "chatId": target.chatID,
+            "providerId": target.providerID,
+            "modelId": target.modelID,
+            "note": "no finished assistant message within \(timeoutSec)s — check /api/messages and /api/webviews"
+        ])
     }
 }

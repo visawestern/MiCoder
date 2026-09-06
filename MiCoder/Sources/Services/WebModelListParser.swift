@@ -90,6 +90,16 @@ enum WebModelListParser {
             return words <= 4 && modelShape && !lower.contains(". ") && !lower.contains(",")
         case .chatgpt:
             return isChatGPTModelLabel(normalized)
+        case .claude:
+            // Claude model family labels (live 2026 menu): "Fable 5.1",
+            // "Opus 5", "Sonnet 5", "Haiku 4.5", "Opus 4.8". Effort labels
+            // ("Effort", "Max") and prose are rejected before persistence.
+            let words = normalized.split(separator: " ").count
+            let modelShape = lower.contains("claude") || lower.contains("opus")
+                || lower.contains("sonnet") || lower.contains("haiku")
+                || lower.contains("fable")
+                || lower.range(of: "\\b(opus|sonnet|haiku|fable)\\b ?[0-9]", options: .regularExpression) != nil
+            return words <= 4 && modelShape && !lower.contains(". ") && !lower.contains(",")
         case .custom:
             // Custom sites cannot be safely inferred from arbitrary text. Keep
             // only labels that resemble a versioned/provider model ID.
@@ -100,6 +110,13 @@ enum WebModelListParser {
 
     /// ChatGPT's model switcher can contain feature actions beside model
     /// options. Keep those actions out of the composer model list.
+    /// The pattern is STRICT by design: arbitrary sentences merely CONTAINING
+    /// "gpt" (e.g. the chat-history title "Лимиты ChatGPT Pro для кодинга"
+    /// scraped from the sidebar during a 2026-UI discovery) must never
+    /// survive as model names. A ChatGPT model label is one of:
+    /// "GPT-5.x" / "GPT-4.x" / "GPT-4o" family shapes, "o1"/"o3"/"o4"
+    /// prefixes, the literal "auto", or "ChatGPT Auto" (the 2026 no-switcher
+    /// fallback). Verbs/imperatives ("Закрепить…", "Открыть…") are rejected.
     private static func isChatGPTModelLabel(_ label: String) -> Bool {
         let lower = label.lowercased()
         if lower == "chatgpt" { return false }
@@ -108,11 +125,20 @@ enum WebModelListParser {
             "search", "study", "shopping", "tasks", "projects", "voice"
         ]
         if featureLabels.contains(where: { lower.contains($0) }) { return false }
-        return lower.contains("gpt")
-            || lower.hasPrefix("o1")
-            || lower.hasPrefix("o3")
-            || lower.hasPrefix("o4")
-            || lower == "auto"
+        // Imperative UI verbs (RU/EN) mark buttons/menu commands, not models.
+        let verbPrefixes = ["закрепить", "открыть", "удалить", "переименовать",
+                             "поделиться", "архив", "pin", "open", "delete",
+                             "rename", "share", "archive", "duplicate", "settings"]
+        if verbPrefixes.contains(where: { lower.hasPrefix($0) }) { return false }
+        let words = lower.split(separator: " ").count
+        guard words <= 4 else { return false }
+        // "ChatGPT Auto" (mode fallback) is a valid synthetic label.
+        if lower == "chatgpt auto" { return true }
+        // Versioned family shapes: gpt-5.2, gpt-5, gpt-4o, gpt-4.1, o1, o3, o4.
+        if lower.range(of: "\\bgpt-?[45][a-z0-9.]*", options: .regularExpression) != nil { return true }
+        if lower.range(of: "^o[134](-[a-z0-9]+)?$", options: .regularExpression) != nil { return true }
+        if lower == "auto" { return true }
+        return false
     }
 
     
@@ -158,7 +184,7 @@ enum WebModelListParser {
         // Vendor-specific controls share this vocabulary, but the final
         // fallback is intentionally nil for every vendor.
         switch vendor {
-        case .kimi, .qwen, .chatgpt, .custom:
+        case .kimi, .qwen, .chatgpt, .claude, .custom:
             if isHigh { return .high }
             if isLow { return .low }
             if isMedium { return .medium }

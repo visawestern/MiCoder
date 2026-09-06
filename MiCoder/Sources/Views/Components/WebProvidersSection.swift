@@ -28,7 +28,7 @@ struct WebProvidersSection: View {
                 .foregroundColor(Color.mimo.textSecondary)
 
             HStack(spacing: 12) {
-                ForEach([WebChatVendor.kimi, .qwen, .chatgpt]) { vendor in
+                ForEach([WebChatVendor.kimi, .qwen, .chatgpt, .claude]) { vendor in
                     Button(action: { addVendor(vendor) }) {
                         VStack(spacing: 6) {
                             Image(systemName: "globe")

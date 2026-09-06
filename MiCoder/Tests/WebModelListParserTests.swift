@@ -48,15 +48,19 @@ struct WebModelListParserTests {
         #expect(updated.discoveredModels.isEmpty)  // nothing real parsed
     }
 
-    @Test func emptyRefreshRemovesStaleChatGPTModels() {
+    @Test func emptyRefreshAnnotatesStaleChatGPTModels() {
         let cfg = WebProviderConfig(
             vendor: .chatgpt,
             selectedModel: "gpt-stale",
             discoveredModels: [WebProviderModel(name: "gpt-stale")]
         )
+        // Merge semantics (audit 2026-09-06): a scan that yields nothing
+        // real ANNOTATES the previously known model instead of destroying it
+        // (the vendor menu is context-dependent).
         let updated = WebModelListParser.updated(cfg, withDropdownText: "ChatGPT\nDeep Research\nCanvas")
-        #expect(updated.discoveredModels.isEmpty)
-        #expect(updated.selectedModel.isEmpty)
+        #expect(updated.discoveredModels.count == 1)
+        #expect(updated.discoveredModels[0].discoveryMessage?.contains("context-dependent") == true)
+        #expect(updated.selectedModel == "gpt-stale")
     }
 
     @Test func pipeAndCommaSeparators() {

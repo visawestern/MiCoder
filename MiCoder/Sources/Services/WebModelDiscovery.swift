@@ -13,6 +13,8 @@ import Foundation
     private struct WebVendorCatalogEntryDTO: Decodable {
         let id: String
         let models: [String]?
+        let chatURL: String?
+        let loginURL: String?
         let selectors: Selectors
         struct Selectors: Decodable {
             let input: String?
@@ -58,8 +60,25 @@ struct WebProviderCatalog {
 
     private let entries: [String: VendorEntry]
 
-    private init(entries: [String: VendorEntry]) {
+    private init(entries: [String: VendorEntry], loginURLs: [String: String] = [:]) {
         self.entries = entries
+        self.loginURLs = loginURLs
+    }
+
+    /// Decodes the catalog, building both the selector map and login URLs.
+    private static func decode(_ data: Data) throws -> WebProviderCatalog {
+        let root = try JSONDecoder().decode(RootDTO.self, from: data)
+        let map: [String: VendorEntry] = Dictionary(uniqueKeysWithValues:
+            root.vendors.compactMap { dto in
+                guard let selector = dto.selectors.modelDropdown, !selector.isEmpty else { return nil }
+                return (dto.id, VendorEntry(id: dto.id, models: dto.models ?? [], input: dto.selectors.input, sendButton: dto.selectors.sendButton, responseContainer: dto.selectors.responseContainer, stopButton: dto.selectors.stopButton, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts, newChatSelector: dto.selectors.newChatSelector, modeSelect: dto.selectors.modeSelect, thinkingSelect: dto.selectors.thinkingSelect, effortItem: dto.selectors.effortItem, modeItem: dto.selectors.modeItem))
+            })
+        let logins: [String: String] = Dictionary(uniqueKeysWithValues:
+            root.vendors.compactMap { dto in
+                guard let login = dto.loginURL, !login.isEmpty else { return nil }
+                return (dto.id, login)
+            })
+        return WebProviderCatalog(entries: map, loginURLs: logins)
     }
 
     static func loadBundled() throws -> WebProviderCatalog {
@@ -69,13 +88,7 @@ struct WebProviderCatalog {
         ]
         for u in bundleURLs.compactMap({ $0 }) {
             guard let data = try? Data(contentsOf: u) else { continue }
-            let root = try JSONDecoder().decode(RootDTO.self, from: data)
-            let map: [String: VendorEntry] = Dictionary(uniqueKeysWithValues:
-                root.vendors.compactMap { dto in
-                    guard let selector = dto.selectors.modelDropdown, !selector.isEmpty else { return nil }
-                    return (dto.id, VendorEntry(id: dto.id, models: dto.models ?? [], input: dto.selectors.input, sendButton: dto.selectors.sendButton, responseContainer: dto.selectors.responseContainer, stopButton: dto.selectors.stopButton, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts, newChatSelector: dto.selectors.newChatSelector, modeSelect: dto.selectors.modeSelect, thinkingSelect: dto.selectors.thinkingSelect, effortItem: dto.selectors.effortItem, modeItem: dto.selectors.modeItem))
-                })
-            return WebProviderCatalog(entries: map)
+            return try decode(data)
         }
         // Fallback for tests (SPM resources live in the repo source tree).
         let candidates = [
@@ -85,13 +98,7 @@ struct WebProviderCatalog {
         for base in candidates {
             let url = base.appendingPathComponent("MiCoder/Sources/Resources/Catalog/web_providers_catalog.json")
             guard let data = try? Data(contentsOf: url) else { continue }
-            let root = try JSONDecoder().decode(RootDTO.self, from: data)
-            let map: [String: VendorEntry] = Dictionary(uniqueKeysWithValues:
-                root.vendors.compactMap { dto in
-                    guard let selector = dto.selectors.modelDropdown, !selector.isEmpty else { return nil }
-                    return (dto.id, VendorEntry(id: dto.id, models: dto.models ?? [], input: dto.selectors.input, sendButton: dto.selectors.sendButton, responseContainer: dto.selectors.responseContainer, stopButton: dto.selectors.stopButton, modelDropdown: selector, effortDropdown: dto.selectors.effortDropdown, modelButton: dto.selectors.modelButton, modelItem: dto.selectors.modelItem, newChatTexts: dto.selectors.newChatTexts, newChatSelector: dto.selectors.newChatSelector, modeSelect: dto.selectors.modeSelect, thinkingSelect: dto.selectors.thinkingSelect, effortItem: dto.selectors.effortItem, modeItem: dto.selectors.modeItem))
-                })
-            return WebProviderCatalog(entries: map)
+            return try decode(data)
         }
         throw NSError(domain: "WebProviderCatalog", code: 1, userInfo: [NSLocalizedDescriptionKey: "web_providers_catalog.json not found in bundle or repo"])
     }
@@ -105,6 +112,14 @@ struct WebProviderCatalog {
     func models(for vendorID: String) -> [String] {
         entries[vendorID]?.models ?? []
     }
+
+    /// Login page URL for a vendor from the catalog; nil falls back to the
+    /// vendor's chat URL in the caller.
+    func loginURL(for vendorID: String) -> String? {
+        loginURLs[vendorID]
+    }
+
+    private let loginURLs: [String: String]
 }
 
 /// Discovery of the real model list from a vendor's web UI (plan Раздел 13 п.4).
@@ -193,6 +208,7 @@ enum WebModelDiscovery {
                 case .chatgpt: vendorLabels = ["ChatGPT"]
                 case .kimi: vendorLabels = ["Kimi"]
                 case .qwen: vendorLabels = ["Qwen"]
+                case .claude: vendorLabels = ["Claude"]
                 case .custom: vendorLabels = []
                 }
                 for label in vendorLabels {
@@ -204,9 +220,13 @@ enum WebModelDiscovery {
                 }
             }
 
-            guard modelBtnFound else { return nil }
+            guard modelBtnFound else {
+                MiCoderAPIServer.appendLog("[discover] \(vendor.rawValue): model button NOT found → fallback")
+                return await chatGPTModeFallback(using: bridge, vendor: vendor)
+            }
 
             // Open the vendor dropdown and inspect structured visible leaf nodes.
+            MiCoderAPIServer.appendLog("[discover] \(vendor.rawValue): clicking dropdown '\(dropdownSelector)'")
             try await bridge.click(selector: dropdownSelector)
             try? await bridge.waitForSelector(selector: modelItemSelector, timeout: 5000)
 
@@ -223,13 +243,26 @@ enum WebModelDiscovery {
             // fallback; strict vendor validation still rejects headings/efforts.
             candidates.append(contentsOf: (try? await bridge.readVisibleModelCandidates()) ?? [])
             let validNames = validatedNames(candidates, vendor: vendor)
-            if !validNames.isEmpty {
-                let limited = vendor == .chatgpt && !includeAllModels ? Array(validNames.prefix(1)) : validNames
-                return limited.map { liveModel($0) }
+            MiCoderAPIServer.appendLog("[discover] \(vendor.rawValue): candidates=\(candidates.count) valid=\(validNames.count) \(validNames.prefix(6))")
+            if validNames.isEmpty {
+                // A login wall (ChatGPT 2026: the "model switcher" slot opens a
+                // Sign-in CTA on a logged-out page) produces candidates that
+                // are all UI chrome. Detect and report honestly instead of
+                // feeding a misleading "model list failed" or sidebar noise.
+                if await isLoginWall(using: bridge) {
+                    MiCoderAPIServer.appendLog("[discover] \(vendor.rawValue): login wall detected")
+                    return []
+                }
+                // No model menu content at all — the 2026 ChatGPT fallback
+                // (single auto model) may still apply.
+                return await chatGPTModeFallback(using: bridge, vendor: vendor)
             }
+            let limited = vendor == .chatgpt && !includeAllModels ? Array(validNames.prefix(1)) : validNames
+            return limited.map { liveModel($0) }
 
             // Text fallback is still strict; it cannot bypass the vendor validator.
             let text = try await bridge.readText(selector: dropdownSelector)
+            MiCoderAPIServer.appendLog("[discover] \(vendor.rawValue): DOM candidates empty; text fallback=\(text.prefix(80))")
             let parsed = WebModelListParser.parse(dropdownText: text, vendor: vendor)
             if !parsed.isEmpty {
                 let limited = vendor == .chatgpt && !includeAllModels ? Array(parsed.prefix(1)) : parsed
@@ -238,12 +271,76 @@ enum WebModelDiscovery {
 
             let universalText = try await bridge.readText(selector: fallbackItemSelector)
             let universalParsed = WebModelListParser.parse(dropdownText: universalText, vendor: vendor)
-            guard !universalParsed.isEmpty else { return nil }
-            let limited = vendor == .chatgpt && !includeAllModels ? Array(universalParsed.prefix(1)) : universalParsed
-            return limited.map { WebProviderModel(name: $0) }
+            if universalParsed.isEmpty {
+                // Last resort for the 2026 ChatGPT UI: there IS no model
+                // dropdown anymore (single auto model + a Reasoning toggle).
+                return await chatGPTModeFallback(using: bridge, vendor: vendor)
+            }
+            let capped = vendor == .chatgpt && !includeAllModels ? Array(universalParsed.prefix(1)) : universalParsed
+            return capped.map { WebProviderModel(name: $0) }
         } catch {
-            return nil
+            return await chatGPTModeFallback(using: bridge, vendor: vendor)
         }
+    }
+
+    /// Detects a vendor login wall (the embedded page shows Sign-in CTAs).
+    /// Live evidence (ChatGPT 2026-09-06): a logged-out chatgpt.com still
+    /// renders a composer, but the body carries "Войдите в систему" CTAs and
+    /// the "model switcher" opens a Sign-in overlay — discovery then scraped
+    /// login chrome as "model candidates". The login marker alone is decisive.
+    static func isLoginWall(using bridge: BrowserAutomationBridge) async -> Bool {
+        let text = ((try? await bridge.pageText()) ?? "").lowercased()
+        let loginMarkers = [
+            "войдите в систему", "зарегистрироваться бесплатно", "войти в систему",
+            "log in to continue", "sign up free", "create an account",
+            "continue with google", "войти через google"
+        ]
+        return loginMarkers.contains { text.contains($0) }
+    }
+
+    /// True when the model's menu item carries a tier/plan gate ("Upgrade" /
+    /// "Pro or Max" / "Требуется тариф") — clicking such items navigates the
+    /// page to an upsell screen instead of selecting a model (live Claude
+    /// evidence 2026-09-06: /upgrade?from=model_selector killed the session).
+    static func menuItemIsUpgradeGated(using bridge: BrowserAutomationBridge,
+                                       modelItemSelector: String,
+                                       label: String) async -> Bool {
+        guard let items = try? await bridge.readModelCandidates(modelItemSelector: modelItemSelector) else {
+            return false
+        }
+        let gateMarkers = [
+            "upgrade", "требуется обновление тарифа", "требуется тариф",
+            "нужен pro", "перейдите на", "unlock", "разблокировать"
+        ]
+        for item in items where item.label.trimmingCharacters(in: .whitespaces) == label {
+            let full = item.displayFullText.lowercased()
+            return gateMarkers.contains { full.contains($0) }
+        }
+        return false
+    }
+
+    /// The 2026 ChatGPT web UI (free accounts) has NO model switcher at all:
+    /// one automatic model plus a Reasoning on/off composer pill
+    /// ("Размышление"/"Thinking", aria-pressed). When a site redesign removes
+    /// the dropdown, the provider is still perfectly usable — the honest
+    /// representation is the mode presets the UI actually exposes, instead
+    /// of reporting a discovery failure for a page that has nothing to find.
+    private static func chatGPTModeFallback(using bridge: BrowserAutomationBridge,
+                                            vendor: WebChatVendor) async -> [WebProviderModel]? {
+        guard vendor == .chatgpt else { return nil }
+        // Read the composer reasoning pill if present ("Размышление"/"Thinking").
+        let pillText = (try? await bridge.readText(selector: "button.__composer-pill")) ?? ""
+        let hasReasoningPill = !pillText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        guard hasReasoningPill else { return nil }
+        return [
+            WebProviderModel(name: "ChatGPT Auto",
+                             description: "Automatic model (2026 UI, no manual model switcher)",
+                             availableEfforts: [],
+                             discoveryStatus: .active,
+                             isLiveDiscovered: true,
+                             isSelectable: true,
+                             discoveryMessage: "2026 ChatGPT UI exposes one automatic model plus a Reasoning toggle; no manual model switcher exists on this account tier.")
+        ]
     }
 
     private static func liveModel(_ name: String) -> WebProviderModel {
@@ -338,6 +435,27 @@ enum WebModelDiscovery {
             // visible menu still provides the empirical answer for this model.
             _ = try? await bridge.click(selector: dropdownSelector)
             await bridge.wait(ms: 250)
+            // Audit 2026-09-06 (Claude live): clicking a TIER-GATED item
+            // ("Opus 5 | Pro | Upgrade") navigates the page AWAY to
+            // /upgrade?from=model_selector and kills the chat session.
+            // Probe only items the account can actually select; gated models
+            // keep their discovered name with empty capabilities.
+            if await menuItemIsUpgradeGated(using: bridge, modelItemSelector: itemSelector, label: model.name) {
+                MiCoderAPIServer.appendLog("[capabilities] \(vendor.rawValue): '\(model.name)' is tier-gated (Upgrade) — probing skipped")
+                result.append(WebProviderModel(name: model.name,
+                                               description: model.description,
+                                               availableModes: model.availableModes,
+                                               availableEfforts: [],
+                                               parameterProfile: model.parameterProfile,
+                                               supportsImageGeneration: model.supportsImageGeneration,
+                                               supportsDeepResearch: model.supportsDeepResearch,
+                                               supportsWebDev: model.supportsWebDev,
+                                               discoveryStatus: .notDetected,
+                                               isLiveDiscovered: model.isLiveDiscovered,
+                                               isSelectable: false,
+                                               discoveryMessage: "Requires a higher plan (Upgrade); not selectable on this account."))
+                continue
+            }
             var selected = (try? await bridge.clickVisibleTextExact(selector: itemSelector, text: model.name)) == true
             if !selected {
                 for selector in ["[role='option']", "[role='menuitem']", "[class*='model-item']"] {

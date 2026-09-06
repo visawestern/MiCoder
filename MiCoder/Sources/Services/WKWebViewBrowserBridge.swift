@@ -143,9 +143,14 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
             ? el
             : (el.querySelector('button, [role="button"], input[type="submit"]') || el);
           if (target.disabled || target.getAttribute('aria-disabled') === 'true') { return false; }
-          try { target.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true, pointerType:'mouse'})); } catch (_) {}
-          target.dispatchEvent(new MouseEvent('mousedown', {bubbles:true, cancelable:true, view:window}));
-          target.dispatchEvent(new MouseEvent('mouseup', {bubbles:true, cancelable:true, view:window}));
+          // Audit 2026-09-06 (Claude/Radix): a full pointer event cycle
+          // (pointerdown→mousedown→pointerup→mouseup→click) DOUBLE-TOGGLES
+          // Radix popper menus — they treat the extra synthetic mouseups as
+          // second clicks and immediately close. The empirically verified
+          // open sequence on the live page is focus() + click(): React
+          // receives one click from a focused document and the menu stays
+          // open. Non-Radix sites ignore focus and behave the same.
+          try { target.focus(); } catch (_) {}
           target.click();
           return true;
         })();
@@ -373,6 +378,11 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
 
     func readModelCandidates(modelItemSelector: String) async throws -> [WebModelDOMItem] {
         let selector = Self.jsString(modelItemSelector)
+        // Audit 2026-09-06 (Claude live menu): a menu item's innerText packs
+        // the model name, tier, description AND action into one multiline
+        // string ("Fable 5.1\nPro or Max\nFor your toughest challenges\nUpgrade").
+        // The MODEL LABEL is the first non-empty line — feeding the full blob
+        // through the validator rejects every real model.
         let js = """
         (function(){
           var els = document.querySelectorAll(\(selector));
@@ -382,7 +392,9 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
             var style = window.getComputedStyle(el);
             var rect = el.getBoundingClientRect();
             var visible = style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
-            var label = String(el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ');
+            var rawText = String(el.innerText || el.textContent || '').trim();
+            var label = rawText.split(/\\n/).map(function(s){return s.trim();}).filter(Boolean)[0] || '';
+            label = label.replace(/\\s+/g, ' ');
             var parent = el.closest('[role="option"], [role="menuitem"], button, a, li, [class*="model-item"], [class*="option"]');
             var role = String(el.getAttribute('role') || (parent && parent.getAttribute('role')) || '').toLowerCase();
             var tag = String(el.tagName || '').toLowerCase();
@@ -394,7 +406,7 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
             var disabled = el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true' || (parent && (parent.hasAttribute('disabled') || parent.getAttribute('aria-disabled') === 'true'));
             var key = el.getAttribute('data-model-id') || el.getAttribute('data-id') || el.getAttribute('aria-label') || (parent && (parent.getAttribute('data-model-id') || parent.getAttribute('data-id') || parent.getAttribute('aria-label'))) || (label + '|' + cls.trim());
             if (label && label.length <= 100) {
-              result.push({label: label, identity: String(key), isVisible: visible, isSelectable: selectable, isDisabled: disabled, isLeaf: leaf, sourceSelector: \(selector)});
+              result.push({label: label, identity: String(key), isVisible: visible, isSelectable: selectable, isDisabled: disabled, isLeaf: leaf, sourceSelector: \(selector), fullText: rawText.substring(0, 200)});
             }
           }
           return JSON.stringify(result);
@@ -406,19 +418,38 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
     }
 
     func readVisibleModelCandidates() async throws -> [WebModelDOMItem] {
+        // Audit 2026-09-06: scan ONLY genuinely OPEN menu surfaces — an
+        // element that is a popover/dropdown IN THE OPEN STATE (data-state
+        // open, aria-expanded parent, role listbox/menu not inside <nav>, or
+        // radix/popper content). The previous broad roots
+        // ([class*="menu"]) swept up the entire ChatGPT sidebar and let chat
+        // HISTORY TITLES like "Лимиты ChatGPT Pro для кодинга" be reported
+        // as "models". The sidebar nav is explicitly excluded.
         let js = """
         (function(){
           const visible = el => {
             const style = window.getComputedStyle(el), rect = el.getBoundingClientRect();
             return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
           };
-          const roots = Array.from(document.querySelectorAll(
-            '[role="listbox"], [role="menu"], [class*="model"], [class*="dropdown"], [class*="popover"], [class*="menu"]'
-          )).filter(visible);
+          const inSidebar = el => !!el.closest('nav, aside, [data-testid="chat-history"], [aria-label*="Истории"], [aria-label*="History" i]');
+          const openSurface = el => {
+            if (inSidebar(el)) return false;
+            const state = String(el.getAttribute('data-state') || '').toLowerCase();
+            if (state === 'open') return true;
+            const expanded = el.getAttribute && el.getAttribute('aria-expanded');
+            return String(expanded).toLowerCase() === 'true';
+          };
+          const surfaceSelector = '[role="listbox"][data-state="open"], [role="menu"][data-state="open"], ' +
+            '[role="listbox"], [role="menu"], [data-radix-popper-content], [data-radix-popper-content-wrapper], ' +
+            '[class*="popover"][data-state="open"], [class*="dropdown"][data-state="open"], ' +
+            '[class*="model-selector"], [class*="model-list"], [class*="wms-list"]';
+          const roots = Array.from(document.querySelectorAll(surfaceSelector))
+            .filter(visible)
+            .filter(el => openSurface(el) || el.getAttribute('role') === 'listbox' || el.getAttribute('role') === 'menu' || el.hasAttribute('data-radix-popper-content'));
           const nodes = [];
           roots.forEach(root => {
-            if (visible(root)) nodes.push(root);
-            root.querySelectorAll('*').forEach(el => { if (visible(el)) nodes.push(el); });
+            nodes.push(root);
+            root.querySelectorAll('*').forEach(el => { if (visible(el) && !inSidebar(el)) nodes.push(el); });
           });
           const result = [];
           const seen = new Set();
@@ -427,17 +458,15 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
             const cls = String((el.className && el.className.toString()) || '');
             const selectable = role === 'option' || role === 'menuitem' ||
               el.tagName.toLowerCase() === 'button' || el.tagName.toLowerCase() === 'a' ||
-              /model|option|menu-item|select/i.test(cls) ||
-              el.hasAttribute('data-model-id') || el.hasAttribute('data-conversation-id');
+              /model-item|model-option|select/i.test(cls) ||
+              el.hasAttribute('data-model-id');
             if (!selectable) return;
             const raw = String(el.getAttribute('aria-label') || el.innerText || el.textContent || '');
             const label = raw.split(/\\n/).map(s => s.trim()).filter(Boolean)[0] || '';
             if (!label || label.length > 100) return;
             const nested = el.querySelector('[role="option"], [role="menuitem"], [class*="model-item"], [class*="model-option"]');
-            const parent = el.closest('[role="option"], [role="menuitem"], button, a, li');
             const identity = el.getAttribute('data-model-id') || el.getAttribute('data-id') ||
-              el.getAttribute('data-conversation-id') || el.getAttribute('aria-label') ||
-              label + '|' + cls;
+              el.getAttribute('aria-label') || label + '|' + cls;
             const key = String(identity) + '|' + label;
             if (seen.has(key)) return;
             seen.add(key);
@@ -445,10 +474,11 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
               label: label,
               identity: String(identity),
               isVisible: true,
-              isSelectable: selectable || !!parent,
+              isSelectable: true,
               isDisabled: el.hasAttribute('disabled') || el.getAttribute('aria-disabled') === 'true',
               isLeaf: !nested,
-              sourceSelector: 'visible-model-scan'
+              sourceSelector: 'open-surface-scan',
+              fullText: String(el.innerText || '').substring(0, 200)
             });
           });
           return JSON.stringify(result);
@@ -461,6 +491,43 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
 
     func evaluateJS(_ script: String) async throws -> Any? {
         try await eval(script)
+    }
+
+    /// Attach an image to the chat composer via a synthetic paste event with
+    /// a DataTransfer file — the same code path a manual Cmd+V uses, so every
+    /// vendor's own upload handler (file input, preview chip, OCR/vision
+    /// pipeline) receives a REAL image without vendor-specific selectors.
+    func attachImageToComposer(data: Data, mime: String) async throws -> Bool {
+        let b64 = data.base64EncodedString()
+        let js = """
+        (function(){
+          function base64ToBlob(b64, mime) {
+            var bin = atob(b64);
+            var bytes = new Uint8Array(bin.length);
+            for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            return new Blob([bytes], {type: mime});
+          }
+          var composer = document.querySelector("#prompt-textarea, div[contenteditable='true'], div.ProseMirror, textarea");
+          if (!composer) return false;
+          var target = composer;
+          var blob = base64ToBlob(\(Self.jsString(b64)), \(Self.jsString(mime)));
+          var file = new File([blob], "image.png", {type: mime});
+          var dt = new DataTransfer();
+          dt.items.add(file);
+          var pasteEvent = new ClipboardEvent('paste', {
+            bubbles: true, cancelable: true, clipboardData: dt
+          });
+          target.dispatchEvent(pasteEvent);
+          // Also fire a drop event for composers that only listen to drops.
+          var dropEvent = new DragEvent('drop', {
+            bubbles: true, cancelable: true, dataTransfer: dt
+          });
+          target.dispatchEvent(dropEvent);
+          return true;
+        })();
+        """
+        let result = try await eval(js)
+        return (result as? Bool) ?? false
     }
 
     func pageText() async throws -> String {

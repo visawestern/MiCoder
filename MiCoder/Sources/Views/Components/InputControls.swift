@@ -547,11 +547,16 @@ struct MessageInputToolbar: View {
             ) {
                 ModelParametersButton()
             }
-            // Browser providers own their effort state in WebProviderConfig;
-            // server variants remain separate and are never mixed with web effort.
-            if !appState.availableWebEffortsForSelectedProvider.isEmpty {
-                WebEffortMenu()
-            } else if !appState.availableVariantsForSelectedModel.isEmpty {
+            // Audit 2026-09-06: the manual brain/effort button was REMOVED
+            // for web providers. Web effort is discovered automatically by
+            // probing each model (discoverModelCapabilities clicks every
+            // model, then its effort control if one exists) and injected by
+            // the driver on send. A hand-picked effort could disagree with
+            // what the live UI exposes — the model card in Settings shows the
+            // verified per-model capabilities instead.
+            // Server-variant models keep the explicit variant menu.
+            if appState.availableWebEffortsForSelectedProvider.isEmpty,
+               !appState.availableVariantsForSelectedModel.isEmpty {
                 VariantMenu()
             }
             

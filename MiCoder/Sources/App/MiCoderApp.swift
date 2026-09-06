@@ -745,6 +745,19 @@ class AppState: ObservableObject {
         if selectedProviderID == MiCoderAutoFreeProvider.builtInID {
             MiCoderAutoFreeStore.shared.syncModel(modelID)
         }
+        // Audit 2026-09-06: for a WEB provider the model lives in the web
+        // config, not in `selectedModel`. Without this, the API/UI selection
+        // never reached WebChatDriver and sends fell back to a stale model.
+        if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID) {
+            var configs = WebProviderStore.load()
+            if let idx = configs.firstIndex(where: { $0.id == webID }) {
+                let updated = WebProviderSelectionLogic.selectingModel(modelID, in: configs[idx])
+                if updated != configs[idx] {
+                    configs[idx] = updated
+                    WebProviderStore.save(configs)
+                }
+            }
+        }
         if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID) {
             updateWebProvider(webID, modelID: modelID)
             if let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID }) {
@@ -1254,7 +1267,19 @@ class AppState: ObservableObject {
 
     /// Evaluate JavaScript on the most recently used webview (debug endpoint).
     @MainActor
-    func debugEvaluateJS(_ script: String) async -> Any? {
+    func debugEvaluateJS(_ script: String, webviewKey: String? = nil) async -> Any? {
+        // Explicit target key wins (debug API routing to a specific webview).
+        if let webviewKey, let wv = webViews[webviewKey] {
+            return await withCheckedContinuation { (continuation: CheckedContinuation<Any?, Never>) in
+                wv.evaluateJavaScript(script) { result, error in
+                    if let error {
+                        continuation.resume(returning: "ERROR: \(error.localizedDescription)")
+                    } else {
+                        continuation.resume(returning: result)
+                    }
+                }
+            }
+        }
         // Try the most recent webview first
         if let lastUsed = webViewLastUsed.max(by: { $0.value < $1.value }),
            let wv = webViews[lastUsed.key] {
@@ -1434,6 +1459,12 @@ class AppState: ObservableObject {
             }
             guard inputFound else {
                 return L.t(AppLocalizationKey.locWebInputNotFound)
+            }
+            // Login-wall gate: a logged-out vendor page can never yield
+            // models — the old flow scraped login CTAs and sidebar chrome as
+            // "models" (live ChatGPT evidence 2026-09-06). Report honestly.
+            if await WebModelDiscovery.isLoginWall(using: bridge) {
+                return "The \(config.displayName) page shows a login screen — open the provider login, sign in, then refresh models again."
             }
             let models = await WebModelDiscovery.discoverAllModels(using: bridge,
                                                                     dropdownSelector: selector,

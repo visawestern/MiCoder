@@ -247,6 +247,8 @@ enum FallbackRouter {
             return nil
         case .chatgpt:
             return nil
+        case .claude:
+            return nil
         case .custom:
             return nil
         }

@@ -136,6 +136,10 @@ struct WebChatDriver {
                 // Execute each requested tool and feed results back.
                 let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
                 var resultsBlock = ""
+                // Images requested via read_file are attached to the NEXT
+                // composer message through the vendor's real upload flow
+                // (vision works in every web chat, but only via attachments).
+                var pendingImages: [(mime: String, data: Data)] = []
                 for call in calls {
                     emit(.toolCall(call))
                     if WebToolAccessGate.permission(for: call, accessLevel: accessLevel) == .requireApproval {
@@ -150,8 +154,26 @@ struct WebChatDriver {
                         continue
                     }
                     let result = await executor.execute(call)
+                    if let image = (executor as? ProjectWebToolExecutor) != nil
+                        ? ProjectWebToolExecutor.parseAttachedImage(from: result)
+                        : nil {
+                        pendingImages.append((image.mime, image.data))
+                        // Never inline megabytes of base64 into the chat text.
+                        let summary = "Image \"\(call.arguments["path"] ?? "?")\" is attached to this message; analyze it visually."
+                        resultsBlock += WebToolProtocolEmulator.formatToolResult(name: call.name, result: summary) + "\n"
+                        emit(.toolResult(name: call.name, result: summary))
+                        continue
+                    }
                     resultsBlock += WebToolProtocolEmulator.formatToolResult(name: call.name, result: result) + "\n"
                     emit(.toolResult(name: call.name, result: result))
+                }
+
+                // Attach every collected image to the composer before the
+                // results text goes out, so the vendor's upload handler binds
+                // the real bytes to this outgoing message.
+                for image in pendingImages {
+                    _ = try? await bridge.attachImageToComposer(data: image.data, mime: image.mime)
+                    await bridge.wait(ms: 500)
                 }
 
                 responseBaseline = try await sendPossiblyChunked(resultsBlock, emit: emit)
@@ -388,6 +410,18 @@ struct WebChatDriver {
                 ))
                 return false
             }
+            // Audit 2026-09-06 (Claude): the model button's own label carries
+            // the CURRENT model (e.g. "Sonnet 5 Max" = model Sonnet 5 + Effort
+            // Max). When the target model is already active, opening the menu
+            // is unnecessary AND the menu may not list the current model in
+            // its current state (live evidence: the menu showed only gated
+            // families while Sonnet 5 was already selected), which used to
+            // fail the send with a false "Model not found".
+            if let activeText = (try? await bridge.readText(selector: modelSelectors[0])),
+               activeText.trimmingCharacters(in: .whitespacesAndNewlines)
+                   .contains(config.selectedModel) {
+                await bridge.wait(ms: 200)
+            } else {
             var openedSelector: String?
             for selector in modelSelectors {
                 guard (try? await bridge.exists(selector: selector)) == true else { continue }
@@ -438,6 +472,7 @@ struct WebChatDriver {
                 emit(.modelInjectionFailed(
                     "The page model control is unavailable; model injection was blocked before send."
                 ))
+            }
             }
         }
 
@@ -786,6 +821,14 @@ struct WebChatDriver {
             case .low: return ["low"]
             case .medium: return ["medium"]
             case .high: return ["high"]
+            }
+        case .claude:
+            // Live 2026 Claude UI exposes an Effort submenu inside the model
+            // menu ("Effort: Max"); the tiers map to low/medium/high.
+            switch effort {
+            case .low: return ["Low", "Низкий"]
+            case .medium: return ["Medium", "Средний"]
+            case .high: return ["Max", "High", "Высокий", "Максимум"]
             }
         case .custom:
             return nil

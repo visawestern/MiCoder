@@ -42,12 +42,28 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         case .readFile:
             guard let path = call.arguments["path"] else { return "error: missing path" }
             let url = root.appendingPathComponent(path)
-            // Detect image files and return a clear "not supported" message
-            // instead of a confusing "cannot read" error.
+            // Image files are NOT text-readable, but web models DO support
+            // vision. Instead of the old lying "this model does not support
+            // image input", return a typed marker the web driver recognizes
+            // and attaches the image to the NEXT chat message so the model
+            // actually sees it (audit: false-negative UX bug).
             let ext = url.pathExtension.lowercased()
-            let imageExtensions = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "svg"]
+            let imageExtensions = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff"]
             if imageExtensions.contains(ext) {
-                return "error: cannot read \"\(path)\" (this model does not support image input)"
+                guard let data = try? Data(contentsOf: url) else {
+                    return "error: cannot read \(path)"
+                }
+                let bounded = data.prefix(8 * 1024 * 1024) // 8 MB safety cap
+                let base64 = bounded.base64EncodedString()
+                let mime = Self.imageMIME(forExtension: ext)
+                return "ATTACHED_IMAGE:\(mime):\(base64)"
+            }
+            if ext == "svg" {
+                // SVG is text — read it as text.
+                guard let content = try? String(contentsOf: url, encoding: .utf8) else {
+                    return "error: cannot read \(path)"
+                }
+                return String(content.prefix(20_000))
             }
             guard let content = try? String(contentsOf: url, encoding: .utf8) else {
                 return "error: cannot read \(path)"
@@ -202,8 +218,37 @@ struct ProjectWebToolExecutor: WebToolExecutor {
     }
 
     static func gitRemoteRefCommand(_ verb: String, remote: String, branch: String) -> String {
+        // Round 29 regression restored 2026-09-06: remote/branch come from
+        // MODEL-EMITTED tool arguments; an unquoted value executes arbitrary
+        // shell (`remote: "origin; evil"`). Both parts are shell-quoted.
         let branchPart = branch.isEmpty ? "" : " \(shellQuoted(branch))"
         return "\(verb) \(shellQuoted(remote))\(branchPart)"
+    }
+
+    /// MIME type for an image file extension (used by the ATTACHED_IMAGE
+    /// protocol between readFile and the web driver).
+    static func imageMIME(forExtension ext: String) -> String {
+        switch ext.lowercased() {
+        case "png": return "image/png"
+        case "jpg", "jpeg": return "image/jpeg"
+        case "gif": return "image/gif"
+        case "webp": return "image/webp"
+        case "bmp": return "image/bmp"
+        case "tiff", "tif": return "image/tiff"
+        default: return "image/png"
+        }
+    }
+
+    /// Parse an ATTACHED_IMAGE result produced by `readFile` on an image.
+    /// Returns (mime, raw bytes) when the string is a well-formed marker.
+    static func parseAttachedImage(from result: String) -> (mime: String, data: Data)? {
+        guard result.hasPrefix("ATTACHED_IMAGE:") else { return nil }
+        let remainder = String(result.dropFirst("ATTACHED_IMAGE:".count))
+        let parts = remainder.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+        guard parts.count == 2,
+              !parts[0].isEmpty,
+              let data = Data(base64Encoded: String(parts[1])) else { return nil }
+        return (String(parts[0]), data)
     }
 
     /// Runs a file-modifying tool under the project's undo manager when one is

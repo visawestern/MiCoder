@@ -117,6 +117,12 @@ extension BrowserAutomationBridge {
 
     /// Default: nil (test fakes override).
     func evaluateJS(_ script: String) async throws -> Any? { nil }
+
+    /// Attach an image (raw bytes + MIME) to the chat composer so the web
+    /// model receives it as a real attachment — web chats (Kimi/Qwen/
+    /// ChatGPT/Claude) all support vision, but only through their upload
+    /// flow, not through pasted base64 text. Default: unsupported (false).
+    func attachImageToComposer(data: Data, mime: String) async throws -> Bool { false }
 }
 
 struct WebModelDOMItem: Codable, Equatable, Hashable {
@@ -127,6 +133,12 @@ struct WebModelDOMItem: Codable, Equatable, Hashable {
     let isDisabled: Bool
     let isLeaf: Bool
     let sourceSelector: String
+    /// Full multiline innerText of the item (tier badges, "Upgrade" actions).
+    /// Nil for legacy producers; consumers must treat it as "".
+    var fullText: String?
+
+    /// Convenience: fullText when present, else the label.
+    var displayFullText: String { fullText ?? label }
 }
 
 struct BrowserCookie: Codable, Equatable {

@@ -7,6 +7,7 @@ enum WebChatVendor: String, Codable, CaseIterable, Identifiable {
     case kimi
     case qwen
     case chatgpt
+    case claude
     case custom
 
     var id: String { rawValue }
@@ -16,15 +17,17 @@ enum WebChatVendor: String, Codable, CaseIterable, Identifiable {
         case .kimi: return "Kimi"
         case .qwen: return "Qwen"
         case .chatgpt: return "ChatGPT"
+        case .claude: return "Claude"
         case .custom: return "Custom Web Chat"
         }
     }
 
     var defaultChatURL: String {
         switch self {
-        case .kimi: return "https://www.kimi.com/"
+        case .kimi: return "https://www.kimi.ai/"
         case .qwen: return "https://chat.qwen.ai/"
         case .chatgpt: return "https://chatgpt.com/"
+        case .claude: return "https://claude.ai/new"
         case .custom: return ""
         }
     }

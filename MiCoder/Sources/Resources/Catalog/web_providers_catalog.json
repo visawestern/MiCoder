@@ -71,9 +71,9 @@
       "effortToggle": "reasoning-effort",
       "selectors": {
         "input": "#prompt-textarea, div[contenteditable='true']",
-        "sendButton": "button[data-testid=\"send-button\"]",
-        "responseContainer": "div[data-message-author-role='assistant']",
-        "stopButton": "button[data-testid='stop-button']",
+        "sendButton": "button[data-testid=\"send-button\"], button[aria-label*='Отправить' i], button[aria-label*='send' i]",
+        "responseContainer": "div[data-message-author-role='assistant'], div.font-claude-message, div[class*='markdown']",
+        "stopButton": "button[data-testid='stop-button'], button[aria-label*='Остановить' i], button[aria-label*='stop' i]",
         "modelDropdown": "button[data-testid*='model-switcher'], button[aria-haspopup='listbox']",
         "modelButton": "button[data-testid*='model-switcher'], button[aria-haspopup='listbox']",
         "modelItem": "[role='option'], [class*='model-item'], [class*='ModelSwitcherItem']",
@@ -83,9 +83,38 @@
         "newChatTexts": [
           "New chat",
           "Новый чат",
+          "Новый диалог",
           "新对话"
         ],
         "newChatSelector": "a[href='/']"
+      }
+    },
+    {
+      "id": "claude",
+      "name": "Claude (Anthropic)",
+      "chatURL": "https://claude.ai/new",
+      "loginURL": "https://claude.ai/login",
+      "models": [],
+      "effortToggle": "effort",
+      "selectors": {
+        "input": "div[contenteditable='true'], div.ProseMirror, textarea",
+        "sendButton": "button[aria-label*='Send message' i], button[aria-label*='send' i], button[aria-label*='Отправить' i]",
+        "responseContainer": "div.font-claude-message, div[data-testid='assistant-message'], div[class*='prose']",
+        "stopButton": "button[aria-label*='Stop' i], button[aria-label*='stop' i], button[aria-label*='Остановить' i]",
+        "modelDropdown": "button[data-testid='model-selector-dropdown']",
+        "modelButton": "button[data-testid='model-selector-dropdown']",
+        "modelItem": "[role='menuitem']",
+        "effortDropdown": "[role='menuitem'][aria-haspopup='menu'], [class*='effort'] [role='menuitem'], [role='menuitem']",
+        "effortItem": "[role='menuitem'], [role='option'], [class*='option']",
+        "newChatTexts": [
+          "New chat",
+          "New Chat",
+          "Новый чат",
+          "Start new chat"
+        ],
+        "newChatSelector": "a[href='/new']",
+        "loginIndicator": "input[type='email'], button:has-text('Log in'), button:has-text('Continue')",
+        "expandModelLabels": ["More models"]
       }
     }
   ]
