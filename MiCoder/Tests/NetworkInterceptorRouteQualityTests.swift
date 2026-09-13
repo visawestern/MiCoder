@@ -47,4 +47,39 @@ struct NetworkInterceptorRouteQualityTests {
         #expect(endpoint != nil)
         #expect(endpoint?.url.hasPrefix("https://") == true)
     }
+
+    @Test("auth/token/refresh endpoints are never proposed as chat APIs")
+    func authEndpointsFiltered() {
+        // Audit 2026-09-09 (Kimi live): the account RefreshToken endpoint
+        // won scoring via /api/ + Bearer and SmartSend POSTed chat bodies
+        // at it (HTTP 520) twice per turn.
+        let requests = [
+            req(url: "https://auth.kimi.ai/api/account.gateway.v1.AuthService/RefreshToken",
+                body: "{\"message\":\"x\",\"content\":\"y\"}")
+        ]
+        #expect(NetworkInterceptor.findChatAPI(requests: requests) == nil)
+    }
+
+    @Test("telemetry endpoints are never proposed even with HTTP-200-shaped bodies")
+    func telemetryEndpointsFiltered() {
+        // Audit 2026-09-09 (ChatGPT live): chatgpt.com/ces/v1/t (Segment.io)
+        // returned HTTP 200 for a chat POST and SmartSend declared success
+        // while nothing reached the model.
+        let requests = [
+            req(url: "https://chatgpt.com/ces/v1/t",
+                body: "{\"timestamp\":\"2026-09-09\",\"event\":\"Location\",\"integrations\":{\"Segment.io\":true}}")
+        ]
+        #expect(NetworkInterceptor.findChatAPI(requests: requests) == nil)
+    }
+
+    @Test("endpoint without a substitutable message field is never proposed")
+    func messageLessBodiesRejected() {
+        // A candidate that cannot carry our text must not win no matter its
+        // score: buildDirectRequest would POST the template verbatim.
+        let requests = [
+            req(url: "https://chat.qwen.ai/api/v2/chat/completions",
+                body: "{\"session_id\":\"abc\",\"flags\":[1,2]}")
+        ]
+        #expect(NetworkInterceptor.findChatAPI(requests: requests) == nil)
+    }
 }

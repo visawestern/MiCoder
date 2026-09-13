@@ -166,69 +166,10 @@ struct ProviderSelectorMenu: View {
     }
 }
 
-/// Effort/thinking level selector for models that support it (reasoning models,
-/// web providers with effort toggles). Shows real labels from the provider.
-struct EffortSelectorMenu: View {
-    @EnvironmentObject var appState: AppState
-
-    private var efforts: [String] {
-        // For web providers, use discovered effort levels.
-        if let webID = WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID),
-           let cfg = WebProviderStore.load().first(where: { $0.id == webID }),
-           !cfg.discoveredEffortLevels.isEmpty {
-            return cfg.discoveredEffortLevels.map { $0.displayName }
-        }
-        // Default: standard effort levels.
-        return WebEffort.allCases.map { $0.displayName }
-    }
-
-    private var currentEffort: String {
-        if let webID = WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID),
-           let cfg = WebProviderStore.load().first(where: { $0.id == webID }) {
-            return cfg.effort.displayName
-        }
-        return WebEffort.medium.displayName
-    }
-
-    var body: some View {
-        Menu {
-            ForEach(efforts, id: \.self) { effort in
-                Button(action: { selectEffort(effort) }) {
-                    HStack {
-                        Text(effort)
-                        if currentEffort == effort {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 3) {
-                Image(systemName: "brain")
-                    .font(.system(size: 9))
-                Text(currentEffort)
-                    .interfaceFont(size: 11)
-            }
-            .foregroundColor(Color.mimo.textSecondary)
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-    }
-
-    private func selectEffort(_ label: String) {
-        if let webID = WebProviderConnectivity.configID(fromOptionID: appState.selectedProviderID) {
-            var configs = WebProviderStore.load()
-            if let idx = configs.firstIndex(where: { $0.id == webID }),
-               let effort = WebEffort.fromLabel(label) {
-                configs[idx].effort = effort
-                WebProviderStore.save(configs)
-            }
-        }
-        if let effort = WebEffort.fromLabel(label) {
-            appState.selectedVariant = effort == .high ? "high" : (effort == .low ? "low" : "")
-        }
-    }
-}
+// EffortSelectorMenu and WebEffortMenu were REMOVED (user directive
+// 2026-09-06): effort for web providers is discovered together with each
+// model in the probe cycle and injected by the driver — there is no manual
+// brain/effort control anywhere in the composer.
 
 struct ModelSelectorMenu: View {
     @EnvironmentObject var appState: AppState
@@ -384,41 +325,6 @@ struct ModelParametersButton: View {
     }
 }
 
-struct WebEffortMenu: View {
-    @EnvironmentObject var appState: AppState
-
-    private var efforts: [WebEffort] {
-        appState.availableWebEffortsForSelectedProvider
-    }
-
-    var body: some View {
-        Menu {
-            ForEach(efforts) { effort in
-                Button(action: { appState.selectWebEffort(effort) }) {
-                    HStack {
-                        Text(effort.displayName)
-                        if appState.selectedWebEffort == effort {
-                            Spacer()
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "brain.head.profile")
-                    .interfaceFont(size: 11)
-                Text(appState.selectedWebEffort?.displayName ?? "Effort")
-                    .interfaceFont(size: 11)
-            }
-            .foregroundColor(Color.mimo.textSecondary)
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .help("Choose the browser provider's thinking effort")
-    }
-}
-
 struct VariantMenu: View {
     @EnvironmentObject var appState: AppState
 
@@ -455,7 +361,7 @@ struct VariantMenu: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Image(systemName: "brain")
+                Image(systemName: "slider.horizontal.3")
                     .interfaceFont(size: 11)
                 Text(appState.selectedVariant.isEmpty ? L.t(AppLocalizationKey.locVariantPlaceholder) : ProviderSettingsLogic.variantLabel(appState.selectedVariant))
                     .interfaceFont(size: 11)
@@ -547,15 +453,13 @@ struct MessageInputToolbar: View {
             ) {
                 ModelParametersButton()
             }
-            // Audit 2026-09-06: the manual brain/effort button was REMOVED
-            // for web providers. Web effort is discovered automatically by
-            // probing each model (discoverModelCapabilities clicks every
-            // model, then its effort control if one exists) and injected by
-            // the driver on send. A hand-picked effort could disagree with
-            // what the live UI exposes — the model card in Settings shows the
-            // verified per-model capabilities instead.
-            // Server-variant models keep the explicit variant menu.
+            // Audit 2026-09-06 (user directive): NO effort/brain button for
+            // web providers — effort is discovered together with each model
+            // (probe cycle) and injected by the driver automatically. The
+            // server-variant menu also stays hidden for web providers so a
+            // brain icon NEVER appears next to a web model.
             if appState.availableWebEffortsForSelectedProvider.isEmpty,
+               !appState.isSelectedWebProvider,
                !appState.availableVariantsForSelectedModel.isEmpty {
                 VariantMenu()
             }

@@ -110,7 +110,9 @@ final class MiCoderAPIServer {
         case ("POST", "/api/save-session"):
             return handleSaveSession(body: body)
         case ("GET", "/api/inspect"):
-            return handleInspect()
+            return handleInspect(body: body)
+        case ("POST", "/api/inspect"):
+            return handleInspect(body: body)
         case ("POST", "/api/discover-models"):
             return handleDiscoverModels()
         case ("POST", "/api/add-account"):
@@ -127,6 +129,8 @@ final class MiCoderAPIServer {
             return handleSendAndWait(body: body)
         case ("POST", "/api/update-provider-url"):
             return handleUpdateProviderURL(body: body)
+        case ("POST", "/api/set-web-model"):
+            return handleSetWebModel(body: body)
         default:
             return notFound()
         }
@@ -260,18 +264,18 @@ final class MiCoderAPIServer {
 
         var targetSession: ChatSession?
         if let cid = chatId {
-            targetSession = appState.sessions.first(where: { $0.id == cid })
+            // Audit 2026-09-09: resolve through the database as well — a
+            // request arriving during startup (or for a persisted chat never
+            // merged into memory) must hit the STORED chat, not spawn a
+            // duplicate "API Chat".
+            targetSession = appState.materializeSessionFromDatabase(id: cid)
         }
         if targetSession == nil {
-            let tempDir = FileManager.default.temporaryDirectory.path
-            let newSession = ChatSession(
-                id: UUID().uuidString,
-                title: "API Chat",
-                directory: tempDir,
-                branch: nil
-            )
-            appState.upsertSession(newSession)
-            targetSession = appState.sessions.first(where: { $0.id == newSession.id }) ?? newSession
+            // Audit 2026-09-08: API chats used to be in-memory-only (temp
+            // directory, never persisted) and vanished after restart. Create
+            // a persisted standalone chat so it survives and shows in the
+            // sidebar's Chats group (user directive 2026-09-08).
+            targetSession = appState.createStandaloneSession(title: "API Chat")
         }
         if let session = targetSession {
             appState.selectedSession = session
@@ -290,16 +294,51 @@ final class MiCoderAPIServer {
     private func messagesInfo() -> [String: Any] {
         guard let appState = __miCoderAppState else { return ["error": "app not ready"] }
         guard let sessionID = appState.selectedSession?.id else { return ["messages": []] }
-        
+
         let messages = DatabaseBridge.shared.loadMessages(sessionId: sessionID)
-        let result = messages.map { msg in
-            [
+        let result = messages.map { msg -> [String: Any] in
+            var row: [String: Any] = [
                 "id": msg.id,
                 "role": msg.role == .user ? "user" : "assistant",
                 "content": msg.content,
                 "isFinished": msg.isFinished,
                 "isStreaming": msg.isStreaming
             ]
+            // Route metadata chips (web-provider turns): header info the UI
+            // renders above the answer; the content text stays clean
+            // (user directive 2026-09-08).
+            let chips = msg.parts.compactMap { part -> [String]? in
+                if case .routeInfo(let chips) = part { return chips }
+                return nil
+            }.first ?? []
+            if !chips.isEmpty {
+                row["routeChips"] = chips
+            }
+            // Tool-call parts (web-agent loop): each spoiler in the UI.
+            let toolParts: [[String: Any]] = msg.parts.compactMap { part -> [String: Any]? in
+                guard case .toolCall(let name, let args, let result, let callID) = part else { return nil }
+                var p: [String: Any] = [
+                    "type": "toolCall",
+                    "name": name,
+                    "args": args
+                ]
+                if let result { p["result"] = result }
+                if let callID { p["callID"] = callID }
+                return p
+            }
+            if !toolParts.isEmpty {
+                row["parts"] = toolParts
+            }
+            // Pending approval card (web agent): the interactive Allow/Deny
+            // request the driver is waiting on.
+            if let approvalID = msg.pendingApprovalID {
+                row["pendingApproval"] = [
+                    "id": approvalID,
+                    "tool": msg.pendingApprovalTool ?? "",
+                    "message": msg.pendingApprovalMessage ?? ""
+                ]
+            }
+            return row
         }
         return ["messages": result, "sessionId": sessionID]
     }
@@ -486,13 +525,24 @@ final class MiCoderAPIServer {
         }
     }
 
-    private func handleInspect() -> String {
+    private func handleInspect(body: String) -> String {
         guard let appState = __miCoderAppState else {
             return jsonResponse(["error": "app not ready"])
         }
-        let providerId = "web:56FA3447-A2EA-4FD1-84E3-B72767C8A376" // Kimi for now
+        // Resolve the provider from the request body (providerId), falling
+        // back to the first connected Kimi config for backwards compatibility.
+        let json = body.data(using: .utf8)
+            .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+        let requestedID = (json["providerId"] as? String) ?? (json["provider_id"] as? String)
         let configs = WebProviderStore.load()
-        guard let config = configs.first(where: { "web:\($0.id)" == providerId }) else {
+        let normalized = requestedID?.replacingOccurrences(of: "web:", with: "")
+        let config: WebProviderConfig
+        if let normalized,
+           let found = configs.first(where: { $0.id == normalized }) {
+            config = found
+        } else if let kimi = configs.first(where: { $0.vendor.id == "kimi" }) {
+            config = kimi
+        } else {
             return jsonResponse(["error": "provider not found"])
         }
         
@@ -850,6 +900,40 @@ final class MiCoderAPIServer {
         ])
     }
 
+    /// Sets a web provider's selected model (debug contract: switch models
+    /// without the settings UI). The model must be in the provider's known
+    /// list, otherwise the send flow would block on injection.
+    private func handleSetWebModel(body: String) -> String {
+        guard __miCoderAppState != nil else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        guard let data = body.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let providerId = json["providerId"] as? String,
+              let model = (json["model"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !model.isEmpty else {
+            return jsonResponse(["error": "providerId and model required"])
+        }
+        guard var config = webConfig(for: providerId) else {
+            return jsonResponse(["error": "web provider not found", "providerId": providerId])
+        }
+        guard config.allModels.contains(model) else {
+            return jsonResponse([
+                "error": "model not in provider list",
+                "model": model,
+                "models": config.allModels
+            ])
+        }
+        config.selectedModel = model
+        let stored = WebProviderStore.upsert(config, in: WebProviderStore.load())
+        WebProviderStore.save(stored)
+        return jsonResponse([
+            "status": "updated",
+            "providerId": "web:\(config.id)",
+            "selectedModel": config.selectedModel
+        ])
+    }
+
     /// Sends a message like /api/send, then polls the target session's
     /// messages until the assistant turn finishes (bounded wait) and returns
     /// the conversation tail. This is the debug contract for "ask every
@@ -889,11 +973,19 @@ final class MiCoderAPIServer {
         }
 
         // Poll messages until the last assistant message finishes.
+        // Audit 2026-09-08: internal UI status lines ("Thinking…", "Sent via …",
+        // captcha/session notices) are NOT answers. Only content the vendor
+        // actually produced completes the turn — the same contract the chat UI
+        // enforces via WebSendCompletionLogic.
         let deadline = Date().addingTimeInterval(TimeInterval(timeoutSec))
         while Date() < deadline {
             Thread.sleep(forTimeInterval: 1.5)
             let messages = DatabaseBridge.shared.loadMessages(sessionId: target.chatID)
-            if let last = messages.last, last.role == .assistant, last.isFinished, !last.content.isEmpty {
+            if let last = messages.last,
+               last.role == .assistant,
+               last.isFinished,
+               !last.content.isEmpty,
+               SendWaitAnswerLogic.isRealAnswer(last.content) {
                 let tail = messages.suffix(4).map { msg in
                     [
                         "role": msg.role == .user ? "user" : "assistant",
@@ -912,7 +1004,8 @@ final class MiCoderAPIServer {
             // A visible error message also completes the turn.
             if let last = messages.last, last.role == .assistant, last.isFinished,
                last.content.hasPrefix("MiCoder Auto Free error:")
-                || last.content.hasPrefix("Web chat was not sent") {
+                   || last.content.hasPrefix("Web chat was not sent")
+                   || last.content.hasPrefix("Web provider error:") {
                 return jsonResponse([
                     "status": "error",
                     "chatId": target.chatID,

@@ -51,7 +51,17 @@ enum WebSessionLimitLogic {
 /// continuation protocol so the model waits for the final part before answering.
 enum WebPromptChunker {
     /// Approx character budget per message (well under typical web limits).
-    static let defaultBudget = 6000
+    /// Audit 2026-09-08: byte-based (see `split`) so a Cyrillic prompt can not
+    /// blow past Kimi's ~4000-byte paste limit (it silently converts larger
+    /// pastes to a .txt attachment, breaking the tool-preamble contract).
+    /// Audit 2026-09-09 (Qwen live): the fixed tool-protocol preamble alone
+    /// is ~1800 bytes; with the first question a normal first turn lands
+    /// at ~2000 bytes, which the old 1900 budget split into 2 messages —
+    /// and the continuation-protocol part 1 (the tool contract itself!)
+    /// was lost in transit, so the model answered "I have no list_dir tool".
+    /// Raise the budget to 3800 bytes: a first turn stays ONE message with
+    /// the full preamble inside it, still under Kimi's 4000-byte limit.
+    static let defaultBudget = 3800
 
     /// Continuation markers the preamble teaches the model to honor.
     static let continuationHeader = "[PART %d/%d — do not answer yet, wait for the final part]"
@@ -59,13 +69,18 @@ enum WebPromptChunker {
 
     /// Split a prompt into ordered message parts. If it fits the budget, returns
     /// a single element (unwrapped). Never splits inside a fenced block.
+    /// The budget is enforced on UTF-8 BYTES, not characters: live Kimi
+    /// (audit 2026-09-08) turns any paste over ~4000 bytes into a .txt
+    /// attachment, and a 6000-character Cyrillic prompt is 12000 bytes.
     static func split(_ prompt: String, budget: Int = defaultBudget) -> [String] {
-        guard prompt.count > budget else { return [prompt] }
+        guard prompt.data(using: .utf8)?.count ?? prompt.count > budget else { return [prompt] }
         let segments = semanticSegments(prompt)
         var chunks: [String] = []
         var current = ""
+        func currentBytes() -> Int { current.data(using: .utf8)?.count ?? current.count }
+        func segBytes(_ s: String) -> Int { s.data(using: .utf8)?.count ?? s.count }
         for seg in segments {
-            if seg.count > budget {
+            if segBytes(seg) > budget {
                 // A single oversized segment (e.g. a huge code block): flush
                 // current, then hard-split the segment on line boundaries only
                 // (still not mid-line/mid-token).
@@ -73,7 +88,7 @@ enum WebPromptChunker {
                 chunks.append(contentsOf: hardSplitByLines(seg, budget: budget))
                 continue
             }
-            if current.count + seg.count + 2 > budget {
+            if currentBytes() + segBytes(seg) + 2 > budget {
                 chunks.append(current)
                 current = seg
             } else {
@@ -97,9 +112,14 @@ enum WebPromptChunker {
         }
     }
 
-    /// Convenience: split + wrap in one call.
+    /// Convenience: split + wrap in one call. The continuation headers are
+    /// added AFTER splitting, so the splitter reserves their byte overhead —
+    /// otherwise a chunk at exactly the budget becomes over-budget once its
+    /// "[PART 1/2 — do not answer yet…]" header is prepended (audit
+    /// 2026-09-09: a 3800-byte chunk grew to 3858 bytes wrapped).
     static func chunkedMessages(_ prompt: String, budget: Int = defaultBudget) -> [String] {
-        wrapForContinuation(split(prompt, budget: budget))
+        let headerOverhead = String(format: continuationHeader, 99, 99).utf8.count + 1
+        return wrapForContinuation(split(prompt, budget: max(budget - headerOverhead, 256)))
     }
 
     // MARK: - Semantic segmentation
@@ -147,11 +167,21 @@ enum WebPromptChunker {
     }
 
     /// Split an oversized segment on line boundaries only (never mid-line).
+    /// Byte-aware like `split` (a Cyrillic line counts double in UTF-8).
+    /// A single line longer than the budget is hard-cut by CHARACTERS — the
+    /// paste budget is a hard vendor limit (Kimi .txt-attachment), and a
+    /// mid-word cut is preferable over an over-budget message.
     static func hardSplitByLines(_ segment: String, budget: Int) -> [String] {
         var result: [String] = []
         var current = ""
+        func bytes(_ s: String) -> Int { s.data(using: .utf8)?.count ?? s.count }
         for line in segment.components(separatedBy: "\n") {
-            if current.count + line.count + 1 > budget && !current.isEmpty {
+            if bytes(line) > budget {
+                if !current.isEmpty { result.append(current); current = "" }
+                result.append(contentsOf: hardSplitByBytes(line, budget: budget))
+                continue
+            }
+            if bytes(current) + bytes(line) + 1 > budget && !current.isEmpty {
                 result.append(current)
                 current = line
             } else {
@@ -160,5 +190,24 @@ enum WebPromptChunker {
         }
         if !current.isEmpty { result.append(current) }
         return result
+    }
+
+    /// Cut one line into consecutive substrings each within the byte budget.
+    /// Operates on UTF-8 scalars so multi-byte characters are never torn.
+    private static func hardSplitByBytes(_ line: String, budget: Int) -> [String] {
+        var chunks: [String] = []
+        var current = ""
+        for scalar in line.unicodeScalars {
+            var candidate = current
+            candidate.unicodeScalars.append(scalar)
+            if (candidate.data(using: .utf8)?.count ?? 0) > budget && !current.isEmpty {
+                chunks.append(current)
+                current = String(scalar)
+            } else {
+                current = candidate
+            }
+        }
+        if !current.isEmpty { chunks.append(current) }
+        return chunks
     }
 }

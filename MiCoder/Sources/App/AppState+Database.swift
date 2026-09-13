@@ -11,17 +11,31 @@ extension AppState {
     /// Инициализация базы данных
     @MainActor
     func initializeDatabase() async {
+        MiCoderAPIServer.appendLog("🧭 initializeDatabase: start")
         // 1. Выполнить maintenance + авто-архивация
         DatabaseManager.shared.performMaintenanceIfNeeded()
-        
+        MiCoderAPIServer.appendLog("🧭 initializeDatabase: maintenance kicked off")
+
         // 2. Загрузить проекты из БД
         await loadProjectsFromDatabase()
-        
-        // 3. Если есть выбранный проект, загрузить его сессии
+        MiCoderAPIServer.appendLog("🧭 initializeDatabase: projects loaded")
+
+        // 3. Загрузить стандалон-чаты (аудит 2026-09-08: раньше пропадали)
+        loadStandaloneSessionsIntoState()
+        MiCoderAPIServer.appendLog("🧭 initializeDatabase: standalone merged, sessions=\(sessions.count)")
+
+        // 4. Восстановить последний проект (user directive 2026-09-08) —
+        //    селекция тянет за собой загрузку его сессий, а сайдбар
+        //    раскрывает группу выбранного проекта автоматически.
+        restoreLastWorkspace()
+        MiCoderAPIServer.appendLog("🧭 initializeDatabase: workspace restored")
+
+        // 5. Если есть выбранный проект, загрузить его сессии
         if let currentProjectId = selectedWorkspace?.id {
             await loadSessionsFromDatabase(projectId: currentProjectId)
         }
-        
+        MiCoderAPIServer.appendLog("🧭 initializeDatabase: done, sessions=\(sessions.count)")
+
         print("✅ Database initialized successfully")
     }
     
@@ -65,7 +79,18 @@ extension AppState {
             return
         }
 
-        self.sessions = loadedSessions
+        // Audit 2026-09-09: this used to REPLACE the whole list, wiping the
+        // standalone (workspace-less) chats loaded at init — after every
+        // restart with a workspace selected, standalone chats vanished from
+        // the sidebar ("chat without a project doesn't save"). Merge: project
+        // rows win, standalone rows persist. Standalone comes from the
+        // DATABASE (not just memory — selectWorkspace clears the list before
+        // this load runs, so an in-memory-only union would still wipe).
+        let storedStandalone = db.loadStandaloneSessions()
+        let standalone = storedStandalone.filter { stored in
+            !loadedSessions.contains(where: { loaded in loaded.id == stored.id })
+        }
+        self.sessions = loadedSessions + standalone
 
         // Convert sessions to workspace tasks
         if let index = workspaces.firstIndex(where: { $0.id == targetWorkspace.id }) {

@@ -110,8 +110,12 @@ class MimoServeClient {
         self.host = host
         self.port = port
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 300
-        config.timeoutIntervalForResource = 300
+        // Audit 2026-09-11: loading a chat used to hang up to 5 MINUTES on a
+        // dead server (standalone chats looked permanently empty) before the
+        // local-DB fallback kicked in. 10s is plenty for a local server and
+        // fails over fast when none is running.
+        config.timeoutIntervalForRequest = 10
+        config.timeoutIntervalForResource = 15
         self.session = URLSession(configuration: config)
         self.decoder = JSONDecoder()
     }
@@ -205,6 +209,9 @@ class MimoServeClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.httpBody = data
+        // Model generation is long-running: the session-wide 10s failover
+        // timeout does not apply — a full agent answer can take minutes.
+        request.timeoutInterval = 600
         
         let responseData: Data
         let response: URLResponse

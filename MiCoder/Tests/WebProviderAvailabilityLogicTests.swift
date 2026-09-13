@@ -12,8 +12,10 @@ struct WebProviderAvailabilityLogicTests {
     }
 
     private func persistCookies(_ home: URL, id: String) throws {
+        // Audit 2026-09-08: connectivity requires a vendor auth cookie; a
+        // bare "sid" is not a login (anonymous cookies regression).
         let store = WebSessionStore(
-            cookies: [BrowserCookie(name: "sid", value: "v", domain: "d", expiresEpoch: 9_999_999_999)],
+            cookies: [BrowserCookie(name: "kimi-auth", value: "v", domain: "d", expiresEpoch: 9_999_999_999)],
             localStorage: [:], savedAt: Date()
         )
         try WebSessionManager.persist(store, providerId: id, homeDirectory: home)

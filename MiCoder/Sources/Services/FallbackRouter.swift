@@ -215,34 +215,12 @@ enum FallbackRouter {
     ) async -> ChatAPIEndpoint? {
         switch vendor {
         case .kimi:
-            // Get auth token from cookies
-            let cookies = (try? await bridge.cookies()) ?? []
-            let kimiAuthCookie = cookies.first { $0.name == "kimi-auth" }?.value
-                ?? cookies.first { $0.name.contains("auth") }?.value
-            
-            let authToken = kimiAuthCookie ?? ""
-            
-            return ChatAPIEndpoint(
-                url: "https://www.kimi.com/apiv2/kimi.gateway.chat.v1.ChatService/Chat",
-                method: "POST",
-                headers: [
-                    "Content-Type": "application/connect+json",
-                    "Accept": "application/connect+json",
-                    "Authorization": "Bearer \(authToken)",
-                    "x-msh-device-id": "7666376366908010508",
-                    "x-msh-session-id": "1731750605045823249",
-                    "x-msh-version": "2.0.0",
-                    "x-msh-platform": "web",
-                    "x-traffic-id": "d9i71vdqip61ts396m80",
-                    "R-Timezone": "Asia/Bangkok",
-                    "X-Language": "zh-CN"
-                ],
-                bodyTemplate: "",
-                isStreaming: false,
-                contentType: "application/connect+json",
-                authLocation: "Authorization",
-                authToken: authToken
-            )
+            // Audit 2026-09-09 (live): the hardcoded kimi.com connect endpoint
+            // 401s on every call for kimi.ai accounts (wrong host + stale
+            // device/session/traffic ids) and burned all 3 SmartSend attempts
+            // before browser automation ever ran. No known working endpoint —
+            // go straight to the browser.
+            return nil
         case .qwen:
             return nil
         case .chatgpt:
@@ -475,26 +453,131 @@ enum FallbackRouter {
             let sendSelector = vendorEntry?.sendButton
                 ?? "button[type='submit'], .send-button"
 
-            logger.log("BrowserAutomation: typing into '\(inputSelector)' (no Enter — button-driven)")
-            // Round 30: no synthetic Enter. On qwen.ai it CLEARS the input
-            // instead of submitting; the verified button click below sends.
-            try await bridge.typeText(message, into: inputSelector, humanized: false, pressEnter: false)
-            logger.log("BrowserAutomation: typed, settling 700ms for framework state")
-            try? await Task.sleep(nanoseconds: 700_000_000)
+            // Audit 2026-09-09 (Kimi live): on a fresh webview the first
+            // attempt typed 5 ms after resolve — the composer did not exist
+            // yet and the attempt died instantly while the page needed
+            // seconds to hydrate. Wait for the input to materialize first.
+            var inputReady = false
+            for _ in 0..<30 {
+                if (try? await bridge.exists(selector: inputSelector)) == true {
+                    inputReady = true
+                    break
+                }
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+            guard inputReady else {
+                throw WKWebViewBridgeError.elementNotFound("\(inputSelector) (chat input never appeared)")
+            }
+
+            // Audit 2026-09-08: vendors convert oversized pastes into .txt
+            // attachments (live: Kimi at ~4000 bytes silently turned the whole
+            // tool-preamble into a file upload, so the model never saw the
+            // text). Chunk the message with the same byte budget the
+            // WebChatDriver path uses, typing every part and clicking send
+            // only after the final one.
+            let parts = WebPromptChunker.chunkedMessages(message)
+            if parts.count > 1 { logger.log("BrowserAutomation: prompt split into \(parts.count) parts") }
+            for (idx, part) in parts.enumerated() {
+                logger.log("BrowserAutomation: typing into '\(inputSelector)' (no Enter — button-driven)")
+                // Round 30: no synthetic Enter. On qwen.ai it CLEARS the input
+                // instead of submitting; the verified button click below sends.
+                try await bridge.typeText(part, into: inputSelector, humanized: false, pressEnter: false)
+                logger.log("BrowserAutomation: typed, settling 700ms for framework state")
+                try? await Task.sleep(nanoseconds: 700_000_000)
+
+                // Non-final continuation parts must reach the model but do
+                // not trigger generation. Audit 2026-09-09 (Qwen live): a
+                // silent `try? click` here FAILED without anyone noticing —
+                // part 1 (the tool-protocol preamble!) never reached the
+                // model and the whole turn ran without tools. Every
+                // continuation click is now verified the same way as the
+                // final one: URL change or (inside an existing chat) the
+                // composer emptying after the click. A failed continuation
+                // click ABORTS the send — never stack part 2 on top of a
+                // still-full composer.
+                if idx < parts.count - 1 {
+                    let contBeforeURL = (try? await bridge.currentURL()) ?? ""
+                    guard await SendSubmissionPolicy.waitForSendEnabled(
+                        bridge: bridge, sendSelector: sendSelector) else {
+                        throw WKWebViewBridgeError.elementNotFound("\(sendSelector) (send button never enabled for continuation part \(idx + 1))")
+                    }
+                    var contSubmitted = false
+                    for _ in 0..<SendSubmissionPolicy.maxClickAttempts {
+                        try await bridge.click(selector: sendSelector)
+                        try? await Task.sleep(nanoseconds: UInt64(SendSubmissionPolicy.verifyDelayMs) * 1_000_000)
+                        let contAfterURL = (try? await bridge.currentURL()) ?? contBeforeURL
+                        let contButtonGone = (try? await bridge.exists(selector: sendSelector)) != true
+                        let contEmptied = await Self.composerEmptied(
+                            bridge: bridge, inputSelector: inputSelector, submittedText: part)
+                        if SendSubmissionPolicy.submissionDetected(
+                            beforeURL: contBeforeURL,
+                            afterURL: contAfterURL,
+                            sendButtonExistsAfterClick: !contButtonGone
+                        ) || contEmptied {
+                            contSubmitted = true
+                            break
+                        }
+                    }
+                    guard contSubmitted else {
+                        throw WKWebViewBridgeError.elementNotFound("\(sendSelector) (continuation part \(idx + 1) was not submitted)")
+                    }
+                    try? await Task.sleep(nanoseconds: 1_200_000_000)
+                    continue
+                }
+            }
+
+            // Audit 2026-09-06: wait for the send button to MATERIALIZE
+            // (Claude hydrates Tiptap + chat-input-send after the input
+            // receives text; clicking a button that doesn't exist yet throws
+            // elementNotFound and SmartSend gives up after 3 attempts).
+            var sendReady = false
+            for _ in 0..<20 {
+                if (try? await bridge.exists(selector: sendSelector)) == true {
+                    sendReady = true
+                    break
+                }
+                try? await Task.sleep(nanoseconds: 300_000_000)
+            }
+            guard sendReady else {
+                logger.log("BrowserAutomation: send button never appeared for '\(sendSelector)'")
+                throw WKWebViewBridgeError.elementNotFound(sendSelector)
+            }
 
             // Round 30: a click is an attempt, not proof. Verify the vendor
-            // page actually submitted (URL gains a remote chat id); retry the
-            // click within budget — fresh pages may bind handlers late.
+            // page actually submitted. Audit 2026-09-09 (Claude live): inside
+            // an existing chat the URL NEVER changes and Claude KEEPS a
+            // disabled send button in the DOM — the old signals missed every
+            // real submit, retried, and posted the message 12 times. The
+            // universal signal is the composer: it holds our text before the
+            // click and empties on submit. URL change stays a fast path.
+            // Audit 2026-09-09 (Qwen live): clicking before React commits
+            // the typed text (button still disabled) submits nothing while
+            // the composer then clears — wait for an enabled button first.
             let beforeURL = (try? await bridge.currentURL()) ?? ""
+            let submittedText = parts.last ?? message
+            guard await SendSubmissionPolicy.waitForSendEnabled(
+                bridge: bridge, sendSelector: sendSelector) else {
+                throw WKWebViewBridgeError.elementNotFound("\(sendSelector) (send button never enabled after typing)")
+            }
             var verified = false
             for attempt in 1...SendSubmissionPolicy.maxClickAttempts {
                 logger.log("BrowserAutomation: click attempt \(attempt)/\(SendSubmissionPolicy.maxClickAttempts) on '\(sendSelector)'")
                 try await bridge.click(selector: sendSelector)
                 try? await Task.sleep(nanoseconds: UInt64(SendSubmissionPolicy.verifyDelayMs) * 1_000_000)
                 let afterURL = (try? await bridge.currentURL()) ?? beforeURL
-                if SendSubmissionPolicy.submissionDetected(beforeURL: beforeURL, afterURL: afterURL) {
+                // Audit 2026-09-09: re-reading the button's presence AFTER the
+                // click distinguishes "submitted inside an existing chat"
+                // (button gone) from "click did nothing" (button still there).
+                let buttonGone = (try? await bridge.exists(selector: sendSelector)) != true
+                let composerEmptied = await Self.composerEmptied(
+                    bridge: bridge, inputSelector: inputSelector, submittedText: submittedText)
+                if SendSubmissionPolicy.submissionDetected(
+                    beforeURL: beforeURL,
+                    afterURL: afterURL,
+                    sendButtonExistsAfterClick: !buttonGone
+                ) || composerEmptied {
                     verified = true
-                    logger.log("BrowserAutomation: submission verified via URL change")
+                    logger.log("BrowserAutomation: submission verified (url='\(afterURL == beforeURL ? "same-conversation" : "changed")', button gone=\(buttonGone), composer emptied=\(composerEmptied))")
                     break
                 }
                 logger.log("BrowserAutomation: submission not verified yet (url unchanged)")
@@ -533,6 +616,33 @@ enum FallbackRouter {
                 confidence: 0.0
             )
         }
+    }
+
+    /// Whether the composer no longer holds the just-submitted text (audit
+    /// 2026-09-09, Claude live): inside an existing chat the URL never
+    /// changes and some vendors keep a disabled send button in the DOM, so
+    /// "composer emptied" is the universal submit signal. Reads both
+    /// textarea values and contenteditable text; tiny/hidden mirrors are
+    /// skipped so a stale clone cannot mask the real composer.
+    private static func composerEmptied(bridge: BrowserAutomationBridge,
+                                        inputSelector: String,
+                                        submittedText: String) async -> Bool {
+        let probe = String(submittedText.prefix(120))
+        let js = """
+        (function(){
+          var els = document.querySelectorAll(\(WKWebViewBrowserBridge.jsString(inputSelector)));
+          var want = \(WKWebViewBrowserBridge.jsString(probe));
+          for (var i = 0; i < els.length; i++) {
+            var c = els[i];
+            var r = c.getBoundingClientRect();
+            if (r.width < 20 || r.height < 8) { continue; }
+            var v = (c.value !== undefined) ? String(c.value) : String(c.innerText || '');
+            if (v.indexOf(want) !== -1) { return false; }
+          }
+          return true;
+        })();
+        """
+        return (try? await bridge.evaluateJS(js)) as? Bool ?? false
     }
 
     /// Find the best input element selector

@@ -132,8 +132,13 @@ enum WebModelListParser {
         if verbPrefixes.contains(where: { lower.hasPrefix($0) }) { return false }
         let words = lower.split(separator: " ").count
         guard words <= 4 else { return false }
-        // "ChatGPT Auto" (mode fallback) is a valid synthetic label.
+        // "ChatGPT Auto" (mode fallback) is a valid synthetic label —
+        // including the effort-qualified variants the discovery fallback
+        // emits ("ChatGPT Auto (Reasoning)" / "(Instant)"), which must
+        // survive sanitize or the provider ends up with zero models.
         if lower == "chatgpt auto" { return true }
+        if lower == "chatgpt auto (reasoning)" { return true }
+        if lower == "chatgpt auto (instant)" { return true }
         // Versioned family shapes: gpt-5.2, gpt-5, gpt-4o, gpt-4.1, o1, o3, o4.
         if lower.range(of: "\\bgpt-?[45][a-z0-9.]*", options: .regularExpression) != nil { return true }
         if lower.range(of: "^o[134](-[a-z0-9]+)?$", options: .regularExpression) != nil { return true }

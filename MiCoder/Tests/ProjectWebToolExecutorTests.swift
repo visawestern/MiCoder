@@ -85,6 +85,76 @@ struct ProjectWebToolExecutorTests {
         #expect(r.contains("unknown tool"))
     }
 
+    // MARK: - read_file limit/offset (Claude Code Read parity, live 2026-09-12)
+
+    private func writeLines(root: URL, exec: ProjectWebToolExecutor, name: String, count: Int) async {
+        let content = (1...count).map { "line\($0)" }.joined(separator: "\n")
+        _ = await exec.execute(WebToolCall(name: "write_file", arguments: ["path": name, "content": content]))
+    }
+
+    @Test func readFileWindowLimitOffset() async throws {
+        let root = try makeRoot()
+        let exec = makeExecutor(root: root)
+        await writeLines(root: root, exec: exec, name: "w.txt", count: 10)
+        let r = await exec.execute(WebToolCall(name: "read_file",
+            arguments: ["path": "w.txt", "offset": "3", "limit": "4"]))
+        #expect(r.contains("[w.txt: lines 3–6 of 10]"), "window header, got: \(r)")
+        #expect(r.contains("line3"), "got: \(r)")
+        #expect(r.contains("line6"), "got: \(r)")
+        #expect(!r.contains("line2\n"), "must not leak line2, got: \(r)")
+        #expect(!r.contains("line7"), "must not leak line7, got: \(r)")
+    }
+
+    @Test func readFileLimitOnlyStartsAtOne() async throws {
+        let root = try makeRoot()
+        let exec = makeExecutor(root: root)
+        await writeLines(root: root, exec: exec, name: "w.txt", count: 5)
+        let r = await exec.execute(WebToolCall(name: "read_file",
+            arguments: ["path": "w.txt", "limit": "2"]))
+        #expect(r.contains("[w.txt: lines 1–2 of 5]"), "got: \(r)")
+        #expect(r.contains("line1") && r.contains("line2"), "got: \(r)")
+        #expect(!r.contains("line3"), "got: \(r)")
+    }
+
+    @Test func readFileOffsetBeyondEOFErrors() async throws {
+        let root = try makeRoot()
+        let exec = makeExecutor(root: root)
+        await writeLines(root: root, exec: exec, name: "w.txt", count: 3)
+        let r = await exec.execute(WebToolCall(name: "read_file",
+            arguments: ["path": "w.txt", "offset": "99"]))
+        #expect(r.contains("beyond the end"), "got: \(r)")
+    }
+
+    // MARK: - grep with a file path (live 2026-09-12)
+
+    @Test func grepFilePathSearchesTheFile() async throws {
+        let root = try makeRoot()
+        let exec = makeExecutor(root: root)
+        _ = await exec.execute(WebToolCall(name: "write_file",
+            arguments: ["path": "doc.md", "content": "# Title\nbody\n## Sub\n"]))
+        let g = await exec.execute(WebToolCall(name: "grep",
+            arguments: ["pattern": "^#", "path": "doc.md"]))
+        #expect(g.contains("doc.md:1:"), "must hit line 1, got: \(g)")
+        #expect(g.contains("doc.md:3:"), "must hit line 3, got: \(g)")
+        let miss = await exec.execute(WebToolCall(name: "grep",
+            arguments: ["pattern": "ZZZ_ABSENT", "path": "doc.md"]))
+        #expect(miss == "(no matches)", "got: \(miss)")
+    }
+
+    // MARK: - approval verdict bypasses the executor gate (F4, live 2026-09-12)
+
+    @Test func approvedRunCommandBypassesGate() async throws {
+        let root = try makeRoot()
+        let exec = ProjectWebToolExecutor(projectRoot: root.path, accessLevel: .askBeforeChanges)
+        let call = WebToolCall(name: "run_command", arguments: ["command": "touch probe.txt"])
+        let blocked = await exec.execute(call)
+        #expect(blocked.contains("requires approval"), "gate must fire without verdict, got: \(blocked)")
+        let allowed = await exec.execute(call, userApproved: true)
+        #expect(!allowed.contains("requires approval"), "Allow must stick, got: \(allowed)")
+        #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("probe.txt").path),
+                "approved command must actually run")
+    }
+
     // MARK: - P3: Glob regex escaping
 
     @Test("glob handles dots in filenames correctly")

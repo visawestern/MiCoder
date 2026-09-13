@@ -56,38 +56,90 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         // Use the native setter and the same beforeinput/input/change sequence a
         // real keystroke produces, then dispatch Enter so submit handlers see a
         // background keyboard interaction without requiring an active window.
+        //
+        // Protocol (audit 2026-09-08): for contenteditable composers this is
+        // paste-first — execCommand does not update ProseMirror/React state and
+        // the vendor's own paste handler is the only verified route. The JS
+        // below dispatches the paste and reports what happened; the Swift
+        // side then verifies the composer content over a bounded window
+        // (Kimi renders the insertion asynchronously) and only runs the
+        // execCommand fallback once the paste is proven absent — so a slow
+        // async paste is never duplicated and a real failure is retried.
         let escaped = Self.jsString(text)
         let js = """
         (function(){
-          var el = document.querySelector(\(Self.jsString(selector)));
-          if(!el){return false;}
+          // Audit 2026-09-08: a multi-selector ("textarea, div.tiptap, …")
+          // matched the FIRST DOM node even when it was the wrong editor
+          // (live: Claude renders a decorative <textarea> AND the real
+          // ProseMirror composer; querySelector picked the textarea and the
+          // paste never reached the editor state). querySelectorAll returns
+          // DOCUMENT order, not selector order — so the vendor's primary
+          // editor class must win explicitly: pick the first VISIBLE
+          // contenteditable div, and only fall back to a textarea.
+          var candidates = document.querySelectorAll(\(Self.jsString(selector)));
+          var el = null;
+          var fallback = null;
+          for (var i = 0; i < candidates.length; i++) {
+            var c = candidates[i];
+            var r = c.getBoundingClientRect();
+            if (r.width < 20 || r.height < 8) { continue; }
+            if (!fallback && (c.tagName === 'TEXTAREA' || c.tagName === 'INPUT')) {
+              fallback = c;
+            } else if (c.isContentEditable) { el = c; break; }
+          }
+          if (!el) { el = fallback; }
+          if(!el){return 'no-element';}
           el.focus();
-          var before = null;
-          try {
-            before = new InputEvent('beforeinput', {
-              bubbles: true, cancelable: true, inputType: 'insertText', data: \(escaped)
-            });
-          } catch (_) {}
-          if (before) { el.dispatchEvent(before); }
 
           if (el.isContentEditable) {
-            var inserted = false;
-            try { inserted = document.execCommand('insertText', false, \(escaped)); } catch (_) {}
-            if (!inserted) {
-              el.textContent = \(escaped);
+            // Audit 2026-09-08 (Claude/Tiptap): execCommand('insertText')
+            // writes into the DOM but the ProseMirror state stays empty, so
+            // the send button never enables. A ClipboardEvent('paste') with a
+            // DataTransfer goes through the vendor's REAL paste handler and
+            // updates framework state.
+            // Live-tested caveat (Claude): a manual selection rewrite BEFORE
+            // the paste (selectNodeContents + delete) breaks ProseMirror —
+            // but a paste on top of stale text APPENDS (Kimi keeps unsent
+            // drafts). Clear only when the composer holds text; the editor
+            // may render the deletion ASYNCHRONOUSLY (live: Kimi shows the
+            // old text for hundreds of ms after delete), so the Swift side
+            // verifies emptiness over a window instead of failing instantly.
+            var existing = (el.innerText || '').replace(/\\u00a0/g, ' ').trim();
+            if (existing.length > 0) {
+              try {
+                var sel = window.getSelection();
+                var range = document.createRange();
+                range.selectNodeContents(el);
+                sel.removeAllRanges();
+                sel.addRange(range);
+                document.execCommand('delete');
+              } catch (_) {}
+              window.__micoderClearing = \(Self.jsString(selector));
+              return 'clear-pending';
             }
-          } else {
-            var proto = el instanceof HTMLTextAreaElement
-              ? HTMLTextAreaElement.prototype
-              : HTMLInputElement.prototype;
-            var descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
-            if (descriptor && descriptor.set) {
-              descriptor.set.call(el, \(escaped));
-            } else {
-              el.value = \(escaped);
-            }
+            try {
+              var dt = new DataTransfer();
+              dt.setData('text/plain', \(escaped));
+              var pasteEvent = new ClipboardEvent('paste', {
+                bubbles: true, cancelable: true, clipboardData: dt
+              });
+              // dispatchEvent returns FALSE when the vendor's paste handler
+              // calls preventDefault (it inserts the text itself) — that is
+              // the SUCCESS path, not a failure. Kimi renders the insertion
+              // asynchronously, so content verification happens in Swift.
+              el.dispatchEvent(pasteEvent);
+            } catch (_) {}
+            return 'pasted';
           }
-
+          var proto = el instanceof HTMLTextAreaElement
+            ? HTMLTextAreaElement.prototype
+            : HTMLInputElement.prototype;
+          var descriptor = Object.getOwnPropertyDescriptor(proto, 'value');
+          if (descriptor && descriptor.set) {
+            descriptor.set.call(el, \(escaped));
+          } else {
+            el.value = \(escaped);
+          }
           var inputEvent = null;
           try {
             inputEvent = new InputEvent('input', {
@@ -98,8 +150,99 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
           }
           el.dispatchEvent(inputEvent);
           el.dispatchEvent(new Event('change', {bubbles:true}));
+          return 'typed';
+        })();
+        """
+        let outcome = (try? await eval(js)) as? String ?? "no-element"
+        switch outcome {
+        case "no-element":
+            throw WKWebViewBridgeError.elementNotFound(selector)
+        case "clear-pending":
+            // Async deletion window (live: Kimi). Wait for the composer to
+            // actually become empty, then run the paste stage.
+            var cleared = false
+            let emptinessCheck = """
+            (function(){
+              var candidates = document.querySelectorAll(\(Self.jsString(selector)));
+              var el = null;
+              var fallback = null;
+              for (var i = 0; i < candidates.length; i++) {
+                var c = candidates[i];
+                var r = c.getBoundingClientRect();
+                if (r.width < 20 || r.height < 8) { continue; }
+                if (!fallback && (c.tagName === 'TEXTAREA' || c.tagName === 'INPUT')) {
+                  fallback = c;
+                } else if (c.isContentEditable) { el = c; break; }
+              }
+              if (!el) { el = fallback; }
+              if (!el) { return false; }
+              return ((el.innerText || '').replace(/\\u00a0/g, ' ').trim().length === 0);
+            })();
+            """
+            for _ in 0..<WebComposerInputPolicy.verifyAttempts {
+                if (try? await eval(emptinessCheck)) as? Bool == true { cleared = true; break }
+                try? await Task.sleep(nanoseconds: UInt64(WebComposerInputPolicy.verifyDelayMs) * 1_000_000)
+            }
+            guard cleared else {
+                // The editor holds text it refuses to clear (persistent
+                // unsent draft). Never append on top — that corrupts it.
+                throw WKWebViewBridgeError.elementNotFound("\(selector) (composer not clearable)")
+            }
+            let pasteJS = """
+            (function(){
+              var candidates = document.querySelectorAll(\(Self.jsString(selector)));
+              var el = null;
+              var fallback = null;
+              for (var i = 0; i < candidates.length; i++) {
+                var c = candidates[i];
+                var r = c.getBoundingClientRect();
+                if (r.width < 20 || r.height < 8) { continue; }
+                if (!fallback && (c.tagName === 'TEXTAREA' || c.tagName === 'INPUT')) {
+                  fallback = c;
+                } else if (c.isContentEditable) { el = c; break; }
+              }
+              if (!el) { el = fallback; }
+              if (!el) { return false; }
+              el.focus();
+              try {
+                var dt = new DataTransfer();
+                dt.setData('text/plain', \(escaped));
+                el.dispatchEvent(new ClipboardEvent('paste', {
+                  bubbles: true, cancelable: true, clipboardData: dt
+                }));
+              } catch (_) {}
+              return true;
+            })();
+            """
+            _ = try? await eval(pasteJS)
+            try await verifyPasteOrFallback(escaped: escaped, selector: selector)
+        case "typed":
+            // Audit 2026-09-09 (Qwen live): the native-setter + synthetic
+            // InputEvent write can silently miss React state (hydration race
+            // on a fresh page) — the composer stays empty, the send button
+            // stays disabled, and the later click fails with a misleading
+            // "element not found". Verify the text landed; retry once via
+            // focus + execCommand before failing loudly.
+            try await verifyTypedOrRetry(escaped: escaped, selector: selector)
+        case "pasted":
+            try await verifyPasteOrFallback(escaped: escaped, selector: selector)
+        default:
+            throw WKWebViewBridgeError.elementNotFound(selector)
+        }
 
-          if (!\(pressEnter ? "true" : "false")) { return true; }
+        // Enter is requested only for the non-paste path (button-driven sends
+        // pass pressEnter=false; on qwen.ai a synthetic Enter CLEARS the input).
+        guard pressEnter else { return }
+        let enterJS = """
+        (function(){
+          var candidates = document.querySelectorAll(\(Self.jsString(selector)));
+          var el = null;
+          for (var i = 0; i < candidates.length; i++) {
+            var c = candidates[i];
+            var r = c.getBoundingClientRect();
+            if (r.width >= 20 && r.height >= 8) { el = c; break; }
+          }
+          if (!el) { return false; }
           var keyOptions = {key:'Enter', code:'Enter', keyCode:13, which:13,
                             bubbles:true, cancelable:true};
           try { el.dispatchEvent(new KeyboardEvent('keydown', keyOptions)); } catch (_) {}
@@ -108,9 +251,129 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
           return true;
         })();
         """
-        guard (try await eval(js) as? Bool) == true else {
+        guard (try? await eval(enterJS)) as? Bool == true else {
             throw WKWebViewBridgeError.elementNotFound(selector)
         }
+    }
+
+    /// Stage 2 of the paste protocol (audit 2026-09-08): after the paste is
+    /// dispatched, wait for the composer to actually contain the text (Kimi
+    /// renders asynchronously, ~300 ms). If it never lands, run the
+    /// execCommand/DOM fallback once and verify again. This keeps a slow
+    /// async paste from being duplicated and a real failure surfaced.
+    private func verifyPasteOrFallback(escaped: String, selector: String) async throws {
+        let contentCheck = """
+        (function(){
+          var candidates = document.querySelectorAll(\(Self.jsString(selector)));
+          var el = null;
+          var fallback = null;
+          for (var i = 0; i < candidates.length; i++) {
+            var c = candidates[i];
+            var r = c.getBoundingClientRect();
+            if (r.width < 20 || r.height < 8) { continue; }
+            if (!fallback && (c.tagName === 'TEXTAREA' || c.tagName === 'INPUT')) {
+              fallback = c;
+            } else if (c.isContentEditable) { el = c; break; }
+          }
+          if (!el) { el = fallback; }
+          if (!el) { return false; }
+          return ((el.innerText || '') + '\\n').indexOf(\(escaped)) !== -1;
+        })();
+        """
+        for _ in 0..<WebComposerInputPolicy.verifyAttempts {
+            if (try? await eval(contentCheck)) as? Bool == true { return }
+            try? await Task.sleep(nanoseconds: UInt64(WebComposerInputPolicy.verifyDelayMs) * 1_000_000)
+        }
+        // Paste not rendered within the window: last-resort execCommand +
+        // DOM write, then verify once more. Firing it earlier risked
+        // duplicating a still-in-flight async paste (live: Kimi).
+        let fallbackJS = """
+        (function(){
+          var candidates = document.querySelectorAll(\(Self.jsString(selector)));
+          var el = null;
+          var fallback = null;
+          for (var i = 0; i < candidates.length; i++) {
+            var c = candidates[i];
+            var r = c.getBoundingClientRect();
+            if (r.width < 20 || r.height < 8) { continue; }
+            if (!fallback && (c.tagName === 'TEXTAREA' || c.tagName === 'INPUT')) {
+              fallback = c;
+            } else if (c.isContentEditable) { el = c; break; }
+          }
+          if (!el) { el = fallback; }
+          if (!el) { return false; }
+          el.focus();
+          var ok = false;
+          try { ok = document.execCommand('insertText', false, \(escaped)); } catch (_) {}
+          if (!ok) {
+            el.textContent = \(escaped);
+            el.dispatchEvent(new Event('input', {bubbles: true}));
+            ok = true;
+          }
+          return ok;
+        })();
+        """
+        guard (try? await eval(fallbackJS)) as? Bool == true else {
+            throw WKWebViewBridgeError.elementNotFound(selector)
+        }
+    }
+
+    /// Verify a native-setter textarea write actually landed in the composer
+    /// (audit 2026-09-09, Qwen): React-controlled inputs can swallow the
+    /// synthetic InputEvent on a hydrating page. Poll briefly, then retry
+    /// once via focus + execCommand('insertText'), then fail loudly — never
+    /// report success with an empty composer (that cascades into a disabled
+    /// send button and a misleading "element not found" click error).
+    private func verifyTypedOrRetry(escaped: String, selector: String) async throws {
+        let contentCheck = """
+        (function(){
+          var candidates = document.querySelectorAll(\(Self.jsString(selector)));
+          for (var i = 0; i < candidates.length; i++) {
+            var c = candidates[i];
+            var r = c.getBoundingClientRect();
+            if (r.width < 20 || r.height < 8) { continue; }
+            var v = (c.value !== undefined) ? String(c.value) : String(c.innerText || '');
+            if ((v + '\\n').indexOf(\(escaped)) !== -1) { return true; }
+          }
+          return false;
+        })();
+        """
+        for _ in 0..<WebComposerInputPolicy.verifyAttempts {
+            if (try? await eval(contentCheck)) as? Bool == true { return }
+            try? await Task.sleep(nanoseconds: UInt64(WebComposerInputPolicy.verifyDelayMs) * 1_000_000)
+        }
+        let retryJS = """
+        (function(){
+          var candidates = document.querySelectorAll(\(Self.jsString(selector)));
+          var el = null;
+          for (var i = 0; i < candidates.length; i++) {
+            var c = candidates[i];
+            var r = c.getBoundingClientRect();
+            if (r.width >= 20 && r.height >= 8) { el = c; break; }
+          }
+          if (!el) { return false; }
+          el.focus();
+          try {
+            if (document.execCommand('insertText', false, \(escaped))) { return true; }
+          } catch (_) {}
+          try {
+            var proto = el instanceof HTMLTextAreaElement
+              ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+            var desc = Object.getOwnPropertyDescriptor(proto, 'value');
+            if (desc && desc.set) { desc.set.call(el, \(escaped)); }
+            else { el.value = \(escaped); }
+            el.dispatchEvent(new Event('input', {bubbles: true}));
+            el.dispatchEvent(new Event('change', {bubbles: true}));
+            return true;
+          } catch (_) { return false; }
+        })();
+        """
+        _ = try? await eval(retryJS)
+        for _ in 0..<WebComposerInputPolicy.verifyAttempts {
+            if (try? await eval(contentCheck)) as? Bool == true { return }
+            try? await Task.sleep(nanoseconds: UInt64(WebComposerInputPolicy.verifyDelayMs) * 1_000_000)
+        }
+        throw WKWebViewBridgeError.elementNotFound("\(selector) (typed text never landed in the composer)")
     }
 
     func click(selector: String) async throws {
@@ -138,11 +401,11 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         let js = """
         (function(){
           var el = document.querySelector(\(Self.jsString(selector)));
-          if(!el){return false;}
+          if(!el){return 'missing';}
           var target = el.matches('button, [role="button"], input[type="submit"]')
             ? el
             : (el.querySelector('button, [role="button"], input[type="submit"]') || el);
-          if (target.disabled || target.getAttribute('aria-disabled') === 'true') { return false; }
+          if (target.disabled || target.getAttribute('aria-disabled') === 'true') { return 'disabled'; }
           // Audit 2026-09-06 (Claude/Radix): a full pointer event cycle
           // (pointerdown→mousedown→pointerup→mouseup→click) DOUBLE-TOGGLES
           // Radix popper menus — they treat the extra synthetic mouseups as
@@ -152,10 +415,19 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
           // open. Non-Radix sites ignore focus and behave the same.
           try { target.focus(); } catch (_) {}
           target.click();
-          return true;
+          return 'clicked';
         })();
         """
-        guard (try await eval(js) as? Bool) == true else {
+        // Audit 2026-09-09 (Qwen live): a DISABLED send button (empty
+        // composer — typing never landed) used to surface as a generic
+        // "element not found", hiding the real cause. Report it distinctly.
+        let outcome = (try? await eval(js)) as? String ?? "missing"
+        switch outcome {
+        case "clicked":
+            return
+        case "disabled":
+            throw WKWebViewBridgeError.elementNotFound("\(selector) (button present but disabled — the composer is empty, typing did not land)")
+        default:
             throw WKWebViewBridgeError.elementNotFound(selector)
         }
     }
@@ -292,17 +564,45 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
     }
 
     func readText(selector: String) async throws -> String {
+        // Audit 2026-09-09 (ChatGPT live): in a background (never displayed)
+        // WKWebView React streams the answer into the DOM but the text nodes
+        // stay UNRENDERED — innerText returns "" (layout never runs) even
+        // though the answer is committed (data-end markers) and visible
+        // after a page reload. Force a synchronous layout (offsetHeight
+        // read) and fall back to textContent so a finished-but-unrendered
+        // answer is still read instead of timing out after 600 polls.
+        // Audit 2026-09-09 (Qwen live): vendor ERROR placeholders
+        // (div.response-message-empty — "The current content is empty, please
+        // regenerate.") are visible non-empty elements that must NEVER be
+        // read as the answer; they are skipped by class here (the single
+        // source of truth is WebVendorErrorPlaceholderLogic).
+        let errorClasses = (try? JSONSerialization.data(
+            withJSONObject: WebVendorErrorPlaceholderLogic.errorClassFragments
+        )).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
         let js = """
         (function(){
+          var errorFragments = \(errorClasses);
+          function isErrorEl(el){
+            var cls = String((el.className && el.className.toString()) || '').toLowerCase();
+            for (var k = 0; k < errorFragments.length; k++) {
+              if (cls.indexOf(String(errorFragments[k]).toLowerCase()) !== -1) { return true; }
+            }
+            return false;
+          }
           var els = document.querySelectorAll(\(Self.jsString(selector)));
           if(!els || els.length===0){return "";}
           for (var i = els.length - 1; i >= 0; i--) {
             var el = els[i];
-            var text = (el.innerText || el.textContent || '').trim();
+            if (isErrorEl(el)) { continue; }
             var style = window.getComputedStyle(el);
-            if (text && style.display !== 'none' && style.visibility !== 'hidden') {
-              return text;
+            if (style.display === 'none' && style.visibility === 'hidden') { continue; }
+            var text = String(el.innerText || '').trim();
+            if (!text) {
+              try { void el.offsetHeight; } catch (_) {}
+              text = String(el.innerText || '').trim();
             }
+            if (!text) { text = String(el.textContent || '').trim(); }
+            if (text) { return text; }
           }
           return "";
         })();
@@ -311,6 +611,10 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
     }
 
     func responseFingerprint(selector: String) async throws -> String {
+        // Same forced-layout/textContent contract as readText (audit
+        // 2026-09-09): an unrendered-but-committed answer must still
+        // produce a fingerprint, otherwise awaitResponse treats the whole
+        // turn as "nothing changed" and times out on a real answer.
         let js = """
         (function(){
           var els = document.querySelectorAll(\(Self.jsString(selector)));
@@ -325,7 +629,11 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
           }
           if (!visible.length) { return ""; }
           var last = visible[visible.length - 1];
-          var markup = last.outerHTML || last.textContent || '';
+          var markup = String(last.outerHTML || last.textContent || '');
+          if (markup.length < 40) {
+            try { void last.offsetHeight; } catch (_) {}
+            markup = String(last.outerHTML || last.textContent || '');
+          }
           return String(visible.length) + ':' + markup.length + ':' + markup.slice(-1200);
         })();
         """
@@ -624,8 +932,10 @@ final class WKWebViewBrowserBridge: NSObject, BrowserAutomationBridge {
         }
     }
 
-    /// JSON-encode a string for safe embedding in JS.
-    static func jsString(_ s: String) -> String {
+    /// JSON-encode a string for safe embedding in JS. Pure (no actor
+    /// state) so it stays callable off the main actor (FallbackRouter
+    /// builds probe scripts from background tasks).
+    nonisolated static func jsString(_ s: String) -> String {
         let data = (try? JSONSerialization.data(withJSONObject: [s])) ?? Data("[\"\"]".utf8)
         let arr = String(data: data, encoding: .utf8) ?? "[\"\"]"
         return String(arr.dropFirst().dropLast())  // "..." from ["..."]

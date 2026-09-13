@@ -68,3 +68,18 @@ struct WebModelListParserTests {
         #expect(models == ["model-a1", "model-b2", "model-c3"])
     }
 }
+
+@Suite("ChatGPT synthetic fallback labels survive sanitize (audit 2026-09-08)")
+struct ChatGPTFallbackLabelTests {
+    @Test func autoReasoningLabelIsValid() {
+        #expect(WebModelListParser.normalize("ChatGPT Auto (Reasoning)", vendor: .chatgpt) == "ChatGPT Auto (Reasoning)")
+    }
+
+    @Test func autoInstantLabelIsValid() {
+        #expect(WebModelListParser.normalize("ChatGPT Auto (Instant)", vendor: .chatgpt) == "ChatGPT Auto (Instant)")
+    }
+
+    @Test func plainAutoStillValid() {
+        #expect(WebModelListParser.normalize("ChatGPT Auto", vendor: .chatgpt) == "ChatGPT Auto")
+    }
+}

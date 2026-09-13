@@ -90,6 +90,9 @@ struct WebChatDriverTests {
             executed.append(call)
             return resultFor(call)
         }
+        func execute(_ call: WebToolCall, userApproved: Bool) async -> String {
+            await execute(call)
+        }
     }
 
     private let selectors = WebVendorSelectors(
@@ -203,15 +206,22 @@ struct WebChatDriverTests {
         #expect(events.contains(.loggedOut))
     }
 
-    @Test("missing send button is detected before typing")
+    @Test("missing send button fails after typing (button materializes on input)")
     func missingSendButtonFailsBeforeTyping() async {
+        // Audit 2026-09-09 (ChatGPT live): the send button materializes
+        // only AFTER text lands in the composer, so the driver types first
+        // and then waits boundedly for the button (FallbackRouter order).
         let bridge = FakeBridge(responses: ["x"])
         bridge.hasSendButton = false
-        let driver = makeDriver(bridge: bridge, executor: RecordingExecutor())
+        // Script an explicitly DISABLED send button: evaluateJS is what the
+        // enabled-wait probes (a nil evaluation counts as ready).
+        bridge.evaluateValue = false
+        var driver = makeDriver(bridge: bridge, executor: RecordingExecutor())
+        driver.sendEnabledTimeoutMs = 50
 
         var events: [WebChatEvent] = []
         await driver.runTurn(userMessage: "hi", isFirstMessage: false) { events.append($0) }
-        #expect(bridge.typed.isEmpty)
+        #expect(bridge.typed == ["hi"])
         #expect(events.contains { event in
             if case .error(let message) = event {
                 return message.contains("button.send")
@@ -401,6 +411,9 @@ struct WebChatApprovalInterruptionTests {
             calls.append(call)
             return "should not execute"
         }
+        func execute(_ call: WebToolCall, userApproved: Bool) async -> String {
+            await execute(call)
+        }
     }
 
     final class LockedCalls: @unchecked Sendable {
@@ -410,7 +423,7 @@ struct WebChatApprovalInterruptionTests {
         func snapshot() -> [WebToolCall] { lock.lock(); defer { lock.unlock() }; return storage }
     }
 
-    @Test("ask-before-changes blocks the web mutation before executor side effects")
+    @Test("ask-before-changes: gated tool is not executed and the model receives an honest decline")
     func mutationIsBlockedBeforeExecution() async {
         let bridge = ApprovalBridge()
         let calls = LockedCalls()
@@ -418,6 +431,9 @@ struct WebChatApprovalInterruptionTests {
             calls.append(call)
             return "should not execute"
         }
+        // approvalBox == nil (unit-test default): the driver auto-declines the
+        // gated call after a zero-second wait and feeds the decline back to
+        // the model instead of executing it.
         let driver = WebChatDriver(
             bridge: bridge,
             executor: executor,
@@ -427,13 +443,23 @@ struct WebChatApprovalInterruptionTests {
             accessLevel: .askBeforeChanges,
             pollIntervalMs: 0,
             stabilityChecks: 1,
-            injectModelAndEffortEnabled: false
+            injectModelAndEffortEnabled: false,
+            approvalWaitSeconds: 0
         )
         var events: [WebChatEvent] = []
         await driver.runTurn(userMessage: "edit", isFirstMessage: false) { events.append($0) }
         #expect(calls.snapshot().isEmpty)
+        // The approval request was surfaced (the interactive card's event),
+        // the tool itself was never executed, and the model received the
+        // honest decline as a tool_result.
         #expect(events.contains { event in
-            if case .approvalRequired(let tool, _) = event { return tool == "write_file" }
+            if case .approvalRequest(let request) = event { return request.tool == "write_file" }
+            return false
+        })
+        #expect(events.contains { event in
+            if case .toolResult(let name, let result) = event {
+                return name == "write_file" && result.contains("declined")
+            }
             return false
         })
     }
@@ -441,5 +467,6 @@ struct WebChatApprovalInterruptionTests {
     struct ClosureWebToolExecutor: WebToolExecutor {
         let body: (WebToolCall) async -> String
         func execute(_ call: WebToolCall) async -> String { await body(call) }
+        func execute(_ call: WebToolCall, userApproved: Bool) async -> String { await body(call) }
     }
 }

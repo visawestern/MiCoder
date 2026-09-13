@@ -33,4 +33,22 @@ struct WebToolAccessGateTests {
         #expect(WebToolAccessGate.permission(for: write, accessLevel: .fullAccess) == .allow)
         #expect(WebToolAccessGate.permission(for: command, accessLevel: .fullAccess) == .allow)
     }
+
+    // Live 2026-09-12 (last chat, session C9AB8206): the model paged a file
+    // with `sed -n '115,330p' file` and was blocked into an approval dead-end.
+    // Read-only sed print form must run at ANY access level.
+    @Test("sed range print runs without approval, sed -i does not")
+    func sedPrintReadOnlyInPlaceIsNot() {
+        #expect(WebToolAccessGate.isReadOnlyCommand("sed -n '115,330p' TZ-Bezdna-v3.md"))
+        #expect(WebToolAccessGate.permission(
+            for: WebToolCall(name: "run_command", arguments: ["command": "sed -n '115,330p' TZ-Bezdna-v3.md"]),
+            accessLevel: .askBeforeChanges) == .allow)
+        #expect(!WebToolAccessGate.isReadOnlyCommand("sed -i 's/a/b/' file.txt"))
+        #expect(!WebToolAccessGate.isReadOnlyCommand("sed --in-place 's/a/b/' file.txt"))
+        #expect(WebToolAccessGate.permission(
+            for: WebToolCall(name: "run_command", arguments: ["command": "sed -i 's/a/b/' file.txt"]),
+            accessLevel: .askBeforeChanges) == .requireApproval)
+        // Mutating sed inside a chain still trips the gate.
+        #expect(!WebToolAccessGate.isReadOnlyCommand("sed -n '2p' a.txt && sed -i 's/x/y/' b.txt"))
+    }
 }

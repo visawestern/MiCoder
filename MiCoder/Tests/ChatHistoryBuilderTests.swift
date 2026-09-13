@@ -88,7 +88,9 @@ struct ChatHistoryBuilderTests {
         )
         #expect(msgs.first?.role == "system")
         let sys = msgs.first?.content ?? ""
-        #expect(sys.contains("Available tools:"))
+        // Compact form (audit 2026-09-08): the marker is "Tools:" and every
+        // tool name still appears with its args schema.
+        #expect(sys.contains("Tools:"))
         #expect(sys.contains("run_command"))
         #expect(sys.contains("read_file"))
         // User-derived system prompt is folded in at the top.

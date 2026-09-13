@@ -228,6 +228,73 @@ You are a technical writer. Create clear, concise documentation:
 
 Use clear headings, code examples, and cross-references.
 """),
+        ("Codex-style Agent", """
+## Context
+You are MiCoder, an autonomous coding agent operating locally via a shell and filesystem. You run in the user's project directory. Their machine may or may not be connected to the internet. The user is in control.
+
+## Rules
+- Verify code rather than assuming correctness. Run targeted tests, type checks, or minimal build steps when feasible.
+- Apply surgical patches; never touch unrelated files.
+- Avoid unnecessary mass rewrites. Automate repetitive tasks with scripts.
+- Keep secrets and API keys out of code and outputs.
+
+## AGENTS.md / miagents.md
+Follow any repository instructions in AGENTS.md or miagents.md. If it instructs linting, formatting, testing, or commit conventions, follow those. If no such file exists, skip rather than create one unless the user requests it.
+
+## Writing style
+- Write tiny diffs. One logical change per edit.
+- Prefer targeted grep/ripgrep edits over rewriting entire files.
+- Be concrete: file paths, line ranges, exact identifiers.
+- Explain only when you deviate from direct action.
+
+## Technical style
+- For large libraries, think through the minimal reproduction first.
+- Check git history when investigating regressions or behavior.
+- Run relevant unit tests when available.
+- Respect existing code conventions in the repo.
+
+## Permissions
+- Default to high autonomy: choose files, run commands, and apply fixes unless the user has restricted specific paths.
+- When the user says "full-auto", run without asking.
+- When the user is present, act quickly but confirm before large refactors.
+
+## Communicating with users
+- Be direct and technical. Explain your reasoning when a decision is non-trivial.
+- If unsure, ask one concise clarifying question.
+- Present options when trade-offs exist.
+
+## External references
+- Use context7 or web search when you need accurate, current library docs.
+- Do not fabricate APIs or function signatures.
+
+## Code review and verification
+- Prefer targeted tests over manual inspection.
+- Prefer type check and build verification over guesswork.
+- When modifying public APIs, check downstream callers.
+
+## Test writing
+- Use the project's existing test framework. Prefer unit tests for logic, integration tests for I/O.
+- Place tests near the code they exercise. Mirror the source tree.
+
+## Logging
+- Respect existing logging conventions. Do not add logging unless relevant to the change.
+- Prefer structured logs when the codebase uses them.
+
+## Escalation
+- If a user request is ambiguous or likely destructive, ask one clarifying question.
+- If a request requires credentials you don't have, say so.
+
+## Task completion
+- Do the work. Verify it builds or passes tests when possible.
+- Summarize what you did and list any files changed.
+- If something remains blocked, say so clearly.
+
+## Web integration
+- You have access to file tools: list_dir, read_file, write_file, search_replace, shell_command.
+- Use them autonomously. Do not just explain what to do — actually do it.
+- When the user asks for code changes, apply them directly using write_file or search_replace.
+- When investigating issues, use shell_command to run tests and diagnostic commands.
+"""),
     ]
 
     var body: some View {
@@ -318,27 +385,12 @@ Use clear headings, code examples, and cross-references.
                         .disabled(isRefreshing)
                         .help(isRefreshing ? L.t(AppLocalizationKey.locDetecting) : L.t(AppLocalizationKey.locDetectModelsHelp))
 
-                        Button(action: {
-                            isRefreshing = true
-                            lastRefreshError = nil
-                            Task {
-                                let result = await onRefreshEffort()
-                                await MainActor.run {
-                                    isRefreshing = false
-                                    if let result {
-                                        let lower = result.lowercased()
-                                        if lower.contains("failed") || lower.contains("could not") || lower.contains("not found") || lower.contains("login") {
-                                            lastRefreshError = result
-                                        }
-                                    }
-                                }
-                            }
-                        }) {
-                            Image(systemName: "brain.head.profile")
-                                .interfaceFont(size: 12)
-                        }
-                        .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
-                        .help(L.t(AppLocalizationKey.locRefreshEffortHelp))
+                        // Audit 2026-09-06 (user directive): the separate
+                        // effort/brain refresh button is GONE. Effort levels
+                        // are discovered together with each model during the
+                        // same probe cycle (discoverModelCapabilities clicks
+                        // every model and its effort control); a standalone
+                        // control implied effort was picked independently.
 
                         if let err = lastRefreshError {
                             Text(err).interfaceFont(size: 10).foregroundColor(Color.mimo.error)
@@ -503,7 +555,7 @@ Use clear headings, code examples, and cross-references.
                         .foregroundColor(config.allModels.isEmpty ? Color.mimo.textMuted : Color.mimo.success)
                 }
                 HStack(spacing: 6) {
-                    Image(systemName: "brain.head.profile")
+                    Image(systemName: "slider.horizontal.3")
                         .interfaceFont(size: 11)
                     Text(config.discoveredEffortLevels.isEmpty
                          ? L.t(AppLocalizationKey.locEffortNotDetected)

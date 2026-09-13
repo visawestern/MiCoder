@@ -334,7 +334,25 @@ enum NetworkInterceptor {
             let urlLower = req.url.lowercased()
             let junkMarkers = ["users/status", "/users/", "telemetry", "tracking",
                                "/log", "/report", "/ping", "/health", "/feedback",
-                               "/analytics"]
+                               "/analytics",
+                               // Audit 2026-09-09 (Kimi live): the account
+                               // RefreshToken endpoint won scoring via /api/ +
+                               // Bearer and SmartSend burned 2 attempts POSTing
+                               // chat bodies at it (HTTP 520). Auth/session/
+                               // account endpoints are never chat routes.
+                               "refresh", "token", "/login", "/signin",
+                               "/signup", "/auth", "/session", "/account",
+                               "/user/", "/users", "/verify", "/captcha",
+                               "/challenge", "/turnstile", "/sentinel",
+                               // Audit 2026-09-09 (ChatGPT live): the
+                               // telemetry endpoint chatgpt.com/ces/v1/t
+                               // (Segment.io event stream) returned HTTP 200
+                               // for a chat body and SmartSend declared the
+                               // send a success while nothing reached the
+                               // model. Telemetry/analytics/beacon endpoints
+                               // are never chat routes.
+                               "/ces/", "ces/v1", "segment", "/track",
+                               "/beacon", "/collect", "/event", "analytics"]
             if junkMarkers.contains(where: { urlLower.contains($0) }) { continue }
             guard let parsed = URL(string: req.url),
                   let scheme = parsed.scheme?.lowercased(),
@@ -391,7 +409,17 @@ enum NetworkInterceptor {
 
         candidates.sort { $0.score > $1.score }
 
-        guard let best = candidates.first else { return nil }
+        // Audit 2026-09-09 (ChatGPT live): the telemetry endpoint
+        // chatgpt.com/ces/v1/t returned HTTP 200 for a chat-shaped POST and
+        // SmartSend declared success while the message never reached any
+        // model. A candidate whose captured body has NO substitutable
+        // message field cannot carry our text (buildDirectRequest would POST
+        // the template verbatim) — skip it no matter its score.
+        for candidate in candidates {
+            let template = buildBodyTemplate(body: candidate.request.body)
+            guard template.contains("{{message}}") else { continue }
+            let best = candidate
+            // (auth extraction + endpoint build below operate on `best`)
 
         // Extract auth info
         let authHeader = best.request.headers["Authorization"] ?? best.request.headers["authorization"]
@@ -432,6 +460,8 @@ enum NetworkInterceptor {
             authLocation: authLocation,
             authToken: authToken
         )
+        }
+        return nil
     }
 
     /// Build a direct URLRequest from an endpoint.

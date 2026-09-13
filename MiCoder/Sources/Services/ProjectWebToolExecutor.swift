@@ -32,12 +32,25 @@ struct ProjectWebToolExecutor: WebToolExecutor {
     }
 
     func execute(_ call: WebToolCall) async -> String {
-        let root = URL(fileURLWithPath: projectRoot)
         // The access gate runs before any side effect: a gated tool is never
         // executed, it is reported back to the model as needing approval.
+        // NOTE: when the driver already collected an Allow verdict it calls
+        // execute(_:userApproved:) — this gate must not fire twice (F4).
         if WebToolAccessGate.permission(for: call, accessLevel: accessLevel) == .requireApproval {
             return approvalMessage(for: call)
         }
+        return await run(call)
+    }
+
+    func execute(_ call: WebToolCall, userApproved: Bool) async -> String {
+        if userApproved { return await run(call) }
+        return await execute(call)
+    }
+
+    /// The actual tool dispatch without the approval gate (the gate lives in
+    /// execute(_:) / the driver's approval-box flow, never here).
+    private func run(_ call: WebToolCall) async -> String {
+        let root = URL(fileURLWithPath: projectRoot)
         switch WebEmulatedTool(rawValue: call.name) {
         case .readFile:
             guard let path = call.arguments["path"] else { return "error: missing path" }
@@ -58,17 +71,27 @@ struct ProjectWebToolExecutor: WebToolExecutor {
                 let mime = Self.imageMIME(forExtension: ext)
                 return "ATTACHED_IMAGE:\(mime):\(base64)"
             }
+            // Claude Code Read parity (live 2026-09-12: the model asked for
+            // offset 3× and always got the file head — offset/limit were
+            // neither parsed nor honored). 'offset' is the 1-based first
+            // line, 'limit' the max line count; absent → legacy whole-file
+            // read so existing behavior is untouched.
+            let windowed = call.arguments["offset"] != nil || call.arguments["limit"] != nil
+            let offset = call.arguments["offset"].flatMap { Int($0.filter(\.isNumber)) } ?? 1
+            let limit = call.arguments["limit"].flatMap { Int($0.filter(\.isNumber)) }
             if ext == "svg" {
                 // SVG is text — read it as text.
                 guard let content = try? String(contentsOf: url, encoding: .utf8) else {
                     return "error: cannot read \(path)"
                 }
-                return String(content.prefix(20_000))
+                if windowed { return Self.windowedRead(content, path: path, offset: offset, limit: limit) }
+                return Self.webBoundedRead(content, path: path)
             }
             guard let content = try? String(contentsOf: url, encoding: .utf8) else {
                 return "error: cannot read \(path)"
             }
-            return String(content.prefix(20_000))
+            if windowed { return Self.windowedRead(content, path: path, offset: offset, limit: limit) }
+            return Self.webBoundedRead(content, path: path)
         case .writeFile:
             guard let path = call.arguments["path"], let content = call.arguments["content"] else {
                 return "error: missing path/content"
@@ -108,7 +131,15 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         case .grep:
             guard let pattern = call.arguments["pattern"] else { return "error: missing pattern" }
             let path = call.arguments["path"] ?? "."
-            return grep(pattern: pattern, in: root.appendingPathComponent(path))
+            let target = root.appendingPathComponent(path)
+            // Claude Code parity (live 2026-09-12): 'path' may be a FILE —
+            // the model passed TZ-Bezdna-v3.md and got "(no matches)"
+            // because a file scanned as a directory yields zero files.
+            var isDir: ObjCBool = false
+            if fileManager.fileExists(atPath: target.path, isDirectory: &isDir), !isDir.boolValue {
+                return grepFile(pattern: pattern, displayPath: path, fileURL: target)
+            }
+            return grep(pattern: pattern, in: target)
         case .runCommand:
             // E12: at .fullAccess the command actually runs — a bounded real
             // shell process rooted at the project directory, returning stdout +
@@ -120,7 +151,7 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         case .gitStatus:
             return ProjectShellRunner.run(command: "git status", workingDirectory: projectRoot).output
         case .gitDiff:
-            let staged = call.arguments["staged"] == "true"
+            let staged = WebToolProtocolEmulator.isTruthyFlag(call.arguments["staged"])
             let cmd = staged ? "git diff --cached" : "git diff"
             return ProjectShellRunner.run(command: cmd, workingDirectory: projectRoot).output
         case .gitLog:
@@ -128,14 +159,14 @@ struct ProjectWebToolExecutor: WebToolExecutor {
             return ProjectShellRunner.run(command: Self.gitLogCommand(limit: limit), workingDirectory: projectRoot).output
         case .gitBranch:
             return ProjectShellRunner.run(
-                command: Self.gitBranchCommand(branch: call.arguments["branch"], create: call.arguments["create"] == "true"),
+                command: Self.gitBranchCommand(branch: call.arguments["branch"], create: WebToolProtocolEmulator.isTruthyFlag(call.arguments["create"])),
                 workingDirectory: projectRoot).output
         case .gitCheckout:
             guard let branch = call.arguments["branch"] else { return "error: missing branch" }
             return ProjectShellRunner.run(command: Self.gitCheckoutCommand(branch: branch), workingDirectory: projectRoot).output
         case .gitCommit:
             guard let message = call.arguments["message"] else { return "error: missing message" }
-            let addAll = call.arguments["addAll"] == "true"
+            let addAll = WebToolProtocolEmulator.isTruthyFlag(call.arguments["addAll"])
             return ProjectShellRunner.run(command: Self.gitCommitCommand(message: message, addAll: addAll), workingDirectory: projectRoot).output
         case .gitPush:
             let remote = call.arguments["remote"] ?? "origin"
@@ -168,8 +199,14 @@ struct ProjectWebToolExecutor: WebToolExecutor {
     /// Message fed back to the model when the access gate blocks a tool.
     /// Includes the tool name and the level that is required, so the model can
     /// report the limitation honestly instead of silently skipping work.
+    /// Live 2026-09-12 (last chat): a blocked `run_command` ended the task in
+    /// a dead-end — the model had no read-only alternative to fall back on.
+    /// The message now names the concrete fallback so the model can continue
+    /// instead of stalling.
     private func approvalMessage(for call: WebToolCall) -> String {
-        "\(call.name) requires approval (AccessLevel: \(accessLevel.rawValue)); not executed"
+        let base = "\(call.name) requires approval (AccessLevel: \(accessLevel.rawValue)); not executed"
+        guard WebEmulatedTool(rawValue: call.name) == .runCommand else { return base }
+        return base + ". Read-only commands (cat, grep, head, tail, sed print, git log/diff/status, ls, wc) run WITHOUT approval — re-issue one of those instead, or page files with read_file offset/limit."
     }
 
     // MARK: - Shell-safe git command construction (Round 29 R1)
@@ -338,6 +375,28 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         } catch {
             return "error: \(error.localizedDescription)"
         }
+    }
+
+    /// Grep a single file (path pointed at a file, not a directory).
+    /// Same `path:line: text` hit format as the directory scan.
+    private func grepFile(pattern: String, displayPath: String, fileURL: URL) -> String {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return "error: bad regex" }
+        guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            return "error: cannot read \(displayPath)"
+        }
+        let hitLimit = 100
+        var hits: [String] = []
+        for (i, line) in content.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
+            let s = String(line)
+            if regex.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil {
+                if hits.count >= hitLimit {
+                    hits.append("⚠️ Truncated: showing first \(hitLimit) matches")
+                    break
+                }
+                hits.append("\(displayPath):\(i + 1): \(s.trimmingCharacters(in: .whitespaces))")
+            }
+        }
+        return hits.isEmpty ? "(no matches)" : hits.joined(separator: "\n")
     }
 
     private func grep(pattern: String, in dir: URL) -> String {
@@ -514,5 +573,45 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         }
 
         return result
+    }
+
+    /// Line-windowed read (Claude Code Read parity): return lines
+    /// [offset, offset+limit) 1-based with an explicit range header so the
+    /// model knows exactly which window it got and can page further. The
+    /// 8000-char web bound still applies inside the window.
+    static func windowedRead(_ content: String, path: String, offset: Int, limit: Int?) -> String {
+        let lines = content.components(separatedBy: "\n")
+        let total = lines.count
+        let start = max(1, offset)
+        guard start <= total else {
+            return "error: offset \(start) is beyond the end of \(path) (\(total) lines)"
+        }
+        let end: Int
+        if let limit = limit, limit > 0 {
+            end = min(start + limit - 1, total)
+        } else {
+            end = total
+        }
+        let slice = lines[(start - 1)..<end].joined(separator: "\n")
+        let header = "[\(path): lines \(start)–\(end) of \(total)]"
+        let charCap = 8000
+        guard slice.count > charCap else { return "\(header)\n\(slice)" }
+        let head = String(slice.prefix(charCap))
+        return "\(header)\n\(head)\n\n[truncated within window: showing first \(charCap) chars of lines \(start)–\(end). Narrow the window with limit/offset to read more.]"
+    }
+
+    /// Web-chat-friendly bounded read: vendor chats split large pastes into
+    /// parts and free models answer EACH part instead of honoring the
+    /// continuation header (audit: Kimi answered mid-split, killing the turn).
+    /// 8000 chars keeps a tool_result within ~2 chunks; the range header
+    /// tells the model exactly what it got so it can request the next window.
+    static func webBoundedRead(_ content: String, path: String) -> String {
+        let limit = 8000
+        guard content.count > limit else { return content }
+        let head = content.prefix(limit)
+        let lineHint = content.count > limit
+            ? "\n\n[truncated: lines 1–\(head.filter { $0 == "\n" }.count + 1) of \(content.filter { $0 == "\n" }.count + 1); file has \(content.count) chars total. Ask to read more with a wider range if needed.]"
+            : ""
+        return head + lineHint
     }
 }

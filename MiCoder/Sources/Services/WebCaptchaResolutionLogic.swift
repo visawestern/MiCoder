@@ -15,6 +15,10 @@ enum WebCaptchaResolutionLogic {
             return .resume
         case .loggedOut:
             return .abort
+        case .limitReached:
+            // A quota/paywall page never resolves by waiting — abort the
+            // turn with an honest error instead of polling it.
+            return .abort
         case .unknown:
             return .wait
         }

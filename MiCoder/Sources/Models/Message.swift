@@ -106,6 +106,11 @@ struct Message: Identifiable {
     var reasoningEndedAt: Date?
     var attachedImages: [ClipboardImage]?
     var usage: UsageCapture?
+    // Pending tool-approval card (web agent): the driver is blocked waiting
+    // for the user to Allow/Deny this request.
+    var pendingApprovalID: String?
+    var pendingApprovalTool: String?
+    var pendingApprovalMessage: String?
 
     /// Elapsed reasoning time. While reasoning is in progress (no end
     /// timestamp yet) this measures from start to now so a live UI can show
@@ -116,8 +121,8 @@ struct Message: Identifiable {
         let end = reasoningEndedAt ?? Date()
         return end.timeIntervalSince(startedAt)
     }
-    
-    init(id: String = UUID().uuidString, serverID: String? = nil, role: MessageRole, content: String, agentName: String? = nil, toolCalls: [ToolCall]? = nil, isStreaming: Bool = false, action: MessageAction? = nil, files: [FileInfo]? = nil, command: String? = nil, tokensAdded: Int? = nil, tokensRemoved: Int? = nil, parts: [MessagePartContent] = [], reasoning: String = "", isFinished: Bool = false, reasoningStartedAt: Date? = nil, reasoningEndedAt: Date? = nil, attachedImages: [ClipboardImage]? = nil, usage: UsageCapture? = nil) {
+
+    init(id: String = UUID().uuidString, serverID: String? = nil, role: MessageRole, content: String, agentName: String? = nil, toolCalls: [ToolCall]? = nil, isStreaming: Bool = false, action: MessageAction? = nil, files: [FileInfo]? = nil, command: String? = nil, tokensAdded: Int? = nil, tokensRemoved: Int? = nil, parts: [MessagePartContent] = [], reasoning: String = "", isFinished: Bool = false, reasoningStartedAt: Date? = nil, reasoningEndedAt: Date? = nil, attachedImages: [ClipboardImage]? = nil, usage: UsageCapture? = nil, pendingApprovalID: String? = nil, pendingApprovalTool: String? = nil, pendingApprovalMessage: String? = nil) {
         self.id = id
         self.serverID = serverID
         self.role = role
@@ -138,6 +143,9 @@ struct Message: Identifiable {
         self.reasoningEndedAt = reasoningEndedAt
         self.attachedImages = attachedImages
         self.usage = usage
+        self.pendingApprovalID = pendingApprovalID
+        self.pendingApprovalTool = pendingApprovalTool
+        self.pendingApprovalMessage = pendingApprovalMessage
     }
 }
 
@@ -148,7 +156,11 @@ enum MessagePartContent: Identifiable {
     case stepStart
     case stepFinish
     case image(base64: String, mimeType: String)
-    
+    /// Route metadata chips (provider/local chat/remote chat/model/effort)
+    /// shown in the message header — NOT part of the answer text
+    /// (user directive 2026-09-08: the footer must not pollute the answer).
+    case routeInfo(chips: [String])
+
     var id: String {
         switch self {
         case .text(let t): return "text-\(t.hashValue)"
@@ -159,6 +171,7 @@ enum MessagePartContent: Identifiable {
         case .stepStart: return "step-start"
         case .stepFinish: return "step-finish"
         case .image(let b64, _): return "image-\(b64.hashValue)"
+        case .routeInfo(let chips): return "route-\(chips.joined(separator: "|").hashValue)"
         }
     }
 }

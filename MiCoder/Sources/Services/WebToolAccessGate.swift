@@ -59,11 +59,18 @@ enum WebToolAccessGate {
             "basename", "dirname", "realpath", "true", "false", "clear",
             "hostname", "id", "groups", "who", "ps", "df", "du", "free",
             "time", "xargs", "sleep", "help", "--help", "-h",
+            "sed", "nl", "less", "more", "file", "stat", "md5", "md5sum",
+            "shasum", "sha256sum", "column",
         ]
         let readOnlyGit: Set<String> = [
             "status", "log", "diff", "show", "branch", "stash", "remote",
             "ls-files", "config", "rev-parse", "rev-list", "symbolic-ref", "tag",
         ]
+        // Live 2026-09-12 (last chat): `sed` is in the allowlist for its
+        // read-only print form but `sed` CAN mutate files (`sed -i`). Any
+        // mutating flag disables the shortcut — only pure print/extraction
+        // invocations run without approval.
+        let mutatingSedFlags: Set<String> = ["-i", "--in-place", "-i.bak"]
 
         var inQuote: Character?
         var current = ""
@@ -103,7 +110,14 @@ enum WebToolAccessGate {
         for sub in subcommands where !sub.isEmpty {
             let cmd = sub[0].lowercased()
             if cmd.hasPrefix("-") { continue }          // flag-only invocation (e.g. `-x e`)
-            if safe.contains(cmd) { continue }
+            if safe.contains(cmd) {
+                // sed is read-only ONLY in print form: `sed -i` rewrites the
+                // file in place. Any in-place flag falls through to approval.
+                if cmd == "sed", sub.dropFirst().contains(where: { mutatingSedFlags.contains($0) || $0.hasPrefix("-i") }) {
+                    return false
+                }
+                continue
+            }
             if cmd == "git", sub.count > 1, readOnlyGit.contains(sub[1].lowercased()) {
                 continue
             }

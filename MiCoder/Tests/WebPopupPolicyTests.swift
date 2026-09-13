@@ -44,4 +44,30 @@ struct WebPopupPolicyTests {
         #expect(WebPopupPolicy.promptResponse(defaultText: "prefilled") == "prefilled")
         #expect(WebPopupPolicy.promptResponse(defaultText: nil) == "")
     }
+
+    // MARK: - OAuth popups open in a VISIBLE window (audit 2026-09-06)
+    // Live evidence: kimi.ai "Continue with Google" opens window.open to
+    // accounts.google.com — in-place loading wiped the vendor page, and an
+    // unattached adopted view left the user with nothing to click.
+
+    @Test("Google OAuth popup opens in a window, never in place")
+    func googleOAuthShowsInWindow() {
+        let url = "https://accounts.google.com/o/oauth2/v2/auth?client_id=x"
+        let action = WebPopupPolicy.popupAction(requestURL: url)
+        #expect(action == .showInWindow(url))
+    }
+
+    @Test("Apple and Microsoft identity popups open in a window")
+    func otherOAuthProvidersShowInWindow() {
+        #expect(WebPopupPolicy.popupAction(requestURL: "https://appleid.apple.com/auth") == .showInWindow("https://appleid.apple.com/auth"))
+        #expect(WebPopupPolicy.popupAction(requestURL: "https://login.microsoftonline.com/x") == .showInWindow("https://login.microsoftonline.com/x"))
+    }
+
+    @Test("OAuth detection matches subdomains and rejects ordinary sites")
+    func oauthHostMatching() {
+        #expect(WebPopupPolicy.isOAuthURL("https://tenant.auth0.com/authorize"))
+        #expect(!WebPopupPolicy.isOAuthURL("https://www.kimi.ai/"))          // vendor page, not identity
+        #expect(!WebPopupPolicy.isOAuthURL("https://chatgpt.com/"))
+        #expect(!WebPopupPolicy.isOAuthURL(nil))
+    }
 }

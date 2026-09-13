@@ -67,7 +67,7 @@ struct SidebarView: View {
                                 )
                             }
                         }
-                        
+
                         if appState.displayedWorkspaces.isEmpty {
                             Text(appState.workspaces.isEmpty ? L.t("No workspaces") : "No matching workspaces")
                                 .interfaceFont(size: 12)
@@ -76,6 +76,11 @@ struct SidebarView: View {
                                 .padding(.top, 8)
                         }
                     }
+
+                    // Standalone chats (audit 2026-09-08): conversations without
+                    // a project — API chats, quick questions — persist in the
+                    // global DB and stay visible here (user directive).
+                    StandaloneChatsSection()
                 }
             }
             
@@ -917,6 +922,85 @@ struct SessionTaskRow: View {
                 : Color.clear
         )
         .cornerRadius(6)
+    }
+}
+
+/// Sidebar group for standalone chats — conversations that do not belong to
+/// any project (audit 2026-09-08, user directive: such chats used to disappear
+/// because nothing listed them). Persisted in the global DB; synthetic
+/// workspace keeps SessionTaskRow happy.
+struct StandaloneChatsSection: View {
+    @EnvironmentObject var appState: AppState
+    @State private var hoveredSessionID: String?
+
+    private var standaloneWorkspace: Workspace { appState.standaloneWorkspace }
+
+    var body: some View {
+        let sessions = appState.standaloneSessions
+        if !sessions.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.mimo.cyan.opacity(0.2))
+                            .frame(width: 28, height: 28)
+                        Image(systemName: "bubble.left")
+                            .interfaceFont(size: 12)
+                            .foregroundColor(Color.mimo.cyan)
+                    }
+
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            appState.standaloneChatsExpanded.toggle()
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Text(L.t("Chats"))
+                                .interfaceFont(size: 12, weight: .medium)
+                                .foregroundColor(Color.mimo.textPrimary)
+                                .lineLimit(1)
+                            Image(systemName: appState.standaloneChatsExpanded ? "chevron.down" : "chevron.right")
+                                .interfaceFont(size: 9)
+                                .foregroundColor(Color.mimo.textMuted)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer(minLength: 0)
+
+                    Text("\(sessions.count)")
+                        .interfaceFont(size: 11)
+                        .foregroundColor(Color.mimo.textMuted)
+
+                    Button(action: { appState.startNewTask(in: nil) }) {
+                        Image(systemName: "plus.circle")
+                            .interfaceFont(size: 13)
+                            .foregroundColor(Color.mimo.textMuted)
+                    }
+                    .buttonStyle(.plain)
+                    .help(L.t(AppLocalizationKey.locNewTask))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+
+                if appState.standaloneChatsExpanded {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(SidebarSessionLimitLogic.visible(sessions)) { session in
+                            SessionTaskRow(
+                                session: session,
+                                workspace: standaloneWorkspace,
+                                groupColor: Color.mimo.cyan,
+                                isHovered: hoveredSessionID == session.id
+                            )
+                            .onHover { hovering in
+                                hoveredSessionID = hovering ? session.id : nil
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

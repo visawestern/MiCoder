@@ -139,6 +139,28 @@ class DatabaseBridge: ObservableObject {
         }
         return []
     }
+
+    /// Load persisted standalone chats (no workspace) from the global
+    /// database (audit 2026-09-08). Messages for these sessions already
+    /// route through the global store (`isTemporarySession`), so loading the
+    /// session rows is enough to restore them across restarts.
+    func loadStandaloneSessions() -> [ChatSession] {
+        let records = (try? db.getAllSessionsAcrossProjects()) ?? []
+        return records
+            .filter { $0.projectId == ChatSession.standaloneProjectKey && !$0.isArchived }
+            .map { record in
+                ChatSession(
+                    id: record.id,
+                    title: record.title,
+                    createdAt: record.createdAt,
+                    updatedAt: record.updatedAt,
+                    directory: ChatSession.standaloneProjectKey,
+                    branch: record.branch,
+                    gitSummary: nil,
+                    sessionGoal: nil
+                )
+            }
+    }
     
     /// Создать новую сессию (upsert — обновляет если существует). Пишет в
     /// per-project БД, резолвленную по `projectId`. Сессия без существующего
@@ -153,6 +175,27 @@ class DatabaseBridge: ObservableObject {
         modelId: String? = nil,
         providerId: String? = nil
     ) {
+        // Audit 2026-09-08: standalone chats (no workspace) persist in the
+        // GLOBAL database under the reserved `standalone` project key, so
+        // they survive restarts and stay visible in the sidebar's Chats group.
+        if projectId == ChatSession.standaloneProjectKey {
+            do {
+                try db.insertSession(
+                    id: id,
+                    projectId: ChatSession.standaloneProjectKey,
+                    title: title,
+                    directory: directory,
+                    branch: branch,
+                    agentMode: agentMode,
+                    modelId: modelId,
+                    providerId: providerId
+                )
+            } catch {
+                print("❌ Failed to create standalone session: \(error)")
+            }
+            return
+        }
+
         // A project may legitimately live under the OS temporary directory
         // (tests, scratch workspaces, and disposable clones). Use the global
         // database only when the directory is temporary AND projectId is not a
@@ -264,7 +307,10 @@ class DatabaseBridge: ObservableObject {
                 )
                 // Persist every part (text, reasoning, tool_call, steps, images)
                 // exactly like project sessions, so temp sessions reload with
-                // their tool calls intact instead of losing them.
+                // their tool calls intact instead of losing them. Stale rows
+                // are cleared first: a message is re-saved on every update and
+                // a removed part must not linger next to the fresh set.
+                try db.deleteMessageParts(messageId: message.id)
                 for (index, part) in message.parts.enumerated() {
                     try saveMessagePart(part, messageId: message.id, sequenceOrder: index, insert: db.insertMessagePart)
                 }
@@ -288,6 +334,8 @@ class DatabaseBridge: ObservableObject {
                 reasoning: message.reasoning.isEmpty ? nil : message.reasoning,
                 usage: message.usage
             )
+            // Stale rows are cleared first (see the temp-session branch above).
+            try projectDB.deleteMessageParts(messageId: message.id)
             for (index, part) in message.parts.enumerated() {
                 try saveMessagePart(part, messageId: message.id, sequenceOrder: index, insert: projectDB.insertMessagePart)
             }
@@ -314,26 +362,53 @@ class DatabaseBridge: ObservableObject {
         sequenceOrder: Int,
         insert: MessagePartInserter
     ) throws {
-        let partId = UUID().uuidString
-        
+        // Stable part id: a tool call keeps its callID so repeated saves of
+        // the same part REPLACE the row instead of stacking duplicates (an
+        // update per streaming poll used to multiply parts ×N). Other part
+        // types derive a deterministic id from their content.
+        let partId: String
+        switch part {
+        case .toolCall(_, _, _, let callId):
+            partId = callId ?? "\(messageId)-tool-\(sequenceOrder)"
+        case .routeInfo:
+            partId = "\(messageId)-route-\(sequenceOrder)"
+        case .text(let text):
+            partId = "\(messageId)-text-\(text.hashValue)-\(sequenceOrder)"
+        case .reasoning(let text):
+            partId = "\(messageId)-reasoning-\(text.hashValue)-\(sequenceOrder)"
+        case .stepStart:
+            partId = "\(messageId)-step-start-\(sequenceOrder)"
+        case .stepFinish:
+            partId = "\(messageId)-step-finish-\(sequenceOrder)"
+        case .image(let base64, _):
+            partId = "\(messageId)-image-\(base64.hashValue)-\(sequenceOrder)"
+        }
+
         switch part {
         case .text(let text):
             try insert(partId, messageId, "text", text, nil, nil, nil, nil, sequenceOrder)
-            
+
         case .reasoning(let text):
             try insert(partId, messageId, "reasoning", text, nil, nil, nil, nil, sequenceOrder)
-            
+
         case .toolCall(let name, let args, let result, let callId):
             try insert(partId, messageId, "tool_call", nil, name, args, result, callId, sequenceOrder)
-            
+
         case .stepStart:
             try insert(partId, messageId, "step_start", nil, nil, nil, nil, nil, sequenceOrder)
-            
+
         case .stepFinish:
             try insert(partId, messageId, "step_finish", nil, nil, nil, nil, nil, sequenceOrder)
-            
+
         case .image(let base64, let mimeType):
             try insert(partId, messageId, "image", "\(mimeType)|\(base64)", nil, nil, nil, nil, sequenceOrder)
+
+        case .routeInfo(let chips):
+            let data = (try? JSONSerialization.data(withJSONObject: chips, options: []))
+                ?? Data("[]".utf8)
+            try insert(partId, messageId, "route_info",
+                       String(data: data, encoding: .utf8) ?? "[]",
+                       nil, nil, nil, nil, sequenceOrder)
         }
     }
     
@@ -456,6 +531,13 @@ class DatabaseBridge: ObservableObject {
                 return .image(base64: base64, mimeType: mimeType)
             }
             return .text("")
+        case "route_info":
+            if let content,
+               let data = content.data(using: .utf8),
+               let chips = try? JSONSerialization.jsonObject(with: data) as? [String] {
+                return .routeInfo(chips: chips)
+            }
+            return .routeInfo(chips: [])
         default:
             return .text("")
         }

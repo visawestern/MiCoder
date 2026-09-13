@@ -11,11 +11,18 @@ struct WebSendCompletionLogicTests {
 
     @Test("failure and user-action events are not completed sends")
     func failureDoesNotComplete() {
-        #expect(!WebSendCompletionLogic.recordsCompletion(for: .error("timeout")))
         #expect(!WebSendCompletionLogic.recordsCompletion(for: .loggedOut))
         #expect(!WebSendCompletionLogic.recordsCompletion(for: .captchaDetected(screenshotPNG: Data())))
         #expect(!WebSendCompletionLogic.recordsCompletion(for: .iterationLimitReached))
         #expect(!WebSendCompletionLogic.recordsCompletion(for: .modelInjectionFailed("not found")))
+    }
+
+    @Test("honest turn error concludes the turn without a second verdict line")
+    func honestErrorCompletes() {
+        // Audit 2026-09-09: the bubble already carries the real error text;
+        // without this the caller appends a misleading "did not produce a
+        // verified final answer" line after it.
+        #expect(WebSendCompletionLogic.recordsCompletion(for: .error("timeout")))
     }
 
     @Test("blank final answer is not a successful completion")

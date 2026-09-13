@@ -21,6 +21,12 @@ struct ChatPanelView: View {
     @State private var activeWebChatID: String?
     @State private var webCatalogRefreshKeys: Set<String> = []
     @State private var captchaSolverContext: WebCaptchaSolverContext?
+    /// Approval mailbox of the CURRENT web-agent turn: the Allow/Deny card
+    /// resolves the pending request through this box.
+    @State private var activeApprovalBox: WebToolApprovalBox?
+    /// Minimap vs half-chat panel (user directive 2026-09-09: minimap by
+    /// default, expand on tap). Persisted so the choice survives restarts.
+    @AppStorage("micoder.webBrowserPanelExpanded") private var webBrowserPanelExpanded = false
     #endif
     private let sseClient = SSEClient()
     private let db = DatabaseManager.shared
@@ -38,16 +44,30 @@ struct ChatPanelView: View {
             }
 
             #if canImport(WebKit)
-            // Keep the persistent chat WKWebView attached to the window. A
-            // detached zero-sized WKWebView can load login pages but cannot
-            // reliably execute DOM events during a real send.
-            if let webConfig = appState.selectedWebProviderConfig {
-                let projectID = appState.selectedWorkspace?.id ?? appState.selectedWorkspace?.path ?? "global"
-                let chatID = activeWebChatID ?? appState.selectedSession?.id ?? "provider-default"
-                WebViewRepresentable(webView: appState.webView(for: webConfig, projectID: projectID, chatID: chatID), url: webConfig.chatURL)
-                    .frame(width: 2, height: 2)
-                    .opacity(0.01)
-                    .allowsHitTesting(false)
+            // User directive 2026-09-09: for a web provider the live vendor
+            // page is VISIBLE in the chat — a small minimap thumbnail by
+            // default (bottom-trailing overlay, expands on tap), or the
+            // half-chat panel when expanded. Both re-parent the same pooled
+            // WKWebView, so the page — login, conversation, in-flight
+            // stream — survives across requests; switching chats moves the
+            // panel to that chat's webview ("another tab of the same site").
+            // Non-web providers leave the panel as is.
+            if webBrowserPanelExpanded,
+               let panelConfig = appState.webBrowserPanelConfig,
+               let webConfig = WebProviderStore.load().first(where: { $0.id == panelConfig.providerID }) {
+                WebProviderBrowserPanel(
+                    config: panelConfig,
+                    isExpanded: true,
+                    onExpand: { webBrowserPanelExpanded = true },
+                    onCollapseToMini: { webBrowserPanelExpanded = false },
+                    onHide: { appState.hideWebBrowserPanel() }
+                ) { size in
+                    let webView = appState.webView(for: webConfig,
+                                                    projectID: panelConfig.projectID,
+                                                    chatID: panelConfig.chatID)
+                    WebProviderBrowserPanelRepresentable(webView: webView, config: panelConfig)
+                        .frame(width: size.width, height: size.height)
+                }
             }
             #endif
 
@@ -197,6 +217,32 @@ struct ChatPanelView: View {
         }
         .background(Color.mimo.background)
         #if canImport(WebKit)
+        .overlay(alignment: .bottomTrailing) {
+            // Minimap mode: small live thumbnail floating at the chat's
+            // bottom-trailing corner (user directive 2026-09-09). Tapping
+            // expands to the half-chat panel; the pooled webview stays
+            // alive in both modes.
+            if !webBrowserPanelExpanded,
+               let panelConfig = appState.webBrowserPanelConfig,
+               let webConfig = WebProviderStore.load().first(where: { $0.id == panelConfig.providerID }) {
+                WebProviderBrowserPanel(
+                    config: panelConfig,
+                    isExpanded: false,
+                    onExpand: { webBrowserPanelExpanded = true },
+                    onCollapseToMini: { webBrowserPanelExpanded = false },
+                    onHide: { appState.hideWebBrowserPanel() }
+                ) { size in
+                    let webView = appState.webView(for: webConfig,
+                                                    projectID: panelConfig.projectID,
+                                                    chatID: panelConfig.chatID)
+                    WebProviderBrowserPanelRepresentable(webView: webView, config: panelConfig)
+                        .frame(width: size.width, height: size.height)
+                }
+                .padding(.trailing, 16)
+                .padding(.bottom, 64)
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
         .sheet(item: $captchaSolverContext) { context in
             WebCaptchaSolverView(context: context)
         }
@@ -210,6 +256,15 @@ struct ChatPanelView: View {
                     isLoading: appState.isLoading
                 ) else { return }
                 loadSessionMessages(sessionID: sessionID)
+                #if canImport(WebKit)
+                // User directive 2026-09-09: moving to another chat/project
+                // surfaces THAT chat's pooled webview ("another tab of the
+                // same site") when one exists; otherwise the panel keeps
+                // showing whatever it showed.
+                let projectID = appState.selectedWorkspace?.id
+                    ?? appState.selectedWorkspace?.path ?? "global"
+                appState.showPanelForChatIfPooled(projectID: projectID, chatID: sessionID)
+                #endif
             } else {
                 messageStore.clear()
                 messageText = ""
@@ -273,6 +328,22 @@ struct ChatPanelView: View {
             guard let answers = notification.userInfo?["answers"] as? [[String]] else { return }
             submitQuestionAnswers(answers)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .webToolApprovalResolved)) { notification in
+            guard let approvalID = notification.userInfo?["approvalID"] as? String,
+                  let approved = notification.userInfo?["approved"] as? Bool else { return }
+            activeApprovalBox?.resolve(id: approvalID, approved: approved)
+            // Clear the card from the assistant message: the driver resumes
+            // with the verdict and the turn continues.
+            if let idx = messageStore.messages.firstIndex(where: {
+                $0.pendingApprovalID == approvalID
+            }) {
+                messageStore.update(id: messageStore.messages[idx].id) { m in
+                    m.pendingApprovalID = nil
+                    m.pendingApprovalTool = nil
+                    m.pendingApprovalMessage = nil
+                }
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .copyEntireChat)) { _ in
             switch ChatCopyLogic.result(from: messageStore.messages) {
             case .empty:
@@ -334,18 +405,28 @@ struct ChatPanelView: View {
             // the mimo CLI — so we flag it and load straight into the store.
             var useLocalFallback = false
             do {
-                let serverMessages = try await appState.mimoClient.getMessages(
-                    sessionID: sessionID,
-                    limit: initialLimit
-                )
-                if serverMessages.isEmpty {
-                    useLocalFallback = true
-                } else {
-                    messages = serverMessages
-                    hasMoreMessages = MessageHistoryPaginationLogic.hasMore(
-                        receivedCount: serverMessages.count,
-                        requestedLimit: initialLimit
+                // Standalone/local-only chats were never on the server: asking
+                // it first hangs the load on a slow/routing-broken connection
+                // (default URLSession timeout is 60s) and the chat looks
+                // empty for a minute. A disconnected server fails fast, but a
+                // half-open one does not — probe cheaply and go straight to
+                // the local DB when the server is known-down.
+                if appState.serverConnected {
+                    let serverMessages = try await appState.mimoClient.getMessages(
+                        sessionID: sessionID,
+                        limit: initialLimit
                     )
+                    if serverMessages.isEmpty {
+                        useLocalFallback = true
+                    } else {
+                        messages = serverMessages
+                        hasMoreMessages = MessageHistoryPaginationLogic.hasMore(
+                            receivedCount: serverMessages.count,
+                            requestedLimit: initialLimit
+                        )
+                    }
+                } else {
+                    useLocalFallback = true
                 }
             } catch {
                 useLocalFallback = true
@@ -427,6 +508,24 @@ struct ChatPanelView: View {
                         title: remote.title,
                         directory: workspace.path,
                         branch: workspace.branch,
+                        agentMode: appState.agentMode.rawValue,
+                        modelId: appState.selectedModel.isEmpty ? nil : appState.selectedModel,
+                        providerId: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID
+                    )
+                } else {
+                    // Audit 2026-09-09: a serve-route chat started with NO
+                    // workspace got no DB row at all (only the `if let
+                    // workspace` branch persisted) — after restart it
+                    // vanished from the sidebar even though its messages
+                    // live in the global DB under the server session id.
+                    // Persist it as standalone so it survives and shows in
+                    // the Chats group like every other workspace-less chat.
+                    DatabaseBridge.shared.createSession(
+                        id: remote.id,
+                        projectId: ChatSession.standaloneProjectKey,
+                        title: remote.title,
+                        directory: ChatSession.standaloneProjectKey,
+                        branch: nil,
                         agentMode: appState.agentMode.rawValue,
                         modelId: appState.selectedModel.isEmpty ? nil : appState.selectedModel,
                         providerId: appState.selectedProviderID.isEmpty ? nil : appState.selectedProviderID
@@ -1352,13 +1451,17 @@ struct ChatPanelView: View {
         let refreshKey = "\(effectiveConfig.id)|\(projectID)|\(chatID)"
         webCatalogRefreshKeys.remove(refreshKey)
         let webView = appState.webView(for: effectiveConfig, projectID: projectID, chatID: chatID)
+        // User directive 2026-09-09: surface this provider's live page in the
+        // in-chat mini browser BEFORE the turn runs, so the user watches the
+        // actual load/typing/answer instead of a hidden offscreen window.
+        appState.showWebBrowserPanel(for: effectiveConfig, projectID: projectID, chatID: chatID)
         // Resolve vendor-specific selectors from the catalog.
         let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: effectiveConfig.vendor.id)
         let selectors = WebVendorSelectors(
             input: catalogEntry?.input ?? "textarea, div[contenteditable='true']",
             sendButton: catalogEntry?.sendButton ?? "button[type='submit'], button[aria-label*='end'], button[data-testid='send-button'], .send-button-container",
             responseContainer: catalogEntry?.responseContainer ?? "div[data-message-author-role='assistant'], div[class*='markdown'], div[class*='message']",
-            stopButton: catalogEntry?.stopButton ?? "button[aria-label*='top'], button[data-testid='stop-button'], button[class*='stop']"
+            stopButton: catalogEntry?.stopButton ?? ".send-button-container.stop, button[aria-label*='top'], button[data-testid='stop-button'], button[class*='stop']"
         )
         let bridge = WKWebViewBrowserBridge(webView: webView, selectors: selectors)
 
@@ -1378,10 +1481,27 @@ struct ChatPanelView: View {
             }
         }
         do {
-            let targetHost = URL(string: effectiveConfig.chatURL)?.host
-            let alreadyOnVendorPage = webView.url?.host != nil && webView.url?.host == targetHost
-            if !alreadyOnVendorPage {
-                try await bridge.navigate(to: effectiveConfig.chatURL)
+            // Audit 2026-09-08/09: host-only matching kept turns running on
+            // the wrong PRODUCT surface. Require the surface matching the
+            // selected model (Kimi K3/K3 Swarm live on /agent — navigating
+            // "back" to the chat URL resets the choice to Fast and blocks
+            // the send; plain chat models must NOT sit on /agent).
+            let currentURL = webView.url?.absoluteString ?? ""
+            let onChatSurface = !currentURL.isEmpty && WebChatSurfaceLogic.isChatSurface(
+                urlString: currentURL,
+                chatURL: effectiveConfig.chatURL,
+                vendor: effectiveConfig.vendor,
+                selectedModel: effectiveConfig.selectedModel
+            )
+            if !onChatSurface {
+                // Kimi agent models (K3/K3 Swarm) live on /agent: a fresh or
+                // drifted webview must land THERE, not on the plain chat URL
+                // (which would reset the choice to Fast).
+                try await bridge.navigate(to: WebChatSurfaceLogic.targetSurfaceURL(
+                    chatURL: effectiveConfig.chatURL,
+                    vendor: effectiveConfig.vendor,
+                    selectedModel: effectiveConfig.selectedModel
+                ))
             }
             if let payload = restorationPayload, !payload.localStorage.isEmpty {
                 do {
@@ -1425,8 +1545,28 @@ struct ChatPanelView: View {
         // baseline (binding + injection take seconds), and a post-send baseline
         // would make awaitResponse wait for changes that never come.
         let preSendFingerprint = (try? await bridge.responseFingerprint(selector: selectors.responseContainer)) ?? ""
+        // Audit 2026-09-08: SmartSend submits the RAW user text, but on the
+        // FIRST turn of a mapped conversation the tool-protocol preamble MUST
+        // reach the model — without it live models answer "I have no file
+        // access" (Qwen evidence) and the agent loop never starts. Prepend the
+        // same preamble runTurn would have used; runTurn receives skipSend and
+        // will not duplicate it.
+        let smartSendWorkspacePath = appState.selectedWorkspace?.path ?? FileManager.default.currentDirectoryPath
+        let smartSendIsFirstTurn = appState.webSessionIsFirstTurn(appState.webRemoteChatKey(
+            for: effectiveConfig, projectID: projectID, chatID: chatID
+        ))
+        var smartSendMessage = text
+        if smartSendIsFirstTurn {
+            let preamble = WebToolProtocolEmulator.systemPreamble(
+                userSystemPrompt: effectiveConfig.systemPrompt,
+                projectRoot: smartSendWorkspacePath,
+                directory: smartSendWorkspacePath,
+                isGitRepo: (try? GitRepository.repositoryRoot(for: smartSendWorkspacePath)) != nil
+            )
+            smartSendMessage = preamble + "\n\n---\n\n" + text
+        }
         let smartSendResult = await trySmartSendFallback(
-            config: effectiveConfig, bridge: bridge, message: text
+            config: effectiveConfig, bridge: bridge, message: smartSendMessage
         )
         let skipDriverSend = smartSendResult.success
         if smartSendResult.success {
@@ -1452,6 +1592,10 @@ struct ChatPanelView: View {
         // write/edit tool calls snapshot, record undo entries and history rows.
         // E12: run_command executes only at .fullAccess (gate enforced here).
         let workspacePath = appState.selectedWorkspace?.path ?? FileManager.default.currentDirectoryPath
+        // Shared approval mailbox: the driver posts requests here and blocks
+        // in awaitAnswer until the user resolves the Allow/Deny card.
+        let approvalBox = WebToolApprovalBox()
+        activeApprovalBox = approvalBox
         var executor = ProjectWebToolExecutor(
             projectRoot: workspacePath,
             undoManager: (try? ProjectUndoManager(projectPath: workspacePath)),
@@ -1461,15 +1605,25 @@ struct ChatPanelView: View {
         executor.bridge = bridge
         executor.selectors = selectors
         let driver = WebChatDriver(bridge: bridge, executor: executor, selectors: selectors,
-                                   config: effectiveConfig, projectRoot: workspacePath, accessLevel: appState.accessLevel)
+                                   config: effectiveConfig, projectRoot: workspacePath, accessLevel: appState.accessLevel,
+                                   approvalBox: approvalBox)
 
-        let remoteMapping: WebRemoteChatMapping
+        // Whether this local chat ever started a remote session — must be
+        // known BEFORE binding: a first turn must open a genuinely fresh
+        // remote chat, never land in the currently-open conversation.
+        let preBindKey = appState.webRemoteChatKey(for: effectiveConfig,
+                                                   projectID: projectID,
+                                                   chatID: chatID)
+        let isFirstTurnForBinding = appState.webSessionIsFirstTurn(preBindKey)
+        let remoteMapping: WebRemoteChatMapping?
         do {
             remoteMapping = try await bindWebRemoteChat(driver: driver,
                                                         bridge: bridge,
                                                         config: effectiveConfig,
                                                         projectID: projectID,
-                                                        chatID: chatID)
+                                                        chatID: chatID,
+                                                        freshSubmitPending: skipDriverSend,
+                                                        isFirstTurn: isFirstTurnForBinding)
         } catch {
             appState.recordWebBrowserAction(action: "remote_chat_binding_failed",
                                             config: effectiveConfig,
@@ -1492,16 +1646,32 @@ struct ChatPanelView: View {
                                         chatID: chatID,
                                         modelID: effectiveConfig.selectedModel,
                                         effort: appState.selectedWebEffort,
-                                        remoteChatID: remoteMapping.remoteChatID,
-                                        detail: "WKWebView background send bound to verified remote chat")
+                                        remoteChatID: remoteMapping?.remoteChatID,
+                                        detail: remoteMapping == nil
+                                            ? "WKWebView background send; remote chat id will be bound after the first message lands (SPA vendor)"
+                                            : "WKWebView background send bound to verified remote chat")
 
         // Send the tool-protocol preamble only on the first mapped conversation;
         // later turns continue exactly that remote conversation.
-        let isFirst = appState.webSessionIsFirstTurn(remoteMapping.key)
-        appState.markWebSessionStarted(remoteMapping.key)
+        let bindingKey = remoteMapping?.key ?? appState.webRemoteChatKey(for: effectiveConfig,
+                                                                         projectID: projectID,
+                                                                         chatID: chatID)
+        let isFirst = appState.webSessionIsFirstTurn(bindingKey)
+        appState.markWebSessionStarted(bindingKey)
         let retrySignal = WebChatRetrySignal()
         let approvalSignal = WebChatApprovalSignal()
         let completionSignal = WebChatCompletionSignal()
+        // Live tool-call parts for THIS assistant message: each toolCall event
+        // appends a part (result == nil → running); the matching toolResult
+        // fills it in. The final answer lands in m.content, so spoilers and
+        // answer text never overwrite each other.
+        let toolPartsBox = WebToolPartsBox()
+        // User directive 2026-09-11: NOTHING the model produced may be wiped
+        // from the chat. Kimi streams "thinking" prose first, then the answer;
+        // tool rounds produce an answer after each round. Every accepted
+        // text snapshot is kept in the accumulator and displayed as
+        // previous-content + latest snapshot, so early reasoning survives.
+        let textAccumulator = WebTurnTextAccumulator()
         let presentEvent: (WebChatEvent) -> Void = { event in
             completionSignal.recordIfCompleted(event)
             if case .approvalRequired(_, let message) = event {
@@ -1509,6 +1679,14 @@ struct ChatPanelView: View {
             }
             if let reason = self.webCatalogRefreshReason(for: event) {
                 retrySignal.record(reason)
+            }
+            switch event {
+            case .toolCall(let call):
+                MiCoderAPIServer.appendLog("🧰 web toolCall: \(call.name) args=\(call.arguments)")
+            case .toolResult(let name, let result):
+                MiCoderAPIServer.appendLog("🧰 web toolResult: \(name) len=\(result.count)")
+            default:
+                break
             }
             Task { @MainActor in
                 let presentation = WebChatEventPresenter.present(event)
@@ -1522,22 +1700,79 @@ struct ChatPanelView: View {
                 case .none:
                     break
                 }
-                switch WebChatTurnMutation.mutation(for: presentation) {
-                case .replaceText(let t, let finished, let streaming):
+                switch event {
+                case .streaming(let text):
+                    // Live partial answer: APPEND to everything the model has
+                    // produced this turn (user directive 2026-09-11: never
+                    // erase earlier thinking/answers) — a growing snapshot of
+                    // the SAME message extends it, a NEW message after tool
+                    // rounds starts a fresh block. Tool spoilers persist.
+                    let merged = textAccumulator.absorb(text)
+                    let toolParts = toolPartsBox.parts
                     self.messageStore.update(id: assistantID) { m in
-                        m.content = t; m.isFinished = finished; m.isStreaming = streaming
+                        m.content = merged
+                        m.isStreaming = true
+                        if !toolParts.isEmpty { m.parts = toolParts }
                     }
-                    self.finishWebTurn()
-                case .appendStatus(let line):
+                case .toolCall(let call):
+                    // A tool round finished: close the current text block so
+                    // the post-tool answer does not graft onto it.
+                    textAccumulator.closeBlock()
+                    let partID = UUID().uuidString
+                    toolPartsBox.appendRunning(
+                        name: call.name,
+                        args: call.arguments.map { "\($0.key)=\($0.value)" }.joined(separator: " "),
+                        partID: partID
+                    )
+                    let toolParts = toolPartsBox.parts
                     self.messageStore.update(id: assistantID) { m in
-                        m.content = m.content.isEmpty ? line : "\(m.content)\n\(line)"
-                        m.isStreaming = false
+                        m.parts = toolParts
+                        m.isStreaming = true
                     }
-                    if WebChatEventPresenter.blocksUntilUserAction(event) || line.contains("fresh session") {
-                        self.appState.resetWebSession(remoteMapping.key)
+                case .toolResult(let name, let result):
+                    toolPartsBox.completeLast(name: name, result: result)
+                    let toolParts = toolPartsBox.parts
+                    self.messageStore.update(id: assistantID) { m in
+                        m.parts = toolParts
+                        m.isStreaming = true
                     }
-                case .none:
-                    break
+                case .approvalRequest(let request):
+                    // Interactive Allow/Deny card: the driver is blocked in
+                    // awaitAnswer until the user resolves it.
+                    let toolParts = toolPartsBox.parts
+                    self.messageStore.update(id: assistantID) { m in
+                        if !toolParts.isEmpty { m.parts = toolParts }
+                        m.pendingApprovalID = request.id
+                        m.pendingApprovalTool = request.tool
+                        m.pendingApprovalMessage = request.message
+                        m.isStreaming = true
+                    }
+                default:
+                    switch WebChatTurnMutation.mutation(for: presentation) {
+                    case .replaceText(let t, let finished, let streaming):
+                        // Final answer: keep the accumulated thinking/answers
+                        // and APPEND the final block (user directive
+                        // 2026-09-11: nothing produced may be erased).
+                        let merged = textAccumulator.absorbFinal(t)
+                        self.messageStore.update(id: assistantID) { m in
+                            m.content = merged; m.isFinished = finished; m.isStreaming = streaming
+                            // Keep the tool spoilers: parts survive the
+                            // final answer instead of being wiped.
+                            if !toolPartsBox.parts.isEmpty { m.parts = toolPartsBox.parts }
+                        }
+                        self.finishWebTurn()
+                    case .appendStatus(let line):
+                        self.messageStore.update(id: assistantID) { m in
+                            m.content = m.content.isEmpty ? line : "\(m.content)\n\(line)"
+                            m.isStreaming = false
+                            if !toolPartsBox.parts.isEmpty { m.parts = toolPartsBox.parts }
+                        }
+                        if WebChatEventPresenter.blocksUntilUserAction(event) || line.contains("fresh session") {
+                            self.appState.resetWebSession(bindingKey)
+                        }
+                    case .none:
+                        break
+                    }
                 }
             }
         }
@@ -1555,6 +1790,37 @@ struct ChatPanelView: View {
         // once, reload the persisted model/profile snapshot, and retry exactly
         // once; never create a second assistant bubble or a second remote chat.
         var finalConfig = effectiveConfig
+        // Audit 2026-09-08 (Kimi SPA): when binding was postponed, capture the
+        // remote chat id AFTER the send — the page URL/DOM gains it once the
+        // first message lands. Later turns then navigate to this conversation.
+        // The SPA updates its URL asynchronously after submit; binding
+        // immediately can capture a STALE id (live: sidebar top link of the
+        // previous chat). Wait for the URL to carry a chat id first.
+        var boundMapping = remoteMapping
+        if boundMapping == nil {
+            for _ in 0..<20 {
+                let currentURL = (try? await bridge.currentURL()) ?? ""
+                if SendSubmissionPolicy.urlHasChatID(currentURL) { break }
+                await bridge.wait(ms: 500)
+            }
+            // Bind ONLY when the URL itself carries the id (see second
+            // binding attempt below for why sidebar candidates are stale).
+            // The id comes from the same approved URL string (no live re-read).
+            if let remote = await currentRemoteChat(bridge: bridge,
+                                                 config: effectiveConfig),
+               SendSubmissionPolicy.urlHasChatID(remote.url) {
+                let canonical = WebRemoteChatIdentityLogic.canonicalURL(
+                    baseURL: remote.url,
+                    vendor: effectiveConfig.vendor,
+                    chatID: remote.id
+                ) ?? remote.url
+                boundMapping = WebRemoteChatMapping(key: bindingKey,
+                                                    remoteChatID: remote.id,
+                                                    remoteURL: canonical,
+                                                    verifiedTitle: appState.selectedSession?.title)
+                appState.saveWebRemoteChatMapping(boundMapping!)
+            }
+        }
         if let approvalMessage = approvalSignal.take() {
             appState.recordWebBrowserAction(action: "send_blocked_approval",
                                             config: effectiveConfig,
@@ -1562,7 +1828,7 @@ struct ChatPanelView: View {
                                             chatID: chatID,
                                             modelID: effectiveConfig.selectedModel,
                                             effort: appState.selectedWebEffort,
-                                            remoteChatID: remoteMapping.remoteChatID,
+                                            remoteChatID: boundMapping?.remoteChatID,
                                             detail: approvalMessage)
             messageStore.update(id: assistantID) { message in
                 message.isFinished = true
@@ -1573,7 +1839,7 @@ struct ChatPanelView: View {
         }
         if retrySignal.take() != nil {
             appendWebStatus(to: assistantID, line: "Refreshing model catalog before retry…")
-            self.appState.resetWebSession(remoteMapping.key)
+            self.appState.resetWebSession(bindingKey)
             _ = await appState.refreshWebModelsAndEffort(for: effectiveConfig,
                                                          projectID: projectID,
                                                          chatID: chatID)
@@ -1601,17 +1867,49 @@ struct ChatPanelView: View {
             finishWebTurn()
             return
         }
+        // Audit 2026-09-08: bind ONLY when the URL itself carries the id —
+        // sidebar DOM candidates can be a stale previous chat (live: Kimi
+        // bound 1a07fa07 while the real chat was 1a0808b4). The id comes from
+        // the same approved URL string (no live re-read across commits).
+        if boundMapping == nil,
+           let remote = await currentRemoteChat(bridge: bridge,
+                                                 config: effectiveConfig),
+           SendSubmissionPolicy.urlHasChatID(remote.url) {
+            let canonical = WebRemoteChatIdentityLogic.canonicalURL(
+                baseURL: remote.url,
+                vendor: effectiveConfig.vendor,
+                chatID: remote.id
+            ) ?? remote.url
+            boundMapping = WebRemoteChatMapping(key: bindingKey,
+                                                remoteChatID: remote.id,
+                                                remoteURL: canonical,
+                                                verifiedTitle: appState.selectedSession?.title)
+            appState.saveWebRemoteChatMapping(boundMapping!)
+        }
         appState.recordWebBrowserAction(action: "send_completed",
                                         config: finalConfig,
                                         projectID: projectID,
                                         chatID: chatID,
                                         modelID: finalConfig.selectedModel,
                                         effort: appState.selectedWebEffort,
-                                        remoteChatID: remoteMapping.remoteChatID,
+                                        remoteChatID: boundMapping?.remoteChatID,
                                         detail: "WebChatDriver completed")
         messageStore.update(id: assistantID) { message in
             let effortLabel = appState.selectedWebEffort?.displayName ?? "not supported"
-            message.content += "\n\nBrowser route: \(finalConfig.displayName) · local chat \(chatID) · remote chat \(remoteMapping.remoteChatID) · model \(finalConfig.selectedModel.isEmpty ? "auto" : finalConfig.selectedModel) · effort \(effortLabel)"
+            let remoteID = boundMapping?.remoteChatID ?? "pending"
+            // User directive 2026-09-08: route metadata must NEVER be part of
+            // the answer text. It ships as a routeInfo part rendered as chips
+            // in the message header (provider · model · effort · remote chat).
+            let chips: [String] = [
+                finalConfig.displayName,
+                finalConfig.selectedModel.isEmpty ? "auto" : finalConfig.selectedModel,
+                "effort \(effortLabel)",
+                "chat \(remoteID)"
+            ]
+            var routeParts = message.parts
+            routeParts.removeAll { if case .routeInfo = $0 { return true } else { return false } }
+            routeParts.append(.routeInfo(chips: chips))
+            message.parts = routeParts
         }
         finishWebTurn()
         #else
@@ -1647,11 +1945,41 @@ struct ChatPanelView: View {
     }
 
     @MainActor
+    /// Binding contract:
+    /// - Existing mapping → navigate to that remote chat (must verify) —
+    ///   later turns continue exactly that conversation.
+    /// - Fresh chat with a visible remote id → reuse it.
+    /// - Fresh chat with NO id (audit 2026-09-08, Kimi SPA): return nil and
+    ///   let the caller send first, then bind the id the page gains after the
+    ///   send. Blocking the FIRST send because a URL has no id yet made Kimi
+    ///   unusable; context mixing is impossible on a brand-new conversation.
+    /// - freshSubmitPending (SmartSend already submitted): NEVER click "New
+    ///   Chat" — the SPA URL may lag behind the submit and wiping the fresh
+    ///   conversation (live: ChatGPT submit verified, then startNewSession
+    ///   navigated home and discarded it).
+    /// Current remote conversation from the live page URL — the single
+    /// authoritative source for binding (audit 2026-09-08). Sidebar DOM
+    /// candidates are NEVER used here: without a matching URL they are links
+    /// to some other conversation (live: ChatGPT bound "WEB:f8f76…" and Kimi
+    /// bound a previous chat while the real chat was created after the send).
+    /// The id is derived from the SAME url string (no live re-read race).
+    private func currentRemoteChat(bridge: WKWebViewBrowserBridge,
+                                   config: WebProviderConfig) async -> (id: String, url: String)? {
+        guard let currentURL = try? await bridge.currentURL(),
+              let host = URL(string: currentURL)?.host,
+              host == URL(string: config.chatURL)?.host,
+              let id = WebRemoteChatIdentityLogic.chatIDFromURL(currentURL),
+              !id.isEmpty else { return nil }
+        return (id, currentURL)
+    }
+
     private func bindWebRemoteChat(driver: WebChatDriver,
                                    bridge: WKWebViewBrowserBridge,
                                    config: WebProviderConfig,
                                    projectID: String,
-                                   chatID: String) async throws -> WebRemoteChatMapping {
+                                   chatID: String,
+                                   freshSubmitPending: Bool = false,
+                                   isFirstTurn: Bool = false) async throws -> WebRemoteChatMapping? {
         let key = appState.webRemoteChatKey(for: config, projectID: projectID, chatID: chatID)
         let providerHost = URL(string: config.chatURL)?.host
         if var existing = appState.webRemoteChatMapping(for: config, projectID: projectID, chatID: chatID) {
@@ -1676,27 +2004,31 @@ struct ChatPanelView: View {
         // new one. SmartSend may have just submitted into a fresh chat whose
         // URL now carries /chat/{id} or /c/{id}; letting startNewSession() run
         // first would click "New Chat" and wipe that submitted conversation.
-        if let currentID = try? await driver.getCurrentChatID(),
-           !currentID.isEmpty,
-           let currentURL = try? await bridge.currentURL(),
-           SendSubmissionPolicy.urlHasChatID(currentURL),
-           let currentHost = URL(string: currentURL)?.host,
-           currentHost == providerHost {
+        // EXCEPTION: a FIRST turn of a new local chat must NOT land in the
+        // currently-open remote conversation — the tool preamble would arrive
+        // on top of an unrelated history and the model keeps its earlier
+        // refusals. Start a genuinely fresh remote chat instead.
+        if !isFirstTurn,
+           let remote = await currentRemoteChat(bridge: bridge,
+                                                config: config),
+           SendSubmissionPolicy.urlHasChatID(remote.url) {
             let canonical = WebRemoteChatIdentityLogic.canonicalURL(
-                baseURL: currentURL,
+                baseURL: remote.url,
                 vendor: config.vendor,
-                chatID: currentID
-            ) ?? currentURL
+                chatID: remote.id
+            ) ?? remote.url
             let reused = WebRemoteChatMapping(key: key,
-                                              remoteChatID: currentID,
+                                              remoteChatID: remote.id,
                                               remoteURL: canonical,
                                               verifiedTitle: appState.selectedSession?.title)
             appState.saveWebRemoteChatMapping(reused)
             try? await bridge.waitForSelector(selector: driver.selectors.input, timeout: 10_000)
             return reused
         }
-        guard let newURL = try await driver.startNewSession(),
-              let remoteID = try await driver.getCurrentChatID(),
+        guard !freshSubmitPending,
+              let newURL = try await driver.startNewSession(),
+              SendSubmissionPolicy.urlHasChatID(newURL),
+              let remoteID = WebRemoteChatIdentityLogic.chatIDFromURL(newURL),
               let remoteURL = WebRemoteChatIdentityLogic.canonicalURL(
                 baseURL: newURL,
                 vendor: config.vendor,
@@ -1706,25 +2038,26 @@ struct ChatPanelView: View {
               remoteHost == providerHost else {
             // Fallback: the browser may already be on a valid chat page.
             // Use the current page state instead of blocking the send.
-            if let currentID = try? await driver.getCurrentChatID(),
-               !currentID.isEmpty,
-               let currentURL = try? await bridge.currentURL(),
-               let currentHost = URL(string: currentURL)?.host,
-               currentHost == providerHost {
+            if let remote = await currentRemoteChat(bridge: bridge,
+                                                     config: config),
+               SendSubmissionPolicy.urlHasChatID(remote.url) {
                 let canonical = WebRemoteChatIdentityLogic.canonicalURL(
-                    baseURL: currentURL,
+                    baseURL: remote.url,
                     vendor: config.vendor,
-                    chatID: currentID
-                ) ?? currentURL
+                    chatID: remote.id
+                ) ?? remote.url
                 let mapping = WebRemoteChatMapping(key: key,
-                                                    remoteChatID: currentID,
+                                                    remoteChatID: remote.id,
                                                     remoteURL: canonical,
                                                     verifiedTitle: appState.selectedSession?.title)
                 appState.saveWebRemoteChatMapping(mapping)
                 try? await bridge.waitForSelector(selector: driver.selectors.input, timeout: 10_000)
                 return mapping
             }
-            throw WebChatError.remoteChatBindingFailed("The provider did not expose a verified remote chat UUID for this local project/chat. Sending was blocked to prevent context mixing.")
+            // Audit 2026-09-08: no mapping, no id, no new-chat URL change
+            // (Kimi SPA keeps the shell URL until the first message lands).
+            // Postpone binding: send first, capture the id afterwards.
+            return nil
         }
         let mapping = WebRemoteChatMapping(key: key,
                                             remoteChatID: remoteID,
@@ -2078,7 +2411,7 @@ struct ChatPanelView: View {
             switch part {
             case .toolCall, .stepStart, .stepFinish:
                 return true
-            case .text, .reasoning, .image:
+            case .text, .reasoning, .image, .routeInfo:
                 return false
             }
         } ?? false

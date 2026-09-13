@@ -285,13 +285,37 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
 enum WebProviderStore {
     static let storageKey = "com.micoder.webProviders"
 
+    /// Audit 2026-09-10: `load()` runs on EVERY SwiftUI body evaluation
+    /// (send readiness, provider menus, status dot, API info) and each call
+    /// redo JSON decode + per-model regex validation + a write-back check.
+    /// With a ticking parent that is enough to saturate the main thread and
+    /// starve MainActor API work. Cache the STANDARD-domain result briefly;
+    /// explicit `defaults` suites (unit tests) always read through. `save()`
+    /// invalidates, so writes are visible immediately.
+    private static let cacheTTL: TimeInterval = 2
+    private static let cacheLock = NSLock()
+    private static var cachedStandard: (at: Date, value: [WebProviderConfig])?
+
     static func save(_ providers: [WebProviderConfig], defaults: UserDefaults = .standard) {
         if let data = try? JSONEncoder().encode(providers) {
             defaults.set(data, forKey: storageKey)
         }
+        if defaults == UserDefaults.standard {
+            cacheLock.lock()
+            cachedStandard = nil
+            cacheLock.unlock()
+        }
     }
 
     static func load(defaults: UserDefaults = .standard) -> [WebProviderConfig] {
+        if defaults == UserDefaults.standard {
+            cacheLock.lock()
+            let hit = cachedStandard
+            cacheLock.unlock()
+            if let hit, Date().timeIntervalSince(hit.at) < cacheTTL {
+                return hit.value
+            }
+        }
         guard let data = defaults.data(forKey: storageKey),
               let providers = try? JSONDecoder().decode([WebProviderConfig].self, from: data) else {
             return []
@@ -299,6 +323,11 @@ enum WebProviderStore {
         let sanitized = providers.map(sanitize)
         if let sanitizedData = try? JSONEncoder().encode(sanitized), sanitizedData != data {
             defaults.set(sanitizedData, forKey: storageKey)
+        }
+        if defaults == UserDefaults.standard {
+            cacheLock.lock()
+            cachedStandard = (at: Date(), value: sanitized)
+            cacheLock.unlock()
         }
         return sanitized
     }

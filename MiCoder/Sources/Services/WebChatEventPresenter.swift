@@ -34,12 +34,20 @@ enum WebChatEventPresenter {
             return .status(L.t(AppLocalizationKey.locWebEffortNote).replacingOccurrences(of: "{0}", with: msg))
         case .approvalRequired(_, let message):
             return .status("Approval required before this web-agent action: \(message)")
+        case .approvalRequest:
+            // Structured event: the UI renders an interactive Allow/Deny card
+            // from Message.parts, not a flat status line.
+            return .none
         case .promptSplit(let parts):
             return .status(L.t(AppLocalizationKey.locWebPromptSplit).replacingOccurrences(of: "{0}", with: "\(parts)"))
-        case .toolCall(let call):
-            return .status(L.t(AppLocalizationKey.locWebToolCall).replacingOccurrences(of: "{0}", with: call.name).replacingOccurrences(of: "{1}", with: call.arguments.keys.sorted().joined(separator: ", ")))
-        case .toolResult(let name, _):
-            return .status(L.t(AppLocalizationKey.locWebToolResult).replacingOccurrences(of: "{0}", with: name))
+        case .toolCall:
+            // Structured event: rendered as a tool-call spoiler part in
+            // Message.parts (name + args + result), not a flat status line.
+            return .none
+        case .toolResult:
+            // Structured event: the result is folded into the matching
+            // tool-call part's spoiler in Message.parts.
+            return .none
         case .iterationLimitReached:
             return .status(L.t(AppLocalizationKey.locWebIterationLimit))
         case .final(let text):
@@ -48,13 +56,19 @@ enum WebChatEventPresenter {
             return .error(msg)
         case .streaming:
             return .none   // streaming handled by live text update, not a message
+        case .kimiQuotaExhausted:
+            return .status("Kimi quota exhausted — switching to Быстрый model…")
+        case .kimiOverloaded:
+            // Transient overload ("too many people" modal): shown by the
+            // driver's own streaming status line, not duplicated here.
+            return .none
         }
     }
 
     /// Whether an event requires user interaction before the agent can proceed.
     static func blocksUntilUserAction(_ event: WebChatEvent) -> Bool {
         switch event {
-        case .captchaDetected, .loggedOut: return true
+        case .captchaDetected, .loggedOut, .approvalRequest: return true
         default: return false
         }
     }

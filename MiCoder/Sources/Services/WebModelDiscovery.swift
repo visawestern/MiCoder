@@ -141,6 +141,18 @@ enum WebModelDiscovery {
         let modelItemSelector = catalogEntry?.modelItem ?? "div.model-item"
         let fallbackItemSelector = "[role='option'], [class*='model'], [class*='option'], li[class*='model']"
 
+        // Audit 2026-09-08 (ChatGPT): the 2026 UI has NO model switcher — the
+        // broad `button[aria-haspopup='listbox']` fallback matches an unrelated
+        // composer button, whose menu yields only UI chrome. When the specific
+        // switcher is absent but the Reasoning pill is present, skip the wild
+        // goose chase and go straight to the mode fallback.
+        if vendor == .chatgpt,
+           (try? await bridge.exists(selector: "button[data-testid*='model-switcher']")) != true {
+            if let pillModels = await chatGPTModeFallback(using: bridge, vendor: vendor) {
+                return pillModels
+            }
+        }
+
         do {
             // Wait for the model button to be present (up to 10s).
             var modelBtnFound = false
@@ -333,13 +345,20 @@ enum WebModelDiscovery {
         let hasReasoningPill = !pillText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         guard hasReasoningPill else { return nil }
         return [
-            WebProviderModel(name: "ChatGPT Auto",
-                             description: "Automatic model (2026 UI, no manual model switcher)",
+            WebProviderModel(name: "ChatGPT Auto (Reasoning)",
+                             description: "Automatic 2026 model with the Reasoning composer toggle",
+                             availableEfforts: [.low, .high],
+                             discoveryStatus: .active,
+                             isLiveDiscovered: true,
+                             isSelectable: true,
+                             discoveryMessage: "Detected the Reasoning composer pill; no manual model switcher on this account tier."),
+            WebProviderModel(name: "ChatGPT Auto (Instant)",
+                             description: "Automatic 2026 model without reasoning",
                              availableEfforts: [],
                              discoveryStatus: .active,
                              isLiveDiscovered: true,
                              isSelectable: true,
-                             discoveryMessage: "2026 ChatGPT UI exposes one automatic model plus a Reasoning toggle; no manual model switcher exists on this account tier.")
+                             discoveryMessage: "Composer auto mode without the Reasoning pill.")
         ]
     }
 

@@ -145,6 +145,7 @@ struct WebDriverSelectionGuardTests {
 
     struct NoopExecutor: WebToolExecutor {
         func execute(_ call: WebToolCall) async -> String { "ok" }
+        func execute(_ call: WebToolCall, userApproved: Bool) async -> String { "ok" }
     }
 
     private let selectors = WebVendorSelectors(
@@ -293,5 +294,57 @@ struct WebDriverSelectionGuardTests {
         #expect(bridge.clickedSelectors.contains(".custom-model"))
         #expect(bridge.typed.count == 1)
         #expect(bridge.sendClicks == 1)
+    }
+}
+
+@Suite("ChatGPT auto-model bypass (audit 2026-09-08)")
+struct ChatGPTAutoBypassTests {
+    @Test("Missing switcher does not block send for ChatGPT Auto labels")
+    func autoLabelSkipsModelMenu() async {
+        // The 2026 ChatGPT UI has no model switcher: the dropdown selector
+        // matches nothing on the page. A synthetic "ChatGPT Auto…" selection
+        // must not fail the turn — there is nothing to inject.
+        final class NoSwitcherBridge: BrowserAutomationBridge, @unchecked Sendable {
+            var typed = 0
+            func navigate(to url: String) async throws {}
+            func typeText(_ text: String, into selector: String, humanized: Bool, pressEnter: Bool) async throws { typed += 1 }
+            func click(selector: String) async throws {}
+            func clickByText(selector: String, text: String) async throws -> Bool { false }
+            func readText(selector: String) async throws -> String { "" }
+            func responseFingerprint(selector: String) async throws -> String { "" }
+            func exists(selector: String) async throws -> Bool { false }
+            func pageText() async throws -> String { "" }
+            func currentURL() async throws -> String { "https://chatgpt.com/" }
+            func cookies() async throws -> [BrowserCookie] { [] }
+            func setCookies(_ cookies: [BrowserCookie]) async throws {}
+            func screenshot(selector: String?) async throws -> Data { Data() }
+            func wait(ms: Int) async {}
+        }
+        struct NoopExecutor: WebToolExecutor {
+            func execute(_ call: WebToolCall) async -> String { "ok" }
+            func execute(_ call: WebToolCall, userApproved: Bool) async -> String { "ok" }
+        }
+        let bridge = NoSwitcherBridge()
+        let driver = WebChatDriver(
+            bridge: bridge,
+            executor: NoopExecutor(),
+            selectors: WebVendorSelectors(
+                input: "textarea",
+                sendButton: "button.send",
+                responseContainer: "div.response",
+                stopButton: "button.stop"
+            ),
+            config: WebProviderConfig(vendor: .chatgpt, selectedModel: "ChatGPT Auto (Instant)"),
+            projectRoot: "/tmp",
+            accessLevel: .askBeforeChanges,
+            pollIntervalMs: 0,
+            stabilityChecks: 1
+        )
+        var events: [WebChatEvent] = []
+        // exists() is false everywhere, so sendMessage throws before typing;
+        // the assertion is that NO modelInjectionFailed event is emitted for
+        // the auto label — the turn fails on the missing input, honestly.
+        await driver.runTurn(userMessage: "hello", isFirstMessage: false) { events.append($0) }
+        #expect(!events.contains { if case .modelInjectionFailed = $0 { return true }; return false })
     }
 }

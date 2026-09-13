@@ -3,6 +3,7 @@ import Foundation
 extension Notification.Name {
     static let miCoderAutoFreeModelSwitched = Notification.Name("MiCoderAutoFreeModelSwitched")
     static let apiSendRequested = Notification.Name("apiSendRequested")
+    static let webToolApprovalResolved = Notification.Name("webToolApprovalResolved")
 }
 
 // MARK: - Notification Model

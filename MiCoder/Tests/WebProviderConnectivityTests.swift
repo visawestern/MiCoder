@@ -12,9 +12,10 @@ struct WebProviderConnectivityTests {
         return url
     }
 
-    private func persistCookies(_ home: URL, id: String, expiry: TimeInterval) throws {
+    private func persistCookies(_ home: URL, id: String, expiry: TimeInterval,
+                                name: String = "kimi-auth") throws {
         let store = WebSessionStore(
-            cookies: [BrowserCookie(name: "sid", value: "v", domain: "d", expiresEpoch: expiry)],
+            cookies: [BrowserCookie(name: name, value: "v", domain: "d", expiresEpoch: expiry)],
             localStorage: [:], savedAt: Date()
         )
         try WebSessionManager.persist(store, providerId: id, homeDirectory: home)
@@ -23,6 +24,24 @@ struct WebProviderConnectivityTests {
     @Test func notConnectedWhenJustAdded() throws {
         let home = try makeTempHome()
         let cfg = WebProviderConfig(vendor: .kimi, acknowledgedToS: true)   // no cookies yet
+        #expect(!WebProviderConnectivity.isConnected(cfg, homeDirectory: home))
+    }
+
+    /// Audit 2026-09-08: analytics/theme cookies captured on a logged-out page
+    /// are NOT a login. Regression for the Kimi provider that showed
+    /// "connected" with 7 anonymous cookies and no kimi-auth.
+    @Test func notConnectedWithAnonymousCookiesOnly() throws {
+        let home = try makeTempHome()
+        let cfg = WebProviderConfig(vendor: .kimi, acknowledgedToS: true)
+        let anonymous = WebSessionStore(
+            cookies: [
+                BrowserCookie(name: "_ga", value: "v", domain: "d", expiresEpoch: 9_999_999_999),
+                BrowserCookie(name: "theme", value: "dark", domain: "d", expiresEpoch: 9_999_999_999),
+                BrowserCookie(name: "g_state", value: "{}", domain: "d", expiresEpoch: 9_999_999_999)
+            ],
+            localStorage: [:], savedAt: Date()
+        )
+        try WebSessionManager.persist(anonymous, providerId: cfg.id, homeDirectory: home)
         #expect(!WebProviderConnectivity.isConnected(cfg, homeDirectory: home))
     }
 
@@ -52,7 +71,7 @@ struct WebProviderConnectivityTests {
         var connected = WebProviderConfig(vendor: .kimi, acknowledgedToS: true)
         connected.discoveredModels = [WebProviderModel(name: "kimi-real")]
         let notConnected = WebProviderConfig(vendor: .qwen, acknowledgedToS: true)
-        try persistCookies(home, id: connected.id, expiry: 9_999_999_999)
+        try persistCookies(home, id: connected.id, expiry: 9_999_999_999, name: "kimi-auth")
         let opts = WebProviderConnectivity.providerOptions([connected, notConnected], homeDirectory: home)
         #expect(opts.count == 1)
         #expect(opts.first?.id == "web:\(connected.id)")

@@ -1,6 +1,13 @@
 import Foundation
 
 struct ChatSession: Identifiable {
+    /// Reserved project key for standalone chats — conversations that do not
+    /// belong to any workspace (user directive 2026-09-08: a chat started
+    /// without a project must persist and stay visible in the sidebar).
+    /// Stored in the global database under this `project_id`; the synthetic
+    /// "Chats" sidebar group lists them.
+    static let standaloneProjectKey = "standalone"
+
     let id: String
     var title: String
     var messages: [Message]

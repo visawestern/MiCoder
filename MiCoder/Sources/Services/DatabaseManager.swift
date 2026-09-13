@@ -143,11 +143,23 @@ class DatabaseManager {
     // MARK: - Initialization
     
     private init() {
-        self.isInMemory = false
-        let homeDir = FileManager.default.homeDirectoryForCurrentUser
-        let mimoDir = homeDir.appendingPathComponent(".micoder")
-        try? FileManager.default.createDirectory(at: mimoDir, withIntermediateDirectories: true)
-        self.dbPath = mimoDir.appendingPathComponent("mimo.db").path
+        // Audit 2026-09-13 (user DB pollution): `swift test` runs via
+        // swift-testing, which does NOT load XCTest — the old "test" path
+        // never fired and every DatabaseBridge.shared call in tests wrote
+        // into the REAL ~/.micoder/mimo.db (245 junk sessions accumulated
+        // across 106 runs, verified live). Under any test runner the
+        // singleton becomes an in-memory database: tests that assert on it
+        // still work, production data is never touched.
+        if TestRunDetector.isRunningTests {
+            self.isInMemory = true
+            self.dbPath = ":memory:"
+        } else {
+            self.isInMemory = false
+            let homeDir = FileManager.default.homeDirectoryForCurrentUser
+            let mimoDir = homeDir.appendingPathComponent(".micoder")
+            try? FileManager.default.createDirectory(at: mimoDir, withIntermediateDirectories: true)
+            self.dbPath = mimoDir.appendingPathComponent("mimo.db").path
+        }
         initialize()
     }
     
@@ -787,8 +799,13 @@ class DatabaseManager {
         sequenceOrder: Int
     ) throws {
         guard let db = db else { throw DatabaseError.notInitialized }
-        
+
+        // OR REPLACE: a message is saved on every streaming/status update, so
+        // a part with a stable id (tool callID) is re-inserted repeatedly — a
+        // plain INSERT fails with UNIQUE constraint and the update (e.g. the
+        // tool RESULT folding into the part) is silently lost.
         try db.run(messageParts.insert(
+            or: .replace,
             partId <- id,
             partMessageId <- messageId,
             partType <- type,
@@ -800,10 +817,18 @@ class DatabaseManager {
             partSequenceOrder <- Int64(sequenceOrder)
         ))
     }
-    
+
+    /// Delete all stored parts of a message: a message is re-saved on every
+    /// update, so stale part rows (removed from the in-memory set) must not
+    /// survive alongside the fresh insert.
+    func deleteMessageParts(messageId: String) throws {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        try db.run(messageParts.filter(partMessageId == messageId).delete())
+    }
+
     func getMessageParts(messageId: String) throws -> [MessagePartRecord] {
         guard let db = db else { throw DatabaseError.notInitialized }
-        
+
         let query = messageParts.filter(partMessageId == messageId).order(partSequenceOrder.asc)
         
         var results: [MessagePartRecord] = []

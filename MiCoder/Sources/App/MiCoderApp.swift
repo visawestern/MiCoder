@@ -262,6 +262,8 @@ class AppState: ObservableObject {
     @Published var workspaceFilterPreset: WorkspaceFilterPreset = .all
     @Published var showWorkspaceSearchField = false
     @Published var workspacesSectionExpanded = true
+    /// Sidebar "Chats" group (standalone chats) expansion (audit 2026-09-08).
+    @Published var standaloneChatsExpanded = true
     /// Sidebar Group/Project pill mode (plan Раздел 11 Блок 2).
     @Published var sidebarGroupingMode: SidebarGroupingMode = SidebarGroupingLogic.load() {
         didSet { SidebarGroupingLogic.save(sidebarGroupingMode) }
@@ -327,18 +329,12 @@ class AppState: ObservableObject {
         return try? ProjectUndoManager(projectPath: path)
     }
 
-    /// True when running under the test runner. Tests construct hundreds of
-    /// AppState instances on arbitrary threads; the init-time registry dedup
-    /// and the fire-and-forget DB task would (a) VACUUM/auto-archive the real
-    /// `~/.micoder` database and dedup the real registry, and (b) mutate
-    /// `@Published` state on the MainActor while test threads mutate the same
-    /// instance — a data race that intermittently SIGSEGVs the full test suite
-    /// at a random `@Published` accessor. Both are skipped under tests, which
-    /// exercise `initializeDatabase()` explicitly.
-    private static let isRunningTests: Bool = {
-        if ProcessInfo.processInfo.environment["MIMO_TEST_MODE"] == "1" { return true }
-        return NSClassFromString("XCTestCase") != nil
-    }()
+    /// Audit 2026-09-13 (user DB pollution): the XCTest check missed
+    /// swift-testing runs entirely — `swift test` does NOT link XCTest into
+    /// the runner process, so the old detector returned false in CI/local
+    /// `swift test`. The shared `TestRunDetector` now also probes the
+    /// swift-testing runtime classes.
+    private static let isRunningTests: Bool = TestRunDetector.isRunningTests
 
     // MiMo Serve connection manager (now optional)
     @Published var serverConnectionManager: MimoServeConnectionManager?
@@ -459,7 +455,15 @@ class AppState: ObservableObject {
                 let syncedSessions = await adapter.loadSessions(projectId: workspace.id)
                 await MainActor.run {
                     if !syncedSessions.isEmpty {
-                        self.sessions = syncedSessions
+                        // Audit 2026-09-09: never wipe standalone chats on
+                        // server sync (same loss as the project-DB load).
+                        // Sourced from the database — the in-memory list may
+                        // be mid-reload when the sync lands.
+                        let storedStandalone = DatabaseBridge.shared.loadStandaloneSessions()
+                        let standalone = storedStandalone.filter { stored in
+                            !syncedSessions.contains(where: { synced in synced.id == stored.id })
+                        }
+                        self.sessions = syncedSessions + standalone
                     }
                 }
             }
@@ -883,6 +887,14 @@ class AppState: ObservableObject {
         return custom.type == .acp && custom.acpEnabled
     }
 
+    /// Whether the currently selected provider is a browser web provider.
+    /// Used to hide non-web controls (variant/effort menus) from the
+    /// composer — web effort is discovered with each model and injected
+    /// by the driver, never hand-picked (user directive 2026-09-06).
+    var isSelectedWebProvider: Bool {
+        WebProviderConnectivity.configID(fromOptionID: selectedProviderID) != nil
+    }
+
     /// Returns an `ACPClient` for the currently selected ACP provider, or nil.
     var acpClient: ACPClient? {
         guard isSelectedACPProvider,
@@ -1211,6 +1223,9 @@ class AppState: ObservableObject {
     /// create 100 pages up front: the cap is a safety ceiling, not a target.
     private var webViews: [String: WKWebView] = [:]
     private var webViewLastUsed: [String: Date] = [:]
+    /// Structured pool keys parallel to `webViews` (storage keys join fields
+    /// with "::", which can theoretically collide with path characters).
+    private var webViewKeys: [String: WebBrowserInstanceKey] = [:]
     private let maxWebBrowserInstances = 100
     /// Round 30: permissive navigation/UI policies kept alive per webview so
     /// vendor region redirects (kimi.com → kimi.ai), window.open hops and JS
@@ -1219,16 +1234,74 @@ class AppState: ObservableObject {
 
     @Published private(set) var webBrowserActionJournal: [WebBrowserActionRecord] = WebBrowserActionJournal.load()
 
+    /// User directive 2026-09-09: the web provider's live browser page must be
+    /// VISIBLE inside the chat as a mini-preview while a web provider is
+    /// selected — no hidden offscreen window. The panel re-parents the SAME
+    /// pooled WKWebView (never recreates it) so login state, the conversation
+    /// and in-flight streams survive across requests; switching chats moves
+    /// the panel by updating its key, exactly like opening another tab of the
+    /// same site. Non-web providers leave the panel untouched (it keeps
+    /// showing the last web provider's page).
+    @Published var webBrowserPanelConfig: WebBrowserPanelConfig?
+
+    /// Ensure the provider's page exists in the pool and surface it in the
+    /// visible mini-browser panel. Call when a WEB provider turn starts.
+    @MainActor
+    func showWebBrowserPanel(for config: WebProviderConfig,
+                             projectID: String,
+                             chatID: String) {
+        _ = webView(for: config, projectID: projectID, chatID: chatID)
+        webBrowserPanelConfig = WebBrowserPanelConfig(
+            providerID: config.id,
+            providerName: config.displayName,
+            projectID: projectID,
+            chatID: chatID
+        )
+    }
+
+    /// Detach the webview from the visible panel back to the hidden host
+    /// window WITHOUT destroying it — the page keeps its state (cookies,
+    /// conversation, stream) for the next web turn.
+    @MainActor
+    func hideWebBrowserPanel() {
+        webBrowserPanelConfig = nil
+    }
+
+    /// User directive 2026-09-09: switching to another chat/project surfaces
+    /// THAT chat's pooled webview ("another tab of the same site") when one
+    /// exists; otherwise the panel keeps showing whatever it showed (it is
+    /// never hidden or destroyed by navigation alone).
+    @MainActor
+    func showPanelForChatIfPooled(projectID: String, chatID: String) {
+        let candidates = webViewKeys.values.filter {
+            $0.projectID == projectID && $0.chatID == chatID
+        }
+        guard !candidates.isEmpty else { return }
+        let best = candidates.max {
+            (webViewLastUsed[$0.storageKey] ?? .distantPast)
+                < (webViewLastUsed[$1.storageKey] ?? .distantPast)
+        } ?? candidates[0]
+        let name = WebProviderStore.load(defaults: defaults)
+            .first(where: { $0.id == best.providerID })?.displayName ?? best.providerID
+        webBrowserPanelConfig = WebBrowserPanelConfig(
+            providerID: best.providerID,
+            providerName: name,
+            projectID: projectID,
+            chatID: chatID
+        )
+    }
+
     @MainActor
     func webView(for config: WebProviderConfig,
                  projectID: String? = nil,
                  chatID: String? = nil) -> WKWebView {
-        let key = WebBrowserInstanceKey(
+        let instanceKey = WebBrowserInstanceKey(
             projectID: projectID ?? selectedWorkspace?.id ?? "global",
             chatID: chatID ?? selectedSession?.id ?? "provider-default",
             providerID: config.id,
             activeSessionID: config.activeSessionID ?? WebSessionManager.defaultSessionID
-        ).storageKey
+        )
+        let key = instanceKey.storageKey
         if let existing = webViews[key] {
             webViewLastUsed[key] = Date()
             return existing
@@ -1241,10 +1314,31 @@ class AppState: ObservableObject {
             evicted.removeFromSuperview()
             webViewLastUsed.removeValue(forKey: evictKey)
             _ = webNavigationPolicies.removeValue(forKey: evictKey)
+            _ = webViewKeys.removeValue(forKey: evictKey)
         }
         let config = WKWebViewConfiguration()
         config.processPool = WKProcessPool()
         config.websiteDataStore = WKWebsiteDataStore.default()
+        // UX audit 2026-09-06: WebKit's default shows an I-beam text cursor
+        // over vendor links/buttons that only contain text ("Войти" etc.) —
+        // users read it as non-clickable. Force the pointing-hand cursor on
+        // every interactive element, like a real browser does.
+        config.userContentController.addUserScript(WKUserScript(
+            source: """
+            (function(){
+              var style = document.createElement('style');
+              style.textContent = [
+                'a, button, [role="button"], [role="option"], [role="menuitem"],',
+                '[onclick], input[type="button"], input[type="submit"], input[type="checkbox"],',
+                'label[for], summary, [class*="btn"], [class*="button"], [class*="clickable"]',
+                '{ cursor: pointer !important; }'
+              ].join(' ');
+              (document.head || document.documentElement).appendChild(style);
+            })();
+            """,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: false
+        ))
         let wv = WKWebView(frame: NSRect(x: 0, y: 0, width: 1280, height: 720), configuration: config)
         // Round 30: maximally permissive navigation — allow every host/scheme,
         // redirect popups into the same view, auto-answer JS dialogs.
@@ -1261,6 +1355,7 @@ class AppState: ObservableObject {
         hiddenWindow.orderFront(nil)
         hiddenWindow.alphaValue = 1.0
         webViews[key] = wv
+        webViewKeys[key] = instanceKey
         webViewLastUsed[key] = Date()
         return wv
     }
@@ -1505,8 +1600,18 @@ class AppState: ObservableObject {
             }
             let count = resolvedModels.count
             let plural = count == 1 ? "" : "s"
-            let message = String(format: L.t(AppLocalizationKey.locWebLoadedModels), count, plural, config.displayName)
-            return message + (localStorageWarning ?? "")
+            // Audit 2026-09-06: the message MUST match what the composer
+            // actually offers. allModels filters tier-gated entries
+            // (isSelectable=false); reporting the raw discovered count made
+            // the user see "loaded 10" while the card showed 3.
+            let refreshedConfig = WebModelRefreshLogic.replacing(config: config, with: resolvedModels)
+            let selectableCount = refreshedConfig.allModels.count
+            let gatedCount = resolvedModels.filter { !$0.isSelectable }.count
+            let baseMessage = String(format: L.t(AppLocalizationKey.locWebLoadedModels), selectableCount, plural, config.displayName)
+            let gatedNote = gatedCount > 0
+                ? " \(gatedCount) more require a higher plan (not selectable)."
+                : ""
+            return baseMessage + gatedNote + (localStorageWarning ?? "")
         } catch {
             return String(format: L.t(AppLocalizationKey.locWebRefreshFailed), error.localizedDescription)
         }
@@ -1627,6 +1732,34 @@ class AppState: ObservableObject {
     }
 
     var selectedProviderConnected: Bool {
+        // Audit 2026-09-10: this getter runs on EVERY body evaluation
+        // (StatusBar, chat input, send readiness) and used to redo JSON
+        // decode + model-label regex + cookie-file reads per pass — with a
+        // ticking parent that saturates the main thread and starves MainActor
+        // API work. Cache briefly: connectivity is session-scoped and flips
+        // on minute timescales (login/logout/session expiry), never within
+        // seconds, so a 5 s TTL keeps the status dot truthful.
+        let now = Date()
+        if let cache = providerConnectedCache,
+           cache.key == selectedProviderID,
+           now.timeIntervalSince(cache.at) < Self.providerConnectedCacheTTL {
+            return cache.value
+        }
+        let value = computeSelectedProviderConnected()
+        providerConnectedCache = (key: selectedProviderID, value: value, at: now)
+        return value
+    }
+
+    /// Invalidate the connectivity cache (call after login/logout/session
+    /// capture so the UI reflects the new state immediately).
+    func invalidateProviderConnectedCache() {
+        providerConnectedCache = nil
+    }
+
+    private static let providerConnectedCacheTTL: TimeInterval = 5
+    private var providerConnectedCache: (key: String, value: Bool, at: Date)?
+
+    private func computeSelectedProviderConnected() -> Bool {
         let webConnected: Bool?
         if let webID = WebProviderConnectivity.configID(fromOptionID: selectedProviderID),
            let config = WebProviderStore.load(defaults: defaults).first(where: { $0.id == webID }) {
@@ -1888,9 +2021,25 @@ class AppState: ObservableObject {
             .sorted { $0.updatedAt > $1.updatedAt }
     }
     
+    /// Restore the last opened project at startup (user directive 2026-09-08).
+    /// Pure resolution lives in WorkspaceRestoreLogic; this only wires the
+    /// persisted id into `selectWorkspace` (which loads the project sessions).
+    @MainActor
+    func restoreLastWorkspace() {
+        guard selectedWorkspace == nil else { return }
+        let savedID = defaults.string(forKey: "com.micoder.lastWorkspaceID")
+        guard let workspace = WorkspaceRestoreLogic.restore(
+            workspaces: workspaces,
+            savedID: savedID
+        ) else { return }
+        selectWorkspace(workspace)
+    }
+
     func selectWorkspace(_ workspace: Workspace, reloadSessions: Bool = true) {
         let previousID = selectedWorkspace?.id
         selectedWorkspace = workspace
+        // User directive 2026-09-08: reopen the last project on app launch.
+        defaults.set(workspace.id, forKey: "com.micoder.lastWorkspaceID")
         guard reloadSessions,
               WorkspaceSelectionLogic.shouldReloadSessions(previousID: previousID, newID: workspace.id) else {
             return
@@ -2272,11 +2421,107 @@ class AppState: ObservableObject {
     /// session later, which meant the earlier MessageStore.append calls saw a
     /// nil currentSessionID and silently skipped local persistence.
     @MainActor
+    // MARK: - Standalone chats (no project)
+
+    /// Synthetic workspace representing the sidebar "Chats" group: every
+    /// conversation that does not belong to a real project directory.
+    var standaloneWorkspace: Workspace {
+        Workspace(
+            id: ChatSession.standaloneProjectKey,
+            name: L.t("Chats"),
+            path: ChatSession.standaloneProjectKey,
+            tasks: []
+        )
+    }
+
+    /// Conversations that belong to no workspace (audit 2026-09-08). New
+    /// standalone chats carry the reserved directory key; legacy in-flight
+    /// API chats (temp directory, never persisted) match the "no workspace"
+    /// branch so they remain visible until the app restarts.
+    var standaloneSessions: [ChatSession] {
+        sessions
+            .filter { session in
+                if session.directory == ChatSession.standaloneProjectKey { return true }
+                return !workspaces.contains { session.belongs(to: $0) }
+            }
+            .sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    /// Create a persisted standalone chat: stored in the global database
+    /// under the reserved `standalone` project key, inserted into the
+    /// in-memory list, NOT selected (caller decides).
+    @MainActor
+    @discardableResult
+    func createStandaloneSession(title: String) -> ChatSession {
+        let sessionID = UUID().uuidString
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sessionTitle = trimmed.isEmpty ? "New Chat" : String(trimmed.prefix(80))
+        DatabaseBridge.shared.createSession(
+            id: sessionID,
+            projectId: ChatSession.standaloneProjectKey,
+            title: sessionTitle,
+            directory: ChatSession.standaloneProjectKey,
+            branch: nil,
+            agentMode: agentMode.rawValue,
+            modelId: selectedModel.isEmpty ? nil : selectedModel,
+            providerId: selectedProviderID.isEmpty ? nil : selectedProviderID
+        )
+        let session = ChatSession(
+            id: sessionID,
+            title: sessionTitle,
+            directory: ChatSession.standaloneProjectKey
+        )
+        if !sessions.contains(where: { $0.id == sessionID }) {
+            sessions.insert(session, at: 0)
+        }
+        MiCoderAPIServer.appendLog("📝 createStandaloneSession: id=\(sessionID), title=\(sessionTitle)")
+        return session
+    }
+
+    /// Merge persisted standalone chats into the in-memory list at startup
+    /// (audit 2026-09-08 — they used to vanish after every restart).
+    @MainActor
+    func loadStandaloneSessionsIntoState() {
+        let stored = DatabaseBridge.shared.loadStandaloneSessions()
+        guard !stored.isEmpty else { return }
+        let existing = Set(sessions.map(\.id))
+        let missing = stored.filter { !existing.contains($0.id) }
+        guard !missing.isEmpty else { return }
+        sessions.append(contentsOf: missing)
+        MiCoderAPIServer.appendLog("📝 loadStandaloneSessionsIntoState: +\(missing.count) standalone chats")
+    }
+
+    /// Materialize one persisted session into state by id (audit 2026-09-09):
+    /// API/UI requests arriving during startup (or addressing a chat that was
+    /// never merged into memory) must resolve to the STORED chat instead of
+    /// spawning a duplicate. Returns the session when found in memory or in
+    /// the standalone store.
+    @MainActor
+    @discardableResult
+    func materializeSessionFromDatabase(id: String) -> ChatSession? {
+        if let existing = sessions.first(where: { $0.id == id }) {
+            return existing
+        }
+        if let stored = DatabaseBridge.shared.loadStandaloneSessions().first(where: { $0.id == id }) {
+            sessions.insert(stored, at: 0)
+            MiCoderAPIServer.appendLog("📝 materializeSessionFromDatabase: +\(id)")
+            return stored
+        }
+        return nil
+    }
+
+    @MainActor
     func prepareLocalSessionForSend(title: String) -> String? {
         if let selectedID = selectedSession?.id {
             return selectedID
         }
-        guard let workspace = selectedWorkspace else { return nil }
+        // Audit 2026-09-08: a chat started with NO workspace selected is a
+        // standalone chat — it must persist and stay visible in the sidebar's
+        // Chats group (user directive: standalone chats kept disappearing).
+        guard let workspace = selectedWorkspace else {
+            let session = createStandaloneSession(title: title)
+            return session.id
+        }
         let sessionID = UUID().uuidString
         let sessionTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? "New Chat"

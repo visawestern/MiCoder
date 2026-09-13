@@ -24,6 +24,10 @@ private enum MessageContentSegment: Identifiable {
         }
 
         for part in parts {
+            if case .routeInfo = part {
+                // Route chips render in the header, not in the content flow.
+                continue
+            }
             if case .toolCall(let name, let args, let result, _) = part {
                 calls.append(
                     ToolCallInspectorStep(
@@ -120,6 +124,9 @@ struct MessageRow: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
+                    if let routeChips = webRouteChips, !routeChips.isEmpty {
+                        RouteChipsView(chips: routeChips)
+                    }
                     if showsThinkingSpoiler {
                         ThinkingSpoilerView(
                             reasoning: reasoningText,
@@ -172,6 +179,15 @@ struct MessageRow: View {
                     )
                 }
             }
+        }
+
+        if let approvalID = message.pendingApprovalID,
+           let tool = message.pendingApprovalTool {
+            WebToolApprovalCardView(
+                approvalID: approvalID,
+                tool: tool,
+                message: message.pendingApprovalMessage ?? ""
+            )
         }
 
         if let added = message.tokensAdded, let removed = message.tokensRemoved, added + removed > 0 {
@@ -252,6 +268,8 @@ struct MessageRow: View {
             EmptyView()
         case .toolCall:
             EmptyView()
+        case .routeInfo:
+            EmptyView()
         case .image(let base64, let mimeType):
             if !base64.isEmpty {
                 TappableChatImage(image: ClipboardImage(base64: base64, mimeType: mimeType))
@@ -297,6 +315,16 @@ struct MessageRow: View {
         )
     }
 
+    /// Route metadata chips (provider/model/effort/remote chat) from a web
+    /// provider turn. Rendered in the header, never in the answer text
+    /// (user directive 2026-09-08).
+    private var webRouteChips: [String]? {
+        message.parts.compactMap { part -> [String]? in
+            if case .routeInfo(let chips) = part { return chips }
+            return nil
+        }.first
+    }
+
     private var hasRenderableTextParts: Bool {
         message.parts.contains { part in
             if case .text(let text) = part {
@@ -319,6 +347,35 @@ struct MessageRow: View {
                     : Color.mimo.surface
             )
             .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+/// Compact metadata chips shown above an assistant message produced through a
+/// web provider (provider · model · effort · remote chat). Kept out of the
+/// message content — the copy button copies only the model's answer.
+struct RouteChipsView: View {
+    let chips: [String]
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(chips, id: \.self) { chip in
+                    Text(chip)
+                        .interfaceFont(size: 11)
+                        .foregroundColor(Color.mimo.textSecondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.mimo.surface.opacity(0.7))
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule().stroke(Color.mimo.border, lineWidth: 0.5)
+                        )
+                }
+            }
+            .padding(.horizontal, 2)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -709,5 +766,90 @@ struct FileChangeSummaryRow: View {
         .padding(.vertical, 8)
         .background(Color.mimo.surface)
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+/// Interactive Allow/Deny card for a web-agent tool that needs user approval
+/// before execution. The driver is blocked awaiting the verdict; the card
+/// resolves the pending request through `webToolApprovalResolved` and the
+/// chat panel forwards the answer to the driver's approval mailbox.
+struct WebToolApprovalCardView: View {
+    let approvalID: String
+    let tool: String
+    let message: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.shield")
+                    .interfaceFont(size: 14)
+                    .foregroundColor(Color.mimo.warning)
+                Text("MiCoder wants to run a restricted tool")
+                    .interfaceFont(size: 13, weight: .semibold)
+                    .foregroundColor(Color.mimo.textPrimary)
+                Spacer()
+            }
+            Text(message)
+                .interfaceFont(size: 12)
+                .foregroundColor(Color.mimo.textSecondary)
+            HStack(spacing: 10) {
+                Button {
+                    resolve(approved: true)
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "checkmark")
+                            .interfaceFont(size: 11, weight: .bold)
+                        Text("Allow")
+                            .interfaceFont(size: 12, weight: .semibold)
+                    }
+                    .foregroundColor(Color.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .background(Color.mimo.success)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+                Button {
+                    resolve(approved: false)
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "xmark")
+                            .interfaceFont(size: 11, weight: .bold)
+                        Text("Deny")
+                            .interfaceFont(size: 12, weight: .semibold)
+                    }
+                    .foregroundColor(Color.mimo.error)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 6)
+                    .background(Color.mimo.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(Color.mimo.error, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                Spacer()
+            }
+        }
+        .padding(12)
+        .background(Color.mimo.surface.opacity(0.9))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.mimo.warning.opacity(0.6), lineWidth: 1)
+        )
+    }
+
+    private func resolve(approved: Bool) {
+        NotificationCenter.default.post(
+            name: .webToolApprovalResolved,
+            object: nil,
+            userInfo: [
+                "approvalID": approvalID,
+                "tool": tool,
+                "approved": approved
+            ]
+        )
     }
 }

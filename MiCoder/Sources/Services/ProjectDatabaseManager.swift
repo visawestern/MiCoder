@@ -862,6 +862,14 @@ final class ProjectDatabaseManager {
         ))
     }
 
+    /// Delete all stored parts of a message: a message is re-saved on every
+    /// update, so stale part rows (removed from the in-memory set) must not
+    /// survive alongside the fresh insert.
+    func deleteMessageParts(messageId messageIdValue: String) throws {
+        touch()
+        try db.run(messageParts.filter(partMessageId == messageIdValue).delete())
+    }
+
     func getMessageParts(messageId messageIdValue: String) throws -> [ProjectMessagePartRecord] {
         touch()
         let query = messageParts.filter(partMessageId == messageIdValue).order(partSequenceOrder.asc)

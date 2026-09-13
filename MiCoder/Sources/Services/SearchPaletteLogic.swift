@@ -17,12 +17,17 @@ enum SearchPaletteLogic {
         
         // Try FTS5 full-text search first
         let ftsSessionIDs = executeFTS5Search(query: trimmed)
-        
+
         if !ftsSessionIDs.isEmpty {
             // Rank by FTS relevance + filter to our session pool
             // Use Dictionary grouping to avoid crash on duplicate IDs
             let sessionMap = Dictionary(sessions.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-            return ftsSessionIDs.compactMap { sessionMap[$0] }
+            let ranked = ftsSessionIDs.compactMap { sessionMap[$0] }
+            // Audit 2026-09-08 (pre-existing test failure): FTS runs against
+            // the GLOBAL database, the pool may be a synthetic subset — when
+            // the FTS hits live outside the pool, fall back to title matching
+            // instead of returning an empty result.
+            if !ranked.isEmpty { return ranked }
         }
         
         // Fallback: simple title match

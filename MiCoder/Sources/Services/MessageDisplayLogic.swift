@@ -261,6 +261,9 @@ enum MessageDisplayLogic {
                     continue
                 case .text, .toolCall, .image:
                     extraParts.append(part)
+                case .routeInfo:
+                    // Route metadata renders in the header chips only.
+                    continue
                 }
             }
         }

@@ -167,6 +167,12 @@ struct BrowserCookie: Codable, Equatable {
 /// app with the same executors that back native ACP/serve tool calls.
 protocol WebToolExecutor {
     func execute(_ call: WebToolCall) async -> String
+    /// Execute a call the driver already approved (user tapped Allow on the
+    /// approval card). Implementations MUST NOT re-run the approval gate
+    /// when userApproved is true — otherwise Allow can never take effect
+    /// (live 2026-09-12: the user approved run_command, the driver called
+    /// execute, the executor re-blocked it with the same gate message).
+    func execute(_ call: WebToolCall, userApproved: Bool) async -> String
 }
 
 /// Events surfaced to the UI during a web-chat turn (plan Блок 3 п.34).
@@ -185,6 +191,74 @@ enum WebChatEvent: Equatable {
     case modelInjectionFailed(String)   // could not set the selected model in web UI
     case effortInjectionFailed(String)  // could not set the selected effort in web UI
     case approvalRequired(tool: String, message: String) // user approval is required before a mutation
+    case approvalRequest(WebToolApprovalRequest)          // blocking Allow/Deny dialog, driver awaits the verdict
+    case kimiQuotaExhausted                    // Kimi HARD quota hit, switching to Fast
+    case kimiOverloaded                        // Kimi TRANSIENT overload modal — dismiss, wait, retry same session
+}
+
+/// Tool-approval request with a continuation the driver awaits: the UI
+/// records the pending request, shows the Allow/Deny card, and resolves the
+/// box when the user answers. The driver blocks (bounded) until then.
+struct WebToolApprovalRequest: Equatable {
+    let id: String
+    let tool: String
+    let message: String
+}
+
+/// Thread-safe one-slot approval mailbox + bounded wait for the driver.
+final class WebToolApprovalBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private let answerSemaphore = DispatchSemaphore(value: 0)
+    private var pending: WebToolApprovalRequest?
+    private var answer: Bool?
+    private var answeredID: String?
+
+    /// Called by the driver (any thread) right before emitting the event.
+    func post(_ request: WebToolApprovalRequest) {
+        lock.lock()
+        pending = request
+        answer = nil
+        lock.unlock()
+    }
+
+    /// Called by the UI when the user taps Allow/Deny.
+    func resolve(id: String, approved: Bool) {
+        lock.lock()
+        // Only the current request may be resolved; a stale answer is dropped.
+        guard pending?.id == id, answer == nil else {
+            lock.unlock()
+            return
+        }
+        answer = approved
+        answeredID = id
+        pending = nil
+        lock.unlock()
+        answerSemaphore.signal()
+    }
+
+    /// The currently pending request, if any (for UI restore after re-render).
+    func current() -> WebToolApprovalRequest? {
+        lock.lock()
+        defer { lock.unlock() }
+        return pending
+    }
+
+    /// Whether the request `id` was answered and with what verdict.
+    func verdict(for id: String) -> Bool? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard answeredID == id else { return nil }
+        return answer
+    }
+
+    /// Bounded wait for the user's verdict; nil on timeout/cancellation.
+    func awaitAnswer(timeoutSeconds: Int) -> Bool? {
+        let result = answerSemaphore.wait(timeout: .now() + TimeInterval(timeoutSeconds))
+        if result == .timedOut { return nil }
+        lock.lock()
+        defer { lock.unlock() }
+        return answer
+    }
 }
 
 /// Vendor selector set resolved from web_providers_catalog.json (plan Блок 1 п.10).

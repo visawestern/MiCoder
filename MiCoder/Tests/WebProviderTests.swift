@@ -6,7 +6,7 @@ import Foundation
 struct WebProviderConfigTests {
 
     @Test func vendorDefaultsPopulated() {
-        #expect(WebChatVendor.kimi.defaultChatURL == "https://www.kimi.com/")
+        #expect(WebChatVendor.kimi.defaultChatURL == "https://www.kimi.ai/")  // non-CN domain (2026-09-06)
         #expect(WebChatVendor.qwen.defaultChatURL == "https://chat.qwen.ai/")
         #expect(WebChatVendor.chatgpt.defaultChatURL == "https://chatgpt.com/")
         #expect(WebChatVendor.kimi.defaultModels.contains("k2-thinking"))
@@ -17,7 +17,7 @@ struct WebProviderConfigTests {
     @Test func configStartsWithoutGuessedWebModel() {
         let cfg = WebProviderConfig(vendor: .kimi)
         #expect(cfg.displayName == "Kimi")
-        #expect(cfg.chatURL == "https://www.kimi.com/")
+        #expect(cfg.chatURL == "https://www.kimi.ai/")  // non-CN domain (2026-09-06)
         #expect(cfg.selectedModel.isEmpty)
         #expect(cfg.effort == .medium)
         #expect(cfg.toolCallDelayMs == 800)
@@ -203,14 +203,148 @@ struct WebToolProtocolEmulatorTests {
         #expect(calls.first?.arguments["path"] == "README.md")
     }
 
+    @Test func parsesShortTaggedToolCall() {
+        // Audit 2026-09-11 (Kimi live): the model emits exactly the short XML
+        // form taught by the preamble — `<list_dir>path=.</list_dir>` — and
+        // the turn died with raw tool text as the "answer" because no parser
+        // handled it.
+        let response = "Смотрю папку.\n<list_dir>path=.</list_dir>"
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+        #expect(calls.count == 1)
+        #expect(calls.first?.name == "list_dir")
+        #expect(calls.first?.arguments["path"] == ".")
+        #expect(!WebToolProtocolEmulator.isFinalResponse(response))
+    }
+
+    @Test func parsesShortTaggedToolCallQuotedArgs() {
+        let response = #"<read_file>path="my dir/file.md" limit=5</read_file>"#
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+        #expect(calls.count == 1)
+        #expect(calls.first?.name == "read_file")
+        #expect(calls.first?.arguments["path"] == "my dir/file.md")
+        #expect(calls.first?.arguments["limit"] == "5")
+    }
+
+    @Test func shortTaggedUnknownTagsIgnored() {
+        // Arbitrary HTML must not become tool calls.
+        let response = "Текст <div>path=.</div> и <b>важно</b>"
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+        #expect(calls.isEmpty)
+        #expect(WebToolProtocolEmulator.isFinalResponse(response))
+    }
+
+    @Test func fencedJSONNumericAndBoolArgsInterpolate() {
+        // Live 2026-09-12: the model emitted "limit": 115, "offset": 115 and
+        // both arrived as the literal text "\(v)" — offset was silently
+        // ignored 3× in a row. Non-string JSON args must stringify.
+        let response = "Читаю.\n```tool\n{\"name\": \"read_file\", \"args\": {\"path\": \"TZ-Bezdna-v3.md\", \"limit\": 115, \"offset\": 20}}\n```"
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+        #expect(calls.count == 1)
+        #expect(calls.first?.arguments["limit"] == "115")
+        #expect(calls.first?.arguments["offset"] == "20")
+        #expect(calls.first?.arguments["path"] == "TZ-Bezdna-v3.md")
+        let diff = "Дифф.\n```tool\n{\"name\": \"git_diff\", \"args\": {\"path\": \".\", \"staged\": true}}\n```"
+        let diffCalls = WebToolProtocolEmulator.parseToolCalls(from: diff)
+        #expect(diffCalls.first?.arguments["staged"] == "true")
+        // JSON false canonicalizes too (not "0").
+        let unstaged = "Дифф.\n```tool\n{\"name\": \"git_diff\", \"args\": {\"path\": \".\", \"staged\": false}}\n```"
+        #expect(WebToolProtocolEmulator.parseToolCalls(from: unstaged).first?.arguments["staged"] == "false")
+    }
+
+    @Test func fencedJSONWithNBSPParses() {
+        // parseSingleCall must normalize a REAL NBSP inside fenced JSON
+        // (the old code normalized the literal 8-char text instead — dead
+        // code — so NBSP-bearing calls silently dropped).
+        let nbsp = String(decoding: [0xC2, 0xA0] as [UInt8], as: UTF8.self)
+        let response = "Смотрю.\n```tool\n{\"name\": \"list_dir\", \"args\": {\"path\":" + nbsp + "\".\"}}\n```"
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+        #expect(calls.count == 1)
+        #expect(calls.first?.arguments["path"] == ".")
+    }
+
+    @Test func truthyFlagAcceptsAllSpellings() {
+        #expect(WebToolProtocolEmulator.isTruthyFlag("true"))
+        #expect(WebToolProtocolEmulator.isTruthyFlag("TRUE"))
+        #expect(WebToolProtocolEmulator.isTruthyFlag("1"))
+        #expect(WebToolProtocolEmulator.isTruthyFlag("yes"))
+        #expect(!WebToolProtocolEmulator.isTruthyFlag("false"))
+        #expect(!WebToolProtocolEmulator.isTruthyFlag("0"))
+        #expect(!WebToolProtocolEmulator.isTruthyFlag(nil))
+        #expect(!WebToolProtocolEmulator.isTruthyFlag(""))
+    }
+
+    @Test func shortTaggedReadWindowArgs() {
+        // Full Claude Code Read form in short XML: path + limit + offset.
+        let response = "<read_file>path=TZ-Bezdna-v3.md limit=115 offset=20</read_file>"
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+        #expect(calls.count == 1)
+        #expect(calls.first?.name == "read_file")
+        #expect(calls.first?.arguments["limit"] == "115")
+        #expect(calls.first?.arguments["offset"] == "20")
+    }
+
+    @Test func informalKeyValueArgs() {
+        // [tool call: read with path=X limit=10 offset='5'] — bare and
+        // single-quoted k=v pairs in the informal syntax.
+        let response = "[tool call: read with path=TZ-Bezdna-v3.md limit=10 offset='5']"
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+        #expect(calls.count == 1)
+        #expect(calls.first?.name == "read_file")
+        #expect(calls.first?.arguments["path"] == "TZ-Bezdna-v3.md")
+        #expect(calls.first?.arguments["limit"] == "10")
+        #expect(calls.first?.arguments["offset"] == "5")
+    }
+
+    @Test func toolRefusalRUDetected() {
+        #expect(WebRefusalLogic.isToolRefusal("Я не могу выполнить эти вызовы из текущего чата: инструменты недоступны в этом окружении."))
+        #expect(WebRefusalLogic.isToolRefusal("У меня нет доступа к вашему компьютеру, пришлите файлы."))
+        #expect(WebRefusalLogic.isToolRefusal("С прошлого раза у меня нет контекста задачи."))
+    }
+
+    @Test func toolRefusalENDetected() {
+        #expect(WebRefusalLogic.isToolRefusal("I don't have access to your computer, so I can't list files."))
+        #expect(WebRefusalLogic.isToolRefusal("Tools are not available in this environment."))
+        #expect(WebRefusalLogic.isToolRefusal("I am a sandboxed model without filesystem access."))
+    }
+
+    @Test func toolRefusalKimiIdentityDetected() {
+        // Live 2026-09-12 (verbatim excerpts): Kimi asserts its own
+        // sandbox/ipython identity instead of emitting blocks. The old
+        // markers missed this class entirely and the turn died.
+        #expect(WebRefusalLogic.isToolRefusal("я не Claude Code и не могу «испускать блоки» в формате его тулов"))
+        #expect(WebRefusalLogic.isToolRefusal("у меня другой набор инструментов, и они выполняются в моей среде (песочнице с /mnt/agents)"))
+        #expect(WebRefusalLogic.isToolRefusal("мои тулзы не имеют доступа к вашей файловой системе"))
+        #expect(WebRefusalLogic.isToolRefusal("I am not Claude Code, I have a different set of tools and my tools run in a sandbox"))
+    }
+
+    @Test func genuineAnswersAreNotRefusals() {
+        #expect(!WebRefusalLogic.isToolRefusal("В папке 4 элемента: .DS_Store, .git, .micoder, TZ-Bezdna-v3.md."))
+        #expect(!WebRefusalLogic.isToolRefusal("Готово: тесты прошли, 12 passed."))
+        #expect(!WebRefusalLogic.isToolRefusal("Уточните, пожалуйста, путь к файлу, который нужно прочитать."))
+        #expect(!WebRefusalLogic.isToolRefusal(""))
+        #expect(!WebRefusalLogic.isToolRefusal("ok"))
+        // Decoys: sandbox mentions that are NOT refusals.
+        #expect(!WebRefusalLogic.isToolRefusal("Прогони тесты в песочнице и покажи результат."))
+        #expect(!WebRefusalLogic.isToolRefusal("Не могу найти файл — уточните путь."))
+        #expect(!WebRefusalLogic.isToolRefusal("У меня другой вопрос по коду выше."))
+    }
+
     @Test func systemPreambleTeachesBothFormatsAndTools() {
         let preamble = WebToolProtocolEmulator.systemPreamble(projectRoot: "/proj", isGitRepo: true)
         #expect(preamble.contains("```tool"))
-        #expect(preamble.contains("<tool_call>"))
-        #expect(preamble.contains("Working directory: /proj"))
-        #expect(preamble.contains("Is directory a git repo: yes"))
+        #expect(preamble.contains("<tool_name>"))
+        // Compact form (audit 2026-09-08): cwd/git/date on one line so the
+        // preamble stays under the ~4000-byte vendor paste limit.
+        #expect(preamble.contains("cwd: /proj"))
+        #expect(preamble.contains("git: yes"))
         #expect(preamble.contains("read_file"))
         #expect(preamble.contains("run_command"))
+        // read_file teaches paging (live 2026-09-12: offset was ignored).
+        #expect(preamble.contains("limit"))
+        #expect(preamble.contains("offset"))
+        // The whole preamble must fit ONE vendor paste (Kimi converts larger
+        // pastes into .txt attachments, which the model then can not follow).
+        #expect((preamble.data(using: .utf8)?.count ?? 0) < 3900)
     }
 
     @Test func toolNameAliasesAreCaseInsensitive() {
@@ -365,6 +499,32 @@ struct WebSessionLogicTests {
         #expect(s == .connected)
     }
 
+    @Test func inferStateLimitReachedOnPricingRedirect() {
+        // Audit 2026-09-09 (Kimi live): submitting on /agent with exhausted
+        // quota redirects to /membership/pricing?from=okc_limit_notification.
+        // A pricing page has no chat input — it must read as limitReached,
+        // never as loggedOut (which would tell the user to log in).
+        let s = WebSessionLogic.inferState(
+            currentURL: "https://www.kimi.ai/membership/pricing?from=okc_limit_notification",
+            hasChatInput: false, pageText: "Kimi Membership")
+        #expect(s == .limitReached)
+    }
+
+    @Test func inferStateLimitReachedOnQueueBanner() {
+        let s = WebSessionLogic.inferState(
+            currentURL: "https://www.kimi.ai/agent",
+            hasChatInput: true,
+            pageText: "Слишком много людей сейчас общаются с Kimi. Подпишитесь!")
+        #expect(s == .limitReached)
+    }
+
+    @Test func inferStateLimitBeatsCaptchaFreePricingText() {
+        #expect(WebSessionLogic.detectLimitReached(
+            pageText: "", url: "https://www.kimi.ai/membership/pricing"))
+        #expect(!WebSessionLogic.detectLimitReached(
+            pageText: "Hello, how can I help?", url: "https://www.kimi.ai/chat/1"))
+    }
+
     @Test func sessionExpiredWhenAllCookiesPast() {
         #expect(WebSessionLogic.isSessionExpired(cookieExpiryEpochs: [100, 200], now: 300))
         #expect(!WebSessionLogic.isSessionExpired(cookieExpiryEpochs: [100, 5000], now: 300))
@@ -413,5 +573,101 @@ struct WebSessionLogicTests {
         let checkout = WebToolCall(name: "run_command", arguments: ["command": "git checkout main"])
         #expect(WebToolAccessGate.permission(for: checkout, accessLevel: .editAutomatically) == .requireApproval)
         #expect(WebToolAccessGate.permission(for: checkout, accessLevel: .fullAccess) == .allow)
+    }
+}
+
+@Suite("Truncated tool-call stub recovery (audit 2026-09-08)")
+struct TruncatedToolCallStubTests {
+    @Test func streamCutCallIsRecoveredNotFinal() {
+        // Live Qwen: the stream cut the answer mid-JSON. It is a tool call,
+        // never a final answer, and the loop must ask the model to re-emit.
+        let truncated = "call {\"name\": \"list_dir\", \"arguments"
+        #expect(!WebToolProtocolEmulator.isFinalResponse(truncated))
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: truncated)
+        #expect(calls.count == 1)
+        #expect(calls.first?.name == "list_dir")
+        #expect(calls.first?.arguments["__micoder_truncated"] == "1")
+    }
+
+    @Test func completeFencedCallStillParsesNormally() {
+        let complete = "```tool\n{\"name\": \"list_dir\", \"args\": {\"path\": \".\"}}\n```"
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: complete)
+        #expect(calls.count == 1)
+        #expect(calls.first?.arguments["__micoder_truncated"] == nil)
+        #expect(calls.first?.arguments["path"] == ".")
+    }
+
+    @Test func plainTextWithoutCallIsFinal() {
+        #expect(WebToolProtocolEmulator.isFinalResponse("Here is the listing: a, b, c"))
+    }
+
+    @Test func unknownToolNameStaysFinal() {
+        // A truncated JSON naming an unknown tool is honest garbage — do not
+        // invent a tool call from it.
+        let garbage = "call {\"name\": \"not_a_tool\", \"arguments"
+        #expect(WebToolProtocolEmulator.isFinalResponse(garbage))
+    }
+}
+
+
+@Suite("Qwen truncated XML tool-call recovery")
+struct QwenTruncatedXMLTests {
+    @Test func qwenLiveTruncatedResponseIsToolCall() {
+        // Verbatim live response (2026-09-08): the stream cut mid-tag; this
+        // is neither a final answer nor an executable call — it must parse as
+        // a truncated list_dir stub so the driver asks the model to re-emit.
+        let live = "<tool_name>list_dir</tool_name> \u{27E8}path\u{27E9} \u{27E8}arg_value\u{27E9} . \u{27E8}/arg_value\u{27E9}"
+        #expect(!WebToolProtocolEmulator.isFinalResponse(live))
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: live)
+        #expect(calls.contains { $0.name == "list_dir" })
+    }
+}
+
+@Suite("Unfenced NBSP JSON tool-call recovery (Qwen live)")
+struct UnfencedNBSPToolCallTests {
+    @Test func qwenBrokenFenceWithNBSPStillParses() {
+        // Verbatim live shape (2026-09-08): no backticks, NBSP inside JSON,
+        // a stray counter line before the object.
+        let live = "tool\n\n\n1\n{\"name\":\u{00A0}\"list_dir\",\u{00A0}\"args\":\u{00A0}{\"path\":\u{00A0}\".\"}}"
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: live)
+        #expect(calls.count == 1)
+        #expect(calls.first?.name == "list_dir")
+        #expect(calls.first?.arguments["path"] == ".")
+    }
+
+    @Test func plainUnfencedJSONParses() {
+        let plain = "Here you go: {\"name\": \"read_file\", \"args\": {\"path\": \"README.md\"}}"
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: plain)
+        #expect(calls.count == 1)
+        #expect(calls.first?.name == "read_file")
+    }
+
+    @Test func truncatedJSONStillFallsBackToStub() {
+        let truncated = "call {\"name\": \"list_dir\", \"arguments"
+        // No balanced object → the stub detector path stays authoritative.
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: truncated)
+        #expect(calls.count == 1)
+        #expect(calls.first?.arguments["__micoder_truncated"] == "1")
+    }
+}
+
+@Suite("Truncated tool_name prefix recovery (Qwen live)")
+struct TruncatedToolNamePrefixTests {
+    @Test func cutInsideToolNameIsRecovered() {
+        // Live (2026-09-08): the stream died inside the name — "<tool_name>list".
+        let live = "<tool_name>list"
+        #expect(!WebToolProtocolEmulator.isFinalResponse(live))
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: live)
+        #expect(calls.count == 1)
+        #expect(calls.first?.name == "list_dir")
+        #expect(calls.first?.arguments["__micoder_truncated"] == "1")
+    }
+
+    @Test func completeToolNamePrefixIsNotMistakenForCut() {
+        // "<tool_name>list_dir</tool_name>..." — the full name path above
+        // handles it; the prefix detector must not fire.
+        let complete = "<tool_name>grep</tool_name>⟨pattern⟩x⟨/pattern⟩⟨/tool_name⟩"
+        let calls = WebToolProtocolEmulator.parseToolCalls(from: complete)
+        #expect(calls.allSatisfy { $0.arguments["__micoder_truncated"] == nil })
     }
 }
