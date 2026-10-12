@@ -95,7 +95,7 @@ struct InstalledMCPRow: View {
     @State private var mutationError: String?
 
     private var configURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".micoder/mcp.json")
+        MyCoderPaths.mcpConfigURL(homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
     }
     private var home: URL { FileManager.default.homeDirectoryForCurrentUser }
 

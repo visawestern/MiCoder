@@ -51,7 +51,7 @@ struct PluginEntry: Identifiable, Equatable {
 enum AgentResourcesLoader {
     static func loadMCPServers(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) -> [MCPServerEntry] {
         let candidates = [
-            homeDirectory.appendingPathComponent(".micoder/mcp.json")
+            MyCoderPaths.mcpConfigURL(homeDirectory: homeDirectory)
         ]
         for url in candidates {
             if let servers = parseMCPConfig(at: url) {
@@ -63,7 +63,7 @@ enum AgentResourcesLoader {
 
     static func loadSkills(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) -> [SkillEntry] {
         let roots = [
-            (homeDirectory.appendingPathComponent(".micoder/skills"), "MiCoder")
+            (MyCoderPaths.skillsDir(homeDirectory: homeDirectory), "MiCoder")
         ]
         var results: [SkillEntry] = []
         for (root, source) in roots {
@@ -87,7 +87,7 @@ enum AgentResourcesLoader {
     }
 
     static func loadPlugins(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) -> [PluginEntry] {
-        let root = homeDirectory.appendingPathComponent(".micoder/plugins")
+        let root = MyCoderPaths.pluginsDir(homeDirectory: homeDirectory)
         guard let contents = try? FileManager.default.contentsOfDirectory(
             at: root,
             includingPropertiesForKeys: nil,

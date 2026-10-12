@@ -1,7 +1,7 @@
 import Foundation
 
 /// Persistent registry of installed skills' metadata (plan Раздел 3 Блок 1 п.10).
-/// Stored at `~/.micoder/skills/registry.json` because the filesystem scan
+/// Stored at `~/.mycoder/skills/registry.json` because the filesystem scan
 /// (AgentResourcesLoader.loadSkills) can't recover version/enabled/source.
 struct InstalledSkillRecord: Codable, Identifiable, Equatable {
     let id: String
@@ -17,7 +17,7 @@ struct SkillsRegistryDocument: Codable, Equatable {
 }
 
 enum SkillRegistryManager {
-    static let registryRelativePath = ".micoder/skills/registry.json"
+    static let registryRelativePath = MyCoderPaths.skillsRegistryRelativePath
 
     static func registryURL(homeDirectory: URL) -> URL {
         homeDirectory.appendingPathComponent(registryRelativePath)
@@ -93,7 +93,7 @@ enum SkillRegistryManager {
 }
 
 /// Persistent registry of installed MCP servers' metadata (plan Раздел 4 Блок 1 п.9).
-/// Stored at `~/.micoder/mcp/registry.json`.
+/// Stored at `~/.mycoder/mcp/registry.json`.
 struct InstalledMCPRecord: Codable, Identifiable, Equatable {
     enum Source: String, Codable { case mimo, cursor }
     enum Transport: String, Codable { case stdio, http }
@@ -113,7 +113,7 @@ struct MCPRegistryDocument: Codable, Equatable {
 }
 
 enum MCPRegistryManager {
-    static let registryRelativePath = ".micoder/mcp/registry.json"
+    static let registryRelativePath = MyCoderPaths.mcpRegistryRelativePath
 
     static func registryURL(homeDirectory: URL) -> URL {
         homeDirectory.appendingPathComponent(registryRelativePath)

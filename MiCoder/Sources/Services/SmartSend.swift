@@ -247,7 +247,7 @@ private struct SmartSendLogger {
         formatter.dateFormat = "HH:mm:ss.SSS"
         let line = "[\(formatter.string(from: Date()))] \(formatted)\n"
         if let data = line.data(using: .utf8) {
-            let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".micoder/logs/smartsend.log")
+            let url = MyCoderPaths.logFile(name: "smartsend.log", homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
             try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             if let handle = try? FileHandle(forWritingTo: url) {
                 handle.seekToEndOfFile()

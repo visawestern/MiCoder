@@ -131,14 +131,14 @@ enum AgentResourceLibraryLogic {
 
     static func isSkillInstalled(id: String, homeDirectory: URL) -> Bool {
         let paths = [
-            homeDirectory.appendingPathComponent(".micoder/skills/\(id)/SKILL.md")
+            MyCoderPaths.skillFile(id: id, homeDirectory: homeDirectory)
         ]
         return paths.contains { FileManager.default.fileExists(atPath: $0.path) }
     }
 
     static func isMCPInstalled(id: String, homeDirectory: URL) -> Bool {
         let candidates = [
-            homeDirectory.appendingPathComponent(".micoder/mcp.json")
+            MyCoderPaths.mcpConfigURL(homeDirectory: homeDirectory)
         ]
         for url in candidates {
             guard let data = try? Data(contentsOf: url),

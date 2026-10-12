@@ -32,7 +32,7 @@ enum CommandFileManager {
     // MARK: - Paths
 
     static func commandsDirectory(homeDirectory: URL) -> URL {
-        homeDirectory.appendingPathComponent(".micoder/commands", isDirectory: true)
+        MyCoderPaths.commandsDir(homeDirectory: homeDirectory)
     }
 
     static func fileURL(name: String, homeDirectory: URL) -> URL {
@@ -42,7 +42,7 @@ enum CommandFileManager {
 
     // MARK: - Read
 
-    /// Load commands from `~/.micoder/commands`, parsing frontmatter for a
+    /// Load commands from `~/.mycoder/commands`, parsing frontmatter for a
     /// display name and description. Files without frontmatter use the
     /// filename as the name.
     static func load(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,

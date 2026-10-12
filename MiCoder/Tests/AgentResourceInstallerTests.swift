@@ -61,7 +61,7 @@ struct AgentResourceInstallerTests {
 
     @Test func isSkillInstalledChecksMiMoAndCursorPaths() throws {
         let home = try makeTempHome()
-        let skillRoot = home.appendingPathComponent(".micoder/skills/demo", isDirectory: true)
+        let skillRoot = home.appendingPathComponent(".mycoder/skills/demo", isDirectory: true)
         try FileManager.default.createDirectory(at: skillRoot, withIntermediateDirectories: true)
         try "# Demo".write(to: skillRoot.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
 
@@ -71,7 +71,7 @@ struct AgentResourceInstallerTests {
 
     @Test func isMCPInstalledChecksMiCoderConfig() throws {
         let home = try makeTempHome()
-        let configDir = home.appendingPathComponent(".micoder", isDirectory: true)
+        let configDir = home.appendingPathComponent(".mycoder", isDirectory: true)
         try FileManager.default.createDirectory(at: configDir, withIntermediateDirectories: true)
         let json = """
         {"mcpServers":{"lazyweb":{"url":"https://www.lazyweb.com/mcp"}}}
@@ -89,7 +89,7 @@ struct AgentResourceInstallerTests {
 
         try installer.installSkill(catalog.skills[0], bundle: AgentResourceCatalog.catalogBundle, homeDirectory: home)
 
-        let skillFile = home.appendingPathComponent(".micoder/skills/demo-skill/SKILL.md")
+        let skillFile = home.appendingPathComponent(".mycoder/skills/demo-skill/SKILL.md")
         #expect(FileManager.default.fileExists(atPath: skillFile.path))
         let contents = try String(contentsOf: skillFile, encoding: .utf8)
         #expect(contents.contains("name: demo-skill"))
@@ -105,7 +105,7 @@ struct AgentResourceInstallerTests {
         try installer.installSkill(item, bundle: AgentResourceCatalog.catalogBundle, homeDirectory: home)
         try installer.installSkill(item, bundle: AgentResourceCatalog.catalogBundle, homeDirectory: home)
 
-        let skillFile = home.appendingPathComponent(".micoder/skills/demo-skill/SKILL.md")
+        let skillFile = home.appendingPathComponent(".mycoder/skills/demo-skill/SKILL.md")
         #expect(FileManager.default.fileExists(atPath: skillFile.path))
     }
 
@@ -116,7 +116,7 @@ struct AgentResourceInstallerTests {
 
         try await installer.installMCPServer(catalog.mcpServers[0], homeDirectory: home)
 
-        let configURL = home.appendingPathComponent(".micoder/mcp.json")
+        let configURL = home.appendingPathComponent(".mycoder/mcp.json")
         let data = try Data(contentsOf: configURL)
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let servers = json?["mcpServers"] as? [String: Any]
@@ -127,7 +127,7 @@ struct AgentResourceInstallerTests {
 
     @Test func installMCPServerPreservesExistingEntries() async throws {
         let home = try makeTempHome()
-        let mimocodeDir = home.appendingPathComponent(".micoder", isDirectory: true)
+        let mimocodeDir = home.appendingPathComponent(".mycoder", isDirectory: true)
         try FileManager.default.createDirectory(at: mimocodeDir, withIntermediateDirectories: true)
         let existing = """
         {"mcpServers":{"existing":{"url":"https://keep.me/mcp"}}}
@@ -152,7 +152,7 @@ struct AgentResourceInstallerTests {
 
         try await installer.installMCPServer(catalog.mcpServers[1], homeDirectory: home)
 
-        let data = try Data(contentsOf: home.appendingPathComponent(".micoder/mcp.json"))
+        let data = try Data(contentsOf: home.appendingPathComponent(".mycoder/mcp.json"))
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let servers = json?["mcpServers"] as? [String: Any]
         let cmd = servers?["cmd-mcp"] as? [String: Any]
@@ -191,7 +191,7 @@ struct AgentResourceInstallerTests {
 
         try await installer.installMCPServer(catalog.mcpServers[0], homeDirectory: home)
 
-        let data = try Data(contentsOf: home.appendingPathComponent(".micoder/mcp.json"))
+        let data = try Data(contentsOf: home.appendingPathComponent(".mycoder/mcp.json"))
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let servers = json?["mcpServers"] as? [String: Any]
         let server = servers?["token-mcp"] as? [String: Any]
@@ -330,7 +330,7 @@ struct AgentResourceInstallerTests {
         let installer = AgentResourceInstaller(fileManager: .default, tokenFetcher: StubMCPTokenFetcher())
         try await installer.installMCPServer(catalog.mcpServers[0], homeDirectory: home)
 
-        let data = try Data(contentsOf: home.appendingPathComponent(".micoder/mcp.json"))
+        let data = try Data(contentsOf: home.appendingPathComponent(".mycoder/mcp.json"))
         let root = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let server = (root?["mcpServers"] as? [String: Any])?["env-mcp"] as? [String: Any]
         #expect((server?["env"] as? [String: String])?["FOO"] == "bar")
@@ -348,7 +348,7 @@ struct AgentResourceInstallerTests {
         let installer = AgentResourceInstaller(fileManager: .default, tokenFetcher: StubMCPTokenFetcher())
         try installer.installSkill(lazyweb, bundle: AgentResourceCatalog.catalogBundle, homeDirectory: home)
 
-        let skillFile = home.appendingPathComponent(".micoder/skills/lazyweb/SKILL.md")
+        let skillFile = home.appendingPathComponent(".mycoder/skills/lazyweb/SKILL.md")
         let contents = try String(contentsOf: skillFile, encoding: .utf8)
         #expect(contents.contains("name: lazyweb"))
     }
@@ -399,7 +399,7 @@ struct AgentResourceInstallerTests {
 
         try installer.uninstallMCPServer(catalog.mcpServers[0], homeDirectory: home)
 
-        let data = try Data(contentsOf: home.appendingPathComponent(".micoder/mcp.json"))
+        let data = try Data(contentsOf: home.appendingPathComponent(".mycoder/mcp.json"))
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let servers = json?["mcpServers"] as? [String: Any]
         #expect(servers?["demo-mcp"] == nil)  // Removed

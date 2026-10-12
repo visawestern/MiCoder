@@ -79,7 +79,7 @@ struct AgentDependencyResolverTests {
         let home = try makeTempHome()
         defer { try? FileManager.default.removeItem(at: home) }
         // Write a config so isMCPInstalled sees "demo" (the classifier strips "-mcp").
-        let configURL = home.appendingPathComponent(".micoder/mcp.json")
+        let configURL = home.appendingPathComponent(".mycoder/mcp.json")
         try FileManager.default.createDirectory(at: configURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let payload = Data("""
         {"mcpServers":{"demo":{"command":"x"}}}

@@ -132,7 +132,7 @@ struct InstalledSkillRow: View {
         } message: {
             Text(L.t(AppLocalizationKey.locAlertDeleteSkillMessage)
                 .replacingOccurrences(of: "{0}", with: skill.name)
-                .replacingOccurrences(of: "{1}", with: home.appendingPathComponent(".micoder/skills").path))
+                .replacingOccurrences(of: "{1}", with: MyCoderPaths.skillsDir(homeDirectory: home).path))
         }
     }
 
@@ -148,7 +148,7 @@ struct InstalledSkillRow: View {
     private func remove() {
         mutationError = nil
         do {
-            let dir = home.appendingPathComponent(".micoder/skills/\(skill.id)")
+            let dir = MyCoderPaths.skillDir(id: skill.id, homeDirectory: home)
             if FileManager.default.fileExists(atPath: dir.path) {
                 try FileManager.default.removeItem(at: dir)
             }

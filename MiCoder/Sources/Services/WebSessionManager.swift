@@ -22,7 +22,7 @@ enum WebSessionManager {
     static let defaultSessionID = "default"
 
     static func providerDirectory(providerId: String, homeDirectory: URL) -> URL {
-        homeDirectory.appendingPathComponent(".micoder/web-sessions/\(providerId)", isDirectory: true)
+        MyCoderPaths.webSessionsDir(providerId: providerId, homeDirectory: homeDirectory)
     }
 
     static func sessionDirectory(providerId: String,

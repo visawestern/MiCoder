@@ -36,7 +36,7 @@ struct SkillUpdateStateTests {
         try installer.updateSkill(skill(version: "2.0.0", markdown: "new"), homeDirectory: home)
 
         #expect(SkillRegistryManager.load(homeDirectory: home).first?.isEnabled == false)
-        #expect(try String(contentsOf: home.appendingPathComponent(".micoder/skills/stateful-skill/SKILL.md"), encoding: .utf8) == "new")
+        #expect(try String(contentsOf: home.appendingPathComponent(".mycoder/skills/stateful-skill/SKILL.md"), encoding: .utf8) == "new")
     }
 
     @Test("updating an enabled skill preserves the enabled preference")

@@ -102,8 +102,7 @@ struct AgentResourceInstaller {
             fileManager: fileManager
         ).first { $0.id == item.id }?.isEnabled ?? true
         let markdown = try resolveSkillMarkdown(item, bundle: bundle)
-        let skillDir = homeDirectory
-            .appendingPathComponent(".micoder/skills/\(item.id)", isDirectory: true)
+        let skillDir = MyCoderPaths.skillDir(id: item.id, homeDirectory: homeDirectory)
         try fileManager.createDirectory(at: skillDir, withIntermediateDirectories: true)
         let skillFile = skillDir.appendingPathComponent("SKILL.md")
         try markdown.write(to: skillFile, atomically: true, encoding: .utf8)
@@ -183,7 +182,7 @@ struct AgentResourceInstaller {
             serverConfig["headers"] = merged
         }
 
-        let configURL = homeDirectory.appendingPathComponent(".micoder/mcp.json")
+        let configURL = MyCoderPaths.mcpConfigURL(homeDirectory: homeDirectory)
         var root: [String: Any] = [:]
         if fileManager.fileExists(atPath: configURL.path),
            let data = try? Data(contentsOf: configURL),
@@ -219,8 +218,7 @@ struct AgentResourceInstaller {
     }
 
     func uninstallSkill(_ item: CatalogSkillItem, homeDirectory: URL) throws {
-        let skillDir = homeDirectory
-            .appendingPathComponent(".micoder/skills/\(item.id)", isDirectory: true)
+        let skillDir = MyCoderPaths.skillDir(id: item.id, homeDirectory: homeDirectory)
         guard fileManager.fileExists(atPath: skillDir.path) else {
             throw AgentResourceInstallError.writeFailed("Skill \(item.id) is not installed.")
         }
@@ -262,7 +260,7 @@ struct AgentResourceInstaller {
     }
 
     func uninstallMCPServer(_ item: CatalogMCPServerItem, homeDirectory: URL) throws {
-        let configURL = homeDirectory.appendingPathComponent(".micoder/mcp.json")
+        let configURL = MyCoderPaths.mcpConfigURL(homeDirectory: homeDirectory)
         guard fileManager.fileExists(atPath: configURL.path),
               let data = try? Data(contentsOf: configURL),
               var root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {

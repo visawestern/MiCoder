@@ -51,6 +51,44 @@ enum MyCoderPaths {
         appDir(homeDirectory: homeDirectory).appendingPathComponent("logs", isDirectory: true)
     }
 
+    // MARK: - Agent resources (skills / MCP / commands / plugins / sessions)
+
+    static func skillsDir(homeDirectory: URL) -> URL {
+        appDir(homeDirectory: homeDirectory).appendingPathComponent("skills", isDirectory: true)
+    }
+
+    static func skillDir(id: String, homeDirectory: URL) -> URL {
+        skillsDir(homeDirectory: homeDirectory).appendingPathComponent(id, isDirectory: true)
+    }
+
+    static func skillFile(id: String, homeDirectory: URL) -> URL {
+        skillDir(id: id, homeDirectory: homeDirectory).appendingPathComponent("SKILL.md")
+    }
+
+    static func mcpConfigURL(homeDirectory: URL) -> URL {
+        appDir(homeDirectory: homeDirectory).appendingPathComponent("mcp.json")
+    }
+
+    static let skillsRegistryRelativePath = ".mycoder/skills/registry.json"
+    static let mcpRegistryRelativePath = ".mycoder/mcp/registry.json"
+
+    static func commandsDir(homeDirectory: URL) -> URL {
+        appDir(homeDirectory: homeDirectory).appendingPathComponent("commands", isDirectory: true)
+    }
+
+    static func pluginsDir(homeDirectory: URL) -> URL {
+        appDir(homeDirectory: homeDirectory).appendingPathComponent("plugins", isDirectory: true)
+    }
+
+    static func webSessionsDir(providerId: String, homeDirectory: URL) -> URL {
+        appDir(homeDirectory: homeDirectory)
+            .appendingPathComponent("web-sessions/\(providerId)", isDirectory: true)
+    }
+
+    static func logFile(name: String, homeDirectory: URL) -> URL {
+        logsDir(homeDirectory: homeDirectory).appendingPathComponent(name)
+    }
+
     /// True for both the canonical dir and the legacy one, so watchers,
     /// indexers and gitignore logic keep ignoring migrated-but-unmoved dirs.
     static func isAppDataPathComponent(_ component: String) -> Bool {

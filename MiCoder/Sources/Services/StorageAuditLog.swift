@@ -2,13 +2,13 @@ import Foundation
 
 /// Storage audit log (plan Раздел 8 п.46): every registry operation
 /// (create/archive/restore/delete/relink/reset) is appended to
-/// `~/.micoder/logs/storage-audit.log` so future "something appeared on its
+/// `~/.mycoder/logs/storage-audit.log` so future "something appeared on its
 /// own" reports can be diagnosed from real history instead of guesswork.
 enum StorageAuditLog {
 
     /// The log file location for a home directory.
     static func logURL(homeDirectory: URL) -> URL {
-        homeDirectory.appendingPathComponent(".micoder/logs/storage-audit.log")
+        MyCoderPaths.logFile(name: "storage-audit.log", homeDirectory: homeDirectory)
     }
 
     /// Append one timestamped audit line. Never rewrites existing entries.
