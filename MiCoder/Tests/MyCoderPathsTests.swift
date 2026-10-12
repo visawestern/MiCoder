@@ -45,4 +45,9 @@ struct MyCoderPathsTests {
         let plan = MyCoderPaths.migrationPlan(homeDirectory: home, fileManager: fm)
         #expect(plan.needsMigration == false)
     }
+
+    @Test func registryLogicUsesMycoderPath() {
+        let home = URL(fileURLWithPath: "/tmp/fake-home")
+        #expect(ProjectRegistryLogic.registryURL(homeDirectory: home) == MyCoderPaths.registryURL(homeDirectory: home))
+    }
 }
