@@ -1,4 +1,4 @@
-<docs/screenshots/logo-mi.png width=120 align=left>
+<img src="docs/screenshots/logo-mycoder.png" width="120" align="left" alt="myCoder logo">
 
 # myCoder
 

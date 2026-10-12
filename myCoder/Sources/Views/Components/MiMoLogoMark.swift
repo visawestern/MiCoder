@@ -30,7 +30,13 @@ struct MiMoLogoMark: View {
 }
 
 enum MiMoLogoLoader {
-    static let resourceName = "MiLogo"
+    static let resourceName = "myCoderMark"
+
+    /// SPM resource-bundle file names, in decreasing preference.
+    /// Target `myCoder` + product `myCoder` → `myCoder_myCoder.bundle`.
+    static func candidateBundleNames() -> [String] {
+        ["myCoder_myCoder.bundle"]
+    }
 
     /// The bundle used to locate resource files.
     ///
@@ -39,9 +45,9 @@ enum MiMoLogoLoader {
     static var resourceBundle: Bundle {
         // Prefer the SPM-generated resource bundle
         let candidates = [
-            Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/MiCoder_MiCoder.bundle"),
-            Bundle.main.bundleURL.appendingPathComponent("Resources/MiCoder_MiCoder.bundle"),
-            Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/Resources/MiCoder_MiCoder.bundle"),
+            Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/myCoder_myCoder.bundle"),
+            Bundle.main.bundleURL.appendingPathComponent("Resources/myCoder_myCoder.bundle"),
+            Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/Resources/myCoder_myCoder.bundle"),
         ]
         for url in candidates {
             let b = Bundle(url: url)
@@ -67,8 +73,8 @@ enum MiMoLogoLoader {
         }
         // Try all candidate bundles directly
         let candidates = [
-            Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/MiCoder_MiCoder.bundle"),
-            Bundle.main.bundleURL.appendingPathComponent("Resources/MiCoder_MiCoder.bundle"),
+            Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/myCoder_myCoder.bundle"),
+            Bundle.main.bundleURL.appendingPathComponent("Resources/myCoder_myCoder.bundle"),
         ]
         for url in candidates {
             let b = Bundle(url: url) ?? .main

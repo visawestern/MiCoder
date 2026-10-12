@@ -41,7 +41,7 @@ struct ChatPanelLayoutTests {
     @Test("Bundled Mi logo asset is available")
     func bundledLogoAsset() {
         // Logo should load from the SPM resource bundle at runtime
-        #expect(MiMoLogoLoader.resourceName == "MiLogo")
+        #expect(MiMoLogoLoader.resourceName == "myCoderMark")
         // In test environment bundle resources may not be available;
         // verify the loader resolves a bundle (not nil) and resourceName is correct.
         #expect(!MiMoLogoLoader.resourceBundle.bundlePath.isEmpty)
