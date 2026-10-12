@@ -9,9 +9,9 @@ struct ProjectFileIndexLogicTests {
 
     @Test func databaseAndSnapshotPathsArePerProject() {
         let db = ProjectDatabaseLocator.databaseURL(projectPath: "/home/u/proj")
-        #expect(db.path == "/home/u/proj/.micoder/project.db")
+        #expect(db.path == "/home/u/proj/.mycoder/project.db")
         let snaps = ProjectDatabaseLocator.snapshotsDir(projectPath: "/home/u/proj")
-        #expect(snaps.path == "/home/u/proj/.micoder/snapshots")
+        #expect(snaps.path == "/home/u/proj/.mycoder/snapshots")
     }
 
     @Test func stableProjectIDNormalizesPath() {
@@ -24,7 +24,7 @@ struct ProjectFileIndexLogicTests {
     @Test func excludesGitAndNodeModules() {
         #expect(ProjectFileIndexLogic.shouldExclude(relativePath: ".git/config"))
         #expect(ProjectFileIndexLogic.shouldExclude(relativePath: "node_modules/x/index.js"))
-        #expect(ProjectFileIndexLogic.shouldExclude(relativePath: ".micoder/project.db"))
+        #expect(ProjectFileIndexLogic.shouldExclude(relativePath: ".mycoder/project.db"))
         #expect(!ProjectFileIndexLogic.shouldExclude(relativePath: "src/main.swift"))
     }
 

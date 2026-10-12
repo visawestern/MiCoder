@@ -21,7 +21,7 @@ struct ProjectAutoBackupTests {
         let backups = try ProjectAutoBackupLogic.listBackups(projectPath: projectDir.path)
         #expect(backups.count == 1)
         // Backup must live inside the project's own .micoder/backups, never elsewhere.
-        #expect(created!.path.hasPrefix(projectDir.path + "/.micoder/backups/"))
+        #expect(created!.path.hasPrefix(projectDir.path + "/.mycoder/backups/"))
     }
 
     @Test func backupAfterMutatingDbHasData() throws {
@@ -96,7 +96,7 @@ struct ProjectAutoBackupTests {
             projectPath: projectDir.path, homeDirectory: home)
         #expect(preserved != nil)
         #expect(!preserved!.path.hasPrefix(projectDir.path))
-        #expect(preserved!.path.hasPrefix(home.appendingPathComponent(".micoder/deleted-backups").path))
+        #expect(preserved!.path.hasPrefix(home.appendingPathComponent(".mycoder/deleted-backups").path))
 
         // Now delete the project data entirely — the preserved backup remains.
         try? FileManager.default.removeItem(at: ProjectDatabaseLocator.projectMimoDir(projectPath: projectDir.path))

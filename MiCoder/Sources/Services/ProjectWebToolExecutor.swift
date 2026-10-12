@@ -308,10 +308,10 @@ struct ProjectWebToolExecutor: WebToolExecutor {
     // MARK: - Todo persistence (plan Раздел 12 — real tool ops, not stubs)
 
     private func todoFileURL() -> URL {
-        URL(fileURLWithPath: projectRoot).appendingPathComponent(".micoder/todos.json")
+        MyCoderPaths.todosURL(projectPath: projectRoot)
     }
 
-    /// Read the current todo list from `<project>/.micoder/todos.json`.
+    /// Read the current todo list from `<project>/.mycoder/todos.json`.
     private func todoRead() -> String {
         let url = todoFileURL()
         guard let data = try? Data(contentsOf: url) else {

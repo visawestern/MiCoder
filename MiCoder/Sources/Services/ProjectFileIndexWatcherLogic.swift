@@ -8,7 +8,7 @@ enum ProjectFileIndexWatcherLogic {
         let project = URL(fileURLWithPath: projectPath).standardizedFileURL.path
         guard !project.isEmpty, changed == project || changed.hasPrefix(project + "/") else { return false }
         let relative = changed == project ? "" : String(changed.dropFirst(project.count + 1))
-        return !relative.split(separator: "/").contains(".micoder")
+        return !relative.split(separator: "/").contains(where: { MyCoderPaths.isAppDataPathComponent(String($0)) })
     }
 
     static func shouldApply(

@@ -1,15 +1,22 @@
 import Foundation
 
 /// Pure decision logic for whether a project's `.gitignore` needs a
-/// `.micoder/` entry. Deliberately **never applied automatically** — per
+/// `.mycoder/` entry. Deliberately **never applied automatically** — per
 /// project policy, writing into a user's `.gitignore` requires their
 /// explicit consent, so callers must invoke `appendingEntry` only in
 /// response to an explicit user action (e.g. a "Add to .gitignore" button),
 /// never during migration or database creation.
+/// Legacy `.micoder/` entries are recognized as covering (migration must not
+/// duplicate the line), but newly appended entries always use `.mycoder/`.
 enum GitignoreEntryLogic {
-    static let mimocodeEntry = ".micoder/"
+    static let mimocodeEntry = ".mycoder/"
 
-    private static let recognizedVariants: Set<String> = [".micoder", ".micoder/", "/.micoder", "/.micoder/"]
+    static let legacyEntry = ".micoder/"
+
+    private static let recognizedVariants: Set<String> = [
+        ".mycoder", ".mycoder/", "/.mycoder", "/.mycoder/",
+        ".micoder", ".micoder/", "/.micoder", "/.micoder/",
+    ]
 
     static func needsEntry(existingContents: String?) -> Bool {
         guard let existingContents else { return true }
@@ -20,7 +27,7 @@ enum GitignoreEntryLogic {
         return !alreadyPresent
     }
 
-    /// Returns `existingContents` with a `.micoder/` line appended if it
+    /// Returns `existingContents` with a `.mycoder/` line appended if it
     /// isn't already covered, or unchanged if it's already present.
     static func appendingEntry(to existingContents: String?) -> String {
         guard needsEntry(existingContents: existingContents) else { return existingContents ?? "" }

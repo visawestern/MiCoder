@@ -79,7 +79,7 @@ struct ProjectWebToolTodoTests {
         let wrapperJSON = """
         {"todos": [{"id": "w1", "content": "Wrapper todo", "status": "pending"}]}
         """
-        let todoDir = root.appendingPathComponent(".micoder")
+        let todoDir = root.appendingPathComponent(".mycoder")
         try FileManager.default.createDirectory(at: todoDir, withIntermediateDirectories: true)
         try wrapperJSON.write(to: todoDir.appendingPathComponent("todos.json"), atomically: true, encoding: .utf8)
 

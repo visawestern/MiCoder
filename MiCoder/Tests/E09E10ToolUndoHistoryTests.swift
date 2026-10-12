@@ -86,7 +86,7 @@ struct E09E10ToolUndoHistoryTests {
         let result = await exec.execute(WebToolCall(name: "todo_write", arguments: ["todos": todos]))
         #expect(result.hasPrefix("ok"))
 
-        let todoPath = (root as NSString).appendingPathComponent(".micoder/todos.json")
+        let todoPath = (root as NSString).appendingPathComponent(".mycoder/todos.json")
         #expect(FileManager.default.fileExists(atPath: todoPath))
         let entries = try undo.history(sessionId: "s1")
         #expect(entries.count == 1)

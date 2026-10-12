@@ -19,7 +19,7 @@ final class ProjectSnapshotManager {
             throw ProjectDatabaseError.projectDirectoryNotFound(normalized)
         }
         self.projectPath = normalized
-        let snapshotsDir = URL(fileURLWithPath: normalized).appendingPathComponent(".micoder/snapshots")
+        let snapshotsDir = MyCoderPaths.snapshotsDir(projectPath: normalized)
         try fileManager.createDirectory(at: snapshotsDir, withIntermediateDirectories: true)
         self.snapshotsBasePath = snapshotsDir.path
     }

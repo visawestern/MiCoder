@@ -31,6 +31,39 @@ enum MyCoderPaths {
         URL(fileURLWithPath: projectPath).appendingPathComponent(appDirName, isDirectory: true)
     }
 
+    static func snapshotsDir(projectPath: String) -> URL {
+        projectDataDir(projectPath: projectPath).appendingPathComponent("snapshots", isDirectory: true)
+    }
+
+    static func todosURL(projectPath: String) -> URL {
+        projectDataDir(projectPath: projectPath).appendingPathComponent("todos.json")
+    }
+
+    static func backupsDir(projectPath: String) -> URL {
+        projectDataDir(projectPath: projectPath).appendingPathComponent("backups", isDirectory: true)
+    }
+
+    static func deletedBackupsDir(homeDirectory: URL) -> URL {
+        appDir(homeDirectory: homeDirectory).appendingPathComponent("deleted-backups", isDirectory: true)
+    }
+
+    static func logsDir(homeDirectory: URL) -> URL {
+        appDir(homeDirectory: homeDirectory).appendingPathComponent("logs", isDirectory: true)
+    }
+
+    /// True for both the canonical dir and the legacy one, so watchers,
+    /// indexers and gitignore logic keep ignoring migrated-but-unmoved dirs.
+    static func isAppDataPathComponent(_ component: String) -> Bool {
+        component == appDirName || component == legacyAppDirName
+    }
+
+    /// Indexer excludes: canonical name only (legacy dirs are migrated away,
+    /// but `isAppDataPathComponent` still guards un-migrated ones at runtime).
+    static let defaultExcludes: [String] = [
+        ".git", "node_modules", ".build", "DerivedData", ".mycoder",
+        "dist", "build", ".next", ".venv", "venv", "__pycache__", ".idea", ".swiftpm"
+    ]
+
     static func bundleKey(_ suffix: String) -> String {
         "\(bundlePrefix).\(suffix)"
     }

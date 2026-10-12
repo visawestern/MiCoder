@@ -5,7 +5,7 @@ import Foundation
 /// stays a small registry (Раздел 8), not a giant history store.
 enum ProjectDatabaseLocator {
     static func projectMimoDir(projectPath: String) -> URL {
-        URL(fileURLWithPath: projectPath).appendingPathComponent(".micoder", isDirectory: true)
+        MyCoderPaths.projectDataDir(projectPath: projectPath)
     }
 
     static func databaseURL(projectPath: String) -> URL {
@@ -28,10 +28,7 @@ enum ProjectDatabaseLocator {
 /// FSEvents/SQLite which live in the app layer (plan Раздел 7 Блок 3).
 enum ProjectFileIndexLogic {
     /// Directories/patterns always excluded (plan Блок 3 п.23).
-    static let defaultExcludes: [String] = [
-        ".git", "node_modules", ".build", "DerivedData", ".micoder",
-        "dist", "build", ".next", ".venv", "venv", "__pycache__", ".idea", ".swiftpm"
-    ]
+    static let defaultExcludes: [String] = MyCoderPaths.defaultExcludes
 
     /// Max file size to index by default (plan Блок 3 п.30), bytes.
     static let defaultMaxFileSize = 5 * 1024 * 1024

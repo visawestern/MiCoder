@@ -95,7 +95,7 @@ enum ProjectAutoBackupLogic {
 
     /// The global deleted-backups directory (created on demand).
     static func deletedBackupsDirectory(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) -> URL {
-        homeDirectory.appendingPathComponent(".micoder/deleted-backups", isDirectory: true)
+        MyCoderPaths.deletedBackupsDir(homeDirectory: homeDirectory)
     }
 
     /// Preserved backups, newest first (same ordering as `listBackups`).
