@@ -61,4 +61,24 @@ struct MyCoderPathsTests {
         #expect(fallback.path.hasPrefix("/tmp/fake-home/.mycoder/projects/"))
         #expect(fallback.lastPathComponent == "project.db")
     }
+
+    @Test func projectDataSubdirsUseMycoder() {
+        #expect(MyCoderPaths.snapshotsDir(projectPath: "/p/x").path == "/p/x/.mycoder/snapshots")
+        #expect(MyCoderPaths.todosURL(projectPath: "/p/x").path == "/p/x/.mycoder/todos.json")
+        #expect(MyCoderPaths.backupsDir(projectPath: "/p/x").path == "/p/x/.mycoder/backups")
+    }
+
+    @Test func homeDataSubdirsUseMycoder() {
+        let home = URL(fileURLWithPath: "/tmp/fake-home")
+        #expect(MyCoderPaths.deletedBackupsDir(homeDirectory: home).path == "/tmp/fake-home/.mycoder/deleted-backups")
+        #expect(MyCoderPaths.logsDir(homeDirectory: home).path == "/tmp/fake-home/.mycoder/logs")
+    }
+
+    @Test func appDataComponentRecognition() {
+        #expect(MyCoderPaths.isAppDataPathComponent(".mycoder") == true)
+        #expect(MyCoderPaths.isAppDataPathComponent(".micoder") == true)
+        #expect(MyCoderPaths.isAppDataPathComponent(".git") == false)
+        #expect(MyCoderPaths.defaultExcludes.contains(".mycoder"))
+        #expect(!MyCoderPaths.defaultExcludes.contains(".micoder"))
+    }
 }
