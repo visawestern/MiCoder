@@ -53,10 +53,10 @@ enum ProjectIdentityLogic {
 /// Pure administration of the project registry (plan Раздел 8 Блок 3).
 /// The global DB layer persists this; all decisions are testable here.
 enum ProjectRegistryLogic {
-    static let registryRelativePath = ".micoder/projects.json"
+    static var registryRelativePath: String { "\(MyCoderPaths.appDirName)/projects.json" }
 
     static func registryURL(homeDirectory: URL) -> URL {
-        homeDirectory.appendingPathComponent(registryRelativePath)
+        MyCoderPaths.registryURL(homeDirectory: homeDirectory)
     }
 
     static func load(homeDirectory: URL, fileManager: FileManager = .default) -> [ProjectRegistryEntry] {
