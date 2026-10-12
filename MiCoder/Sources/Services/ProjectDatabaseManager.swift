@@ -236,11 +236,12 @@ final class ProjectDatabaseManager {
     }
 
     /// Where the per-project DB file lives (E13, plan Раздел 8 п.51).
-    /// Default: `<project>/.micoder/project.db`. When that directory cannot be
+    /// Default: `<project>/.mycoder/project.db`. When that directory cannot be
     /// created (read-only / system-protected path), the DB falls back to
-    /// `<home>/.micoder/projects/<stable-hash>/project.db` so history and undo
+    /// `<home>/.mycoder/projects/<stable-hash>/project.db` so history and undo
     /// still work instead of the open failing. `attemptCreate` is injectable
     /// for deterministic tests; the default performs the real creation.
+    /// Legacy `<project>/.micoder` / `<home>/.micoder` dirs migrate via MyCoderPaths.
     static func resolveDatabaseURL(
         projectPath: String,
         homeDirectory: URL,
@@ -248,13 +249,12 @@ final class ProjectDatabaseManager {
             (try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)) != nil
         }
     ) -> URL {
-        let inProject = URL(fileURLWithPath: projectPath).appendingPathComponent(".micoder")
+        let inProject = MyCoderPaths.projectDataDir(projectPath: projectPath)
         if attemptCreate(inProject) {
             return inProject.appendingPathComponent("project.db")
         }
         let hash = stableHash(projectPath)
-        let fallbackDir = homeDirectory
-            .appendingPathComponent(".micoder", isDirectory: true)
+        let fallbackDir = MyCoderPaths.appDir(homeDirectory: homeDirectory)
             .appendingPathComponent("projects", isDirectory: true)
             .appendingPathComponent(hash, isDirectory: true)
         _ = (try? FileManager.default.createDirectory(at: fallbackDir, withIntermediateDirectories: true))

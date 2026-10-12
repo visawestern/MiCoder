@@ -3,8 +3,8 @@ import Foundation
 @testable import MiCoder
 
 /// E13 (Раздел 8 п.51): a project on a read-only/system-protected path (where
-/// `<project>/.micoder/` cannot be created) must still open — the DB falls
-/// back to `<home>/.micoder/projects/<stable-hash>/project.db` instead of the
+/// `<project>/.mycoder/` cannot be created) must still open — the DB falls
+/// back to `<home>/.mycoder/projects/<stable-hash>/project.db` instead of the
 /// whole open failing. E21 (Раздел 7 п.46): per-project DBs run in WAL mode.
 @Suite("E13/E21 — read-only fallback + WAL journaling (Round 24)")
 struct E13E21StorageRobustnessTests {
@@ -18,13 +18,13 @@ struct E13E21StorageRobustnessTests {
 
     // MARK: - E13: fallback location decision (pure, deterministic)
 
-    @Test("writable project keeps the DB inside the project .micoder dir")
+    @Test("writable project keeps the DB inside the project .mycoder dir")
     func writableProjectStaysInProject() {
         let home = URL(fileURLWithPath: "/tmp/home")
         let url = ProjectDatabaseManager.resolveDatabaseURL(
             projectPath: "/Users/me/Work/MyApp", homeDirectory: home,
             attemptCreate: { _ in true })
-        #expect(url.path == "/Users/me/Work/MyApp/.micoder/project.db")
+        #expect(url.path == "/Users/me/Work/MyApp/.mycoder/project.db")
     }
 
     @Test("read-only project falls back to the hashed home location")
@@ -34,8 +34,8 @@ struct E13E21StorageRobustnessTests {
             projectPath: "/System/Protected/Path", homeDirectory: home,
             attemptCreate: { _ in false })
         #expect(url.lastPathComponent == "project.db")
-        #expect(url.path.hasPrefix("/tmp/home/.micoder/projects/"),
-                "fallback DB must live under <home>/.micoder/projects/<hash>/project.db, got \(url.path)")
+        #expect(url.path.hasPrefix("/tmp/home/.mycoder/projects/"),
+                "fallback DB must live under <home>/.mycoder/projects/<hash>/project.db, got \(url.path)")
         #expect(!url.path.contains("/System/Protected/Path"),
                 "fallback must not reference the un-writable in-project location")
     }
@@ -54,7 +54,7 @@ struct E13E21StorageRobustnessTests {
 
     // MARK: - E13: end-to-end on a real read-only directory
 
-    @Test("a real read-only project opens via fallback without creating .micoder in-project")
+    @Test("a real read-only project opens via fallback without creating .mycoder in-project")
     func readOnlyProjectOpensViaFallback() throws {
         let base = try makeTempBase()
         let projectDir = base.appendingPathComponent("ro-project")
@@ -71,9 +71,9 @@ struct E13E21StorageRobustnessTests {
 
         let manager = try ProjectDatabaseManager.open(projectPath: projectDir.path, homeDirectory: home)
         #expect(!FileManager.default.fileExists(
-            atPath: projectDir.appendingPathComponent(".micoder").path),
-            "E13: open() must not create .micoder inside a read-only project")
-        #expect(manager.databaseFileURL.path.hasPrefix(home.path + "/.micoder/projects/"))
+            atPath: projectDir.appendingPathComponent(".mycoder").path),
+            "E13: open() must not create .mycoder inside a read-only project")
+        #expect(manager.databaseFileURL.path.hasPrefix(home.path + "/.mycoder/projects/"))
         #expect(FileManager.default.fileExists(atPath: manager.databaseFileURL.path),
                 "the fallback DB file must actually exist and be usable")
     }

@@ -29,14 +29,14 @@ struct ProjectDatabaseManagerTests {
         #expect(!FileManager.default.fileExists(atPath: bogus))
     }
 
-    @Test("Creates <project>/.micoder/project.db for a valid project directory")
+    @Test("Creates <project>/.mycoder/project.db for a valid project directory")
     func createsDatabaseFileInProject() throws {
         let projectPath = try makeTempProjectDir()
         defer { try? FileManager.default.removeItem(atPath: projectPath) }
 
         let manager = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
         let expectedDBPath = (projectPath as NSString)
-            .appendingPathComponent(".micoder/project.db")
+            .appendingPathComponent(".mycoder/project.db")
         #expect(manager.databaseFileURL.path == expectedDBPath)
         #expect(FileManager.default.fileExists(atPath: expectedDBPath))
     }
