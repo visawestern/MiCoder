@@ -9,7 +9,7 @@ final class ProjectFileIndexWatcher {
     private let projectPath: String
     private let generation: UInt64
     private let onInvalidate: (String, UInt64) -> Void
-    private let callbackQueue = DispatchQueue(label: "com.micoder.file-index-watcher", qos: .utility)
+    private let callbackQueue = DispatchQueue(label: "com.mycoder.file-index-watcher", qos: .utility)
     private var stream: FSEventStreamRef?
     private var pendingWork: DispatchWorkItem?
     private var isStopped = false

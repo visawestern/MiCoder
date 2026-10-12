@@ -35,7 +35,7 @@ struct AppSettings: Codable {
     var indexNewFolders: Bool
     var indexRepositories: Bool
     
-    private static let userDefaultsKey = "com.micoder.settings"
+    private static let userDefaultsKey = "com.mycoder.settings"
     
     init() {
         self.theme = .dark

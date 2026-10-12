@@ -64,7 +64,7 @@ struct WebBrowserActionRecord: Codable, Equatable, Identifiable, Sendable {
 }
 
 enum WebBrowserActionJournal {
-    static let storageKey = "com.micoder.webBrowserActionJournal"
+    static let storageKey = "com.mycoder.webBrowserActionJournal"
     static let maxRecords = 500
 
     static func load(defaults: UserDefaults = .standard) -> [WebBrowserActionRecord] {

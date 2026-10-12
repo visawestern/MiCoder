@@ -18,6 +18,11 @@ struct MiCoderApp: App {
                 .environmentObject(appState)
                 .onAppear {
                     __miCoderAppState = appState
+                    // rename/mycoder R6: one-time forward migration, then canonical only.
+                    _ = MyCoderDefaults.migrateAllKnownKeys()
+                    let home = FileManager.default.homeDirectoryForCurrentUser
+                    let plan = MyCoderPaths.migrationPlan(homeDirectory: home)
+                    try? MyCoderPaths.performMigration(plan)
                     MiCoderAPIServer.shared.start()
                 }
                 .frame(minWidth: 900, idealWidth: 1200, maxWidth: .infinity,
@@ -222,18 +227,18 @@ class AppState: ObservableObject {
     @Published var accessLevel: AccessLevel = .askBeforeChanges {
         didSet {
             guard !isSyncingAccessLevel else { return }
-            defaults.set(accessLevel.rawValue, forKey: "com.micoder.accessLevel")
+            defaults.set(accessLevel.rawValue, forKey: "com.mycoder.accessLevel")
             Task { await applyAccessLevelToServer() }
         }
     }
     @Published var selectedVariant: String = "high" {
         didSet {
-            defaults.set(selectedVariant, forKey: "com.micoder.selectedVariant")
+            defaults.set(selectedVariant, forKey: "com.mycoder.selectedVariant")
         }
     }
     @Published var agentMode: AgentMode = .build {
         didSet {
-            defaults.set(agentMode.rawValue, forKey: "com.micoder.agentMode")
+            defaults.set(agentMode.rawValue, forKey: "com.mycoder.agentMode")
         }
     }
     @Published var showSettings = false
@@ -307,7 +312,7 @@ class AppState: ObservableObject {
     var userInitials: String { UserProfileDisplay.initials(from: userDisplayName) }
     @Published var appTheme: AppTheme = .dark {
         didSet {
-            defaults.set(appTheme.rawValue, forKey: "com.micoder.theme")
+            defaults.set(appTheme.rawValue, forKey: "com.mycoder.theme")
             Color.mimo.setTheme(appTheme)
         }
     }
@@ -348,25 +353,25 @@ class AppState: ObservableObject {
         MiCoderAPIServer.appendLog("🆕 AppState.init: id=\(instanceID)")
 
         // Load persisted values from the injected defaults domain
-        selectedModel = defaults.string(forKey: "com.micoder.selectedModel") ?? ""
-        selectedProviderID = defaults.string(forKey: "com.micoder.selectedProviderID") ?? ""
+        selectedModel = defaults.string(forKey: "com.mycoder.selectedModel") ?? ""
+        selectedProviderID = defaults.string(forKey: "com.mycoder.selectedProviderID") ?? ""
         selectedVariant = {
-            if let saved = defaults.string(forKey: "com.micoder.selectedVariant"), !saved.isEmpty {
+            if let saved = defaults.string(forKey: "com.mycoder.selectedVariant"), !saved.isEmpty {
                 return saved
             }
-            let legacy = defaults.string(forKey: "com.micoder.thinkingLevel") ?? ""
+            let legacy = defaults.string(forKey: "com.mycoder.thinkingLevel") ?? ""
             return ProviderSettingsLogic.migrateLegacyThinkingLevel(legacy) ?? "high"
         }()
         agentMode = {
-            let raw = defaults.string(forKey: "com.micoder.agentMode") ?? ""
+            let raw = defaults.string(forKey: "com.mycoder.agentMode") ?? ""
             return AgentMode(rawValue: raw) ?? .build
         }()
         accessLevel = {
-            let raw = defaults.string(forKey: "com.micoder.accessLevel") ?? ""
+            let raw = defaults.string(forKey: "com.mycoder.accessLevel") ?? ""
             return AccessLevelPermissionLogic.migrateLegacyAccessLevel(raw: raw)
         }()
         appTheme = {
-            let raw = defaults.string(forKey: "com.micoder.theme") ?? ""
+            let raw = defaults.string(forKey: "com.mycoder.theme") ?? ""
             return AppTheme(rawValue: raw) ?? .dark
         }()
         // settings is already loaded by its own didSet-based persistence
@@ -405,16 +410,16 @@ class AppState: ObservableObject {
     }
 
     private func migrateLegacyPreferences() {
-        let rawAccess = defaults.string(forKey: "com.micoder.accessLevel") ?? ""
+        let rawAccess = defaults.string(forKey: "com.mycoder.accessLevel") ?? ""
         if AccessLevelPermissionLogic.shouldSwitchToPlanAgent(legacyRaw: rawAccess) {
             agentMode = .plan
-            defaults.set(AgentMode.plan.rawValue, forKey: "com.micoder.agentMode")
-            defaults.set(AccessLevel.askBeforeChanges.rawValue, forKey: "com.micoder.accessLevel")
+            defaults.set(AgentMode.plan.rawValue, forKey: "com.mycoder.agentMode")
+            defaults.set(AccessLevel.askBeforeChanges.rawValue, forKey: "com.mycoder.accessLevel")
         }
 
         // The legacy anonymous provider was renamed after its Xiaomi channel sunset.
         // Preserve an existing explicit selection across the rename.
-        for key in ["com.micoder.selectedProviderID", "com.micoder.preferredProviderID"] {
+        for key in ["com.mycoder.selectedProviderID", "com.mycoder.preferredProviderID"] {
             if defaults.string(forKey: key) == "mimo-auto" {
                 defaults.set(MiCoderAutoFreeProvider.builtInID, forKey: key)
             }
@@ -620,14 +625,14 @@ class AppState: ObservableObject {
     /// The provider the user explicitly picked; survives fallbacks while the
     /// provider is offline and is restored once it reappears.
     var preferredProviderID: String {
-        defaults.string(forKey: "com.micoder.preferredProviderID")
-            ?? defaults.string(forKey: "com.micoder.selectedProviderID")
+        defaults.string(forKey: "com.mycoder.preferredProviderID")
+            ?? defaults.string(forKey: "com.mycoder.selectedProviderID")
             ?? ""
     }
 
     var preferredModelID: String {
-        defaults.string(forKey: "com.micoder.preferredModelID")
-            ?? defaults.string(forKey: "com.micoder.selectedModel")
+        defaults.string(forKey: "com.mycoder.preferredModelID")
+            ?? defaults.string(forKey: "com.mycoder.selectedModel")
             ?? ""
     }
 
@@ -635,9 +640,9 @@ class AppState: ObservableObject {
         selectedProviderID = providerID
         providerConnectivity[providerID] = false
         Task { await refreshProviderConnectivity(providerID) }
-        defaults.set(providerID, forKey: "com.micoder.selectedProviderID")
+        defaults.set(providerID, forKey: "com.mycoder.selectedProviderID")
         if persistPreference {
-            defaults.set(providerID, forKey: "com.micoder.preferredProviderID")
+            defaults.set(providerID, forKey: "com.mycoder.preferredProviderID")
         }
 
         // Web providers are persisted locally rather than returned by
@@ -653,7 +658,7 @@ class AppState: ObservableObject {
                 availableModels: models
             )
             selectedModel = preferred
-            defaults.set(preferred, forKey: "com.micoder.selectedModel")
+            defaults.set(preferred, forKey: "com.mycoder.selectedModel")
             selectedVariant = ""
             updateWebProvider(webID, modelID: preferred)
             return
@@ -665,7 +670,7 @@ class AppState: ObservableObject {
                 ? autoFreeProvider.selectedModel
                 : (autoFreeProvider.models.first?.id ?? MiCoderAutoFreeProvider.defaultModelID)
             selectedModel = model
-            defaults.set(model, forKey: "com.micoder.selectedModel")
+            defaults.set(model, forKey: "com.mycoder.selectedModel")
             selectedVariant = ""
             return
         }
@@ -678,7 +683,7 @@ class AppState: ObservableObject {
             customProviders: customProviders
         )
         selectedModel = result.modelID
-        defaults.set(result.modelID, forKey: "com.micoder.selectedModel")
+        defaults.set(result.modelID, forKey: "com.mycoder.selectedModel")
         selectedVariant = result.variant ?? ""
 
         if agentMode == .plan,
@@ -741,9 +746,9 @@ class AppState: ObservableObject {
     func selectModel(_ modelID: String, persistPreference: Bool = true) {
         guard modelsForSelectedProvider.contains(modelID) else { return }
         selectedModel = modelID
-        defaults.set(modelID, forKey: "com.micoder.selectedModel")
+        defaults.set(modelID, forKey: "com.mycoder.selectedModel")
         if persistPreference {
-            defaults.set(modelID, forKey: "com.micoder.preferredModelID")
+            defaults.set(modelID, forKey: "com.mycoder.preferredModelID")
         }
         // For auto-free provider, also sync the store so effectiveSelectedModel() reflects the choice
         if selectedProviderID == MiCoderAutoFreeProvider.builtInID {
@@ -830,7 +835,7 @@ class AppState: ObservableObject {
             customProviders: customProviders
         )
         selectedModel = result.modelID
-        defaults.set(result.modelID, forKey: "com.micoder.selectedModel")
+        defaults.set(result.modelID, forKey: "com.mycoder.selectedModel")
         selectedVariant = result.variant ?? ""
     }
 
@@ -849,7 +854,7 @@ class AppState: ObservableObject {
                 WebProviderStore.save(providers, defaults: defaults)
             }
             selectedModel = resolved
-            defaults.set(resolved, forKey: "com.micoder.selectedModel")
+            defaults.set(resolved, forKey: "com.mycoder.selectedModel")
             return
         }
         if let restoredModel = SelectionRestoreLogic.resolvedModelID(
@@ -1116,8 +1121,8 @@ class AppState: ObservableObject {
         saveCustomProviders()
         if selectedProviderID == providerID && selectedModel == modelID {
             selectedModel = customProviders[index].models.first ?? ""
-            defaults.set(selectedModel, forKey: "com.micoder.selectedModel")
-            defaults.set(selectedModel, forKey: "com.micoder.preferredModelID")
+            defaults.set(selectedModel, forKey: "com.mycoder.selectedModel")
+            defaults.set(selectedModel, forKey: "com.mycoder.preferredModelID")
             selectedVariant = ""
         }
         validateAndReconcileSelections()
@@ -1212,7 +1217,7 @@ class AppState: ObservableObject {
             return clean
         }
         if let data = try? JSONEncoder().encode(cleanProviders) {
-            defaults.set(data, forKey: "com.micoder.customProviders")
+            defaults.set(data, forKey: "com.mycoder.customProviders")
         }
     }
     
@@ -1945,7 +1950,7 @@ class AppState: ObservableObject {
     }
 
     func loadCustomProviders() {
-        if let data = defaults.data(forKey: "com.micoder.customProviders"),
+        if let data = defaults.data(forKey: "com.mycoder.customProviders"),
            let providers = try? JSONDecoder().decode([CustomProvider].self, from: data) {
             customProviders = providers
             // Restore apiKey from Keychain for any provider that has been migrated
@@ -2006,8 +2011,8 @@ class AppState: ObservableObject {
                     self.selectedProviderID = ""
                     self.selectedModel = ""
                     self.selectedVariant = ""
-                    self.defaults.set("", forKey: "com.micoder.selectedProviderID")
-                    self.defaults.set("", forKey: "com.micoder.selectedModel")
+                    self.defaults.set("", forKey: "com.mycoder.selectedProviderID")
+                    self.defaults.set("", forKey: "com.mycoder.selectedModel")
                 }
             } else {
                 self.validateAndReconcileSelections()
@@ -2027,7 +2032,7 @@ class AppState: ObservableObject {
     @MainActor
     func restoreLastWorkspace() {
         guard selectedWorkspace == nil else { return }
-        let savedID = defaults.string(forKey: "com.micoder.lastWorkspaceID")
+        let savedID = defaults.string(forKey: "com.mycoder.lastWorkspaceID")
         guard let workspace = WorkspaceRestoreLogic.restore(
             workspaces: workspaces,
             savedID: savedID
@@ -2039,7 +2044,7 @@ class AppState: ObservableObject {
         let previousID = selectedWorkspace?.id
         selectedWorkspace = workspace
         // User directive 2026-09-08: reopen the last project on app launch.
-        defaults.set(workspace.id, forKey: "com.micoder.lastWorkspaceID")
+        defaults.set(workspace.id, forKey: "com.mycoder.lastWorkspaceID")
         guard reloadSessions,
               WorkspaceSelectionLogic.shouldReloadSessions(previousID: previousID, newID: workspace.id) else {
             return

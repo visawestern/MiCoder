@@ -1196,7 +1196,7 @@ struct ModelSettingsProviderColumns: View {
 
     /// Ключ UserDefaults для хранения включенности фикса формата tool result
     private func toolResultFixKey(for modelID: String) -> String {
-        "com.micoder.toolResultFix.\(modelID)"
+        "com.mycoder.toolResultFix.\(modelID)"
     }
 
     /// Проверить включен ли фикс для модели

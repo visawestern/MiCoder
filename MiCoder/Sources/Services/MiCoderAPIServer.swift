@@ -2,7 +2,7 @@ import Foundation
 import Network
 import os.log
 
-private let apiLog = OSLog(subsystem: "com.micoder.app", category: "api")
+private let apiLog = OSLog(subsystem: "com.mycoder.app", category: "api")
 
 /// Local HTTP API server for MiCoder testing and integration.
 /// Provides endpoints to list providers/models/chats and send messages.

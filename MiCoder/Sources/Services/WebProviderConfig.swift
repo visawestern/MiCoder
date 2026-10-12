@@ -283,7 +283,7 @@ struct WebProviderConfig: Identifiable, Codable, Equatable {
 
 /// Persistence for web providers (plan Раздел 12 Блок 1 п.7).
 enum WebProviderStore {
-    static let storageKey = "com.micoder.webProviders"
+    static let storageKey = "com.mycoder.webProviders"
 
     /// Audit 2026-09-10: `load()` runs on EVERY SwiftUI body evaluation
     /// (send readiness, provider menus, status dot, API info) and each call

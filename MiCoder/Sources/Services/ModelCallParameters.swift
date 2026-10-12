@@ -43,7 +43,7 @@ struct WebModelParameterProfile: Codable, Equatable, Hashable {
 
 /// Pure persistence + serialization of per-model parameters (plan Раздел 13 п.14).
 enum ModelCallParametersStore {
-    static let storageKey = "com.micoder.modelCallParameters"
+    static let storageKey = "com.mycoder.modelCallParameters"
 
     static func loadAll(defaults: UserDefaults = .standard) -> [String: ModelCallParameters] {
         guard let data = defaults.data(forKey: storageKey),

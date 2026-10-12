@@ -32,7 +32,7 @@ struct GeneralSettingsTests {
     func appSettingsLoadDefaults() {
         // Use a dedicated defaults suite so parallel test runs never race on
         // the shared `.standard` domain (Round 12 flake fix).
-        let suiteName = "com.micoder.tests.appSettingsLoadDefaults"
+        let suiteName = "com.mycoder.tests.appSettingsLoadDefaults"
         guard let defaults = UserDefaults(suiteName: suiteName) else {
             Issue.record("Could not create defaults suite")
             return
@@ -809,15 +809,15 @@ struct AppStateSettingsIntegrationTests {
     @Test("AppState setLanguage updates settings language")
     func appStateSetLanguage() {
         // Save and restore UserDefaults settings to prevent cross-test contamination
-        let savedData = UserDefaults.standard.data(forKey: "com.micoder.settings")
+        let savedData = UserDefaults.standard.data(forKey: "com.mycoder.settings")
         defer {
             if let data = savedData {
-                UserDefaults.standard.set(data, forKey: "com.micoder.settings")
+                UserDefaults.standard.set(data, forKey: "com.mycoder.settings")
             } else {
-                UserDefaults.standard.removeObject(forKey: "com.micoder.settings")
+                UserDefaults.standard.removeObject(forKey: "com.mycoder.settings")
             }
         }
-        UserDefaults.standard.removeObject(forKey: "com.micoder.settings")
+        UserDefaults.standard.removeObject(forKey: "com.mycoder.settings")
         
         let state = AppState()
         // AppState creates its own AppSettings which defaults to English
@@ -872,8 +872,8 @@ struct AppStateSettingsIntegrationTests {
         ]
         state.selectProvider("c1")
         #expect(state.selectedProviderID == "c1")
-        #expect(UserDefaults.standard.string(forKey: "com.micoder.selectedProviderID") == "c1")
-        #expect(UserDefaults.standard.string(forKey: "com.micoder.preferredProviderID") == "c1")
+        #expect(UserDefaults.standard.string(forKey: "com.mycoder.selectedProviderID") == "c1")
+        #expect(UserDefaults.standard.string(forKey: "com.mycoder.preferredProviderID") == "c1")
     }
 
     @Test("AppState selectProvider without persistence updates in-memory state")

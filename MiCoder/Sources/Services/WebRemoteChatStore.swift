@@ -53,7 +53,7 @@ struct WebRemoteChatMapping: Codable, Equatable, Sendable {
 }
 
 enum WebRemoteChatStore {
-    static let storageKey = "com.micoder.webRemoteChatMappings"
+    static let storageKey = "com.mycoder.webRemoteChatMappings"
 
     static func loadAll(defaults: UserDefaults = .standard) -> [String: WebRemoteChatMapping] {
         guard let data = defaults.data(forKey: storageKey),

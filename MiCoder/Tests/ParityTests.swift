@@ -13,16 +13,16 @@ struct ModelSelectorParityTests {
 
     @Test("Selected model starts empty before API load")
     func selectedModelStartsEmpty() {
-        let savedModel = UserDefaults.standard.string(forKey: "com.micoder.selectedModel")
-        let savedProvider = UserDefaults.standard.string(forKey: "com.micoder.selectedProviderID")
+        let savedModel = UserDefaults.standard.string(forKey: "com.mycoder.selectedModel")
+        let savedProvider = UserDefaults.standard.string(forKey: "com.mycoder.selectedProviderID")
         defer {
-            UserDefaults.standard.set(savedModel, forKey: "com.micoder.selectedModel")
-            UserDefaults.standard.set(savedProvider, forKey: "com.micoder.selectedProviderID")
+            UserDefaults.standard.set(savedModel, forKey: "com.mycoder.selectedModel")
+            UserDefaults.standard.set(savedProvider, forKey: "com.mycoder.selectedProviderID")
         }
         // Set explicitly to empty string (atomic) instead of removeObject,
         // because a parallel test could write between removeObject and AppState init.
-        UserDefaults.standard.set("", forKey: "com.micoder.selectedModel")
-        UserDefaults.standard.set("", forKey: "com.micoder.selectedProviderID")
+        UserDefaults.standard.set("", forKey: "com.mycoder.selectedModel")
+        UserDefaults.standard.set("", forKey: "com.mycoder.selectedProviderID")
         let state = AppState(host: "127.0.0.1", port: 0)
         #expect(state.selectedModel.isEmpty)
     }
@@ -137,14 +137,14 @@ struct WorkspaceChipsParityTests {
 
     @Test("Agent chip shows model name or fallback")
     func agentChipModelLabel() {
-        let savedModel = UserDefaults.standard.string(forKey: "com.micoder.selectedModel")
-        let savedProvider = UserDefaults.standard.string(forKey: "com.micoder.selectedProviderID")
+        let savedModel = UserDefaults.standard.string(forKey: "com.mycoder.selectedModel")
+        let savedProvider = UserDefaults.standard.string(forKey: "com.mycoder.selectedProviderID")
         defer {
-            UserDefaults.standard.set(savedModel, forKey: "com.micoder.selectedModel")
-            UserDefaults.standard.set(savedProvider, forKey: "com.micoder.selectedProviderID")
+            UserDefaults.standard.set(savedModel, forKey: "com.mycoder.selectedModel")
+            UserDefaults.standard.set(savedProvider, forKey: "com.mycoder.selectedProviderID")
         }
-        UserDefaults.standard.removeObject(forKey: "com.micoder.selectedModel")
-        UserDefaults.standard.removeObject(forKey: "com.micoder.selectedProviderID")
+        UserDefaults.standard.removeObject(forKey: "com.mycoder.selectedModel")
+        UserDefaults.standard.removeObject(forKey: "com.mycoder.selectedProviderID")
         let state = AppState(host: "127.0.0.1", port: 0)
         let label1 = state.selectedModel.isEmpty ? "Model" : state.selectedModel
         #expect(label1 == "Model")
@@ -222,7 +222,7 @@ struct AgentModeParityTests {
 
     @Test("Agent mode defaults to build when UserDefaults is empty")
     func agentModeDefault() {
-        UserDefaults.standard.removeObject(forKey: "com.micoder.agentMode")
+        UserDefaults.standard.removeObject(forKey: "com.mycoder.agentMode")
         let state = AppState(host: "127.0.0.1", port: 0)
         #expect(state.agentMode == .build)
     }
@@ -246,10 +246,10 @@ struct AgentModeParityTests {
     func agentModePersists() {
         let state = AppState(host: "127.0.0.1", port: 0)
         state.agentMode = .compose
-        let raw = UserDefaults.standard.string(forKey: "com.micoder.agentMode")
+        let raw = UserDefaults.standard.string(forKey: "com.mycoder.agentMode")
         #expect(raw == "Compose")
         state.agentMode = .plan
-        let raw2 = UserDefaults.standard.string(forKey: "com.micoder.agentMode")
+        let raw2 = UserDefaults.standard.string(forKey: "com.mycoder.agentMode")
         #expect(raw2 == "Plan")
     }
 }

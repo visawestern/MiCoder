@@ -116,4 +116,21 @@ struct MyCoderPathsTests {
         defaults.set("old", forKey: "com.micoder.theme")
         #expect(MyCoderDefaults.string("theme", in: defaults) == "new")
     }
+
+    @Test func migrateAllKnownKeysCarriesLegacyForward() {
+        let suite = "mycoder-r6-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("dark", forKey: "com.micoder.theme")
+        defaults.set("x", forKey: "com.micoder.toolResultFix.model-1")
+        defaults.set("keep", forKey: "com.mycoder.agentMode")
+        defaults.set("stale", forKey: "com.micoder.agentMode")
+        let n = MyCoderDefaults.migrateAllKnownKeys(in: defaults)
+        #expect(n >= 3)
+        #expect(defaults.string(forKey: "com.mycoder.theme") == "dark")
+        #expect(defaults.string(forKey: "com.mycoder.toolResultFix.model-1") == "x")
+        #expect(defaults.string(forKey: "com.mycoder.agentMode") == "keep")
+        #expect(defaults.object(forKey: "com.micoder.theme") == nil)
+        #expect(defaults.object(forKey: "com.micoder.agentMode") == nil)
+    }
 }

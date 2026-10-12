@@ -26,7 +26,7 @@ enum SidebarGroupingMode: String, Codable, CaseIterable, Identifiable {
 }
 
 enum SidebarGroupingLogic {
-    static let storageKey = "com.micoder.sidebarGroupingMode"
+    static let storageKey = "com.mycoder.sidebarGroupingMode"
 
     static func load(defaults: UserDefaults = .standard) -> SidebarGroupingMode {
         guard let raw = defaults.string(forKey: storageKey),

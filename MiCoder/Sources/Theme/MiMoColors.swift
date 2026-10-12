@@ -17,13 +17,13 @@ enum AppTheme: String, CaseIterable {
 extension Color {
     struct mimo {
         private static var currentTheme: AppTheme = {
-            let raw = UserDefaults.standard.string(forKey: "com.micoder.theme") ?? ""
+            let raw = UserDefaults.standard.string(forKey: "com.mycoder.theme") ?? ""
             return AppTheme(rawValue: raw) ?? .dark
         }()
         
         static func setTheme(_ theme: AppTheme) {
             currentTheme = theme
-            UserDefaults.standard.set(theme.rawValue, forKey: "com.micoder.theme")
+            UserDefaults.standard.set(theme.rawValue, forKey: "com.mycoder.theme")
         }
         
         static var isLightTheme: Bool { currentTheme == .lightGlass }

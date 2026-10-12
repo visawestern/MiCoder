@@ -98,7 +98,7 @@ struct LocalProviderConfig: Identifiable, Codable, Equatable {
 
 /// Pure logic for the unified Providers tab (plan Раздел 1 Блок 3-5).
 enum LocalProviderLogic {
-    static let storageKey = "com.micoder.localProviders"
+    static let storageKey = "com.mycoder.localProviders"
 
     /// Persist local providers to UserDefaults (plan Блок 4 п.38).
     static func save(_ providers: [LocalProviderConfig], defaults: UserDefaults = .standard) {

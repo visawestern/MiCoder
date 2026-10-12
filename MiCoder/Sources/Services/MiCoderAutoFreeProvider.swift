@@ -54,10 +54,10 @@ final class MiCoderAutoFreeStore: ObservableObject {
 
     private init() {
         var restored = MiCoderAutoFreeProvider()
-        restored.selectedModel = UserDefaults.standard.string(forKey: "com.micoder.autoFree.model")
+        restored.selectedModel = UserDefaults.standard.string(forKey: "com.mycoder.autoFree.model")
             ?? MiCoderAutoFreeProvider.defaultModelID
-        restored.isModelLocked = UserDefaults.standard.bool(forKey: "com.micoder.autoFree.locked")
-        restored.systemPrompt = UserDefaults.standard.string(forKey: "com.micoder.autoFree.systemPrompt") ?? ""
+        restored.isModelLocked = UserDefaults.standard.bool(forKey: "com.mycoder.autoFree.locked")
+        restored.systemPrompt = UserDefaults.standard.string(forKey: "com.mycoder.autoFree.systemPrompt") ?? ""
         provider = restored
         Task { await refreshModels() }
     }
@@ -97,8 +97,8 @@ final class MiCoderAutoFreeStore: ObservableObject {
         provider.isModelLocked = true
         provider.consecutiveFailures = 0
         provider.statusMessage = "Pinned to \(modelID). Automatic fallback is off."
-        defaults.set(modelID, forKey: "com.micoder.autoFree.model")
-        defaults.set(true, forKey: "com.micoder.autoFree.locked")
+        defaults.set(modelID, forKey: "com.mycoder.autoFree.model")
+        defaults.set(true, forKey: "com.mycoder.autoFree.locked")
     }
 
     /// Lock-preserving mirror of the app-level selection for the send path.
@@ -113,7 +113,7 @@ final class MiCoderAutoFreeStore: ObservableObject {
         provider.selectedModel = modelID
         provider.modelStatuses[modelID] = "Healthy"
         provider.statusMessage = "Using \(modelID)."
-        defaults.set(modelID, forKey: "com.micoder.autoFree.model")
+        defaults.set(modelID, forKey: "com.mycoder.autoFree.model")
     }
 
     func modelStatus(for modelID: String) -> String {
@@ -129,12 +129,12 @@ final class MiCoderAutoFreeStore: ObservableObject {
         provider.statusMessage = locked
             ? "Locked to \(provider.selectedModel). Automatic fallback is off."
             : "Unlocked \(provider.selectedModel). Automatic fallback is on."
-        defaults.set(locked, forKey: "com.micoder.autoFree.locked")
+        defaults.set(locked, forKey: "com.mycoder.autoFree.locked")
     }
 
     func setSystemPrompt(_ prompt: String) {
         provider.systemPrompt = prompt
-        defaults.set(prompt, forKey: "com.micoder.autoFree.systemPrompt")
+        defaults.set(prompt, forKey: "com.mycoder.autoFree.systemPrompt")
     }
 
     func streamChat(
@@ -159,7 +159,7 @@ final class MiCoderAutoFreeStore: ObservableObject {
                     currentModel = replacement.id
                     provider.selectedModel = currentModel
                     provider.statusMessage = "Previously selected model \(previous) is unavailable; switched to \(currentModel)."
-                    defaults.set(currentModel, forKey: "com.micoder.autoFree.model")
+                    defaults.set(currentModel, forKey: "com.mycoder.autoFree.model")
                     NotificationCenter.default.post(
                         name: .miCoderAutoFreeModelSwitched,
                         object: nil,
@@ -255,7 +255,7 @@ final class MiCoderAutoFreeStore: ObservableObject {
                                 "reason": reason
                             ]
                         )
-                        defaults.set(nextModel.id, forKey: "com.micoder.autoFree.model")
+                        defaults.set(nextModel.id, forKey: "com.mycoder.autoFree.model")
                         continuation.yield(.content("\n\n[MiCoder Auto Free switched to \(nextModel.id): \(reason)]\n\n"))
                         currentModel = nextModel.id
                     }
@@ -275,8 +275,8 @@ final class MiCoderAutoFreeStore: ObservableObject {
             provider.statusMessage = fetched.isEmpty
                 ? "No free OpenCode models are currently available."
                 : "Previously selected model is unavailable; switched to \(provider.selectedModel)."
-            defaults.set(provider.selectedModel, forKey: "com.micoder.autoFree.model")
-            defaults.set(false, forKey: "com.micoder.autoFree.locked")
+            defaults.set(provider.selectedModel, forKey: "com.mycoder.autoFree.model")
+            defaults.set(false, forKey: "com.mycoder.autoFree.locked")
         }
     }
 
