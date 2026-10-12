@@ -17,15 +17,22 @@ struct UsageCapture: Equatable {
     let costUSD: Double?
     let modelID: String
     let providerID: String
+    /// Harness-tax C1: profile that produced this capture (C2 fills real values).
+    let profile: HarnessProfile
+    /// Harness-tax C1: outgoing initial-context bytes (text only).
+    let contextBytes: Int
 
     var totalTokens: Int { promptTokens + completionTokens }
 
-    init(promptTokens: Int, completionTokens: Int, costUSD: Double?, modelID: String, providerID: String) {
+    init(promptTokens: Int, completionTokens: Int, costUSD: Double?, modelID: String, providerID: String,
+         profile: HarnessProfile = .unknown, contextBytes: Int = 0) {
         self.promptTokens = max(0, promptTokens)
         self.completionTokens = max(0, completionTokens)
         self.costUSD = UsageCostSafety.sanitized(costUSD)
         self.modelID = modelID.isEmpty ? "unknown" : modelID
         self.providerID = providerID.isEmpty ? "unknown" : providerID
+        self.profile = profile
+        self.contextBytes = max(0, contextBytes)
     }
 
     /// True when a cost figure is available (including zero cost). Distinct from
@@ -105,6 +112,12 @@ enum UsageStatisticsAggregator {
     /// Aggregate by provider (plan Блок 4 п.38).
     static func aggregateByProvider(_ points: [UsageDataPoint]) -> [UsageAggregate] {
         aggregate(points) { $0.provider }
+    }
+
+    /// Aggregate by harness profile (eval harness-tax C1): messageCount per
+    /// profile is the turn proxy, tokens/cost show the profile's price.
+    static func aggregateByProfile(_ points: [UsageDataPoint]) -> [UsageAggregate] {
+        aggregate(points) { $0.profile.rawValue }
     }
 
     private static func aggregate(_ points: [UsageDataPoint], key: (UsageDataPoint) -> String) -> [UsageAggregate] {

@@ -45,4 +45,19 @@ enum ChatHistoryBuilder {
         msgs.append(DirectChatMessage(role: "user", content: userText, parts: parts))
         return msgs
     }
+
+    /// Harness-tax C1: outgoing initial-context size in UTF-8 bytes
+    /// (system + history + new user text). Text only, mirrors `messages`
+    /// minus multimodal parts.
+    static func contextBytes(systemPrompt: String?,
+                             priorTurns: [Turn],
+                             userText: String) -> Int {
+        var total = 0
+        if let sys = systemPrompt, !sys.isEmpty {
+            total += sys.utf8.count
+        }
+        total += history(from: priorTurns).reduce(0) { $0 + $1.content.utf8.count }
+        total += userText.utf8.count
+        return total
+    }
 }

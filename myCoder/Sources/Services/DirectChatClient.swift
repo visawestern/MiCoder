@@ -100,7 +100,9 @@ enum DirectChatClient {
 
     /// Parse a full OpenAI/Ollama response into text + optional usage. Usage is
     /// extracted from the top-level `usage` block (OpenAI) when present.
-    static func parseResponse(_ data: Data) -> DirectChatResult? {
+    /// `contextBytes` (harness-tax C1) is the outgoing initial-context size
+    /// the caller already sent; it rides along on the capture for aggregation.
+    static func parseResponse(_ data: Data, contextBytes: Int = 0) -> DirectChatResult? {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
 
         var content: String?
@@ -118,7 +120,7 @@ enum DirectChatClient {
         guard let content,
               ProviderResponseValidationLogic.hasVisibleContent(content) else { return nil }
 
-        let usage = Self.extractUsage(from: json)
+        let usage = Self.extractUsage(from: json, contextBytes: contextBytes)
         return DirectChatResult(content: content, usage: usage)
     }
 
@@ -138,7 +140,7 @@ enum DirectChatClient {
         return false
     }
 
-    private static func extractUsage(from json: [String: Any]) -> UsageCapture? {
+    private static func extractUsage(from json: [String: Any], contextBytes: Int = 0) -> UsageCapture? {
         guard let usage = json["usage"] as? [String: Any] else { return nil }
         let prompt = intValue(usage["prompt_tokens"])
         let completion = intValue(usage["completion_tokens"])
@@ -148,7 +150,8 @@ enum DirectChatClient {
         // Skip a usage block that carried no token accounting at all.
         guard prompt > 0 || completion > 0 else { return nil }
         return UsageCapture(promptTokens: prompt, completionTokens: completion,
-                            costUSD: cost, modelID: model, providerID: provider.isEmpty ? "direct" : provider)
+                            costUSD: cost, modelID: model, providerID: provider.isEmpty ? "direct" : provider,
+                            contextBytes: contextBytes)
     }
 
     private static func intValue(_ raw: Any?) -> Int {
@@ -201,7 +204,9 @@ enum DirectChatClient {
             let text = String(data: respData, encoding: .utf8) ?? ""
             throw DirectChatError.http(status: status, body: text)
         }
-        guard let result = parseResponse(respData) else {
+        // Harness-tax C1: initial-context size actually sent (text only).
+        let contextBytes = messages.reduce(0) { $0 + $1.content.utf8.count }
+        guard let result = parseResponse(respData, contextBytes: contextBytes) else {
             if Self.responseContainsBlankAssistantContent(respData) {
                 throw DirectChatError.emptyResponse
             }
