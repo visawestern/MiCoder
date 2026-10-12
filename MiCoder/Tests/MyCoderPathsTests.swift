@@ -94,4 +94,26 @@ struct MyCoderPathsTests {
         #expect(MyCoderPaths.skillsRegistryRelativePath == ".mycoder/skills/registry.json")
         #expect(MyCoderPaths.mcpRegistryRelativePath == ".mycoder/mcp/registry.json")
     }
+
+    @Test func defaultsKeysUseMycoderWithLegacyFallback() {
+        let suite = "mycoder-r6-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        #expect(MyCoderDefaults.key("theme") == "com.mycoder.theme")
+        #expect(MyCoderDefaults.legacyKey("theme") == "com.micoder.theme")
+        // Legacy value migrates to canonical on read.
+        defaults.set("dark", forKey: "com.micoder.theme")
+        #expect(MyCoderDefaults.string("theme", in: defaults) == "dark")
+        #expect(defaults.string(forKey: "com.mycoder.theme") == "dark")
+        #expect(defaults.object(forKey: "com.micoder.theme") == nil)
+    }
+
+    @Test func canonicalKeyWinsOverLegacy() {
+        let suite = "mycoder-r6-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("new", forKey: "com.mycoder.theme")
+        defaults.set("old", forKey: "com.micoder.theme")
+        #expect(MyCoderDefaults.string("theme", in: defaults) == "new")
+    }
 }
