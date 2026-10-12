@@ -10,7 +10,7 @@
 
 ### P1 — DatabaseBridge.saveMessagePart: stepStart bypassed the injected inserter (HIGH)
 
-**File**: `MiCoder/Sources/Services/DatabaseBridge.swift:328-334`
+**File**: `myCoder/Sources/Services/DatabaseBridge.swift:328-334`
 
 **Problem**: In `saveMessagePart(_, messageId:, sequenceOrder:, insert:)`, the `.stepStart` case called `try db.insertMessagePart(...)` directly (the legacy global `DatabaseManager`) instead of the `insert` closure parameter. When an active project was set via `setActiveProject`, every other part type correctly routed to the project's own database — but `stepStart` parts silently landed in the legacy global DB. The project database was missing data, and the global DB accumulated orphaned rows.
 
@@ -22,7 +22,7 @@
 
 ### P2 — Duplicate doc comment in DatabaseManager.getSessionGoal (LOW)
 
-**File**: `MiCoder/Sources/Services/DatabaseManager.swift:546-547`
+**File**: `myCoder/Sources/Services/DatabaseManager.swift:546-547`
 
 **Problem**: The doc comment `/// Read a session's persisted goal.` appeared twice above `getSessionGoal(sessionId:)`. Copy-paste artifact.
 
@@ -30,7 +30,7 @@
 
 ### P3 — Message.reasoningDuration kept growing after reasoning completed (MED)
 
-**File**: `MiCoder/Sources/Models/Message.swift:108-111`
+**File**: `myCoder/Sources/Models/Message.swift:108-111`
 
 **Problem**: `reasoningDuration` computed `Date().timeIntervalSince(startedAt)` — measuring from start to *now*, not to when reasoning actually finished. A message whose reasoning took 5s would correctly show ~5s at first, but 60s later it would show ~65s. The value was never frozen at completion.
 
@@ -40,7 +40,7 @@
 
 ### P4 — ProjectWebToolExecutor.todoRead/todoWrite were stubs (HIGH)
 
-**File**: `MiCoder/Sources/Services/ProjectWebToolExecutor.swift:141-146`
+**File**: `myCoder/Sources/Services/ProjectWebToolExecutor.swift:141-146`
 
 **Problem**: The `todo_read` and `todo_write` tools (part of the emulated web-tool protocol, `WebEmulatedTool.todoRead/todoWrite`) returned `"(todo list not yet implemented)"` / `"(todo write not yet implemented)"` — hardcoded stubs. A web model issuing `todo_write` to track its work plan got back a failure string and could not use the tool.
 
@@ -56,14 +56,14 @@
 
 | File | Change |
 |------|--------|
-| `MiCoder/Sources/Services/DatabaseBridge.swift` | P1 fix: stepStart uses `insert` closure |
-| `MiCoder/Sources/Services/DatabaseManager.swift` | P2 fix: removed duplicate comment |
-| `MiCoder/Sources/Models/Message.swift` | P3 fix: added `reasoningEndedAt`, froze duration |
-| `MiCoder/Sources/Models/ChatSession.swift` | P3 fix: `durationLabel` shows real `0s` instead of `1s` |
-| `MiCoder/Sources/Services/ProjectWebToolExecutor.swift` | P4 fix: real todoRead/todoWrite |
-| `MiCoder/Tests/DatabaseBridgeProjectRoutingTests.swift` | P1 tests: 2 new routing tests |
-| `MiCoder/Tests/ReasoningDurationTests.swift` | P3 tests: 4 new duration tests |
-| `MiCoder/Tests/ProjectWebToolTodoTests.swift` | P4 tests: 4 new todo tests |
+| `myCoder/Sources/Services/DatabaseBridge.swift` | P1 fix: stepStart uses `insert` closure |
+| `myCoder/Sources/Services/DatabaseManager.swift` | P2 fix: removed duplicate comment |
+| `myCoder/Sources/Models/Message.swift` | P3 fix: added `reasoningEndedAt`, froze duration |
+| `myCoder/Sources/Models/ChatSession.swift` | P3 fix: `durationLabel` shows real `0s` instead of `1s` |
+| `myCoder/Sources/Services/ProjectWebToolExecutor.swift` | P4 fix: real todoRead/todoWrite |
+| `myCoder/Tests/DatabaseBridgeProjectRoutingTests.swift` | P1 tests: 2 new routing tests |
+| `myCoder/Tests/ReasoningDurationTests.swift` | P3 tests: 4 new duration tests |
+| `myCoder/Tests/ProjectWebToolTodoTests.swift` | P4 tests: 4 new todo tests |
 
 ## Verification
 

@@ -1,4 +1,4 @@
-# MiCoder — Feature Test Report (canonical)
+# myCoder — Feature Test Report (canonical)
 
 Date: 2026-08-14 · Method: every user story from `FEATURE_SPREADSHEET.csv` is traced against actual code, per-screen checklists, regression tests, and available runtime evidence. The last reported macOS baseline was 1849 tests/262 suites; the current Linux Foundation harness is **101 tests/green**, while the macOS SwiftUI/AppKit/WebKit target is unavailable in this sandbox.
 
@@ -62,7 +62,7 @@ This report documents the **errors found** (Phase 2), which Phase 3 fixes.
 | E23 | **Auto-detect adds a provider without user confirmation** — violates "без самодеятельности"; no "Подтвердить и добавить" step. **FIXED (Round 22)** — `LocalProviderConfirmLogic` + `PendingDetection` alert (Confirm/Cancel); cancel never adds; `AutoDetectStatusText` states detected/confirmed/cancelled; status line no longer lies after cancel; dedupe by host:port (`isDuplicate`). Tests: `E23E24AutoDetectConfirmationTests` (+14). | `SettingsView.swift:2459-2472` | Раздел 9 п.30 |
 | E24 | `ProviderAutoDetector.overallTimeout` declared (10s) but **never enforced** — worst case is 4 sequential probes × 2s with no deadline. **FIXED (Round 22)** — hard deadline: each probe races the remaining budget and is cancelled in-flight (`probeOnce`); `URLSessionProviderProbe` cancellation-aware. Red test `hangingProbeCancelledAtDeadline` failed at 3.0s on old code → passes in 0.252s. | `ProviderAutoDetector.swift:30` | Раздел 9 п.33 |
 | E25 | `SettingsIntegrationTests` asserts `.modelSettings` in `allCases` (count 11) — contradicts the plan's single-Providers-tab consolidation (case should be removed). **FIXED (Round 23)** — the case stays for back-compat, but the test now asserts the real UI contract: `SettingsTab.visibleCases` == 10 tabs without `.modelSettings` (the merged single Providers tab). | `SettingsIntegrationTests.swift:705-712` | Раздел 1 п.21 |
-| E26 | User-facing "MiMo" strings remain: "Manage MiMo Agent .md command files", "…Ollama, OpenCode, or MiMo CLI/Serve", "Auto-commit from MiMo". **FIXED (Round 23)** — all three → "MiCoder"; stale comments cleaned. | `SettingsView.swift:1527,2384`, `BottomPanelView.swift:487` | Раздел 13 п.11 |
+| E26 | User-facing "MiMo" strings remain: "Manage MiMo Agent .md command files", "…Ollama, OpenCode, or MiMo CLI/Serve", "Auto-commit from MiMo". **FIXED (Round 23)** — all three → "myCoder"; stale comments cleaned. | `SettingsView.swift:1527,2384`, `BottomPanelView.swift:487` | Раздел 13 п.11 |
 | E27 | Overview sheet still titled "Workspaces". **FIXED (Round 23)** — `Text("Overview")` (only `Text("Workspaces")` occurrence was the sheet title). | `SidebarView.swift:502` | Раздел 13 п.7 |
 | E28 | `neutralizeServeBranding` is dead production code (defined + tested, never called). **FIXED (Round 23)** — removed the function + its test; red source-inspection test `noNeutralizeServeBrandingDeadCode`. | `LocalProviderConfig.swift:111-119` | Раздел 1 п.7 |
 | E29 | Storage panel localization: entire panel is hardcoded English; only curated keys are translated. | `SettingsView.swift:1646-2120` | Раздел 8 п.34 |
@@ -178,7 +178,7 @@ The user provided macOS screenshots showing that Round 32 was not sufficient in 
 |---|---|---|---|
 | MIMO-04 | `MiMoAutoClient` used the invalid `https://api.mimo.ai/v1` host. | Paid route now uses the official `https://api.xiaomimimo.com/v1` endpoint and both `api-key` and Bearer auth headers. | FIXED |
 | MIMO-05 | Empty API key was treated as a successful free/connected state and a synthetic `mimo-auto` model was always kept. | Readiness now requires a successful route check; stale/synthetic models are cleared. | FIXED |
-| MIMO-06 | The current official MiMo Code source declares the anonymous free `mimo-auto` API sunset at `2026-07-26T10:00:00Z`. | MiCoder now blocks the ended free route with an explicit message and directs the user to a Xiaomi API key instead of pretending free access works. | FIXED |
+| MIMO-06 | The current official MiMo Code source declares the anonymous free `mimo-auto` API sunset at `2026-07-26T10:00:00Z`. | myCoder now blocks the ended free route with an explicit message and directs the user to a Xiaomi API key instead of pretending free access works. | FIXED |
 | WEB-12 | Browser bridge could return the last empty wrapper node, producing an empty assistant bubble. | `readText` now selects the last visible non-empty node. | FIXED |
 | WEB-13 | Missing effort control was treated as a send-blocking failure for providers/models that do not expose it. | Effort is optional; the driver only fails when a visible effort control exists but its selected option cannot be confirmed. | FIXED |
 | UX-04 | `acknowledgedToS` Toggle remained visible in `WebProvidersSection`. | Removed the Toggle. The legacy Codable field remains only to decode old settings and is ignored at runtime. | FIXED |
@@ -187,9 +187,9 @@ The user provided macOS screenshots showing that Round 32 was not sufficient in 
 Validation completed in the Linux environment: `git diff --check`, registry analysis, shell syntax checks, and source scans for the old endpoint, fake free fallback, and ToS Toggle. A second macOS/Xcode build is still required to verify SwiftUI/WebKit compilation and real browser behavior.
 
 
-## Round 34 (2026-08-13) — MiCoder Auto Free on OpenCode Zen Big Pickle
+## Round 34 (2026-08-13) — myCoder Auto Free on OpenCode Zen Big Pickle
 
-The Xiaomi anonymous MiMo Auto channel is no longer a valid default route. This round completes the replacement with the renamed **MiCoder Auto Free** provider backed by OpenCode Zen's temporary free-model catalog. A live probe confirmed that OpenCode's `/models` endpoint and anonymous free route work without an API key; MiCoder still treats availability as revocable and selects only trusted free IDs.
+The Xiaomi anonymous MiMo Auto channel is no longer a valid default route. This round completes the replacement with the renamed **myCoder Auto Free** provider backed by OpenCode Zen's temporary free-model catalog. A live probe confirmed that OpenCode's `/models` endpoint and anonymous free route work without an API key; myCoder still treats availability as revocable and selects only trusted free IDs.
 
 | ID | Confirmed issue or requirement | Correction | Status |
 |---|---|---|---|
@@ -210,7 +210,7 @@ The user clarified that OpenCode's free route works without an API key. A live p
 
 | ID | Requirement | Correction | Status |
 |---|---|---|---|
-| ANON-01 | MiCoder must not block the free route behind an API-key form. | Removed AutoFree API-key state, input controls, key validation and Authorization header. The app discovers the anonymous catalog and uses only the trusted temporary free IDs. | FIXED |
+| ANON-01 | myCoder must not block the free route behind an API-key form. | Removed AutoFree API-key state, input controls, key validation and Authorization header. The app discovers the anonymous catalog and uses only the trusted temporary free IDs. | FIXED |
 | ANON-02 | Big Pickle may disappear while other free models remain. | Added ordered candidates: Big Pickle first, followed by DeepSeek V4 Flash Free, MiMo V2.5 Free, Hy3, Laguna, Ling, and Nemotron free models. The live `/models` response is intersected with this allow-list. | FIXED |
 | FAILOVER-02 | HTTP rate limits and model-unavailable responses should not strand the user. | HTTP 429/rate-limit and model-unavailable errors switch immediately to the next live free model. | FIXED |
 | FAILOVER-03 | Repeated generic errors should eventually trigger a switch. | Five consecutive generic failures switch to the next candidate; the counter resets after a successful stream or explicit model selection. | FIXED |
@@ -238,7 +238,7 @@ The Linux sandbox completed source scans, brace checks and `git diff --check`, b
 
 ## Round 37 (2026-08-13) — separate OpenCode Zen provider
 
-OpenCode Zen is now available as a named provider in addition to MiCoder Auto Free. The current official Zen documentation describes Zen as a normal provider with a hosted `/zen/v1` API, a live `/models` catalog, temporary free models, and paid chat-compatible models; it also documents other models on Responses, Anthropic Messages, and Google endpoints that must not be sent through the generic chat route.[1]
+OpenCode Zen is now available as a named provider in addition to myCoder Auto Free. The current official Zen documentation describes Zen as a normal provider with a hosted `/zen/v1` API, a live `/models` catalog, temporary free models, and paid chat-compatible models; it also documents other models on Responses, Anthropic Messages, and Google endpoints that must not be sent through the generic chat route.[1]
 
 | ID | Requirement | Correction | Status |
 |---|---|---|---|
@@ -259,7 +259,7 @@ The latest screenshot-driven review identified four remaining UX/transport defec
 |---|---|---|---|
 | SID-20 | Sidebar width was updated from the already-mutated width on every `DragGesture` sample, so cumulative translation caused drift, overshoot, or collapse. | `SidebarResizeHandle` now captures `dragStartWidth` on gesture start, applies each translation to that stable baseline, and clears the baseline on end. | FIXED |
 | UX-11 | `TopBarView` was always rendered by `ContentView`, while `ChatPanelView` added `ChatPanelCompactHeader` when no session existed, producing a double header. | Removed the compact panel header. The top bar is now the single header in both selected-session and no-session states. | FIXED |
-| WEB-14 | The browser settings action was labelled as MiCoder Auto Free even though it performed local DOM scraping and did not call an AI model. | Renamed the area to Browser model detection, added an honest `Detect models` built-in DOM action, and added a separate `Ask free AI` action that sends visible page text to the anonymous Auto Free stream and parses returned model labels. Detection is now explicit rather than automatic on sheet appearance. | FIXED |
+| WEB-14 | The browser settings action was labelled as myCoder Auto Free even though it performed local DOM scraping and did not call an AI model. | Renamed the area to Browser model detection, added an honest `Detect models` built-in DOM action, and added a separate `Ask free AI` action that sends visible page text to the anonymous Auto Free stream and parses returned model labels. Detection is now explicit rather than automatic on sheet appearance. | FIXED |
 | WEB-15 | Background send used a plain value assignment and direct click, which modern React editors could ignore; model selection could fall back to an ambiguous dropdown; unchanged/empty DOM content could be reported as a model-empty response. | WKWebView now uses the native value setter, `beforeinput`/`input`/`change`, Enter keyboard events, and pointer/click dispatch. WebChatDriver uses only `modelButton` for model injection and only `effortDropdown` for effort injection, waits for the model menu to settle, fingerprints response DOM identity, and reports a submit timeout when no new response is observed. | FIXED |
 
 Round 38 deterministic coverage includes the stable-baseline sidebar test, model/effort selector separation, successful injection ordering, repeated-text response identity, and iteration-limit behavior. Static validation passed with `git diff --check`, `python3 -m json.tool` for the web catalog, `bash -n build-app.sh`, and source scans for removed labels/fallbacks. The Linux sandbox has no Swift/Xcode/WebKit toolchain, so the final `./build-app.sh`, Swift test suite, and real Kimi/Qwen/ChatGPT background-send checks remain macOS verification steps.
@@ -280,7 +280,7 @@ The cause was ordering: `runTurn` attempted `typeText` before calling `checkInte
 | Foundation-only WebChatDriver/selection/session harness | **20 tests passed** |
 | `loggedOutInterrupts()` after preflight fix | **Passed** |
 | `iterationLimitStopsRunawayLoop()` after preflight fix | **Passed** in 5.011 seconds |
-| Full MiCoder `swift test` on Linux | Cannot compile target: `SwiftUI` module unavailable; this is an environment limitation, not a test assertion failure |
+| Full myCoder `swift test` on Linux | Cannot compile target: `SwiftUI` module unavailable; this is an environment limitation, not a test assertion failure |
 | macOS `./build-app.sh` | Still requires the user's macOS/Xcode environment |
 
 
@@ -302,7 +302,7 @@ The existing two-component marketing version `2.119` was normalized to `2.119.0`
 
 The screenshot audit identified four related interaction failures. The narrow sidebar workspace toolbar previously placed grouping, archive, sort, filter, search and view controls in one fixed horizontal row. It now uses `ViewThatFits`: wide sidebars retain direct buttons, while narrow sidebars expose one vertical-dots workspace-actions menu containing the complete set of secondary actions. The session row action menu also uses vertical dots.
 
-The MiCoder Auto Free catalog previously rendered tall adaptive cards for every free model. It now shows a compact current-model summary first, followed by dense one-row model choices. Lock/unlock is available only for the selected model, while status and model identity remain visible for every row.
+The myCoder Auto Free catalog previously rendered tall adaptive cards for every free model. It now shows a compact current-model summary first, followed by dense one-row model choices. Lock/unlock is available only for the selected model, while status and model identity remain visible for every row.
 
 Provider management now assigns edit and delete ownership to the provider row itself. Custom and web providers expose pencil and trash controls directly beside the provider name; built-in providers remain protected. Deleting a web provider removes its stored configuration and saved session, while selecting the pencil action opens the existing provider detail editor rather than creating a duplicate card.
 
@@ -366,7 +366,7 @@ AI-assisted detection is now an explicitly non-authoritative mode. Its output pa
 
 Web routing now persists `WebRemoteChatMapping` under provider, active named session, project and local chat IDs. First use requires an exact New Chat action followed by a changed and verified remote URL/ID; existing mappings navigate to the stored URL and fail closed if the host or UUID does not match. The action journal records `remoteChatID`. The hidden browser pool also includes `activeSessionID`, so named logins cannot reuse the same page and stale cookie context. Model/effort injection now aborts before typing when confirmation fails. ChatPanel performs one same-page catalog refresh, reloads the saved config and retries once in the same remote chat, preventing duplicate prompts and context mixing.
 
-MiCoder Auto Free now checks the selected model against the live free catalog before streaming and switches only when unlocked; rate-limit model switches use error severity so the existing prominent red banner remains semantically red.
+myCoder Auto Free now checks the selected model against the live free catalog before streaming and switches only when unlocked; rate-limit model switches use error severity so the existing prominent red banner remains semantically red.
 
 | Verification | Result |
 |---|---|
@@ -399,9 +399,9 @@ The provider-card detected-model accordion now has direct row selection as well 
 | Live macOS WebKit verification | Still requires a real Mac run |
 
 
-## Round 48 (2026-08-14) — compact MiCoder Auto Free model catalog
+## Round 48 (2026-08-14) — compact myCoder Auto Free model catalog
 
-The previous web-accordion correction did not change the separate MiCoder Auto Free catalog surface. That gap is now corrected explicitly. The Auto Free settings section no longer renders every free model as a vertical list in the main card. It shows one compact selected-model summary row, opens a menu containing every currently eligible free model with ID and status, and keeps lock/unlock as a separate action for the selected model only. Selecting a menu item persists the model and updates the active provider selection.
+The previous web-accordion correction did not change the separate myCoder Auto Free catalog surface. That gap is now corrected explicitly. The Auto Free settings section no longer renders every free model as a vertical list in the main card. It shows one compact selected-model summary row, opens a menu containing every currently eligible free model with ID and status, and keeps lock/unlock as a separate action for the selected model only. Selecting a menu item persists the model and updates the active provider selection.
 
 An adversarial source check now protects the compact contract (`Live free models`, `Choose from list`, menu switching and `Switch free model`). `MODEL-19` in the canonical registry is marked `PARTIAL` until the live catalog and macOS visual hit-target behavior are verified on the user's Mac.
 
@@ -426,14 +426,14 @@ composer consumption. The repository document index was rebuilt for the current 
 | Visible result | Healthy MiMo Serve could show no server model catalog after first launch; the route appeared offline despite a successful health response | derived from the complete chain | **Defect confirmed** |
 
 The offline branch itself remains intentionally non-blocking: local database sessions load without a
-server, and the built-in **MiCoder Auto Free** route remains available. The defect was specifically
+server, and the built-in **myCoder Auto Free** route remains available. The defect was specifically
 the online first-start path, not a justification for reintroducing the obsolete anonymous
 `MiMo-Auto` route.
 
 ### TDD and fix
 
 A red regression suite was written before the production fix in
-`MiCoder/Tests/ServerConnectionReadinessLogicTests.swift`. It covers successful health, unhealthy
+`myCoder/Tests/ServerConnectionReadinessLogicTests.swift`. It covers successful health, unhealthy
 health, missing/cancelled health, stale AppState state, and the model-loading gate. The full target
 could not be compiled in this Linux sandbox because the target imports SwiftUI/AppKit; this limitation
 is recorded rather than misreported as a test failure or pass.
@@ -450,7 +450,7 @@ passed**, including the new `APP-01: startup connection readiness` suite.
 **250 stories: 225 PASS, 15 PARTIAL, 5 MISSING, 5 FUTURE**. `docs/activity-checklists/01-app-shell.md`
 now contains all 14 App Shell controls/actions with trigger→handler→state→consumer chains,
 code-quality and task-fit scores, and explicit macOS runtime status. Its user story now names
-**MiCoder Auto Free** rather than the obsolete “free MiMo-Auto route”. `APP-07` was added to the
+**myCoder Auto Free** rather than the obsolete “free MiMo-Auto route”. `APP-07` was added to the
 canonical CSV for startup connection readiness.
 
 ### Adversarial quality scores
@@ -606,7 +606,7 @@ checks and are committed/pushed. The next round must begin with a red test for A
 transport rather than assuming the local preview proves model delivery.
 
 
-## Round 52 (2026-08-14) — MiCoder Auto Free attachment transport
+## Round 52 (2026-08-14) — myCoder Auto Free attachment transport
 
 ### Confirmed defect
 
@@ -749,7 +749,7 @@ runtime verified.
 
 ### Scope
 Activity checklist 05 was re-audited from vendor addition through login, named-session selection,
-cookie capture, connectivity, built-in model detection, optional MiCoder Auto Free detection, model
+cookie capture, connectivity, built-in model detection, optional myCoder Auto Free detection, model
 and effort refresh, provider removal, remote-chat cleanup and the isolated browser send route. Each
 visible control was traced to its handler, state mutation, persistence consumer and downstream
 consumer. macOS/WebKit behavior is explicitly separated from Foundation/source verification.
@@ -770,16 +770,16 @@ activate the session. The fix adds `WebLoginCaptureLogic.canPersist` and
 the red NotificationService error, and updates active session metadata only after successful
 persistence. Targeted and integrated evidence: **4/4 targeted, 107/107 full harness**.
 
-#### WEB-LOGIN-12 — built-in detector was mislabeled as MiCoder Auto Free
+#### WEB-LOGIN-12 — built-in detector was mislabeled as myCoder Auto Free
 
-The normal provider card status said `MiCoder Auto Free will detect models` or `MiCoder Auto Free
+The normal provider card status said `myCoder Auto Free will detect models` or `myCoder Auto Free
 detected N models`, although that path is the built-in DOM detector. This contradicted the required
 separation between a local browser detector and the optional AI-assisted route.
 
 Red tests were written first in `WebDetectionStatusLogicTests` for empty and non-empty model counts,
 including the requirement that the status never contain `Auto Free`. The fix factors status text into
 `WebDetectionStatusLogic`, changes the primary action to `Built-in browser detection`, and labels the
-separate action `Ask MiCoder Auto Free`. AI-derived candidates remain non-selectable until built-in
+separate action `Ask myCoder Auto Free`. AI-derived candidates remain non-selectable until built-in
 DOM verification. Targeted and integrated evidence: **2/2 targeted, 107/107 full harness**.
 
 ### Source-traced controls with no additional confirmed defect
@@ -930,7 +930,7 @@ Canonical checklist 06, registry and README were updated. The registry now conta
 validation and commit/push. The next sequential audit remains activity checklist 07 (`07-mimo-auto.md`).
 
 
-## Round 56 (2026-08-14) — MiCoder Auto Free context and failover notifications
+## Round 56 (2026-08-14) — myCoder Auto Free context and failover notifications
 
 ### Scope
 
@@ -997,8 +997,8 @@ capture, real rate limits/failover, and local macOS persistence.
 
 | Dimension | Before Round 56 | After Round 56 | Evidence |
 |---|---:|---:|---|
-| MiCoder Auto Free implementation quality | 88/100 | 96/100 | Two confirmed chain defects fixed; 4/4 new pure tests |
-| MiCoder Auto Free task adherence | 86/100 | 100/100 | Full control inventory and red tests before fixes |
+| myCoder Auto Free implementation quality | 88/100 | 96/100 | Two confirmed chain defects fixed; 4/4 new pure tests |
+| myCoder Auto Free task adherence | 86/100 | 100/100 | Full control inventory and red tests before fixes |
 | Target-runtime confidence | 0/100 | 0/100 | No live OpenCode or macOS execution |
 | Overall verifiable project quality | 97/100 | 97/100 | 151/151 harness, parser and source checks passed |
 
@@ -1081,7 +1081,7 @@ The audit found and fixed five confirmed defects. The first three are canonical 
 
 ### SHELL-01 — Workspace-only branch context was hidden
 
-`TopBarView` previously gated the branch badge on the retired `selectedProject` property, while current project navigation uses `selectedWorkspace`. A workspace-only project therefore displayed the no-project MiCoder fallback even though a real branch was active. A red test was written first for workspace-only and no-context cases. `ProjectHeaderContextLogic.shouldShowBranch` is now wired into the TopBar. Evidence: **2/2 Foundation tests passed**.
+`TopBarView` previously gated the branch badge on the retired `selectedProject` property, while current project navigation uses `selectedWorkspace`. A workspace-only project therefore displayed the no-project myCoder fallback even though a real branch was active. A red test was written first for workspace-only and no-context cases. `ProjectHeaderContextLogic.shouldShowBranch` is now wired into the TopBar. Evidence: **2/2 Foundation tests passed**.
 
 ### SHELL-02 — Serve health masqueraded as every provider’s connectivity
 
@@ -1137,7 +1137,7 @@ Canonical checklist 09, the 274-row registry, and README totals are updated for 
 
 ### Scope and method
 
-Round 59 traced the complete send chain for MiCoder Auto Free, MiMo Serve, custom OpenAI-compatible providers, Ollama, OpenCode local, Local Agent, ACP, and web Kimi/Qwen/ChatGPT. The chain began at provider/model/effort controls and continued through composer readiness, effective-model resolution, route identity, transport request construction, session and remote-chat mapping, response validation, retries/failover, persistence, and user-visible completion or error state. Both centered and bottom composers, the local HTTP API bridge, attachments, Stop, and web approval gates were included.
+Round 59 traced the complete send chain for myCoder Auto Free, MiMo Serve, custom OpenAI-compatible providers, Ollama, OpenCode local, Local Agent, ACP, and web Kimi/Qwen/ChatGPT. The chain began at provider/model/effort controls and continued through composer readiness, effective-model resolution, route identity, transport request construction, session and remote-chat mapping, response validation, retries/failover, persistence, and user-visible completion or error state. Both centered and bottom composers, the local HTTP API bridge, attachments, Stop, and web approval gates were included.
 
 The devil’s-advocate pass deliberately tested the assumptions that Serve health describes every route, `selectedModel` is always authoritative, HTTP 200 implies usable content, a driver returning implies success, and a retry can safely repeat a browser prompt. Each assumption produced a confirmed defect or a documented verified invariant.
 
@@ -1159,7 +1159,7 @@ Web and Auto Free store the routed model in provider-specific configuration whil
 
 ### Source-traced provider chains with no additional confirmed deterministic defect
 
-MiCoder Auto Free carries effective model, history, system prompt, attachments, model parameters, live catalog refresh, locked-model behavior, and rate-limit/model-unavailable failover with visible switch notifications. Direct routes carry history, multimodal parts, parameters, normalized API keys, and typed transport/HTTP/decode/empty-response errors. ACP preserves agent, variant, parameters and its own endpoint. Serve retains stable local session identity, SSE handling, busy retry and timeout. Web routes restore browser sessions, verify project/provider/chat remote UUID mappings, inject exact model and supported effort before typing, refresh and retry once without duplicating the prompt, and stop mutating tools at the approval gate.
+myCoder Auto Free carries effective model, history, system prompt, attachments, model parameters, live catalog refresh, locked-model behavior, and rate-limit/model-unavailable failover with visible switch notifications. Direct routes carry history, multimodal parts, parameters, normalized API keys, and typed transport/HTTP/decode/empty-response errors. ACP preserves agent, variant, parameters and its own endpoint. Serve retains stable local session identity, SSE handling, busy retry and timeout. Web routes restore browser sessions, verify project/provider/chat remote UUID mappings, inject exact model and supported effort before typing, refresh and retry once without duplicating the prompt, and stop mutating tools at the approval gate.
 
 ### Evidence
 
@@ -1889,11 +1889,11 @@ The canonical registry remains **274 rows** with **224 PASS, 44 PARTIAL, 1 MISSI
 
 The sequential audit continued at `ERR-02 Server Disconnected Error`. The chain was traced from `AppState.serverConnected` and `selectedProviderID` through `SendReadinessLogic`, `SendProviderReadinessLogic`, `SendReadinessReason`, centered and bottom composer `canSend` gates, keyboard Enter activation, `SendStopButton.disabledReason`, `ChatPanelView` direct-send preflight, rejected-send persistence, and the final user-facing message.
 
-The prior Round 59 work correctly prevented Serve health from masquerading as readiness for web, local, and custom routes. The adversarial audit found one remaining clarity defect: when a known Serve provider was selected while `serverConnected` was false, readiness fell through to a generic “No provider is ready” message listing unrelated local/custom/web alternatives. The user was not told that the selected route required MiCoder Serve to be started or reconnected.
+The prior Round 59 work correctly prevented Serve health from masquerading as readiness for web, local, and custom routes. The adversarial audit found one remaining clarity defect: when a known Serve provider was selected while `serverConnected` was false, readiness fell through to a generic “No provider is ready” message listing unrelated local/custom/web alternatives. The user was not told that the selected route required myCoder Serve to be started or reconnected.
 
 ### TDD defect confirmation and fix
 
-A red regression was added to `SendProviderReadinessLogicTests` before implementation. It required the known disconnected Serve route to produce an actionable message containing both Serve and connection guidance. The red run failed because the existing generic message did not mention Serve. The green fix adds a narrow branch for a known `serverProviderIDs` entry while disconnected: “MiCoder Serve is not running or disconnected. Start or reconnect MiCoder Serve before sending.” Existing web/local/custom route behavior remains unchanged.
+A red regression was added to `SendProviderReadinessLogicTests` before implementation. It required the known disconnected Serve route to produce an actionable message containing both Serve and connection guidance. The red run failed because the existing generic message did not mention Serve. The green fix adds a narrow branch for a known `serverProviderIDs` entry while disconnected: “myCoder Serve is not running or disconnected. Start or reconnect myCoder Serve before sending.” Existing web/local/custom route behavior remains unchanged.
 
 The message flows through `SendReadinessReason` into both composer layouts and `SendStopButton.disabledReason`; the send button remains disabled, the reason is shown inline/help, and direct send rechecks the same readiness contract before routing. Keyboard Enter cannot bypass the shared gate.
 
@@ -3255,7 +3255,7 @@ The L10-03 `Full New-UI Translation` row remains `PASS` and now records the Roun
 
 ### User-visible failures investigated
 
-The macOS screenshots exposed three separate failures rather than one generic web-provider defect. Built-in Qwen/Gwen detection reported only the currently visible portion of a multi-surface model menu and did not reliably discover per-model effort controls. MiCoder Auto Free read page text before opening and expanding the model menu, so it often saw only the selected model and returned one candidate out of many. Kimi send failed at the intentional context-mixing guard because the provider shell did not expose its active conversation identity in the URL, even though the browser DOM could expose it through conversation attributes or history links.
+The macOS screenshots exposed three separate failures rather than one generic web-provider defect. Built-in Qwen/Gwen detection reported only the currently visible portion of a multi-surface model menu and did not reliably discover per-model effort controls. myCoder Auto Free read page text before opening and expanding the model menu, so it often saw only the selected model and returned one candidate out of many. Kimi send failed at the intentional context-mixing guard because the provider shell did not expose its active conversation identity in the URL, even though the browser DOM could expose it through conversation attributes or history links.
 
 ### Root-cause chain and fixes
 

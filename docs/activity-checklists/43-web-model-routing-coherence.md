@@ -15,7 +15,7 @@ The six stories remain PARTIAL because live vendor DOM/WebKit behavior cannot be
 | WEB-24 | Live model list → per-model selection → effort probe → parameter profile → `WebProviderModel` status → config refresh → composer/driver gates | A model owns its own efforts/profile/status; unsupported or undetected models hide effort and cannot be sent. | **Fixed Round 89; source/tests green; live capability probe UNVERIFIED.** |
 | WEB-25 | Local provider/session/project/chat key → UserDefaults mapping → verified remote URL/UUID → browser navigation → journal metadata | Each local conversation maps to one verified remote chat; host/UUID mismatch fails closed; mappings cannot collide. | **Fixed Round 89 key collision; source/tests green; live provider routing UNVERIFIED.** |
 | WEB-26 | Injection event → retry signal → same page/remote mapping → live model/effort refresh → one retry → completion/journal | Injection failure occurs before typing; one same-chat refresh/retry occurs without duplicate prompt or second remote chat; failure remains visible if retry cannot verify. | **Pass by source/tests; live WebKit failure injection UNVERIFIED.** |
-| WEB-27 | AI page text → MiCoder Auto Free extraction → strict normalization → review-only candidate → built-in DOM activation | AI may suggest review candidates but cannot invent or activate sendable models; only built-in DOM discovery persists selectable live models. | **Pass by source/tests; live AI/browser comparison UNVERIFIED.** |
+| WEB-27 | AI page text → myCoder Auto Free extraction → strict normalization → review-only candidate → built-in DOM activation | AI may suggest review candidates but cannot invent or activate sendable models; only built-in DOM discovery persists selectable live models. | **Pass by source/tests; live AI/browser comparison UNVERIFIED.** |
 
 ## Detailed action and function trace
 
@@ -37,7 +37,7 @@ The six stories remain PARTIAL because live vendor DOM/WebKit behavior cannot be
 | 14 | `webCatalogRefreshReason` | Treats typed model/effort injection errors as retryable and generic errors only on conservative keywords. | **Pass by source.** |
 | 15 | `retrySignal` path | Refreshes live models/effort, reloads config, retries once against the same bridge and mapping, and never creates a second assistant bubble. | **Pass by source; live failure injection UNVERIFIED.** |
 | 16 | `completionSignal` gate | Only verified nonblank final events can mark the send complete after the retry path. | **Pass by source/tests.** |
-| 17 | AI detection | Uses separate “Ask MiCoder Auto Free” action; result normalization requires parser-valid labels and sets `isSelectable=false`. | **Pass by source.** |
+| 17 | AI detection | Uses separate “Ask myCoder Auto Free” action; result normalization requires parser-valid labels and sets `isSelectable=false`. | **Pass by source.** |
 | 18 | Built-in detection | Uses DOM discovery and `WebModelRefreshLogic.replacing`; no AI result is used as live activation input. | **Pass by source.** |
 | 19 | AI save | AI candidates remain in `discoveredModels` for review and do not appear in `allModels`; no model is selected from AI output. | **Pass by source/tests.** |
 | 20 | Native runtime | Actual menus, selectors, nested vendor DOM, UUID navigation, WebKit retry, and AI/browser comparison run on macOS. | **UNVERIFIED.** |

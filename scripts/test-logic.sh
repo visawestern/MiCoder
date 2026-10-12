@@ -13,18 +13,18 @@ PKG=/tmp/opencode/mimo-logic-test
 
 # Recreate the ephemeral package skeleton if /tmp was cleared.
 mkdir -p "$PKG/Sources/MiMoLogic" "$PKG/Tests/MiMoLogicTests"
-[ -d "$PKG/Sources/MiMoLogic/Resources" ] || cp -r "$REPO/MiCoder/Sources/Resources" "$PKG/Sources/MiMoLogic/Resources"
+[ -d "$PKG/Sources/MiMoLogic/Resources" ] || cp -r "$REPO/myCoder/Sources/Resources" "$PKG/Sources/MiMoLogic/Resources"
 if [ ! -f "$PKG/Package.swift" ]; then
 cat > "$PKG/Package.swift" <<'PKGEOF'
 // swift-tools-version: 5.9
 import PackageDescription
 let package = Package(
-    name: "MiCoder",
+    name: "myCoder",
     platforms: [.macOS(.v13)],
-    products: [.library(name: "MiCoder", targets: ["MiCoder"])],
+    products: [.library(name: "myCoder", targets: ["MiCoder"])],
     targets: [
-        .target(name: "MiCoder", path: "Sources/MiMoLogic", resources: [.process("Resources")]),
-        .testTarget(name: "MiCoderTests", dependencies: ["MiCoder"], path: "Tests/MiMoLogicTests")
+        .target(name: "myCoder", path: "Sources/MiMoLogic", resources: [.process("Resources")]),
+        .testTarget(name: "myCoderTests", dependencies: ["myCoder"], path: "Tests/MiMoLogicTests")
     ]
 )
 PKGEOF
@@ -50,10 +50,10 @@ SOURCES=(
 # Files located under Models/ instead of Services/
 MODEL_SOURCES=( SettingsTab Settings )
 for f in "${SOURCES[@]}"; do
-  ln -sf "$REPO/MiCoder/Sources/Services/$f.swift" "$PKG/Sources/MiMoLogic/$f.swift"
+  ln -sf "$REPO/myCoder/Sources/Services/$f.swift" "$PKG/Sources/MiMoLogic/$f.swift"
 done
 for f in "${MODEL_SOURCES[@]}"; do
-  ln -sf "$REPO/MiCoder/Sources/Models/$f.swift" "$PKG/Sources/MiMoLogic/$f.swift"
+  ln -sf "$REPO/myCoder/Sources/Models/$f.swift" "$PKG/Sources/MiMoLogic/$f.swift"
 done
 
 # Foundation-only test files
@@ -64,7 +64,7 @@ TESTS=(
   WebProviderTests WebChatDriverTests WebPromptChunkerTests WebProviderConnectivityTests WebModelListParserTests WebChatEventPresenterTests SendRoutingTests ProjectWebToolExecutorTests ChatHistoryBuilderTests ProjectFilesCacheLogicTests LocalProviderConfigTests SlashCommandExecutorTests ModelCallParametersTests DropdownKeyboardLogicTests LegacyDataMigratorTests InputDropdownDataSourceTests SidebarGroupingLogicTests ProjectFileIndexLogicTests ProjectFileScannerTests UsageStatisticsAggregatorTests ProjectRegistryLogicTests LanguagePickerLogicTests RepoRoot RepoRootTests
 )
 for f in "${TESTS[@]}"; do
-  ln -sf "$REPO/MiCoder/Tests/$f.swift" "$PKG/Tests/MiMoLogicTests/$f.swift"
+  ln -sf "$REPO/myCoder/Tests/$f.swift" "$PKG/Tests/MiMoLogicTests/$f.swift"
 done
 
 cd "$PKG"

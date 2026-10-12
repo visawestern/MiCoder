@@ -8,9 +8,9 @@ Official OpenCode Zen documentation lists **Big Pickle** with model ID `big-pick
 
 **Live chat verification, 2026-08-13:** `POST https://opencode.ai/zen/v1/chat/completions` with model `big-pickle`, `stream: false`, a minimal prompt, and no Authorization header returned HTTP 200, assistant content `OK`, and `cost: "0"`.
 
-The Zen documentation narrative still tells users to log in and obtain an API key for the overall paid catalog. MiCoder Auto Free therefore uses the observed anonymous **free-model catalog only**, never selects a paid model automatically, and treats every free route as revocable. Runtime availability rather than a hard-coded entitlement decides readiness.
+The Zen documentation narrative still tells users to log in and obtain an API key for the overall paid catalog. myCoder Auto Free therefore uses the observed anonymous **free-model catalog only**, never selects a paid model automatically, and treats every free route as revocable. Runtime availability rather than a hard-coded entitlement decides readiness.
 
-The OpenCode model name in its own config is `opencode/big-pickle`; MiCoder sends the upstream model ID `big-pickle` while using the distinct internal provider ID `micoder-auto-free`.
+The OpenCode model name in its own config is `opencode/big-pickle`; myCoder sends the upstream model ID `big-pickle` while using the distinct internal provider ID `micoder-auto-free`.
 
 The runtime provider prioritizes Big Pickle, then tries the remaining current free candidates if Big Pickle disappears, returns rate-limit/unavailable, or accumulates five consecutive failed sends.
 

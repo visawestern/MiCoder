@@ -55,7 +55,7 @@ log "Using $(swift --version 2>&1 | head -1)"
 PKG="${TMPDIR:-/tmp}/micoder-logic-harness"
 rm -rf "$PKG"
 mkdir -p "$PKG/Sources/MiCoderLogic" "$PKG/Tests/MiCoderLogicTests"
-cp -r "$REPO/MiCoder/Sources/Resources" "$PKG/Sources/MiCoderLogic/Resources" 2>/dev/null || true
+cp -r "$REPO/myCoder/Sources/Resources" "$PKG/Sources/MiCoderLogic/Resources" 2>/dev/null || true
 
 # A file is Foundation-only if it does NOT import a macOS-only framework.
 is_foundation_only() {
@@ -71,7 +71,7 @@ enum PlusMenuItem: String, CaseIterable, Equatable {
 STUB
 
 src_count=0
-for f in "$REPO"/MiCoder/Sources/Services/*.swift "$REPO"/MiCoder/Sources/Models/*.swift; do
+for f in "$REPO"/myCoder/Sources/Services/*.swift "$REPO"/myCoder/Sources/Models/*.swift; do
   [ -e "$f" ] || continue
   if is_foundation_only "$f"; then
     ln -sf "$f" "$PKG/Sources/MiCoderLogic/$(basename "$f")"
@@ -80,7 +80,7 @@ for f in "$REPO"/MiCoder/Sources/Services/*.swift "$REPO"/MiCoder/Sources/Models
 done
 
 test_count_files=0
-for f in "$REPO"/MiCoder/Tests/*.swift; do
+for f in "$REPO"/myCoder/Tests/*.swift; do
   [ -e "$f" ] || continue
   if is_foundation_only "$f"; then
     ln -sf "$f" "$PKG/Tests/MiCoderLogicTests/$(basename "$f")"
@@ -92,12 +92,12 @@ cat > "$PKG/Package.swift" <<'PKGEOF'
 // swift-tools-version: 5.9
 import PackageDescription
 let package = Package(
-    name: "MiCoder",
+    name: "myCoder",
     platforms: [.macOS(.v13)],
-    products: [.library(name: "MiCoder", targets: ["MiCoder"])],
+    products: [.library(name: "myCoder", targets: ["MiCoder"])],
     targets: [
-        .target(name: "MiCoder", path: "Sources/MiCoderLogic", resources: [.process("Resources")]),
-        .testTarget(name: "MiCoderTests", dependencies: ["MiCoder"], path: "Tests/MiCoderLogicTests")
+        .target(name: "myCoder", path: "Sources/MiCoderLogic", resources: [.process("Resources")]),
+        .testTarget(name: "myCoderTests", dependencies: ["myCoder"], path: "Tests/MiCoderLogicTests")
     ]
 )
 PKGEOF

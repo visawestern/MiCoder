@@ -85,7 +85,7 @@ clearNavigationHistory()  // sets [] and -1 atomically
 **Verdict:** A *structural* second class of untranslated strings exists (plain
 English literals in Swift views) alongside the curated keys. The fix is to route
 them through `AppLocalization` too. `TopBarView.swift:31` is the most visible
-one — the app title bar shows "MiMoCode" after the rebrand to MiCoder.
+one — the app title bar shows "MiMoCode" after the rebrand to myCoder.
 
 ---
 
@@ -108,10 +108,10 @@ Includes the new `SettingsActionsRegressionTests` (9 tests) covering:
 
 | File | Change |
 |------|--------|
-| `MiCoder/Sources/App/MiCoderApp.swift` | `navigationIndex` bounds-check didSet + `clearNavigationHistory()` |
-| `MiCoder/Sources/App/AppState+Database.swift` | `resetStorage` → call `clearInMemoryState()` |
-| `MiCoder/Tests/SettingsActionsRegressionTests.swift` | new — crash-regression + localization guard |
-| `MiCoder/Sources/Views/TopBarView.swift` | (pending) rebrand "MiMoCode" → "MiCoder" + localization |
+| `myCoder/Sources/App/MiCoderApp.swift` | `navigationIndex` bounds-check didSet + `clearNavigationHistory()` |
+| `myCoder/Sources/App/AppState+Database.swift` | `resetStorage` → call `clearInMemoryState()` |
+| `myCoder/Tests/SettingsActionsRegressionTests.swift` | new — crash-regression + localization guard |
+| `myCoder/Sources/Views/TopBarView.swift` | (pending) rebrand "MiMoCode" → "myCoder" + localization |
 
 ## 6. Remaining localization gap (deferred)
 

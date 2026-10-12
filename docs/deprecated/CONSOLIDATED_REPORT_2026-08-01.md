@@ -1,6 +1,6 @@
 # Сводный отчёт по всем раундам (2026-07-17 → 2026-08-01)
 
-Финальная сводка всех раундов работы над MiCoder/miMo macOS, от первого
+Финальная сводка всех раундов работы над myCoder/miMo macOS, от первого
 прохода "как адвокат дьявола" до текущего состояния. Постоянные требования
 пользователя, выполнявшиеся в каждом раунде: TDD с red-тестами на крайние
 случаи, ручная пошаговая проверка каждой цепочки, честный отчёт без заглушек,
@@ -40,10 +40,10 @@
 - Добавлены ключи локализации (AppLocalization) для StatusBar/Storage/и пр.;
   `SettingsActionsRegressionTests`, `LocalizationCoverageTests`,
   `StorageResetCrashTests`.
-- Ремайндер: брендинг MiMoCode → MiCoder (Round 11, `TopBarView`).
+- Ремайндер: брендинг MiMoCode → myCoder (Round 11, `TopBarView`).
 
 ## Round 11 (2026-08-01) — Брендинг
-- `a37256e`: все надписи MiMoCode → MiCoder.
+- `a37256e`: все надписи MiMoCode → myCoder.
 
 ## Round 12 (2026-08-01) — ручной аудит КАЖДОЙ кнопки clear/delete
 (детали — в `DEVILS_ADVOCATE_ROUND_12_2026-08-01.md`)
@@ -75,7 +75,7 @@
 | Send-цепочка не "молчит", причины видны | ✅ |
 | Неформальные tool-вызовы веб-моделей парсятся | ✅ (LS/Read/Grep/Run + bracket-форма) |
 | Локализация основных экранов | ✅ (10 языков, fallback → EN) |
-| Брендинг MiMoCode → MiCoder | ✅ |
+| Брендинг MiMoCode → myCoder | ✅ |
 
 ## Остаточные риски (честно, из Round 8)
 - P5: `MessageQueue.processNext` зависит от flip `isLoading` — по-прежнему в

@@ -45,9 +45,9 @@ the reproducible number every prior doc lacked. Results:
 
 | # | Failing test | File:line | Root cause | Fix (Round 7) |
 |---|---|---|---|---|
-| RT-1 | "Input placeholder matches MiMo spec" | `Screenshot1Tests.swift:28` | Stale MiMo branding assertion not updated during the MiCoder rebrand | assert `"Ask MiCoder anything"` |
-| RT-2 | "Prompt placeholder uses MiMo branding" | `MiMoCopyTests.swift:9` | same stale-brand assertion | assert `"Ask MiCoder anything"` + negative-assert `"Ask MiMo"` |
-| RT-3 | "Prompt placeholder switches with language" | `AppLocalizationTests.swift:20` | same | assert `en.contains("Ask MiCoder")` |
+| RT-1 | "Input placeholder matches MiMo spec" | `Screenshot1Tests.swift:28` | Stale MiMo branding assertion not updated during the myCoder rebrand | assert `"Ask myCoder anything"` |
+| RT-2 | "Prompt placeholder uses MiMo branding" | `MiMoCopyTests.swift:9` | same stale-brand assertion | assert `"Ask myCoder anything"` + negative-assert `"Ask MiMo"` |
+| RT-3 | "Prompt placeholder switches with language" | `AppLocalizationTests.swift:20` | same | assert `en.contains("Ask myCoder")` |
 | RT-4 | `recordsHaveHashSizeLanguage()` | `ProjectFileScannerTests.swift:43` | `#expect(!(rec?.hash ?? "").isEmpty)` mis-expands to an unused `Bool?` (compiler warned) — the negation is never evaluated, so a valid hash "fails" | `#require` the record, bind `hash` to a plain `String`, assert `hash.isEmpty == false` |
 | RT-5 | "Idle connections are evicted…" | `ProjectDatabaseManagerTests.swift:180` | `ChatSession.normalizedPath` used `standardizingPath`, which is **not idempotent** for the `/var`→`/private/var` tmp symlink; the pool key and `isPooled`'s re-normalization disagreed | make `normalizedPath` resolve symlinks (`resolvingSymlinksInPath`) so it is deterministic & idempotent |
 
@@ -85,10 +85,10 @@ Round-7 changes are architecture-specific.
 
 | Measurement | Value | How |
 |---|---|---|
-| Test files | **138** `.swift` in `MiCoder/Tests/` | glob |
+| Test files | **138** `.swift` in `myCoder/Tests/` | glob |
 | `@Test` declarations | **1568** | `rg -o '@Test\b' \| wc -l` |
 | `@Suite` declarations | **216** | `rg -o '@Suite\b' \| wc -l` |
-| Service source files | **107** in `MiCoder/Sources/Services/` | ls |
+| Service source files | **107** in `myCoder/Sources/Services/` | ls |
 | Files importing AppKit/SwiftUI (macOS-only, cannot run on Linux) | **17** | rg |
 | Foundation-only test files (could run on Linux) | **121** | rg |
 | Test files wired into `scripts/test-logic.sh` mirror | **32** (30 real + 2 helpers) | script `TESTS=()` |
@@ -145,7 +145,7 @@ Severity: 🔴 high · 🟡 medium · 🟢 low. "Fix quality" is graded only onc
 * P13 `WebModelListParser` — **WIRED** (best-effort, WebKit-only, `ChatPanelView.swift:798-803`).
 * F59 `taskCompleted()` — **WIRED** (two call sites: `ChatPanelView.swift:644` serve, `:553` ACP).
 * F44 ACP send path — **WIRED** (`MiCoderApp.swift:517-533`, `ChatPanelView.swift:522-535`).
-* Internal rebrand to MiCoder — **DONE** (0 `MiMoMacOS` identifiers; `MiCoderApp.swift` exists).
+* Internal rebrand to myCoder — **DONE** (0 `MiMoMacOS` identifiers; `MiCoderApp.swift` exists).
 * Keychain-first API key read/write — **PRESENT** (`SettingsView.swift:528,536`), so R3-C4 is resolved in code (but was contradicted by same-day DATA_STORAGE claiming 10/10 before the fix).
 
 ---

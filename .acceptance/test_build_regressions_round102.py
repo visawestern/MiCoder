@@ -3,13 +3,13 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-chat = (ROOT / "MiCoder/Sources/Views/ChatPanelView.swift").read_text()
-inputs = (ROOT / "MiCoder/Sources/Views/Components/InputViews.swift").read_text()
-storage = (ROOT / "MiCoder/Sources/Views/Settings/StorageSettingsView.swift").read_text()
-db = (ROOT / "MiCoder/Sources/Services/ProjectDatabaseManager.swift").read_text()
-app = (ROOT / "MiCoder/Sources/App/MiCoderApp.swift").read_text()
-model_settings = (ROOT / "MiCoder/Sources/Views/Settings/ModelSettingsView.swift").read_text()
-watcher = (ROOT / "MiCoder/Sources/Services/ProjectFileIndexWatcher.swift").read_text()
+chat = (ROOT / "myCoder/Sources/Views/ChatPanelView.swift").read_text()
+inputs = (ROOT / "myCoder/Sources/Views/Components/InputViews.swift").read_text()
+storage = (ROOT / "myCoder/Sources/Views/Settings/StorageSettingsView.swift").read_text()
+db = (ROOT / "myCoder/Sources/Services/ProjectDatabaseManager.swift").read_text()
+app = (ROOT / "myCoder/Sources/App/MiCoderApp.swift").read_text()
+model_settings = (ROOT / "myCoder/Sources/Views/Settings/ModelSettingsView.swift").read_text()
+watcher = (ROOT / "myCoder/Sources/Services/ProjectFileIndexWatcher.swift").read_text()
 
 # The generated call sites must match SendReadinessLogic's public label order.
 for source, label in ((chat, "ChatPanelView"), (inputs, "InputViews")):

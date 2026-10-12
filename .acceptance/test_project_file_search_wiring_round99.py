@@ -3,8 +3,8 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-app = (ROOT / "MiCoder/Sources/App/MiCoderApp.swift").read_text()
-sidebar = (ROOT / "MiCoder/Sources/Views/SidebarView.swift").read_text()
+app = (ROOT / "myCoder/Sources/App/MiCoderApp.swift").read_text()
+sidebar = (ROOT / "myCoder/Sources/Views/SidebarView.swift").read_text()
 
 assert "func searchProjectFiles(query: String)" in app, "AppState must expose indexed project-file search"
 assert "ProjectFileSearchLogic.search(" in app and "query: query" in app, "AppState must search persisted project records"

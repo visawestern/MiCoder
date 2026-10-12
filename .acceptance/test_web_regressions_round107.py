@@ -3,11 +3,11 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DISCOVERY = ROOT / "MiCoder/Sources/Services/WebModelDiscovery.swift"
-PARSER = ROOT / "MiCoder/Sources/Services/WebModelListParser.swift"
-DRIVER = ROOT / "MiCoder/Sources/Services/WebChatDriver.swift"
-WEB_PROVIDERS = ROOT / "MiCoder/Sources/Views/Components/WebProvidersSection.swift"
-IDENTITY = ROOT / "MiCoder/Sources/Services/WebRemoteChatIdentityLogic.swift"
+DISCOVERY = ROOT / "myCoder/Sources/Services/WebModelDiscovery.swift"
+PARSER = ROOT / "myCoder/Sources/Services/WebModelListParser.swift"
+DRIVER = ROOT / "myCoder/Sources/Services/WebChatDriver.swift"
+WEB_PROVIDERS = ROOT / "myCoder/Sources/Views/Components/WebProvidersSection.swift"
+IDENTITY = ROOT / "myCoder/Sources/Services/WebRemoteChatIdentityLogic.swift"
 
 
 def require(text: str, needle: str, label: str) -> None:

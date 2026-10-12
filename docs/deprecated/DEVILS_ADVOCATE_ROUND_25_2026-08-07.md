@@ -10,7 +10,7 @@
 
 ### P5 — Misleading indentation in ChatPanelView.handleSSEEvent (LOW)
 
-**File**: `MiCoder/Sources/Views/ChatPanelView.swift:1220-1242`
+**File**: `myCoder/Sources/Views/ChatPanelView.swift:1220-1242`
 
 **Problem**: In the `"message.updated"` SSE event handler, the `if let finish = info["finish"]` block was indented as if it were inside the `if currentAssistantMessageID != reconciledID` block, but it actually belonged to the outer `if let info` block. The code was *correct* (Swift's `if let` chain keeps `info` and `messageID` in scope), but the misleading indentation made it look like dead code or a logic error during review.
 
@@ -22,7 +22,7 @@
 
 | File | Change |
 |------|--------|
-| `MiCoder/Sources/Views/ChatPanelView.swift` | P5 fix: corrected indentation in `handleSSEEvent` |
+| `myCoder/Sources/Views/ChatPanelView.swift` | P5 fix: corrected indentation in `handleSSEEvent` |
 
 ## Areas Audited & Found Clean
 

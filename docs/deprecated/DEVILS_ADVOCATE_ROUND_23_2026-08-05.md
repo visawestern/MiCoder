@@ -13,10 +13,10 @@
 
 ### E26 (HIGH) — пользовательские строки с брендом MiMo (Раздел 13 п.11)
 Проверено grep'ом по Sources, найдены и исправлены:
-1. `SettingsView.swift:1564` — «Manage **MiMo** Agent .md command files…» → «Manage **MiCoder** Agent…».
-2. `SettingsView.swift:2412` — «…via Ollama, OpenCode, or **MiMo CLI/Serve**…» → «**MiCoder CLI/Serve**».
-3. `BottomPanelView.swift:487` — «Auto-commit from **MiMo**» → «Auto-commit from **MiCoder**».
-Плюс зачищены устаревшие комментарии (`SettingsView.swift:2377` — «MiMo CLI» → «MiCoder CLI»; `:1307` — комментарий про «MiMo and Cursor paths», код которого больше не существует: цикл удаления идёт только по `~/.micoder/skills`).
+1. `SettingsView.swift:1564` — «Manage **MiMo** Agent .md command files…» → «Manage **myCoder** Agent…».
+2. `SettingsView.swift:2412` — «…via Ollama, OpenCode, or **MiMo CLI/Serve**…» → «**myCoder CLI/Serve**».
+3. `BottomPanelView.swift:487` — «Auto-commit from **MiMo**» → «Auto-commit from **myCoder**».
+Плюс зачищены устаревшие комментарии (`SettingsView.swift:2377` — «MiMo CLI» → «myCoder CLI»; `:1307` — комментарий про «MiMo and Cursor paths», код которого больше не существует: цикл удаления идёт только по `~/.micoder/skills`).
 
 ### E27 (MED) — Overview-шит назван «Workspaces» (Раздел 13 п.7)
 **Где:** `SidebarView.swift:502` — `Text("Workspaces")` в `WorkspacesOverviewSheet` (единственное вхождение `Text("Workspaces")` в файле; заголовок секции сайдбара уже убран ранее, см. комментарий в `WorkspacesSectionHeader`).
@@ -43,13 +43,13 @@
 Полный прогон: **1706 тестов / 232 сьюта, все зелёные** (после Round 22 было 1701/231).
 
 ## Изменённые файлы
-- `MiCoder/Sources/Views/SettingsView.swift` — строки бренда + комментарии (E26).
-- `MiCoder/Sources/Views/BottomPanelView.swift` — «Auto-commit from MiCoder» (E26).
-- `MiCoder/Sources/Views/SidebarView.swift` — заголовок шита «Overview» (E27).
-- `MiCoder/Sources/Services/LocalProviderConfig.swift` — удалён `neutralizeServeBranding` (E28).
-- `MiCoder/Tests/LocalProviderConfigTests.swift` — удалён тест мёртвой функции.
-- `MiCoder/Tests/SettingsIntegrationTests.swift` — E25: контракт visible-вкладок.
-- `MiCoder/Tests/E26E27E28RebrandAndCleanupTests.swift` — новый source-inspection сьют (5 тестов).
+- `myCoder/Sources/Views/SettingsView.swift` — строки бренда + комментарии (E26).
+- `myCoder/Sources/Views/BottomPanelView.swift` — «Auto-commit from myCoder» (E26).
+- `myCoder/Sources/Views/SidebarView.swift` — заголовок шита «Overview» (E27).
+- `myCoder/Sources/Services/LocalProviderConfig.swift` — удалён `neutralizeServeBranding` (E28).
+- `myCoder/Tests/LocalProviderConfigTests.swift` — удалён тест мёртвой функции.
+- `myCoder/Tests/SettingsIntegrationTests.swift` — E25: контракт visible-вкладок.
+- `myCoder/Tests/E26E27E28RebrandAndCleanupTests.swift` — новый source-inspection сьют (5 тестов).
 
 ## Версия
 `Info.plist`: CFBundleShortVersionString 2.18 → **2.19**, build 20 → **21**.

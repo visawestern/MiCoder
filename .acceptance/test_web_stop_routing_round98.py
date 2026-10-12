@@ -3,8 +3,8 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-app = (ROOT / "MiCoder/Sources/App/MiCoderApp.swift").read_text()
-chat = (ROOT / "MiCoder/Sources/Views/ChatPanelView.swift").read_text()
+app = (ROOT / "myCoder/Sources/App/MiCoderApp.swift").read_text()
+chat = (ROOT / "myCoder/Sources/Views/ChatPanelView.swift").read_text()
 
 assert "func stopWebGeneration(providerID: String," in app and "projectID: String," in app and "chatID: String) async" in app, "stop API must identify the active browser instance"
 assert "webView(for: config, projectID: projectID, chatID: chatID)" in app, "stop must address the active project/chat WebView"

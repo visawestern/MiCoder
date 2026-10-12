@@ -1,17 +1,17 @@
 # Activity 61 — Web-provider detection and Kimi send chain audit
 
 **Round:** 107
-**Scope:** Qwen/Gwen live model discovery, per-model effort detection, MiCoder Auto Free assisted detection, malformed candidate rejection, Kimi remote-chat identity binding, and background web send.
+**Scope:** Qwen/Gwen live model discovery, per-model effort detection, myCoder Auto Free assisted detection, malformed candidate rejection, Kimi remote-chat identity binding, and background web send.
 **Date:** 2026-08-15
 **Status:** Source and Foundation verification complete; native WKWebView/provider runtime remains pending on macOS.
 
 ## Goal and user stories
 
-> As a user, when I press built-in browser detection, MiCoder must open the provider's real model menu, expand every bounded “more models” surface, retain all selectable model labels, detect effort only from visible effort controls, and never save headings, descriptions, or effort labels as models.
+> As a user, when I press built-in browser detection, myCoder must open the provider's real model menu, expand every bounded “more models” surface, retain all selectable model labels, detect effort only from visible effort controls, and never save headings, descriptions, or effort labels as models.
 
-> As a user, when I press Ask MiCoder Auto Free, the app must prepare the same live model menu first, provide the complete visible candidate set to the free detector, merge verified DOM candidates with AI candidates, and preserve all valid models rather than returning only the currently selected model.
+> As a user, when I press Ask myCoder Auto Free, the app must prepare the same live model menu first, provide the complete visible candidate set to the free detector, merge verified DOM candidates with AI candidates, and preserve all valid models rather than returning only the currently selected model.
 
-> As a user, when I send through Kimi, MiCoder must bind the local project/chat to a verified remote conversation identity. If the provider keeps the shell URL at `/`, the app must read the active identity from the provider DOM and persist a canonical route; it must not disable the context-mixing guard.
+> As a user, when I send through Kimi, myCoder must bind the local project/chat to a verified remote conversation identity. If the provider keeps the shell URL at `/`, the app must read the active identity from the provider DOM and persist a canonical route; it must not disable the context-mixing guard.
 
 ## Full declaration-to-consumer chain
 
@@ -86,6 +86,6 @@ git pull origin main
 
 For Qwen, press **Built-in browser detection** and confirm the result includes the models visible under **Expand more models**, not only the selected model. Then press the effort refresh action and verify that each model shows effort only when its own visible control exists; model descriptions and labels such as Auto/Fast/Deep thinking must not appear in the model catalog.
 
-For MiCoder Auto Free, first open the model menu and its expansion surfaces, then press **Ask MiCoder Auto Free**. The result must preserve all valid model names returned by the live DOM/AI merge and leave AI-only rows non-selectable until verified.
+For myCoder Auto Free, first open the model menu and its expansion surfaces, then press **Ask myCoder Auto Free**. The result must preserve all valid model names returned by the live DOM/AI merge and leave AI-only rows non-selectable until verified.
 
 For Kimi, create or select a local chat, send a short message, and inspect the browser action journal. The mapping must contain a verified remote ID and a canonical provider chat URL. Repeat in a second local project/chat and verify that the two mappings remain separate. If Kimi still reports missing identity, capture the current page URL and the DOM attributes/history route visible in the embedded browser; do not disable the context-mixing guard.

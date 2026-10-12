@@ -92,7 +92,7 @@ swift test    # 1726 tests / 236 suites — green
 
 ## Overall Assessment
 
-The MiCoder codebase is in excellent shape after 24 rounds of devil's advocacy:
+The myCoder codebase is in excellent shape after 24 rounds of devil's advocacy:
 
 - **172 PASS** features fully implemented and tested
 - **11 PARTIAL** features with documented gaps

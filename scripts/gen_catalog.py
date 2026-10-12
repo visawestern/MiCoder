@@ -7,7 +7,7 @@ rest with embeddedMarkdown. Output is written to the catalog file.
 import json
 from pathlib import Path
 
-CAT = Path(__file__).resolve().parent.parent / "MiCoder/Sources/Resources/Catalog/agent_resource_catalog.json"
+CAT = Path(__file__).resolve().parent.parent / "myCoder/Sources/Resources/Catalog/agent_resource_catalog.json"
 
 
 def skill_md(name, desc, body):

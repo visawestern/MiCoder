@@ -2,13 +2,13 @@
 
 > Generated: 2026-08-09
 > Source: ~/.agents/skills/apple-design/SKILL.md
-> Question: Should apple-design be in MiCoder's skill packs? What's the quality if included?
+> Question: Should apple-design be in myCoder's skill packs? What's the quality if included?
 
 ## Current Status
 
 **Location:** `~/.agents/skills/apple-design/SKILL.md` (system-level agent skill)
-**In MiCoder:** ❌ Not bundled — MiCoder loads from `~/.micoder/skills/`
-**Pack type:** System skill pack (agents/), not MiCoder skill
+**In myCoder:** ❌ Not bundled — myCoder loads from `~/.micoder/skills/`
+**Pack type:** System skill pack (agents/), not myCoder skill
 
 ## Apple Design SKILL.md Content Analysis
 
@@ -41,26 +41,26 @@
 - ✅ Web-translated (not just iOS)
 
 ### Weaknesses
-- ❌ No SwiftUI-specific guidance (MiCoder is SwiftUI)
+- ❌ No SwiftUI-specific guidance (myCoder is SwiftUI)
 - ❌ Web-focused (CSS/JS), not native macOS
 - ❌ Would need adaptation for AppKit/SwiftUI context
 
-## Decision: Include in MiCoder?
+## Decision: Include in myCoder?
 
 ### Arguments FOR inclusion
 1. High quality content (90+ avg)
-2. Directly relevant to MiCoder's UI work
+2. Directly relevant to myCoder's UI work
 3. Fills gap in current skill packs
 4. WWDC-sourced = authoritative
 
 ### Arguments AGAINST
-1. Web-focused, MiCoder is native macOS SwiftUI
+1. Web-focused, myCoder is native macOS SwiftUI
 2. Current better-access, better-layout, better-ui skills already cover some ground
 3. May confuse agent (web CSS/JS in native app context)
 
 ### Recommendation: INCLUDE with adaptation
 
-Create a MiCoder-specific variant that:
+Create a myCoder-specific variant that:
 - Translates web examples → SwiftUI/Animatable equivalents
 - Keeps principles (universal)
 - Adds native macOS patterns (AppKit spring animations, `matchedGeometryEffect`)
@@ -68,12 +68,12 @@ Create a MiCoder-specific variant that:
 ## Quality Score if Included As-Is: 75/100
 ## Quality Score if Adapted for SwiftUI: 92/100
 
-## Current MiCoder Skill Packs (for reference)
+## Current myCoder Skill Packs (for reference)
 
 | Skill | Location | Status |
 |-------|----------|--------|
-| apple-design | ~/.agents/skills/ | System only, not in MiCoder |
-| (other packs) | ~/.agents/skills/ | Loaded by MiCoder from ~/.micoder/skills/ |
+| apple-design | ~/.agents/skills/ | System only, not in myCoder |
+| (other packs) | ~/.agents/skills/ | Loaded by myCoder from ~/.micoder/skills/ |
 
 ## Action Items
 

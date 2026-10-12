@@ -10,7 +10,7 @@ The diagnostic appeared on `guard let info, let pathPointers` inside the `FSEven
 
 ## User story
 
-> **As a MiCoder user, I want project-file changes to invalidate the project index safely on macOS, so that background indexing remains responsive without preventing the application from building or risking an invalid callback pointer.**
+> **As a myCoder user, I want project-file changes to invalidate the project index safely on macOS, so that background indexing remains responsive without preventing the application from building or risking an invalid callback pointer.**
 
 ## Expected behavior derived from source
 

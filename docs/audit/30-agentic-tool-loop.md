@@ -2,7 +2,7 @@
 
 Дата аудита: 2026-09-06
 Источники: коммиты `d879979..5399233` (2026-09-04 → 2026-09-05), ручная проверка кода
-Код: `MiCoder/Sources/Views/ChatPanelView.swift:794-915`, `MiCoderAutoFreeProvider.swift`, `MiCoderAutoFreeClient.swift`, `WebToolProtocolEmulator.swift`, `ProjectWebToolExecutor.swift`, `MiCoderAutoFreeHistoryLogic.swift`
+Код: `myCoder/Sources/Views/ChatPanelView.swift:794-915`, `MiCoderAutoFreeProvider.swift`, `MiCoderAutoFreeClient.swift`, `WebToolProtocolEmulator.swift`, `ProjectWebToolExecutor.swift`, `MiCoderAutoFreeHistoryLogic.swift`
 
 ## Обнаруженные кнопки/действия/состояния
 

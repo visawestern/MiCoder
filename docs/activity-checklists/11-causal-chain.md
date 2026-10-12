@@ -4,7 +4,7 @@
 выборе provider/model, web discovery/effort и сохранении первой неудачной
 сессии.
 
-## Chain A: MiCoder Auto Free send
+## Chain A: myCoder Auto Free send
 
 ```text
 ContentView.task

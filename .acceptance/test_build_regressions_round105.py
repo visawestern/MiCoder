@@ -3,7 +3,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-source = (ROOT / "MiCoder/Sources/Services/ProjectFileIndexWatcher.swift").read_text()
+source = (ROOT / "myCoder/Sources/Services/ProjectFileIndexWatcher.swift").read_text()
 
 # The macOS CoreServices import exposes client info as optional but the event
 # path buffer as a non-optional UnsafeMutableRawPointer. Binding both with

@@ -1,12 +1,12 @@
-# MiCoder — независимый acceptance-аудит требований из полного диалога
+# myCoder — независимый acceptance-аудит требований из полного диалога
 
-**Дата:** 14 августа 2026 года. **Объект проверки:** текущий checkout `visawestern/MiCoder`, commit `f0d8f25`. **Метод:** независимая трассировка control/trigger → handler → state → persistence → runtime consumer → visible result, с отдельными оценками качества реализации и соответствия задаче.
+**Дата:** 14 августа 2026 года. **Объект проверки:** текущий checkout `visawestern/myCoder`, commit `f0d8f25`. **Метод:** независимая трассировка control/trigger → handler → state → persistence → runtime consumer → visible result, с отдельными оценками качества реализации и соответствия задаче.
 
 > **Итоговый вердикт:** прежние заявления о том, что web-модели, effort, browser sending и chat isolation «сделаны», не подтверждаются полным end-to-end приёмочным аудитом. По нормализованному чеклисту из 32 крупных требований нет ни одного полностью подтверждённого target-runtime PASS; 14 требований имеют FAIL по текущему поведению, 18 — PARTIAL. Среднее качество реализации — **2,25/5**, среднее соответствие поставленной задаче — **1,31/5**.
 
 ## 1. Границы и честность проверки
 
-В Linux sandbox невозможно собрать полный macOS target: `swift test` останавливается на отсутствии модулей `SwiftUI` и `AppKit` в `MiCoder/Sources/App/MiCoderApp.swift`. Это не следует считать «тесты прошли». Foundation-only web harness, составленный из чистых сервисов и соответствующих тестов, завершился с **55/55**, но он проверяет только pure/Foundation orchestration, Codable, fake-browser discovery и session persistence. Он не доказывает работу SwiftUI, WebKit DOM, cookie store, внешних Kimi/Qwen/ChatGPT аккаунтов, реального model dropdown, удалённого chat UUID или ответа внешней модели.
+В Linux sandbox невозможно собрать полный macOS target: `swift test` останавливается на отсутствии модулей `SwiftUI` и `AppKit` в `myCoder/Sources/App/MiCoderApp.swift`. Это не следует считать «тесты прошли». Foundation-only web harness, составленный из чистых сервисов и соответствующих тестов, завершился с **55/55**, но он проверяет только pure/Foundation orchestration, Codable, fake-browser discovery и session persistence. Он не доказывает работу SwiftUI, WebKit DOM, cookie store, внешних Kimi/Qwen/ChatGPT аккаунтов, реального model dropdown, удалённого chat UUID или ответа внешней модели.
 
 Существующие activity-checklists прямо указывают, что WebKit, Finder, Keychain и внешние аккаунты требуют live macOS-сеанса и должны быть `PARTIAL`, а не `PASS` [1]. Тем не менее cumulative report и canonical CSV содержат множество `PASS` с примечанием «live verification pending». В этом аудите такие строки переоценены независимо.
 
@@ -50,7 +50,7 @@
 
 ### 2.7 Auto Free имеет policy и state, но не подтверждённый внешний результат
 
-MiCoder Auto Free имеет отдельный OpenCode Zen client, free allow-list, rate-limit policy и fallback loop [8]. NotificationCenter → AppState → ChatPanel banner chain существует, но notification semantic type остаётся `.warning`, хотя пользователь требовал заметный красный failure alert [9]. Более того, live external send в текущей среде не проверен. Поэтому policy tests не превращаются в доказательство рабочего provider.
+myCoder Auto Free имеет отдельный OpenCode Zen client, free allow-list, rate-limit policy и fallback loop [8]. NotificationCenter → AppState → ChatPanel banner chain существует, но notification semantic type остаётся `.warning`, хотя пользователь требовал заметный красный failure alert [9]. Более того, live external send в текущей среде не проверен. Поэтому policy tests не превращаются в доказательство рабочего provider.
 
 ## 3. Полный независимый checklist и оценки
 
@@ -82,7 +82,7 @@ MiCoder Auto Free имеет отдельный OpenCode Zen client, free allow-
 | Правильно выбрать существующий remote chat | **1/5** | **0/5** | Best-effort title click, без UUID и post-selection verification |
 | Web send через hidden browser | **2/5** | **1/5** | Orchestration присутствует, target WebKit response не проверен и пользователь сообщает failure |
 | Named independent logins | **4/5** | **3/5** | Pure persistence passed; live two-account cookie switch unverified |
-| MiCoder Auto Free failover | **3/5** | **2/5** | State/policy/banner chain exists; external send and severity not fully accepted |
+| myCoder Auto Free failover | **3/5** | **2/5** | State/policy/banner chain exists; external send and severity not fully accepted |
 | Sidebar/header fixes | **4/5** | **3/5** | Source structure supports them; no current macOS visual run |
 
 ## 4. Что считать реально сделанным
@@ -109,13 +109,13 @@ MiCoder Auto Free имеет отдельный OpenCode Zen client, free allow-
 
 [1]: ./activity-checklists/00-index.md "Activity checklist index and live verification limits"
 [2]: ../.acceptance/ACCEPTANCE_MATRIX.csv "Independent acceptance matrix and current test evidence"
-[3]: ../MiCoder/Sources/Views/Components/WebProvidersSection.swift "Provider card and login/detection chain"
-[4]: ../MiCoder/Sources/Views/Settings/ModelSettingsView.swift "Model row interaction and redundant Select action"
-[5]: ../MiCoder/Sources/App/MiCoderApp.swift "WKWebView project/chat/provider pool"
-[6]: ../MiCoder/Sources/Views/ChatPanelView.swift "Web send chain"
-[7]: ../MiCoder/Sources/App/MiCoderApp.swift "Provider-global web session seed state"
-[8]: ../MiCoder/Sources/Services/MiCoderAutoFreeProvider.swift "Auto Free runtime failover"
-[9]: ../MiCoder/Sources/Services/NotificationService.swift "Auto Free notification severity"
+[3]: ../myCoder/Sources/Views/Components/WebProvidersSection.swift "Provider card and login/detection chain"
+[4]: ../myCoder/Sources/Views/Settings/ModelSettingsView.swift "Model row interaction and redundant Select action"
+[5]: ../myCoder/Sources/App/MiCoderApp.swift "WKWebView project/chat/provider pool"
+[6]: ../myCoder/Sources/Views/ChatPanelView.swift "Web send chain"
+[7]: ../myCoder/Sources/App/MiCoderApp.swift "Provider-global web session seed state"
+[8]: ../myCoder/Sources/Services/MiCoderAutoFreeProvider.swift "Auto Free runtime failover"
+[9]: ../myCoder/Sources/Services/NotificationService.swift "Auto Free notification severity"
 
 
 ## 6. Round 46 adversarial recheck and correction

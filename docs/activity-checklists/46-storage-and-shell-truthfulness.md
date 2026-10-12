@@ -24,7 +24,7 @@ This round audits **STO-30**, **STO-31**, and **SHELL-01 through SHELL-03** from
 | 4 | Compress database | `vacuumDatabase` runs legacy and every project DB; project-row vacuum creates/prunes backup first. | **Pass by source; SQLite/filesystem UNVERIFIED.** |
 | 5 | Negative maintenance API input | Legacy DB previously used raw negative days and could target future sessions; project DB already clamped. Both paths now clamp with `max(0, days)`. | **Fixed Round 92.** |
 | 6 | Storage stats aggregation | Legacy snapshot is included once; project snapshots are keyed by project ID and sorted; snapshot bytes remain separate. | **Pass by source/tests.** |
-| 7 | Workspace branch badge | TopBar uses `ProjectHeaderContextLogic`; no selected workspace/legacy project shows MiCoder fallback instead of stale branch. | **Pass by source/tests.** |
+| 7 | Workspace branch badge | TopBar uses `ProjectHeaderContextLogic`; no selected workspace/legacy project shows myCoder fallback instead of stale branch. | **Pass by source/tests.** |
 | 8 | Session goal setter | `/goal`/goal panel setter trims text, stores nil for whitespace-only input, updates selected/in-memory session, and writes through `DatabaseBridge`. | **Fixed Round 92.** |
 | 9 | Goal hydration | Project-stored goal wins over stale legacy value; compatibility fallback is used only when project value is empty. | **Pass by source/tests.** |
 | 10 | Selected route connection | Server, Auto Free, web, local, and custom routes use their own readiness sources; Serve cannot masquerade as another route. | **Pass by source/tests.** |

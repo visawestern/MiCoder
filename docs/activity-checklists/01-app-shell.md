@@ -33,7 +33,7 @@ false; the following `async let models` branch then skipped `loadModelsFromServe
 startup. This violated the startup chain even though the connection manager itself was healthy.
 
 A red regression suite was added first in
-`MiCoder/Tests/ServerConnectionReadinessLogicTests.swift`. Because the full target requires
+`myCoder/Tests/ServerConnectionReadinessLogicTests.swift`. Because the full target requires
 SwiftUI/AppKit and cannot compile in Linux, the same pure Foundation contract is mirrored in the
 Linux harness and runs as an executable regression suite. The minimal fix adds
 `ServerConnectionReadinessLogic` and synchronizes `serverConnected` after the completed health
@@ -41,13 +41,13 @@ check. Missing or cancelled health results fail closed.
 
 The first user story is now code-level fixed. Target-runtime behavior remains **UNVERIFIED** until
 this exact startup chain is exercised in the macOS build with both a healthy MiMo Serve and no
-running server. The default free route is **MiCoder Auto Free**; the historical “free MiMo-Auto
+running server. The default free route is **myCoder Auto Free**; the historical “free MiMo-Auto
 route” wording is obsolete and must not be used.
 
 ## User story
 
-As a user, I can open MiCoder and reach a usable composer without a running MiMo Serve because
-**MiCoder Auto Free** is available as the built-in free route. If MiMo Serve is healthy, its
+As a user, I can open myCoder and reach a usable composer without a running MiMo Serve because
+**myCoder Auto Free** is available as the built-in free route. If MiMo Serve is healthy, its
 server-backed model list is loaded after the completed health check rather than being skipped due
 to stale AppState state.
 

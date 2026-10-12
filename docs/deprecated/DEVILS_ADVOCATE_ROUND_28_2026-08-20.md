@@ -15,7 +15,7 @@ reading source code, writing a red test (TDD), fixing, and verifying green.
 
 ### P1 (HIGH) — todoRead fails to parse `{"todos": [...]}` wrapper format
 
-**File**: `MiCoder/Sources/Services/ProjectWebToolExecutor.swift:187-201`
+**File**: `myCoder/Sources/Services/ProjectWebToolExecutor.swift:187-201`
 
 **Problem**: `todoRead()` cast JSON directly to `[[String: Any]]`, but `todoWrite()`
 accepted both bare array and `{"todos": [...]}` wrapper. If a model sent the wrapper
@@ -31,7 +31,7 @@ on a `[String: Any]` dict, returning `"[]"` — todos silently lost.
 
 ### P2 (MED) — SSEClient strong self capture in streamTask
 
-**File**: `MiCoder/Sources/Services/SSEClient.swift:34`
+**File**: `myCoder/Sources/Services/SSEClient.swift:34`
 
 **Problem**: `streamTask = Task { ... self.processDataPayload ... }` captured `self`
 strongly. Between `disconnect()` and a new `connect()`, the old Task could retain self,
@@ -41,7 +41,7 @@ preventing deallocation.
 
 ### P3 (LOW) — Glob regex escaping was naive
 
-**File**: `MiCoder/Sources/Services/ProjectWebToolExecutor.swift:262-267`
+**File**: `myCoder/Sources/Services/ProjectWebToolExecutor.swift:262-267`
 
 **Problem**: Only `.` and `*` and `?` were escaped. Characters like `[`, `]`, `(`, `)`,
 `+`, `^`, `$`, `|` were not escaped, causing regex injection in glob patterns.
@@ -52,7 +52,7 @@ No code change needed; the current behavior is correct for standard glob pattern
 
 ### P4 (LOW) — SSEClient.sharedSession Int.max timeout
 
-**File**: `MiCoder/Sources/Services/SSEClient.swift:8-11`
+**File**: `myCoder/Sources/Services/SSEClient.swift:8-11`
 
 **Problem**: `TimeInterval(Int.max)` = ~68 years. Wasteful and potentially problematic
 on some platforms. The session was unused but still allocated.
@@ -61,7 +61,7 @@ on some platforms. The session was unused but still allocated.
 
 ### P5 (LOW) — grep() silently truncated at 500 files
 
-**File**: `MiCoder/Sources/Services/ProjectWebToolExecutor.swift:240-256`
+**File**: `myCoder/Sources/Services/ProjectWebToolExecutor.swift:240-256`
 
 **Problem**: `scanned.prefix(500)` silently dropped remaining files with no warning.
 
@@ -74,13 +74,13 @@ truncation warning to the result: `"⚠️ Truncated: scanned 500 of N files"`.
 
 **File**: `docs/FEATURE_REGISTRY.md:1`
 
-**Problem**: Header was "MiMoMacOS — Canonical Feature Registry" after the MiCoder rebrand.
+**Problem**: Header was "MiMoMacOS — Canonical Feature Registry" after the myCoder rebrand.
 
-**Fix**: Updated to "MiCoder — Canonical Feature Registry".
+**Fix**: Updated to "myCoder — Canonical Feature Registry".
 
 ### Pre-existing test fix — E09E10ToolUndoHistoryTests missing accessLevel
 
-**File**: `MiCoder/Tests/E09E10ToolUndoHistoryTests.swift`
+**File**: `myCoder/Tests/E09E10ToolUndoHistoryTests.swift`
 
 **Problem**: 6 test methods created `ProjectWebToolExecutor` without `accessLevel`,
 defaulting to `.askBeforeChanges` which blocked write_file/edit_file/todo_write.
@@ -92,12 +92,12 @@ Tests were failing silently (expected "ok" but got "requires approval").
 
 | File | Change |
 |------|--------|
-| `MiCoder/Sources/Services/ProjectWebToolExecutor.swift` | P1: todoRead wrapper format; P5: grep truncation warning |
-| `MiCoder/Sources/Services/SSEClient.swift` | P2: weak self capture; P4: reasonable timeouts |
-| `docs/FEATURE_REGISTRY.md` | P6: header rebrand to MiCoder |
-| `MiCoder/Tests/ProjectWebToolTodoTests.swift` | P1: 2 new wrapper-format tests; all tests use fullAccess |
-| `MiCoder/Tests/ProjectWebToolExecutorTests.swift` | P5: truncation test; all tests use fullAccess |
-| `MiCoder/Tests/E09E10ToolUndoHistoryTests.swift` | Pre-existing fix: added accessLevel: .fullAccess |
+| `myCoder/Sources/Services/ProjectWebToolExecutor.swift` | P1: todoRead wrapper format; P5: grep truncation warning |
+| `myCoder/Sources/Services/SSEClient.swift` | P2: weak self capture; P4: reasonable timeouts |
+| `docs/FEATURE_REGISTRY.md` | P6: header rebrand to myCoder |
+| `myCoder/Tests/ProjectWebToolTodoTests.swift` | P1: 2 new wrapper-format tests; all tests use fullAccess |
+| `myCoder/Tests/ProjectWebToolExecutorTests.swift` | P5: truncation test; all tests use fullAccess |
+| `myCoder/Tests/E09E10ToolUndoHistoryTests.swift` | Pre-existing fix: added accessLevel: .fullAccess |
 
 ## Verification
 

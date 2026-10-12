@@ -3,8 +3,8 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-driver = (ROOT / "MiCoder/Sources/Services/WebChatDriver.swift").read_text()
-chat = (ROOT / "MiCoder/Sources/Views/ChatPanelView.swift").read_text()
+driver = (ROOT / "myCoder/Sources/Services/WebChatDriver.swift").read_text()
+chat = (ROOT / "myCoder/Sources/Views/ChatPanelView.swift").read_text()
 
 assert "try Task.checkCancellation()" in driver, "web driver must observe Task cancellation"
 assert "catch is CancellationError" in driver, "web cancellation must terminate silently"

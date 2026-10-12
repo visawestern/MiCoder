@@ -1,4 +1,4 @@
-# MiCoder — Devil's Advocate Audit (manual, chain-of-cause)
+# myCoder — Devil's Advocate Audit (manual, chain-of-cause)
 
 Date: 2026-07-23. Auditor mode: verify every claim by hand, from the first
 plan point down the chain. Each problem: description, why it's real, severity,
@@ -82,22 +82,22 @@ for the first turn of a session.
 |----|------|----------|--------|
 | B1 | `swift test` under `set -e` aborted the whole build on any test failure/hang | HIGH | FIXED — tests are optional, reported but never abort; `--skip-tests` flag. |
 | B2 | `swift build ... | tail -3` under pipefail hid full compiler errors & failed silently | HIGH | FIXED — full untruncated build output; explicit "BUILD FAILED" message + exit 1. |
-| B3 | Bundle named MiMoMacOS.app after MiCoder rebrand | LOW | FIXED — MiCoder.app (executable target stays MiMoMacOS). |
+| B3 | Bundle named MiMoMacOS.app after myCoder rebrand | LOW | FIXED — myCoder.app (executable target stays MiMoMacOS). |
 | B4 | Stale .app resources could linger | LOW | FIXED — clean `rm -rf` before assembling. |
 | B5 | .app location | — | OK — always written to repo ROOT (not .build/); .build is only the SPM source dir swift build must use. |
 
-### Round 7 — MiCoder internal rename + hardcoded test paths
+### Round 7 — myCoder internal rename + hardcoded test paths
 
 | ID | Area | Severity | Status |
 |----|------|----------|--------|
 | B6 | Source-inspection tests duplicated `sourceText` in 10 files with hardcoded folder name ("MiMoMacOS/…") and fixed dir depth (×3 deletingLastPathComponent) | MED | FIXED — single RepoRoot helper walks up to Package.swift (rename/depth-proof); 9+1 duplicates now delegate; red tests. |
-| B7 | Project not renamed to MiCoder internally (SPM target/product/dir/app struct still MiMoMacOS) | HIGH | FIXED — dir MiMoMacOS→MiCoder, target/product MiCoder(+Tests), @testable import MiCoder (136 tests), struct MiMoMacOSApp→MiCoderApp, build-app APP_NAME, gen_catalog + test-logic paths, kill script. |
+| B7 | Project not renamed to myCoder internally (SPM target/product/dir/app struct still MiMoMacOS) | HIGH | FIXED — dir MiMoMacOS→myCoder, target/product myCoder(+Tests), @testable import myCoder (136 tests), struct MiMoMacOSApp→MiCoderApp, build-app APP_NAME, gen_catalog + test-logic paths, kill script. |
 | B8 | After renaming MiMoMacOSApp.swift, 3 tests still referenced the old file path | HIGH | FIXED — updated to MiCoderApp.swift. |
 
 NOTE: The GitHub repo itself is still `visawestern/mimo-macos-de098ca6` — renaming
-the remote (or creating a fresh `MiCoder` repo) is an owner action on GitHub /
+the remote (or creating a fresh `myCoder` repo) is an owner action on GitHub /
 OpenResearch that changes the project binding, so it needs the user's explicit go.
-Everything INSIDE the repo now says MiCoder.
+Everything INSIDE the repo now says myCoder.
 
 ### Round 22 (2026-08-05) — E23/E24 auto-detect chain: confirmation + overall timeout
 
@@ -116,7 +116,7 @@ Full suite after fixes: **1701 tests / 231 suites green** (baseline 1638/225). D
 | ID | Area | Severity | Status |
 |----|------|----------|--------|
 | E25 | `SettingsTabNavigationTests` asserted `allCases.count == 11` incl. `.modelSettings` — validated the raw enum, not the UI list (`visibleCases` = 10, merged Providers tab) | MED | FIXED — test split into back-compat raw-enum + `visibleCases == 10` (no `.modelSettings`, order matches SettingsView) |
-| E26 | User-facing MiMo brand strings remained: "Manage MiMo Agent…", "or MiMo CLI/Serve", "Auto-commit from MiMo" (Раздел 13 п.11) | MED | FIXED — "MiCoder" everywhere + stale comments cleaned (SettingsView, BottomPanelView) |
+| E26 | User-facing MiMo brand strings remained: "Manage MiMo Agent…", "or MiMo CLI/Serve", "Auto-commit from MiMo" (Раздел 13 п.11) | MED | FIXED — "myCoder" everywhere + stale comments cleaned (SettingsView, BottomPanelView) |
 | E27 | Overview sheet still titled `Text("Workspaces")` (SidebarView.swift:502; only occurrence; sidebar section title already removed) | MED | FIXED — "Overview" (Раздел 13 п.7) |
 | E28 | `LocalProviderLogic.neutralizeServeBranding` defined but never called in Sources (dead code; only its own test referenced it) — violates Round 18 clean-slate rule | MED | FIXED — removed function + its test; red source-inspection test → green |
 
@@ -171,7 +171,7 @@ Full suite: **1726 tests / 236 suites green**. Details: `docs/DEVILS_ADVOCATE_RO
 | P3 | Glob naive regex escaping | LOW | VERIFIED — NSRegularExpression handles common cases correctly |
 | P4 | `SSEClient.sharedSession` Int.max timeout (~68 years) | LOW | FIXED — 300s/600s |
 | P5 | `grep()` silently truncated at 500 files | LOW | FIXED — truncation warning appended |
-| P6 | `FEATURE_REGISTRY.md` header "MiMoMacOS" after rebrand | DOC | FIXED — "MiCoder" |
+| P6 | `FEATURE_REGISTRY.md` header "MiMoMacOS" after rebrand | DOC | FIXED — "myCoder" |
 | P7 | `E09E10ToolUndoHistoryTests` missing `accessLevel: .fullAccess` | MED | FIXED — 6 test constructors updated |
 
 Full suite: **2215 tests / 348 suites** (25 pre-existing failures in web selectors, source inspection, notification titles — unrelated). Details: `docs/DEVILS_ADVOCATE_ROUND_28_2026-08-20.md`.

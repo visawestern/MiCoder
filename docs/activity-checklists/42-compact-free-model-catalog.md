@@ -11,7 +11,7 @@ The canonical story is: “As a user, I want the free-model catalog to show the 
 | # | UI/control/action/function | Chain traced | Expected behavior | Result |
 |---:|---|---|---|---|
 | 1 | Provider section mount | `UnifiedProvidersView` → `MiCoderAutoFreeSection` | Built-in Auto Free provider appears as a dedicated settings section. | **Pass by source; native UI UNVERIFIED.** |
-| 2 | Provider identity | `MiCoderAutoFreeProvider.builtInID` / display name | Provider is `micoder-auto-free` and shown as MiCoder Auto Free. | **Pass by source and existing tests.** |
+| 2 | Provider identity | `MiCoderAutoFreeProvider.builtInID` / display name | Provider is `micoder-auto-free` and shown as myCoder Auto Free. | **Pass by source and existing tests.** |
 | 3 | Live catalog fetch | `Refresh catalog` → `MiCoderAutoFreeStore.refreshModels` → `MiCoderAutoFreeClient.listModels` | Anonymous catalog is refreshed without API key and failure is visible. | **Pass by source; live endpoint UNVERIFIED.** |
 | 4 | HTTP/status validation | `/models` response → `validate` | Non-2xx, invalid response, and timeout fail without synthetic catalog entries. | **Pass by source.** |
 | 5 | JSON decode | `ModelListResponse.data` → DTO map | Model IDs, context length, and descriptions are preserved when reported. | **Pass by source.** |

@@ -1,7 +1,7 @@
 # Activity 32 — Header Goal Progress
 
 Дата аудита: 2026-09-06
-Код: `MiCoder/Sources/Services/HeaderGoalProgressLogic.swift`, `TopBarView.swift` (diff commit 10a8932)
+Код: `myCoder/Sources/Services/HeaderGoalProgressLogic.swift`, `TopBarView.swift` (diff commit 10a8932)
 
 ## Обнаруженные кнопки/действия/состояния
 

@@ -4,7 +4,7 @@
 
 This round audits **ERR-02 Server Disconnected Error** from `AppState.serverConnected` and provider selection through `SendReadinessLogic`, `SendProviderReadinessLogic`, `SendReadinessReason`, both centered and bottom composer layouts, `SendStopButton`, keyboard Enter gating, `ChatPanelView` rejected-send persistence, and the visible error message.
 
-The prior Round 59 fix correctly stopped Serve health from masquerading as readiness for web, local, or custom routes. The current adversarial audit found one remaining clarity defect: when a known Serve provider was selected but disconnected, the readiness contract returned the generic “No provider is ready” alternatives. That message did not tell the user that the selected route specifically required MiCoder Serve to be started or reconnected.
+The prior Round 59 fix correctly stopped Serve health from masquerading as readiness for web, local, or custom routes. The current adversarial audit found one remaining clarity defect: when a known Serve provider was selected but disconnected, the readiness contract returned the generic “No provider is ready” alternatives. That message did not tell the user that the selected route specifically required myCoder Serve to be started or reconnected.
 
 ## Full chain checklist
 
@@ -12,7 +12,7 @@ The prior Round 59 fix correctly stopped Serve health from masquerading as readi
 |---:|---|---|---|---|
 | 1 | Provider selection | `AppState.selectedProviderID` → readiness inputs | Identify whether the selected route is Serve, web, local, custom, Auto Free, or none. | **Pass by source/tests.** |
 | 2 | Serve health state | `serverConnected` → readiness | Treat Serve health as relevant only for Serve-backed provider selection. | **Pass by existing Round 59 tests.** |
-| 3 | Known disconnected Serve route | known `serverProviderIDs` + `serverConnected=false` | Return explicit MiCoder Serve start/reconnect guidance. | **Fixed Round 77:** red/green regression. |
+| 3 | Known disconnected Serve route | known `serverProviderIDs` + `serverConnected=false` | Return explicit myCoder Serve start/reconnect guidance. | **Fixed Round 77:** red/green regression. |
 | 4 | Unknown provider route | selected ID absent from all catalogs | Fail closed with a generic provider-readiness message. | **Pass by source.** |
 | 5 | Web route while Serve is down | `web:` provider + webConnected | Do not block a connected web route because Serve is unavailable. | **Pass by existing tests.** |
 | 6 | Web route disconnected | `web:` provider + `webConnected=false` | Tell the user to reconnect the selected web provider in Settings. | **Pass by existing tests/source.** |
@@ -34,7 +34,7 @@ The prior Round 59 fix correctly stopped Serve health from masquerading as readi
 
 When `selectedProviderID` was present in `serverProviderIDs` but `serverConnected` was false, `SendProviderReadinessLogic` fell through to the generic `genericProviderError`. The resulting text suggested connecting a local agent, adding a custom provider, configuring a local model, or connecting a web provider. None of those instructions directly addressed the selected Serve route and could make a user troubleshoot the wrong subsystem.
 
-A red regression was added to `SendProviderReadinessLogicTests` before the implementation. It failed because the returned message did not contain “Serve”. The green fix adds a known-Serve/disconnected branch that says MiCoder Serve is not running or disconnected and instructs the user to start or reconnect it. Existing web/local/custom route tests remained green.
+A red regression was added to `SendProviderReadinessLogicTests` before the implementation. It failed because the returned message did not contain “Serve”. The green fix adds a known-Serve/disconnected branch that says myCoder Serve is not running or disconnected and instructs the user to start or reconnect it. Existing web/local/custom route tests remained green.
 
 ## Evidence and scores
 

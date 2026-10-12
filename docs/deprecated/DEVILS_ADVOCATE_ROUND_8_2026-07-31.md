@@ -19,7 +19,7 @@ already existed in `SendReadinessLogic` but were never displayed because a
 disabled button never invokes `onSend`.
 
 All six problems are fixed and pinned by regression tests
-(`MiCoder/Tests/SendChainRegressionTests.swift`, 19 tests).
+(`myCoder/Tests/SendChainRegressionTests.swift`, 19 tests).
 
 ---
 
@@ -54,7 +54,7 @@ SendStopButton (.disabled(!canSend))              InputControls.swift:444
 | P6 | 🟡 | `SSEClient` timeouts are `TimeInterval(Int.max)`; `MimoServeClient` request timeout 300 s. A half-dead server can hold a send for 5 min. | Not changed (would risk aborting real long generations). Documented. |
 
 **Bonus fix:** `.gitignore` still ignored the old bundle name `MiMoMacOS.app/`
-instead of `MiCoder.app/` — the freshly built bundle was untracked.
+instead of `myCoder.app/` — the freshly built bundle was untracked.
 
 ---
 
@@ -90,17 +90,17 @@ config falling into serve.
 
 | File | Change |
 |------|--------|
-| `MiCoder/Tests/SendChainRegressionTests.swift` | **new** — 19 red/green regression tests (P1–P4 + Round-2 edges) |
-| `MiCoder/Sources/Services/SendReadinessLogic.swift` | `SendReadinessReason.reason(...)` |
-| `MiCoder/Sources/Services/SendRouteResolver.swift` | `SendRouteGuard.errorMessage` + `webConfigMissingMessage` |
-| `MiCoder/Sources/Services/WebChatEventPresenter.swift` | `WebChatTurnMutation` (status/answer/error/captcha → bubble mutation; blank answer surfaced) |
-| `MiCoder/Sources/Services/SessionSendLogic.swift` | `SendStatusText` (waiting/thinking, graceful empty-model handling) |
-| `MiCoder/Sources/Views/ChatPanelView.swift` | `.none` guard; web-config-missing guard; web navigation/cookie errors surfaced; status persists into bubble; thinking placeholder on both paths |
-| `MiCoder/Sources/Views/Components/InputControls.swift` | send button: red icon + `.help(reason)` |
-| `MiCoder/Sources/Views/Components/InputViews.swift` | both input cards show the readiness reason line above the toolbar |
-| `MiCoder/Tests/ProjectDatabaseManagerTests.swift` | made pool-identity test resistant to cross-suite `evictAll()` races (was flaky) |
-| `.gitignore` | ignore `MiCoder.app/` (stale `MiMoMacOS.app/`) |
-| `MiCoder/Resources/Info.plist` | fixed executable/id to `MiCoder` (from previous session) |
+| `myCoder/Tests/SendChainRegressionTests.swift` | **new** — 19 red/green regression tests (P1–P4 + Round-2 edges) |
+| `myCoder/Sources/Services/SendReadinessLogic.swift` | `SendReadinessReason.reason(...)` |
+| `myCoder/Sources/Services/SendRouteResolver.swift` | `SendRouteGuard.errorMessage` + `webConfigMissingMessage` |
+| `myCoder/Sources/Services/WebChatEventPresenter.swift` | `WebChatTurnMutation` (status/answer/error/captcha → bubble mutation; blank answer surfaced) |
+| `myCoder/Sources/Services/SessionSendLogic.swift` | `SendStatusText` (waiting/thinking, graceful empty-model handling) |
+| `myCoder/Sources/Views/ChatPanelView.swift` | `.none` guard; web-config-missing guard; web navigation/cookie errors surfaced; status persists into bubble; thinking placeholder on both paths |
+| `myCoder/Sources/Views/Components/InputControls.swift` | send button: red icon + `.help(reason)` |
+| `myCoder/Sources/Views/Components/InputViews.swift` | both input cards show the readiness reason line above the toolbar |
+| `myCoder/Tests/ProjectDatabaseManagerTests.swift` | made pool-identity test resistant to cross-suite `evictAll()` races (was flaky) |
+| `.gitignore` | ignore `myCoder.app/` (stale `MiMoMacOS.app/`) |
+| `myCoder/Resources/Info.plist` | fixed executable/id to `myCoder` (from previous session) |
 
 ---
 

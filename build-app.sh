@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# build-app.sh — Build MiCoder.app with explicit semantic-version bumping.
+# build-app.sh — Build myCoder.app with explicit semantic-version bumping.
 #
 # Normal builds are reproducible and do not mutate version metadata.
 # A release bump is explicit: ./build-app.sh --bump [patch|minor|major].
@@ -12,10 +12,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-APP_NAME="MiCoder"
-APP_BUNDLE="MiCoder.app"
+APP_NAME="myCoder"
+APP_BUNDLE="myCoder.app"
 BUILD_DIR=".build/release"
-RESOURCES_DIR="MiCoder/Resources"
+RESOURCES_DIR="myCoder/Resources"
 INFO_PLIST="$RESOURCES_DIR/Info.plist"
 
 SKIP_TESTS=0
@@ -59,12 +59,12 @@ done
 
 # ── Platform/toolchain preflight ─────────────────────────────
 if [ "$(uname -s)" != "Darwin" ]; then
-    echo "━━━ ❌ MiCoder build requires macOS (SwiftUI/AppKit/WebKit)."
+    echo "━━━ ❌ myCoder build requires macOS (SwiftUI/AppKit/WebKit)."
     echo "━━━    Current platform: $(uname -s). Run this script on a macOS runner."
     exit 3
 fi
 if [ ! -x /usr/libexec/PlistBuddy ] || ! command -v swift >/dev/null 2>&1 || ! command -v xcodebuild >/dev/null 2>&1; then
-    echo "━━━ ❌ MiCoder build requires Xcode command-line tools and Swift on macOS."
+    echo "━━━ ❌ myCoder build requires Xcode command-line tools and Swift on macOS."
     echo "━━━    Install/select Xcode, then re-run ./build-app.sh."
     exit 3
 fi

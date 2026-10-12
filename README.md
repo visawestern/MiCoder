@@ -1,28 +1,24 @@
 <docs/screenshots/logo-mi.png width=120 align=left>
 
-# MiCoder
+# myCoder
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Swift](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
 [![Platform](https://img.shields.io/badge/Platform-macOS%2013%2B-lightgrey.svg)](https://www.apple.com/macos/)
 [![Localization](https://img.shields.io/badge/Localization%20-10%20languages-green.svg)](#localization)
 
-**MiCoder** is a free, independent, open-source AI coding workspace for macOS.
+**myCoder** is a free, independent, open-source AI coding workspace for macOS.
 
 It combines an AI chat, project-scoped history, file tools, terminal access, Git
 workflows, provider configuration, skills, MCP servers, and local storage administration
 in one native SwiftUI application.
 
-> **No Xiaomi affiliation:** MiCoder is an independent community project. It is not made,
-> sponsored, endorsed, licensed, or otherwise associated with Xiaomi Corporation or any
-> Xiaomi subsidiary. "Xiaomi" is a trademark of its respective owner.
-
-## What MiCoder Does
+## What myCoder Does
 
 - Native macOS application built with SwiftUI and AppKit.
 - AI chat with streaming responses, Markdown, tool calls, images, file attachments, and plan questions.
 - Provider selection for local, custom, remote, OpenAI-compatible, ACP, and supported web transports.
-- Project-scoped SQLite history at `<project>/.micoder/project.db`.
+- Project-scoped SQLite history at `<project>/.mycoder/project.db`.
 - Read-only/system-path fallback under `~/.micoder/projects/<stable-hash>/project.db`.
 - WAL journaling, integrity checks, automatic backups, restore, per-project undo, and request history.
 - Terminal panel with bounded command execution and AccessLevel approval gates.
@@ -37,7 +33,7 @@ The full product capability set is described by activity in
 registry is `docs/FEATURE_SPREADSHEET.csv`; per-activity checks live in `docs/activity-checklists/`.
 
 - `>2200` `@Test` across `>350` suites — all green.
-- Release build: `./build-app.sh` produces `MiCoder.app`.
+- Release build: `./build-app.sh` produces `myCoder.app`.
 - Live web-chat agent pipeline verified through the built-in API (port 8766): provider →
   embedded browser → real send → verified delivery → model response captured → persisted.
 
@@ -68,7 +64,7 @@ Build the application bundle with:
 ## Project Layout
 
 ```text
-MiCoder/
+myCoder/
   Sources/
     App/              Application state and macOS menu commands
     Models/           Domain models and settings contracts
@@ -86,7 +82,7 @@ TECHNICAL_SPECIFICATION.md   Canonical product specification by activity
 
 ## Privacy And Storage
 
-MiCoder is designed around local project storage. Project history, indexes, settings, and
+myCoder is designed around local project storage. Project history, indexes, settings, and
 resource registries are stored locally unless a configured provider or remote service is used.
 API keys use the macOS Keychain where available. Review provider terms and privacy policies
 before connecting third-party services.
@@ -99,19 +95,14 @@ Still review commands and provider output before allowing changes to important f
 
 ## License
 
-MiCoder is released under the MIT License. See [`LICENSE`](LICENSE).
+myCoder is released under the MIT License. See [`LICENSE`](LICENSE).
 
 ## Trademarks And Branding
 
-MiCoder is free and open source, but free distribution does not automatically eliminate
-trademark risk. The project does not claim any Xiaomi rights and must not use Xiaomi logos,
-wordmarks, or trade dress as branding. The name “MiCoder” and the visual identity should be
-reviewed and, if they could cause confusion with Xiaomi branding, replaced with an independent
-name and logo before public release. The disclaimer above is informational, not legal advice
-or a guarantee against a trademark complaint.
-
-Contributions that add third-party logos, names, screenshots, or provider branding must include
-the relevant permission or attribution and must not imply endorsement.
+myCoder is free and open source with an independent name and visual identity.
+It is not affiliated with, sponsored, or endorsed by any other company or product.
+Contributions that add third-party logos, names, screenshots, or provider branding
+must include the relevant permission or attribution and must not imply endorsement.
 
 ## Contributing
 
@@ -123,6 +114,6 @@ the relevant permission or attribution and must not imply endorsement.
 
 ## Disclaimer
 
-MiCoder is provided “as is”, without warranty. AI-generated code and commands can be
+myCoder is provided “as is”, without warranty. AI-generated code and commands can be
 incorrect, destructive, insecure, or incompatible with a project. Review generated output
 before applying it.

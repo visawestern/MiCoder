@@ -17,9 +17,9 @@
 | 7 | Close login sheet | X → dismiss | Close never saves an empty/partial login and does not destroy existing active session | 92/100 | 100/100 | UNVERIFIED — native sheet |
 | 8 | Provider connectivity | card status → `WebProviderConnectivity.isConnected` → restore active session, non-empty/non-expired cookies | Added provider is not shown as connected until a usable session exists | 95/100 | 100/100 | CODE; real cookie expiry pending |
 | 9 | Remove provider | trash → confirmation → config removal + all session removal + remote mapping clear + selection reconcile | Provider and every named session disappear; active route cannot remain stale | 95/100 | 100/100 | CODE; filesystem/UI pending |
-| 10 | Built-in detector status | card label → `WebDetectionStatusLogic` → count from selectable `allModels` | Status names MiCoder built-in detection and never claims Auto Free performed it | 95/100 | 100/100 | CODE/HARNESS VERIFIED; visual QA pending |
+| 10 | Built-in detector status | card label → `WebDetectionStatusLogic` → count from selectable `allModels` | Status names myCoder built-in detection and never claims Auto Free performed it | 95/100 | 100/100 | CODE/HARNESS VERIFIED; visual QA pending |
 | 11 | Built-in model detection | Detect models → catalog/custom selector → bridge hydration wait → `discoverAllModels` → capability profiles → store | Reads all valid nested live models, effort and parameter profiles; no AI request is made | 95/100 | 100/100 | CODE; live WebKit DOM pending |
-| 12 | AI-assisted detection | Ask MiCoder Auto Free → page text → explicit Auto Free stream → strict parse/normalize → non-selectable candidates | Separate optional action; AI candidates are review-only until DOM verification and never enter sendable `allModels` | 95/100 | 100/100 | CODE; WebKit/live Auto Free pending |
+| 12 | AI-assisted detection | Ask myCoder Auto Free → page text → explicit Auto Free stream → strict parse/normalize → non-selectable candidates | Separate optional action; AI candidates are review-only until DOM verification and never enter sendable `allModels` | 95/100 | 100/100 | CODE; WebKit/live Auto Free pending |
 | 13 | Detection failure/status | detection task → `DetectResult.failed` → inline status bar | Empty page/selector/no models/errors remain visible and do not erase a previously valid catalog silently | 90/100 | 100/100 | CODE; native visual pending |
 | 14 | Show/hide detected models | accordion bar → `showDiscoveredModels` → all rows render | Full-width spoiler shows every detected model, status, effort and parameter badges | 95/100 | 100/100 | UNVERIFIED — macOS hit testing |
 | 15 | Select active detected model | active row tap → selectable/active guard → AppState provider/model selection → chat composer | Only active live models can be selected; AI-only/unavailable candidates do nothing | 95/100 | 100/100 | CODE; UI hit testing pending |
@@ -48,18 +48,18 @@ updates active session metadata only after successful persistence. Targeted test
 
 ### WEB-LOGIN-12 — built-in detector was misattributed to Auto Free
 
-The provider card said `MiCoder Auto Free will detect models` and `MiCoder Auto Free detected N
+The provider card said `myCoder Auto Free will detect models` and `myCoder Auto Free detected N
 models` even though the normal refresh path uses the built-in DOM detector. This violated the user's
 explicit requirement for two separate detection actions. `WebDetectionStatusLogic` now produces
-honest MiCoder detector text, the header says `Built-in browser detection`, and the second action is
-explicitly `Ask MiCoder Auto Free`. AI candidates remain non-selectable until verified by DOM
+honest myCoder detector text, the header says `Built-in browser detection`, and the second action is
+explicitly `Ask myCoder Auto Free`. AI candidates remain non-selectable until verified by DOM
 selection. Targeted tests: **2/2 passed**.
 
 ## User story
 
 As a user, I can add a web vendor, log into one or more named accounts in the embedded browser,
 capture only a real authenticated session, detect all live models with the built-in browser action,
-optionally ask MiCoder Auto Free for review candidates, and use the selected model in the isolated
+optionally ask myCoder Auto Free for review candidates, and use the selected model in the isolated
 project/chat browser route. The app must explain failures and never claim a Linux source check is a
 macOS/WebKit runtime pass.
 

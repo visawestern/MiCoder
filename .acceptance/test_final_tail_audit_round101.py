@@ -8,19 +8,19 @@ ROOT = Path(__file__).resolve().parents[1]
 def read(rel):
     return (ROOT / rel).read_text()
 
-content = read("MiCoder/Sources/Services/MiCoderAutoFreeContentLogic.swift")
-history = read("MiCoder/Sources/Services/MiCoderAutoFreeHistoryLogic.swift")
-gate = read("MiCoder/Sources/Services/WebToolAccessGate.swift")
-protocol = read("MiCoder/Sources/Services/WebToolProtocolEmulator.swift")
-presenter = read("MiCoder/Sources/Services/WebChatEventPresenter.swift")
-restoration = read("MiCoder/Sources/Services/WebSessionRestorationLogic.swift")
-driver = read("MiCoder/Sources/Services/WebChatDriver.swift")
-discovery = read("MiCoder/Sources/Services/WebModelDiscovery.swift")
-routing = read("MiCoder/Sources/Services/ProjectSessionRoutingLogic.swift")
-maintenance = read("MiCoder/Sources/Services/ProjectDatabaseManager.swift")
-stats = read("MiCoder/Sources/Services/ProjectStorageStatsLogic.swift")
-status = read("MiCoder/Sources/Services/ProviderConnectionStatusLogic.swift")
-undo = read("MiCoder/Sources/Services/UndoActionFeedbackLogic.swift")
+content = read("myCoder/Sources/Services/MiCoderAutoFreeContentLogic.swift")
+history = read("myCoder/Sources/Services/MiCoderAutoFreeHistoryLogic.swift")
+gate = read("myCoder/Sources/Services/WebToolAccessGate.swift")
+protocol = read("myCoder/Sources/Services/WebToolProtocolEmulator.swift")
+presenter = read("myCoder/Sources/Services/WebChatEventPresenter.swift")
+restoration = read("myCoder/Sources/Services/WebSessionRestorationLogic.swift")
+driver = read("myCoder/Sources/Services/WebChatDriver.swift")
+discovery = read("myCoder/Sources/Services/WebModelDiscovery.swift")
+routing = read("myCoder/Sources/Services/ProjectSessionRoutingLogic.swift")
+maintenance = read("myCoder/Sources/Services/ProjectDatabaseManager.swift")
+stats = read("myCoder/Sources/Services/ProjectStorageStatsLogic.swift")
+status = read("myCoder/Sources/Services/ProviderConnectionStatusLogic.swift")
+undo = read("myCoder/Sources/Services/UndoActionFeedbackLogic.swift")
 
 assert "isUnsupportedForTextRoute" in content and "fileText" in content
 assert "maxTurns > 0" in history and "isFinished" in history

@@ -19,4 +19,4 @@
 
 ## User Story
 
-As a user, I can configure all aspects of MiCoder through 10 settings tabs: general preferences, provider connections, agent skills, MCP servers, plugins, custom commands, file indexing, storage management, usage statistics, and code preview.
+As a user, I can configure all aspects of myCoder through 10 settings tabs: general preferences, provider connections, agent skills, MCP servers, plugins, custom commands, file indexing, storage management, usage statistics, and code preview.

@@ -19,7 +19,7 @@ five real defects, three of them in code "verified" by earlier rounds.
 
 ### R1 (HIGH, security) — shell injection through model-controlled git arguments
 
-**File**: `MiCoder/Sources/Services/ProjectWebToolExecutor.swift` (git_* cases)
+**File**: `myCoder/Sources/Services/ProjectWebToolExecutor.swift` (git_* cases)
 
 **Chain-of-cause**: web model emits `git_commit` with `message` → driver validates ONLY
 `path` arguments (`WebToolProtocolEmulator.validate`) → executor interpolates raw:
@@ -42,7 +42,7 @@ was created (red proven).
 
 ### R2 (MED) — grep silently truncated at the 100-match limit
 
-**File**: `MiCoder/Sources/Services/ProjectWebToolExecutor.swift` — `grep(...)`
+**File**: `myCoder/Sources/Services/ProjectWebToolExecutor.swift` — `grep(...)`
 
 The inner match loop did `if hits.count >= 100 { return ... }` — an early return that bypassed
 the Round-28 truncation-warning logic entirely (that warning only covered the file-count path).
@@ -55,7 +55,7 @@ appends `⚠️ Truncated: showing first 100 matches`. File-limit warning preser
 
 ### R3 (MED) — glob never matched patterns containing "/"
 
-**File**: `MiCoder/Sources/Services/ProjectWebToolExecutor.swift` — `glob(...)`
+**File**: `myCoder/Sources/Services/ProjectWebToolExecutor.swift` — `glob(...)`
 
 The pattern was matched against `lastPathComponent` only, so standard patterns like
 `src/*.swift` or `**/*.swift` always answered `(no matches)` — actively lying to the model
@@ -80,7 +80,7 @@ filename-only patterns are compatible).
 
 ### R4 (HIGH) — `/api/send` responded with stale chatId/providerId/modelId
 
-**File**: `MiCoder/Sources/Services/MiCoderAPIServer.swift` — `handleSend`
+**File**: `myCoder/Sources/Services/MiCoderAPIServer.swift` — `handleSend`
 
 Commit af0ef4d fixed the SIGSEGV by moving @Published mutations into fire-and-forget
 `DispatchQueue.main.async`, but kept building the HTTP response from values captured BEFORE
@@ -104,7 +104,7 @@ documented in the test comment rather than asserted naively).
 
 ### R5 (LOW) — Round 28 P4 timeout fix was cosmetic (dead configuration)
 
-**File**: `MiCoder/Sources/Services/SSEClient.swift`
+**File**: `myCoder/Sources/Services/SSEClient.swift`
 
 Round 28 set SSE-friendly timeouts (300s/600s) on `sharedSession`, but `connect()` still used
 `URLSession.shared` — the configured session was never referenced by live code, so the fix had
@@ -118,11 +118,11 @@ of faked).
 
 | File | Change |
 |------|--------|
-| `MiCoder/Sources/Services/ProjectWebToolExecutor.swift` | R1 shell-safe git builders; R2 grep hit-limit warning; R3 glob rewrite |
-| `MiCoder/Sources/Services/MiCoderAPIServer.swift` | R4 resolveSendTargets + synchronous response |
-| `MiCoder/Sources/Services/SSEClient.swift` | R5 connect uses configured session |
-| `MiCoder/Tests/DevilsAdvocateRound29Tests.swift` | NEW: 11 tests (R1 unit+integration, R2, R3) |
-| `MiCoder/Tests/MiCoderAPIServerSendResolutionTests.swift` | NEW: 3 tests (R4) |
+| `myCoder/Sources/Services/ProjectWebToolExecutor.swift` | R1 shell-safe git builders; R2 grep hit-limit warning; R3 glob rewrite |
+| `myCoder/Sources/Services/MiCoderAPIServer.swift` | R4 resolveSendTargets + synchronous response |
+| `myCoder/Sources/Services/SSEClient.swift` | R5 connect uses configured session |
+| `myCoder/Tests/DevilsAdvocateRound29Tests.swift` | NEW: 11 tests (R1 unit+integration, R2, R3) |
+| `myCoder/Tests/MiCoderAPIServerSendResolutionTests.swift` | NEW: 3 tests (R4) |
 
 ## Verification
 

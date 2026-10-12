@@ -14,7 +14,7 @@ Discovery **existed** (`WebModelListParser` + a call site in `runWebChatTurn`)
 but was effectively **inactive in normal use**. Four independent defects meant
 the picker showed hardcoded `vendor.defaultModels` far more often than real
 page data. All four are now fixed and pinned by
-`MiCoder/Tests/WebModelDiscoveryTests.swift` (8 tests, all green).
+`myCoder/Tests/WebModelDiscoveryTests.swift` (8 tests, all green).
 
 ---
 
@@ -41,10 +41,10 @@ page data. All four are now fixed and pinned by
 
 | File | Change |
 |------|--------|
-| `MiCoder/Tests/WebModelDiscoveryTests.swift` | **new** — 8 red/green tests for A..D |
-| `MiCoder/Sources/Services/WebModelDiscovery.swift` | **new** — `WebProviderCatalog`, `WebModelDiscovery`, `modelsOrError` |
-| `MiCoder/Sources/Views/ChatPanelView.swift` | dropdown selector now from the catalog (B); removed the hardcoded selector literal |
-| `MiCoder/Sources/Views/Components/WebProvidersSection.swift` | discovery runs right after cookies are captured (A) |
+| `myCoder/Tests/WebModelDiscoveryTests.swift` | **new** — 8 red/green tests for A..D |
+| `myCoder/Sources/Services/WebModelDiscovery.swift` | **new** — `WebProviderCatalog`, `WebModelDiscovery`, `modelsOrError` |
+| `myCoder/Sources/Views/ChatPanelView.swift` | dropdown selector now from the catalog (B); removed the hardcoded selector literal |
+| `myCoder/Sources/Views/Components/WebProvidersSection.swift` | discovery runs right after cookies are captured (A) |
 
 ---
 

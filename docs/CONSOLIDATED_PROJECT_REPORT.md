@@ -1,4 +1,4 @@
-# MiCoder — Сводный отчёт проекта
+# myCoder — Сводный отчёт проекта
 
 Дата: 2026-08-22
 
@@ -30,7 +30,7 @@
 - E04: on-disk SQLite header validation и read-only integrity probe без schema mutation.
 - Test isolation: scoped project eviction вместо глобального `evictAll()`.
 - UX: объяснение disabled Plan-agent и точное сообщение о пропущенном push.
-- Rebrand: stale user-facing MiMo strings обновлены на MiCoder.
+- Rebrand: stale user-facing MiMo strings обновлены на myCoder.
 - **P1**: `DatabaseBridge.saveMessagePart` — `.stepStart` теперь использует `insert` closure (данные пишутся в project DB, а не в legacy global).
 - **P3**: `Message.reasoningDuration` — добавлен `reasoningEndedAt`, значение замораживается после завершения reasoning.
 - **P4**: `ProjectWebToolExecutor.todoRead/todoWrite` — реализована полноценная persistence в `<project>/.micoder/todos.json` (было: stub-заглушки).
@@ -41,7 +41,7 @@
 - **P2 (MED)**: `SSEClient.connect()` использует `[weak self]` для предотвращения retain cycle.
 - **P4 (LOW)**: `SSEClient.sharedSession` timeouts изменены с `Int.max` (~68 лет) на 300s/600s.
 - **P5 (LOW)**: `grep()` теперь предупреждает об обрезке результатов при 500+ файлах.
-- **P6 (DOC)**: `FEATURE_REGISTRY.md` заголовок обновлён на "MiCoder".
+- **P6 (DOC)**: `FEATURE_REGISTRY.md` заголовок обновлён на "myCoder".
 - **P7 (MED)**: `E09E10ToolUndoHistoryTests` исправлен с `accessLevel: .fullAccess`.
 
 ## Раунд 29 (2026-08-21)

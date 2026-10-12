@@ -3,11 +3,11 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-usage_capture = (ROOT / "MiCoder/Sources/Services/UsageStatisticsAggregator.swift").read_text()
-usage_point = (ROOT / "MiCoder/Sources/Services/UsageDataPoint.swift").read_text()
-record = (ROOT / "MiCoder/Sources/Services/FileIndexRecord.swift").read_text()
-logic = (ROOT / "MiCoder/Sources/Services/ProjectFileSearchLogic.swift").read_text()
-scanner = (ROOT / "MiCoder/Sources/Services/ProjectFileScanner.swift").read_text()
+usage_capture = (ROOT / "myCoder/Sources/Services/UsageStatisticsAggregator.swift").read_text()
+usage_point = (ROOT / "myCoder/Sources/Services/UsageDataPoint.swift").read_text()
+record = (ROOT / "myCoder/Sources/Services/FileIndexRecord.swift").read_text()
+logic = (ROOT / "myCoder/Sources/Services/ProjectFileSearchLogic.swift").read_text()
+scanner = (ROOT / "myCoder/Sources/Services/ProjectFileScanner.swift").read_text()
 
 assert "max(0, promptTokens)" in usage_capture and "max(0, completionTokens)" in usage_capture, "provider usage tokens must clamp at zero"
 assert "max(0, promptTokens)" in usage_point and "max(0, completionTokens)" in usage_point, "persisted usage tokens must clamp at zero"

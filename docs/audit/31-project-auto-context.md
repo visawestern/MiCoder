@@ -1,7 +1,7 @@
 # Activity 31 — Host-Side Project Auto-Context
 
 Дата аудита: 2026-09-06
-Код: `MiCoder/Sources/Services/ProjectContextGatherLogic.swift`, `ChatPanelView.swift:659-667`, `ProjectFileSearchLogic.swift`, `ProjectFileIndexStore.swift`
+Код: `myCoder/Sources/Services/ProjectContextGatherLogic.swift`, `ChatPanelView.swift:659-667`, `ProjectFileSearchLogic.swift`, `ProjectFileIndexStore.swift`
 
 ## Обнаруженные кнопки/действия/состояния
 

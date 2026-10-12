@@ -28,7 +28,7 @@
 
 ## User Story
 
-As a user, I can open MiCoder and reach a usable composer without a running server because **MiCoder Auto Free** is available. The app provides keyboard shortcuts for common actions, resizable sidebar, and proper window management.
+As a user, I can open myCoder and reach a usable composer without a running server because **myCoder Auto Free** is available. The app provides keyboard shortcuts for common actions, resizable sidebar, and proper window management.
 
 ## Bugs Found & Fixed
 

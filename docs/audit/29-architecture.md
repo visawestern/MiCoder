@@ -6,7 +6,7 @@
 
 ### ARCH-01: God Object — AppState (CRITICAL)
 
-**File:** `MiCoder/Sources/App/MiCoderApp.swift` (2265 lines)
+**File:** `myCoder/Sources/App/MiCoderApp.swift` (2265 lines)
 
 `AppState` is simultaneously responsible for:
 - Server connection management
@@ -33,7 +33,7 @@
 ---
 
 ### ARCH-02: Global Mutable Singleton (HIGH, MITIGATED-2026-09-06)
-**File:** `MiCoder/Sources/App/MiCoderApp.swift:9`
+**File:** `myCoder/Sources/App/MiCoderApp.swift:9`
 ```swift
 var __miCoderAppState: AppState?
 ```

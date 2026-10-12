@@ -23,7 +23,7 @@
 ### Remaining (requires manual testing)
 - [ ] Real-world test on Kimi (requires live cookies) — **BLOCKED**: React ignores untrusted clicks; ConnectRPC endpoint needs protobuf schema
 - [ ] Real-world test on Qwen (requires live cookies)
-- [ ] ChatGPT provider not configured in MiCoder
+- [ ] ChatGPT provider not configured in myCoder
 - [ ] DirectWebAPIClient needs actual API endpoint discovery (NetworkInterceptor captures 0 requests on Kimi) — **PARTIAL**: captures ChatService endpoint but protobuf schema unknown
 - [ ] Response capture from DOM after send (awaitResponse not finding response)
 

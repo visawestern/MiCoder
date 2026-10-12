@@ -4,9 +4,9 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-watcher = (ROOT / "MiCoder/Sources/Services/ProjectFileIndexWatcher.swift").read_text()
-model = (ROOT / "MiCoder/Sources/Views/Settings/ModelSettingsView.swift").read_text()
-inputs = (ROOT / "MiCoder/Sources/Views/Components/InputViews.swift").read_text()
+watcher = (ROOT / "myCoder/Sources/Services/ProjectFileIndexWatcher.swift").read_text()
+model = (ROOT / "myCoder/Sources/Views/Settings/ModelSettingsView.swift").read_text()
+inputs = (ROOT / "myCoder/Sources/Views/Components/InputViews.swift").read_text()
 
 # CoreServices constants bridge as Int on the user's SDK and must be explicitly
 # converted to the UInt32/FSEventStreamCreateFlags expected by the API.

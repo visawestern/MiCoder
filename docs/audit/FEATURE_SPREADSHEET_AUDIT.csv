@@ -3,9 +3,9 @@ App,APP-01,Window Management,"As a user, I want the app to open with proper wind
 App,APP-02,Menu Bar Commands,"As a user, I want standard keyboard shortcuts for Cut/Copy/Paste/Select All",Cmd+X/C/V/A work in all text fields,01-app-shell,PASS,NONE,,NONE,GREEN
 App,APP-03,New Task Command,"As a user, I want Cmd+N to create a new task",Cmd+N calls startNewTask and clears the chat,01-app-shell,PASS,NONE,,NONE,GREEN
 App,APP-04,Search Command,"As a user, I want Cmd+K to open search palette",Cmd+K opens SearchPaletteView sheet,01-app-shell,PASS,NONE,,NONE,GREEN
-App,APP-05,Rebrand to MiCoder,"As a user, I want the app branded MiCoder, not MiMo","App name, ~/.micoder paths, com.micoder keys",01-app-shell,PASS,NONE,,NONE,GREEN
+App,APP-05,Rebrand to myCoder,"As a user, I want the app branded myCoder, not MiMo","App name, ~/.micoder paths, com.micoder keys",01-app-shell,PASS,NONE,,NONE,GREEN
 App,APP-06,Serve Send Feedback,"As a user, I want direct provider sending to show progress and clear failure","Thinking placeholder, robust response decoding, typed empty-response failure",03-chat-panel,PARTIAL,MEDIUM,,NONE,GREEN
-App,APP-07,Startup Connection Readiness,"As a user, I want MiCoder to reach usable composer even without server",Auto Free available; server models load after health check,01-app-shell,PASS,NONE,,NONE,GREEN
+App,APP-07,Startup Connection Readiness,"As a user, I want myCoder to reach usable composer even without server",Auto Free available; server models load after health check,01-app-shell,PASS,NONE,,NONE,GREEN
 Sidebar,SID-01,Workspace List Display,"As a user, I want to see all my workspaces in the left sidebar","Workspaces displayed in list or grid view, sorted, filtered",02-sidebar,PASS,NONE,,NONE,GREEN
 Sidebar,SID-02,Workspace Section Header,"As a user, I want to expand/collapse the workspaces section",Click chevron toggles expanded,02-sidebar,PASS,NONE,,NONE,GREEN
 Sidebar,SID-03,Workspace Sort,"As a user, I want to sort workspaces by name/recent/task count",Sort menu cycles WorkspaceSortOrder,02-sidebar,PASS,NONE,,NONE,GREEN
@@ -35,7 +35,7 @@ Sidebar,SID-26,Selection and Action Routing,"As a user, I want selecting workspa
 Sidebar,SID-27,Stable Sidebar Drag,"As a user, I want sidebar dragging to follow pointer smoothly",Every drag sample applies translation at gesture start,02-sidebar,PASS,NONE,,NONE,GREEN
 Sidebar,SID-28,Responsive Workspace Toolbar,"As a user, I want workspace actions usable when sidebar narrow",Toolbar shows individual actions or vertical-dots menu,02-sidebar,PASS,NONE,,NONE,GREEN
 Content,CON-01,Chat Panel Layout,"As a user, I want the chat area to show messages or empty state",Empty state or scrollable message list,03-chat-panel,PASS,NONE,,NONE,GREEN
-Content,CON-02,Empty State Logo,"As a user, I want to see the MiCoder code mark on initial screen",MiCoderLogoMark(size: 140) centered when no messages,03-chat-panel,PASS,NONE,,NONE,GREEN
+Content,CON-02,Empty State Logo,"As a user, I want to see the myCoder code mark on initial screen",MiCoderLogoMark(size: 140) centered when no messages,03-chat-panel,PASS,NONE,,NONE,GREEN
 Content,CON-03,Empty State Title,"As a user, I want contextual text on the empty screen",Session title > workspace name > Select a workspace,03-chat-panel,PASS,NONE,,NONE,GREEN
 Content,CON-04,Message List Display,"As a user, I want to see all messages in a scrollable chat","LazyVStack with work-time separators, auto-scroll",03-chat-panel,PASS,NONE,,NONE,GREEN
 Content,CON-05,Work Time Separators,"As a user, I want time separators between messages >5s apart",Worked for Xm Ys label,03-chat-panel,PASS,NONE,,NONE,GREEN
@@ -235,14 +235,14 @@ Indexing,IDX-02,@-Mention File Search,"As a user, I want @ to find files from pr
 Indexing,IDX-03,Persistent File Index + FTS,"As a user, I want searchable persistent file index",file_index.json persists bounded metadata,28-file-indexing,PARTIAL,MEDIUM,SQLite FTS unverified,NONE,GREEN
 WebTools,WET-01,Web Tool Executor,"As a user, I want emulated tools to run against real project",ProjectWebToolExecutor read/write/edit/list/grep on disk,14-web-tools,PASS,NONE,,NONE,GREEN
 Danger,DNG-01,Dangerous Command Detection,"As a user, I want warnings before dangerous commands",NOT IMPLEMENTED,19-error-handling,FUTURE,NONE,,NONE,N/A
-Regression,BUG-01,MiCoder Auto Free Default,"As a new user, I want built-in free provider to use Big Pickle",micoder-auto-free is renamed built-in route,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
+Regression,BUG-01,myCoder Auto Free Default,"As a new user, I want built-in free provider to use Big Pickle",micoder-auto-free is renamed built-in route,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
 Regression,BUG-02,Web Model Picker,"As a user, I want web models selected in shared flow",browser no longer exposes second manual model editor,11-web-chat,PASS,NONE,,NONE,GREEN
 Regression,BUG-03,ChatGPT Stale Models,"As a ChatGPT user, I want only live models",WebModelRefreshLogic replaces stale models,11-web-chat,PARTIAL,MEDIUM,Live ChatGPT discovery unverified,NONE,GREEN
 Regression,BUG-04,Qwen Model Discovery,"As a Qwen user, I want all current model options",Qwen discovery merges primary and additional selectors,11-web-chat,PASS,NONE,,NONE,GREEN
 Regression,BUG-05,Web Effort Status,"As a web-provider user, I want to see effort detected status",Provider card shows detected levels,11-web-chat,PASS,NONE,,NONE,GREEN
 Regression,BUG-06,Failed First Send Persistence,"As a user, I want failed first send retained",Local session bootstrapped before first append,03-chat-panel,PASS,NONE,,NONE,GREEN
 MiMo,MIMO-04,MiMo Auto Sunset Migration,"As an existing MiMo Auto user, I want stop selecting defunct route",Legacy mimo-auto migrated to micoder-auto-free,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
-MiMo,MIMO-05,Honest MiCoder Auto Free Readiness,"As a user, I want Auto Free shown as ready only when eligible",Provider not connected when no trusted free IDs,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
+MiMo,MIMO-05,Honest myCoder Auto Free Readiness,"As a user, I want Auto Free shown as ready only when eligible",Provider not connected when no trusted free IDs,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
 MiMo,MIMO-06,Limited-Time Free Provider Feedback,"As a user, I want clear explanation when free catalog unavailable",Settings states no eligible free model; offers refresh,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
 UX,UX-04,No ToS Checkbox Gating,"As a user, I want provider setup without confusing ToS checkbox",Provider cards contain no acknowledgement Toggle,11-web-chat,PASS,NONE,,NONE,GREEN
 UX,UX-05,Honest Effort Menu,"As a user, I want only effort levels current page supports",Effort menu hidden until live discovery returns levels,11-web-chat,PASS,NONE,,NONE,GREEN
@@ -258,10 +258,10 @@ Model,MODEL-18,Custom Model Removal,"As a user, I want to remove unwanted custom
 Model,MODEL-19,Compact Free Model Catalog,"As a user, I want compact free-model catalog",Selected model summary + dense switch list,09-settings,PARTIAL,MEDIUM,Live catalog contents unverified,NONE,GREEN
 Model,MODEL-20,Model-Specific Effort Capability,"As a user, I want effort control only when model supports it",Discovery profiles effort after selecting each model,11-web-chat,PASS,NONE,,NONE,GREEN
 Prompt,PROMPT-04,AutoFree System Prompt,"As a user, I want my AutoFree system prompt applied",Saved prompt sent as system message before user messages,15-micoder-auto-free,PASS,NONE,,NONE,GREEN
-Chat,CHAT-19,MiCoder Auto Free Attachment Payload,"As a user, I want images/files to reach Auto Free or receive warning",Images as data URLs; text files bounded; binary blocked,15-micoder-auto-free,PARTIAL,MEDIUM,macOS picker unverified,NONE,GREEN
-Chat,CHAT-20,MiCoder Auto Free Conversation History,"As a user, I want ordinary Auto Free turns to remember visible conversation",Prior turns prepended; in-flight excluded; history capped,15-micoder-auto-free,PARTIAL,MEDIUM,Live anonymous request unverified,NONE,GREEN
+Chat,CHAT-19,myCoder Auto Free Attachment Payload,"As a user, I want images/files to reach Auto Free or receive warning",Images as data URLs; text files bounded; binary blocked,15-micoder-auto-free,PARTIAL,MEDIUM,macOS picker unverified,NONE,GREEN
+Chat,CHAT-20,myCoder Auto Free Conversation History,"As a user, I want ordinary Auto Free turns to remember visible conversation",Prior turns prepended; in-flight excluded; history capped,15-micoder-auto-free,PARTIAL,MEDIUM,Live anonymous request unverified,NONE,GREEN
 Web Login,WEB-LOGIN-11,Authenticated Cookie Capture Guard,"As a user, I want Capture Session to save only real authenticated session",Empty cookie snapshots remain with actionable message,12-web-session,PASS,NONE,,NONE,GREEN
-Web Login,WEB-LOGIN-12,Honest Detection Mode Labels,"As a user, I want interface to distinguish DOM from AI detection",Built-in names MiCoder; second names Auto Free,11-web-chat,PASS,NONE,,NONE,GREEN
+Web Login,WEB-LOGIN-12,Honest Detection Mode Labels,"As a user, I want interface to distinguish DOM from AI detection",Built-in names myCoder; second names Auto Free,11-web-chat,PASS,NONE,,NONE,GREEN
 Web Chat,WEB-CHAT-11,Web Agent Access-Level Gate,"As a user, I want Ask before changes to protect web-agent mutations",write/edit/todo/git/shell stop at Ask before changes,14-web-tools,PARTIAL,MEDIUM,Native approval UX unverified,NONE,GREEN
 Web Chat,WEB-CHAT-12,Visible Web Agent Approval Interruption,"As a user, I want blocked mutation explained in chat",Driver emits approvalRequired; presenter renders status,14-web-chat,PARTIAL,MEDIUM,SwiftUI approval interaction unverified,NONE,GREEN
 Web Chat,WEB-CHAT-13,Named Session Origin-State Restoration,"As a user, I want named web login to restore cookies and origin",Login captures localStorage; restores on send,12-web-session,PARTIAL,MEDIUM,WKWebView cookies unverified,NONE,GREEN

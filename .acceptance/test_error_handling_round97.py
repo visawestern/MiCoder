@@ -3,11 +3,11 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-chat = (ROOT / "MiCoder/Sources/Views/ChatPanelView.swift").read_text()
-client = (ROOT / "MiCoder/Sources/Services/MimoServeClient.swift").read_text()
-feedback = (ROOT / "MiCoder/Sources/Services/ServeResponseFeedbackLogic.swift").read_text()
-transport = (ROOT / "MiCoder/Sources/Services/ServeTransportFailureLogic.swift").read_text()
-retry = (ROOT / "MiCoder/Sources/Services/SessionBusyRetryLogic.swift").read_text()
+chat = (ROOT / "myCoder/Sources/Views/ChatPanelView.swift").read_text()
+client = (ROOT / "myCoder/Sources/Services/MimoServeClient.swift").read_text()
+feedback = (ROOT / "myCoder/Sources/Services/ServeResponseFeedbackLogic.swift").read_text()
+transport = (ROOT / "myCoder/Sources/Services/ServeTransportFailureLogic.swift").read_text()
+retry = (ROOT / "myCoder/Sources/Services/SessionBusyRetryLogic.swift").read_text()
 
 assert "responseCount: responseMessages.count" in chat, "Serve finalization must validate empty response arrays"
 assert "ServeTransportFailureLogic.shouldMarkServerDisconnected" in chat, "Serve disconnect classification must be wired"

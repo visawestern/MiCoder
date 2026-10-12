@@ -2,31 +2,31 @@
 import PackageDescription
 
 let package = Package(
-    name: "MiCoder",
+    name: "myCoder",
     platforms: [
         .macOS(.v13)
     ],
     products: [
-        .executable(name: "MiCoder", targets: ["MiCoder"])
+        .executable(name: "myCoder", targets: ["myCoder"])
     ],
     dependencies: [
         .package(url: "https://github.com/stephencelis/SQLite.swift.git", from: "0.15.0")
     ],
     targets: [
         .executableTarget(
-            name: "MiCoder",
+            name: "myCoder",
             dependencies: [
                 .product(name: "SQLite", package: "SQLite.swift")
             ],
-            path: "MiCoder/Sources",
+            path: "myCoder/Sources",
             resources: [
                 .process("Resources")
             ]
         ),
         .testTarget(
-            name: "MiCoderTests",
-            dependencies: ["MiCoder"],
-            path: "MiCoder/Tests"
+            name: "myCoderTests",
+            dependencies: ["myCoder"],
+            path: "myCoder/Tests"
         )
     ]
 )

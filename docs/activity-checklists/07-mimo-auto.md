@@ -1,6 +1,6 @@
-# Activity 07 — MiCoder Auto Free
+# Activity 07 — myCoder Auto Free
 
-> Historical identifiers such as `mimo-auto` remain only for preference migration and `mimoServe` remains the separate local-server transport. The user-facing built-in provider is **MiCoder Auto Free** with OpenCode Zen as its anonymous route.
+> Historical identifiers such as `mimo-auto` remain only for preference migration and `mimoServe` remains the separate local-server transport. The user-facing built-in provider is **myCoder Auto Free** with OpenCode Zen as its anonymous route.
 
 Источники: `MiCoderAutoFreeProvider.swift`, `MiCoderAutoFreeClient.swift`, `MiCoderAutoFreeHistoryLogic.swift`, `MiCoderAutoFreeFailoverLogic.swift`, `MiCoderAutoFreeContentLogic.swift`, `SendRouteResolver.swift`, `SendReadinessLogic.swift`, `MiCoderApp.swift`, `ChatPanelView.swift`, `ProvidersSettingsView.swift`, `NotificationService.swift`.
 
@@ -8,8 +8,8 @@
 
 | # | Действие | Trigger → handler → state/persistence → consumer | Ожидаемое поведение | Code quality | Task fit | Runtime status |
 |---:|---|---|---|---:|---:|---|
-| 1 | Built-in provider option | `AppState.providerOptions` → `MiCoderAutoFreeStore.provider` → `ProviderOption` → provider picker | MiCoder Auto Free always appears, is built-in and cannot be deleted; it does not require MiMo Serve | 95/100 | 100/100 | CODE VERIFIED; macOS picker UNVERIFIED |
-| 2 | Fresh default selection | store catalog refresh → `provider.isReady` → `validateAndReconcileSelections` → `selectProvider` | A clean install selects MiCoder Auto Free only after at least one live eligible free model is known; no synthetic model is presented as ready | 94/100 | 100/100 | CODE/HARNESS; startup/network UNVERIFIED |
+| 1 | Built-in provider option | `AppState.providerOptions` → `MiCoderAutoFreeStore.provider` → `ProviderOption` → provider picker | myCoder Auto Free always appears, is built-in and cannot be deleted; it does not require MiMo Serve | 95/100 | 100/100 | CODE VERIFIED; macOS picker UNVERIFIED |
+| 2 | Fresh default selection | store catalog refresh → `provider.isReady` → `validateAndReconcileSelections` → `selectProvider` | A clean install selects myCoder Auto Free only after at least one live eligible free model is known; no synthetic model is presented as ready | 94/100 | 100/100 | CODE/HARNESS; startup/network UNVERIFIED |
 | 3 | Legacy preference migration | defaults `mimo-auto` → `migrateLegacyPreferences` → `micoder-auto-free` → selection restore | Existing explicit legacy choices survive the rename without showing obsolete branding | 96/100 | 100/100 | CODE; macOS preference migration UNVERIFIED |
 | 4 | Anonymous catalog refresh | Settings Refresh catalog → `store.refreshModels` → `GET /zen/v1/models` → allow-listed eligible models → published store state | Refresh uses no API key, excludes paid IDs, preserves last known catalog on transient failure, and reports status/timestamp | 93/100 | 100/100 | CODE; live OpenCode/network UNVERIFIED |
 | 5 | Model list and model switch | compact selected row/menu → `selectModel` → selected ID/status/persistence → `effectiveSelectedModel` and store send loop | Current model is shown compactly; all live free models are switchable; selection persists and resets failure count | 95/100 | 100/100 | CODE; visual/live catalog UNVERIFIED |
@@ -71,7 +71,7 @@ session persistence on macOS, and actual request payload capture against the pro
 
 ## Canonical user story
 
-As a user, I can select **MiCoder Auto Free**, choose and optionally lock any currently available
+As a user, I can select **myCoder Auto Free**, choose and optionally lock any currently available
 anonymous OpenCode free model, edit a system prompt and parameters, attach supported files/images, and
 send multiple contextual turns without starting MiMo Serve or entering an API key. If the selected
 model is rate-limited, unavailable or repeatedly fails, the app switches only when unlocked, persists
@@ -100,6 +100,6 @@ when no safe fallback exists.
 
 | Dimension | Before Round 56 | Current verifiable score | Evidence |
 |---|---:|---:|---|
-| MiCoder Auto Free implementation quality | 88/100 | 96/100 | Two confirmed chain defects fixed; pure red→green tests |
-| MiCoder Auto Free task adherence | 86/100 | 100/100 | Full controls, context, failover and notification audit |
+| myCoder Auto Free implementation quality | 88/100 | 96/100 | Two confirmed chain defects fixed; pure red→green tests |
+| myCoder Auto Free task adherence | 86/100 | 100/100 | Full controls, context, failover and notification audit |
 | Target-runtime confidence | 0/100 | 0/100 | No live OpenCode or macOS execution |

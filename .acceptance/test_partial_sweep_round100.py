@@ -4,9 +4,9 @@ import csv
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-chat = (ROOT / "MiCoder/Sources/Views/ChatPanelView.swift").read_text()
-auto_free = (ROOT / "MiCoder/Sources/Services/MiCoderAutoFreeProvider.swift").read_text()
-status_logic = (ROOT / "MiCoder/Sources/Services/MiCoderAutoFreeCatalogStatusLogic.swift").read_text()
+chat = (ROOT / "myCoder/Sources/Views/ChatPanelView.swift").read_text()
+auto_free = (ROOT / "myCoder/Sources/Services/MiCoderAutoFreeProvider.swift").read_text()
+status_logic = (ROOT / "myCoder/Sources/Services/MiCoderAutoFreeCatalogStatusLogic.swift").read_text()
 
 assert "WebRetryContextLogic.isFirstMessageForRetry(originalIsFirst: isFirst)" in chat, "retry must preserve original first-turn context"
 assert "MiCoderAutoFreeCatalogStatusLogic.statusAfterRefresh" in auto_free, "refresh must use status-preservation policy"

@@ -3,9 +3,9 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
-sources = list((ROOT / "MiCoder/Sources").rglob("*.swift"))
-app_localization = (ROOT / "MiCoder/Sources/Services/AppLocalization.swift").read_text()
-runtime = (ROOT / "MiCoder/Sources/Services/LocalizationRuntime.swift").read_text()
+sources = list((ROOT / "myCoder/Sources").rglob("*.swift"))
+app_localization = (ROOT / "myCoder/Sources/Services/AppLocalization.swift").read_text()
+runtime = (ROOT / "myCoder/Sources/Services/LocalizationRuntime.swift").read_text()
 
 languages = ["en", "ru", "es", "fr", "de", "zh", "ja", "ko", "pt", "ar"]
 translation_rows = {}

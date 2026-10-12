@@ -12,8 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def source(relative: str) -> str:
     return (ROOT / relative).read_text()
 
-runtime = source("MiCoder/Sources/Services/LocalizationRuntime.swift")
-app_localization = source("MiCoder/Sources/Services/AppLocalization.swift")
+runtime = source("myCoder/Sources/Services/LocalizationRuntime.swift")
+app_localization = source("myCoder/Sources/Services/AppLocalization.swift")
 
 # Raw-string runtime localization must resolve through the complete selected-
 # language catalog, not through a Russian-only switch with English fallback.
@@ -55,28 +55,28 @@ for key in required_keys:
     assert f'"{key}": [' in app_localization, f"missing translations for {key}"
 
 file_requirements = {
-    "MiCoder/Sources/Views/Components/LanguagePickerDropdown.swift": [
+    "myCoder/Sources/Views/Components/LanguagePickerDropdown.swift": [
         'L.t(AppLocalizationKey.locSearchLanguage)',
     ],
-    "MiCoder/Sources/Views/Components/PlanQuestionCardView.swift": [
+    "myCoder/Sources/Views/Components/PlanQuestionCardView.swift": [
         'L.t(AppLocalizationKey.locOtherAnswer)',
     ],
-    "MiCoder/Sources/Views/Components/WebCaptchaSolverView.swift": [
+    "myCoder/Sources/Views/Components/WebCaptchaSolverView.swift": [
         'L.t(AppLocalizationKey.locCaptchaVerification)',
         'L.t(AppLocalizationKey.locCaptchaInstruction)',
     ],
-    "MiCoder/Sources/Views/Components/WebProvidersSection.swift": [
+    "myCoder/Sources/Views/Components/WebProvidersSection.swift": [
         'L.t(AppLocalizationKey.locDetectionFailed)',
         'L.t(AppLocalizationKey.locNoEffort)',
         'L.t(AppLocalizationKey.locInAppBrowser)',
         'L.t(AppLocalizationKey.locAskMiCoderAutoFree)',
     ],
-    "MiCoder/Sources/Views/Settings/ModelSettingsView.swift": [
+    "myCoder/Sources/Views/Settings/ModelSettingsView.swift": [
         'L.t(AppLocalizationKey.locModelParameters)',
         'L.t(AppLocalizationKey.locNoModelsMatchFilter)',
         'L.t(AppLocalizationKey.locSaveParameters)',
     ],
-    "MiCoder/Sources/Views/Settings/ProvidersSettingsView.swift": [
+    "myCoder/Sources/Views/Settings/ProvidersSettingsView.swift": [
         'L.t(AppLocalizationKey.locProviderParameters)',
         'L.t(AppLocalizationKey.locChooseFromList)',
         'L.t(AppLocalizationKey.locFreeModelsPrivacy)',
@@ -84,7 +84,7 @@ file_requirements = {
         'L.t(AppLocalizationKey.locNoEligibleFreeModels)',
         'L.t(AppLocalizationKey.locSavePrompt)',
     ],
-    "MiCoder/Sources/Views/Settings/StorageSettingsView.swift": [
+    "myCoder/Sources/Views/Settings/StorageSettingsView.swift": [
         'L.t(AppLocalizationKey.locStorageImportReplace)',
         'L.t(AppLocalizationKey.locStorageImportWarning)',
         'L.t(AppLocalizationKey.locStorageExportConfiguration)',
@@ -92,7 +92,7 @@ file_requirements = {
         'L.t(AppLocalizationKey.locCancelDeletion)',
         'L.t(AppLocalizationKey.locProjectRegistryDeletionWarning)',
     ],
-    "MiCoder/Sources/Views/SidebarView.swift": [
+    "myCoder/Sources/Views/SidebarView.swift": [
         'L.t(AppLocalizationKey.locAllWorkspaces)',
         'L.t(AppLocalizationKey.locProjectFiles)',
         'L.t(AppLocalizationKey.locSearchTasks)',
@@ -105,10 +105,10 @@ for relative, needles in file_requirements.items():
 
 # Representative bypasses must not return after the fix.
 for relative, raw in {
-    "MiCoder/Sources/Views/Components/LanguagePickerDropdown.swift": 'TextField("Search language"',
-    "MiCoder/Sources/Views/Components/PlanQuestionCardView.swift": 'TextField("Other answer"',
-    "MiCoder/Sources/Views/Components/WebCaptchaSolverView.swift": 'Text("Captcha verification")',
-    "MiCoder/Sources/Settings/ModelSettingsView.swift": 'Text("Provider metadata")',
+    "myCoder/Sources/Views/Components/LanguagePickerDropdown.swift": 'TextField("Search language"',
+    "myCoder/Sources/Views/Components/PlanQuestionCardView.swift": 'TextField("Other answer"',
+    "myCoder/Sources/Views/Components/WebCaptchaSolverView.swift": 'Text("Captcha verification")',
+    "myCoder/Sources/Settings/ModelSettingsView.swift": 'Text("Provider metadata")',
 }.items():
     path = ROOT / relative
     if path.exists():
@@ -136,13 +136,13 @@ for key in required_keys | {
         assert f'"{language}":' in line, f"{key} missing {language} translation"
 
 for relative, needles in {
-    "MiCoder/Sources/Views/BottomPanelView.swift": ["L.t(AppLocalizationKey.locNewBranchName"],
-    "MiCoder/Sources/Views/Components/InputViews.swift": ["L.t(AppLocalizationKey.locFileAttached", "L.t(AppLocalizationKey.locPhotosAttached"],
-    "MiCoder/Sources/Views/Settings/UsageSettingsView.swift": ["L.t(AppLocalizationKey.locMessagesCount"],
-    "MiCoder/Sources/App/MiCoderApp.swift": ["L.t(AppLocalizationKey.locCut", "L.t(AppLocalizationKey.locActions"],
-    "MiCoder/Sources/Views/ContentView.swift": ["L.t(AppLocalizationKey.locIntegrityCheckFailed"],
-    "MiCoder/Sources/Views/NewProjectSheet.swift": ["L.t(AppLocalizationKey.locProjectPathPlaceholder"],
-    "MiCoder/Sources/Services/NotificationService.swift": ["L.t(AppLocalizationKey.locFreeModelRateLimitMessage"],
+    "myCoder/Sources/Views/BottomPanelView.swift": ["L.t(AppLocalizationKey.locNewBranchName"],
+    "myCoder/Sources/Views/Components/InputViews.swift": ["L.t(AppLocalizationKey.locFileAttached", "L.t(AppLocalizationKey.locPhotosAttached"],
+    "myCoder/Sources/Views/Settings/UsageSettingsView.swift": ["L.t(AppLocalizationKey.locMessagesCount"],
+    "myCoder/Sources/App/MiCoderApp.swift": ["L.t(AppLocalizationKey.locCut", "L.t(AppLocalizationKey.locActions"],
+    "myCoder/Sources/Views/ContentView.swift": ["L.t(AppLocalizationKey.locIntegrityCheckFailed"],
+    "myCoder/Sources/Views/NewProjectSheet.swift": ["L.t(AppLocalizationKey.locProjectPathPlaceholder"],
+    "myCoder/Sources/Services/NotificationService.swift": ["L.t(AppLocalizationKey.locFreeModelRateLimitMessage"],
 }.items():
     text = source(relative)
     for needle in needles:

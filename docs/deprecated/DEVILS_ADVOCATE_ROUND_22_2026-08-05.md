@@ -52,13 +52,13 @@
 Полный прогон: **1701 тест / 231 сьют, все зелёные** (базлайн до раунда — 1638/225).
 
 ## Изменённые файлы
-- `MiCoder/Sources/Services/ProviderAutoDetector.swift` — жёсткий дедлайн (`probeOnce` race), отменяемый `URLSessionProviderProbe` (`URLSessionTaskBox`).
-- `MiCoder/Sources/Services/LocalProviderConfig.swift` — `LocalProviderKind.acp`, `apiBaseURL`, честный маппинг конфига, `isDuplicate`, `AutoDetectStatusText`.
-- `MiCoder/Sources/Services/SendRouteResolver.swift` — ACP-локальные → `SendRoute.acp`.
-- `MiCoder/Sources/Views/ChatPanelView.swift` — ACP-ветка потребляет маршрут `.acp` (локальные ACP).
-- `MiCoder/Sources/Views/SettingsView.swift` — статусные строки через `AutoDetectStatusText`, warning п.34 больше не стирается, dedupe через `isDuplicate`.
-- `MiCoder/Tests/E23E24AutoDetectConfirmationTests.swift` — +14 тестов.
-- `MiCoder/Tests/E04ProjectOpenIntegrityTests.swift` — фикс флаки-окна (re-open pool перед assert).
+- `myCoder/Sources/Services/ProviderAutoDetector.swift` — жёсткий дедлайн (`probeOnce` race), отменяемый `URLSessionProviderProbe` (`URLSessionTaskBox`).
+- `myCoder/Sources/Services/LocalProviderConfig.swift` — `LocalProviderKind.acp`, `apiBaseURL`, честный маппинг конфига, `isDuplicate`, `AutoDetectStatusText`.
+- `myCoder/Sources/Services/SendRouteResolver.swift` — ACP-локальные → `SendRoute.acp`.
+- `myCoder/Sources/Views/ChatPanelView.swift` — ACP-ветка потребляет маршрут `.acp` (локальные ACP).
+- `myCoder/Sources/Views/SettingsView.swift` — статусные строки через `AutoDetectStatusText`, warning п.34 больше не стирается, dedupe через `isDuplicate`.
+- `myCoder/Tests/E23E24AutoDetectConfirmationTests.swift` — +14 тестов.
+- `myCoder/Tests/E04ProjectOpenIntegrityTests.swift` — фикс флаки-окна (re-open pool перед assert).
 
 ## Версия
 `Info.plist`: CFBundleShortVersionString 2.17 → **2.18**, build 19 → **20**.

@@ -3,12 +3,12 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-chat = (ROOT / "MiCoder/Sources/Views/ChatPanelView.swift").read_text()
-inputs = (ROOT / "MiCoder/Sources/Views/Components/InputViews.swift").read_text()
-model = (ROOT / "MiCoder/Sources/Views/Settings/ModelSettingsView.swift").read_text()
-db = (ROOT / "MiCoder/Sources/Services/ProjectDatabaseManager.swift").read_text()
-watcher = (ROOT / "MiCoder/Sources/Services/ProjectFileIndexWatcher.swift").read_text()
-app = (ROOT / "MiCoder/Sources/App/MiCoderApp.swift").read_text()
+chat = (ROOT / "myCoder/Sources/Views/ChatPanelView.swift").read_text()
+inputs = (ROOT / "myCoder/Sources/Views/Components/InputViews.swift").read_text()
+model = (ROOT / "myCoder/Sources/Views/Settings/ModelSettingsView.swift").read_text()
+db = (ROOT / "myCoder/Sources/Services/ProjectDatabaseManager.swift").read_text()
+watcher = (ROOT / "myCoder/Sources/Services/ProjectFileIndexWatcher.swift").read_text()
+app = (ROOT / "myCoder/Sources/App/MiCoderApp.swift").read_text()
 
 # SendReadinessReason has effectiveModelID last; both InputViews calls must preserve that ABI.
 assert inputs.count("webConnected:") >= 2

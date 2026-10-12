@@ -1,4 +1,4 @@
-# Activity 15 — MiCoder Auto Free Provider
+# Activity 15 — myCoder Auto Free Provider
 
 Источники: `Sources/Services/MiCoderAutoFreeProvider.swift`, `Sources/Services/MiCoderAutoFreeFailoverLogic.swift`, `Sources/Services/MiCoderAutoFreeContentLogic.swift`
 
@@ -21,4 +21,4 @@
 
 ## User Story
 
-As a user, MiCoder Auto Free provides built-in free AI models without API keys. The system discovers available models, handles failover when models fail, and shows clear status in settings.
+As a user, myCoder Auto Free provides built-in free AI models without API keys. The system discovers available models, handles failover when models fail, and shows clear status in settings.

@@ -7,7 +7,7 @@
 
 ## Goal and user story
 
-> As a user, when I choose a language in Settings, every user-visible MiCoder string should use that language immediately and consistently, including labels, placeholders, tooltips, alerts, validation errors, progress text, native prompts, notifications, and dynamic count messages.
+> As a user, when I choose a language in Settings, every user-visible myCoder string should use that language immediately and consistently, including labels, placeholders, tooltips, alerts, validation errors, progress text, native prompts, notifications, and dynamic count messages.
 
 The expected behavior is that typed `AppLocalizationKey` values and legacy raw English localization calls resolve through the same selected-language catalog. A missing translation must not silently force Russian or English when a supported translation exists. Technical identifiers, provider/model names, URLs, shell output, and user-authored/external content remain data rather than UI copy and are not translated.
 
@@ -33,7 +33,7 @@ The expected behavior is that typed `AppLocalizationKey` values and legacy raw E
 | Web provider detection sheet | Built-in DOM mode, free-AI mode, capture help, no-selector/no-model/no-page-text/AI-failure results | Both detection modes remain distinct and all visible copy follows the selected language. | **FIXED** |
 | Web model rows | Active/no-effort/parameters badges, remove-unavailable action, templates, clear, effort status, selector availability, in-app browser label | Badges and actions are localized without changing model selection or detection semantics. | **FIXED** |
 | Model settings | Provider metadata, model-parameters panel, close action, parameter labels, placeholders, validation errors, live web profile, filters, sorting, counts, accordion show/hide | All confirmed raw English UI strings use typed keys; dynamic values remain dynamic arguments. | **FIXED** |
-| Provider settings | MiCoder Auto Free header, online/offline status, refresh, protocol/access/fallback metadata, model selector, lock/unlock, system prompt, privacy note | Compact catalog and failover controls use selected-language labels and format keys. | **FIXED** |
+| Provider settings | myCoder Auto Free header, online/offline status, refresh, protocol/access/fallback metadata, model selector, lock/unlock, system prompt, privacy note | Compact catalog and failover controls use selected-language labels and format keys. | **FIXED** |
 | Custom provider editor | Provider name placeholder, endpoint placeholder, endpoint validation, OpenCode Zen optional-key hint, secret placeholder | Form copy and validation are localized; provider type/model identifiers remain data. | **FIXED** |
 | Storage | Import/replace confirmation, warning, export/import actions, delete progress, cancel deletion, active/archived counters | Destructive action chain remains unchanged while all visible copy is localized. | **FIXED** |
 | Sidebar | Workspace collapse/expand, overview, archive, sort/filter menus, search, view mode, task search, project-files heading | Toolbar buttons, overflow menu labels, help text, search placeholders, and project-file labels use typed keys. | **FIXED** |
