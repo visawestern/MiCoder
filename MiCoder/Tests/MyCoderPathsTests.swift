@@ -50,4 +50,15 @@ struct MyCoderPathsTests {
         let home = URL(fileURLWithPath: "/tmp/fake-home")
         #expect(ProjectRegistryLogic.registryURL(homeDirectory: home) == MyCoderPaths.registryURL(homeDirectory: home))
     }
+
+    @Test func databaseURLUsesMycoder() {
+        let home = URL(fileURLWithPath: "/tmp/fake-home")
+        let inProject = ProjectDatabaseManager.resolveDatabaseURL(
+            projectPath: "/p/x", homeDirectory: home, attemptCreate: { _ in true })
+        #expect(inProject.path == "/p/x/.mycoder/project.db")
+        let fallback = ProjectDatabaseManager.resolveDatabaseURL(
+            projectPath: "/p/x", homeDirectory: home, attemptCreate: { _ in false })
+        #expect(fallback.path.hasPrefix("/tmp/fake-home/.mycoder/projects/"))
+        #expect(fallback.lastPathComponent == "project.db")
+    }
 }
