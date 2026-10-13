@@ -204,6 +204,16 @@ final class MiCoderAutoFreeStore: ObservableObject {
                         continuation.finish()
                         return
                     } catch {
+                        // Upstream client-identity gate: no other free model
+                        // will pass it — stop the carousel with one honest
+                        // message instead of failing model after model.
+                        if MiCoderAutoFreeClient.shouldHaltFailover(for: error) {
+                            provider.modelStatuses[currentModel] = "Blocked by upstream free-tier gate"
+                            provider.statusMessage = (error as? LocalizedError)?.errorDescription
+                                ?? "OpenCode free tier is gated upstream."
+                            continuation.finish(throwing: error)
+                            return
+                        }
                         if provider.isModelLocked {
                             provider.modelStatuses[currentModel] = "Rate limited / failed while pinned"
                             if let autoFreeError = error as? MiCoderAutoFreeError,

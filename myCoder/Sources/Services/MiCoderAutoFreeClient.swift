@@ -420,6 +420,12 @@ final class MiCoderAutoFreeClient {
                             guard line.hasPrefix("data: ") else { continue }
                             let json = String(line.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
                             if json == "[DONE]" { break }
+                            // Upstream gate can arrive as an SSE error envelope
+                            // (HTTP 200 with an error event) — fail honestly
+                            // instead of ending as a misleading "empty response".
+                            if MiCoderAutoFreeError.gateMessage(in: json) != nil {
+                                throw MiCoderAutoFreeError.freeTierBlocked(json)
+                            }
                             guard let data = json.data(using: .utf8) else { continue }
                             if let chunk = try? JSONDecoder().decode(StreamChunk.self, from: data) {
                                 if let content = chunk.choices.first?.delta.content, !content.isEmpty {
@@ -454,6 +460,8 @@ final class MiCoderAutoFreeClient {
     static func shouldSwitchImmediately(for error: Error) -> Bool {
         if let autoFreeError = error as? MiCoderAutoFreeError {
             switch autoFreeError {
+            case .freeTierBlocked:
+                return false
             case .rateLimited, .modelUnavailable:
                 return true
             case .apiError(let message):
@@ -466,8 +474,19 @@ final class MiCoderAutoFreeClient {
         return false
     }
 
+    /// A client-identity gate cannot be fixed by trying the next model —
+    /// halt the carousel and surface one honest message instead.
+    static func shouldHaltFailover(for error: Error) -> Bool {
+        if let autoFreeError = error as? MiCoderAutoFreeError,
+           case .freeTierBlocked = autoFreeError {
+            return true
+        }
+        return false
+    }
+
     static func shouldSwitch(for error: Error, consecutiveFailures: Int) -> Bool {
-        consecutiveFailures >= maxConsecutiveFailures || shouldSwitchImmediately(for: error)
+        if shouldHaltFailover(for: error) { return false }
+        return consecutiveFailures >= maxConsecutiveFailures || shouldSwitchImmediately(for: error)
     }
 
     private func validate(_ response: URLResponse, data: Data, operation: String) throws {
@@ -476,6 +495,9 @@ final class MiCoderAutoFreeClient {
         }
         guard (200..<300).contains(http.statusCode) else {
             let body = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if MiCoderAutoFreeError.isFreeTierGate(statusCode: http.statusCode, body: body) {
+                throw MiCoderAutoFreeError.freeTierBlocked(body)
+            }
             let suffix = body.isEmpty ? "" : ": \(String(body.prefix(400)))"
             if http.statusCode == 429 {
                 throw MiCoderAutoFreeError.rateLimited("Free model rate limit reached. Try again later or switch model.")
@@ -564,6 +586,30 @@ enum MiCoderAutoFreeError: LocalizedError {
     case modelUnavailable(String, String)
     case emptyResponse
     case apiError(String)
+    /// Upstream Zen free-tier gate (probed live 2026-10-13): anonymous and
+    /// third-party requests get 403 FreeTierError / 400 MissingSessionID —
+    /// "can only be used from within OpenCode". Model-hopping cannot fix a
+    /// client-identity gate, so this error halts failover instead of joining
+    /// the carousel. Impersonating the official client (fake session headers
+    /// / UA) is deliberately NOT attempted.
+    case freeTierBlocked(String)
+
+    /// Pure gate detector over status + body (probed upstream shapes).
+    static func isFreeTierGate(statusCode: Int, body: String) -> Bool {
+        guard statusCode == 400 || statusCode == 403 else { return false }
+        let lower = body.lowercased()
+        return lower.contains("freetiererror") || lower.contains("missingsessionid")
+            || lower.contains("only be used from within opencode")
+            || lower.contains("only be used in opencode")
+    }
+
+    /// True when `text` is an error envelope carrying the gate (used for both
+    /// the REST body and individual SSE data lines).
+    static func gateMessage(in text: String) -> String? {
+        guard isFreeTierGate(statusCode: 403, body: text)
+            || isFreeTierGate(statusCode: 400, body: text) else { return nil }
+        return text
+    }
 
     var errorDescription: String? {
         switch self {
@@ -575,6 +621,8 @@ enum MiCoderAutoFreeError: LocalizedError {
             return "OpenCode model \(model) is unavailable. \(message)"
         case .emptyResponse:
             return "OpenCode returned an empty response."
+        case .freeTierBlocked:
+            return "OpenCode's free tier now only works from within OpenCode (upstream gate, verified live). Add a Zen API key in Providers to use paid models, or pick another provider."
         }
     }
 }
