@@ -62,3 +62,6 @@ FETCH_HEAD
 *.sqlite-wal
 *.sqlite-shm
 
+
+# Built app bundle (assembled by build-app.sh, never commit binaries)
+myCoder.app/
