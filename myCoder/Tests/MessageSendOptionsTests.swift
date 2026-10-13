@@ -265,4 +265,33 @@ struct MessageIDGeneratorTests {
         let id = MessageIDGenerator.next()
         #expect(id.hasPrefix("msg_"))
     }
+
+    @Test("Local provider ID is preserved, not resolved away")
+    func preservesLocalProviderID() {
+        let options = SessionSendLogic.buildSendOptions(
+            agentMode: .build,
+            selectedVariant: nil,
+            modelID: "big-pickle",
+            selectedProviderID: "oc-local-e2e",
+            providers: [],
+            customProviders: [],
+            localProviderIDs: ["oc-local-e2e"]
+        )
+        #expect(options.providerID == "oc-local-e2e")
+        #expect(options.modelID == "big-pickle")
+    }
+
+    @Test("Unknown provider ID still resolves via catalog")
+    func unknownProviderFallsBackToCatalog() {
+        let options = SessionSendLogic.buildSendOptions(
+            agentMode: .build,
+            selectedVariant: nil,
+            modelID: "m",
+            selectedProviderID: "nope",
+            providers: [],
+            customProviders: [],
+            localProviderIDs: []
+        )
+        #expect(options.providerID == nil)
+    }
 }
