@@ -42,3 +42,20 @@
 ## Статус eval
 
 C1 ✅ C2 ✅ C3 ✅ C4 (статика) ✅ · C4 (live A/B) — pending, требует ключи.
+
+## Phase 5 статус (2026-10-13)
+
+- ✅ `MemoryChunk` + `MemoryScorer` (overlap 0.70 / recency 0.15 / proximity 0.10 / use 0.05,
+  бюджет `tokens×4B`, порог шума 0.2) — GREEN 7.
+- ✅ `RerankTransport` + `LlamaCppReranker` (fail-open на scorer) + `URLSessionRerankTransport`.
+- ✅ `scripts/setup-reranker.sh` (Metal-check, install, honest MODEL_GGUF_URL gate, smoke, --bench).
+- ✅ Полный сьют: **2504 теста / 390 свитов — все зелёные.**
+- ❌ Живой бенч 5500M ЗАБЛОКИРОВАН окружением, не кодом: бутылки llama.cpp для
+  Intel+macOS 26 нет, сборка из исходников требует Xcode ≥26.6 (стоит старее),
+  пребилдов macOS в релизе v0.6.0 нет. Действие: обновить Xcode из App Store →
+  `MODEL_GGUF_URL=… ./scripts/setup-reranker.sh --bench`.
+- ⚠️ Контракт `POST /rerank → {scores}` сверен только с моками; setup-скрипт
+  проверяет его против живого сервера и падает честно при расхождении —
+  фиксировать mismatch строго по его выводу, не по памяти.
+- Follow-up (вне слайса): SQLite-персистентность чанков, `/remember`, инжекция
+  `<memory>` в `ChatHistoryBuilder`, обновление `docs/FEATURE_SPREADSHEET.csv`.
