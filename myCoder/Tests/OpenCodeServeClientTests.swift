@@ -106,4 +106,24 @@ struct OpenCodeServeClientTests {
             Issue.record("wrong error type: \(error)")
         }
     }
+
+    @Test func jsonContentTypeIsSet() async throws {
+        let answer = json(#"{"info":{"id":"m1"},"parts":[{"type":"text","text":"ok"}]}"#)
+        final class Cap: DirectChatTransport, @unchecked Sendable {
+            var headers: [[String: String]] = []
+            let answer: Data
+            init(answer: Data) { self.answer = answer }
+            func post(url: String, headers: [String : String], body: Data) async -> (Int, Data)? {
+                self.headers.append(headers)
+                return (200, answer)
+            }
+        }
+        let transport = Cap(answer: answer)
+        _ = try await OpenCodeServeClient.send(
+            baseURL: "http://127.0.0.1:4096", headers: ["Authorization": "Basic eA=="],
+            modelID: "big-pickle", text: "hi", sessionID: "ses_9",
+            transport: transport)
+        #expect(transport.headers.first?["Content-Type"] == "application/json")
+        #expect(transport.headers.first?["Authorization"] == "Basic eA==")
+    }
 }
