@@ -185,6 +185,7 @@ enum WebChatEvent: Equatable {
     case final(String)                  // final answer text
     case error(String)
     case iterationLimitReached
+    case idleLoopStopped(tool: String)   // harness-tax C3: same call 3rd time — stopped before re-executing
     case promptSplit(parts: Int)        // large prompt sent as N messages
     case sessionLimitReached            // model reported conversation too long
     case sessionRestarted               // fresh session seeded with carry-over

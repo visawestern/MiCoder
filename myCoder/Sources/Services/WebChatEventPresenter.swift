@@ -50,6 +50,8 @@ enum WebChatEventPresenter {
             return .none
         case .iterationLimitReached:
             return .status(L.t(AppLocalizationKey.locWebIterationLimit))
+        case .idleLoopStopped(let tool):
+            return .status("Stopped: '\(tool)' repeated without progress — adjust the request and retry.")
         case .final(let text):
             return .answer(text)
         case .error(let msg):

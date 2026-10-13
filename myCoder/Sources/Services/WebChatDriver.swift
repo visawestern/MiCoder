@@ -39,6 +39,12 @@ struct WebChatDriver {
     /// Wait between retries after a TRANSIENT Kimi overload notice.
     static let overloadWaitSeconds = 20
 
+    /// Harness-tax C3: effective iteration ceiling — the configured budget
+    /// capped at the 40-turn hard limit (KDD 2026: cuts TIME/HANG tails).
+    static func effectiveMaxIterations(configured: Int) -> Int {
+        min(configured, IdleLoopDetector.hardIterationCap)
+    }
+
     private struct ResponseBaseline {
         let text: String
         let fingerprint: String
@@ -177,6 +183,9 @@ struct WebChatDriver {
             // anchored exactly once per turn; a repeated refusal is accepted
             // honestly instead of looping nudges forever.
             var refusalNudgedThisTurn = false
+            // Harness-tax C3: idle-loop state for this turn. Fed with every
+            // parsed tool call; trips on the third consecutive identical call.
+            var idleDetector = IdleLoopDetector()
             while true {
                 try Task.checkCancellation()
                 // Guard against session drop / captcha before reading.
@@ -358,7 +367,7 @@ struct WebChatDriver {
                 }
 
                 if WebToolProtocolEmulator.shouldStopLoop(iteration: iteration,
-                                                          maxIterations: config.maxToolIterations,
+                                                          maxIterations: Self.effectiveMaxIterations(configured: config.maxToolIterations),
                                                           lastResponse: response) {
                     if WebToolProtocolEmulator.isFinalResponse(response) {
                         MiCoderAPIServer.appendLog("🏁 [WebChatDriver] final answer: \(response.prefix(120))")
@@ -372,6 +381,16 @@ struct WebChatDriver {
 
                 // Execute each requested tool and feed results back.
                 let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+                // Harness-tax C3: stop BEFORE re-executing a call the model
+                // already repeated twice — each repeat re-sends the whole
+                // context for zero new information.
+                for call in calls where call.arguments["__micoder_truncated"] == nil {
+                    if idleDetector.observe(call) {
+                        MiCoderAPIServer.appendLog("🛑 [WebChatDriver] idle loop: '\(call.name)' repeated 3x, stopping")
+                        emit(.idleLoopStopped(tool: call.name))
+                        return
+                    }
+                }
                 var resultsBlock = ""
                 // Images requested via read_file are attached to the NEXT
                 // composer message through the vendor's real upload flow

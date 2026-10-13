@@ -261,8 +261,13 @@ struct WebChatDriverTests {
     }
 
     @Test func iterationLimitStopsRunawayLoop() async {
-        // Always returns a tool call → would loop forever without the limit.
-        let bridge = FakeBridge(responses: ["```tool\n{\"name\": \"list_dir\", \"args\": {\"path\": \".\"}}\n```"])
+        // Distinct calls defeat the idle detector → the iteration cap stops it.
+        let bridge = FakeBridge(responses: [
+            "```tool\n{\"name\": \"list_dir\", \"args\": {\"path\": \".\"}}\n```",
+            "```tool\n{\"name\": \"list_dir\", \"args\": {\"path\": \"src\"}}\n```",
+            "```tool\n{\"name\": \"list_dir\", \"args\": {\"path\": \"docs\"}}\n```",
+            "```tool\n{\"name\": \"list_dir\", \"args\": {\"path\": \"tests\"}}\n```",
+        ])
         let exec = RecordingExecutor { _ in "[]" }
         var driver = makeDriver(bridge: bridge, executor: exec)
         driver = WebChatDriver(
@@ -276,6 +281,18 @@ struct WebChatDriverTests {
         await driver.runTurn(userMessage: "loop", isFirstMessage: false) { events.append($0) }
         #expect(events.contains(.iterationLimitReached))
         #expect(exec.executed.count <= 3)
+    }
+
+    @Test func identicalRepeatsStopViaIdleBeforeIterationCap() async {
+        // Identical repeats trip the idle killer (C3) instead of burning
+        // the whole iteration budget — earlier and more honest.
+        let bridge = FakeBridge(responses: ["```tool\n{\"name\": \"list_dir\", \"args\": {\"path\": \".\"}}\n```"])
+        let exec = RecordingExecutor { _ in "[]" }
+        let driver = makeDriver(bridge: bridge, executor: exec)
+        var events: [WebChatEvent] = []
+        await driver.runTurn(userMessage: "loop", isFirstMessage: false) { events.append($0) }
+        #expect(events.contains { if case .idleLoopStopped = $0 { return true }; return false })
+        #expect(!events.contains(.iterationLimitReached))
     }
 
     @Test func invalidToolPathReturnsValidationErrorNotExecution() async {
@@ -334,6 +351,21 @@ struct WebChatDriverTests {
             msg.range(of: "FINAL PART [0-9]+/[0-9]+", options: .regularExpression) != nil
         }
         #expect(numberedFinal.count == 1)
+    }
+
+    @Test("idle loop stops before the third identical tool call executes")
+    func idleLoopStopsOnRepeat() async {
+        let toolBlock = "```tool\n{\"name\": \"list_dir\", \"args\": {\"path\": \".\"}}\n```"
+        let bridge = FakeBridge(responses: [toolBlock])
+        let exec = RecordingExecutor { _ in "contents" }
+        let driver = makeDriver(bridge: bridge, executor: exec)
+
+        var events: [WebChatEvent] = []
+        await driver.runTurn(userMessage: "list", isFirstMessage: false) { events.append($0) }
+
+        #expect(events.contains { if case .idleLoopStopped = $0 { return true }; return false })
+        #expect(exec.executed.count == 2)
+        #expect(!events.contains { if case .final = $0 { return true }; return false })
     }
 }
 
@@ -468,20 +500,5 @@ struct WebChatApprovalInterruptionTests {
         let body: (WebToolCall) async -> String
         func execute(_ call: WebToolCall) async -> String { await body(call) }
         func execute(_ call: WebToolCall, userApproved: Bool) async -> String { await body(call) }
-    }
-
-    @Test("idle loop stops before the third identical tool call executes")
-    func idleLoopStopsOnRepeat() async {
-        let toolBlock = "```tool\n{\"name\": \"list_dir\", \"args\": {\"path\": \".\"}}\n```"
-        let bridge = FakeBridge(responses: [toolBlock])
-        let exec = RecordingExecutor { _ in "contents" }
-        let driver = makeDriver(bridge: bridge, executor: exec)
-
-        var events: [WebChatEvent] = []
-        await driver.runTurn(userMessage: "list", isFirstMessage: false) { events.append($0) }
-
-        #expect(events.contains { if case .idleLoopStopped = $0 { return true }; return false })
-        #expect(exec.executed.count == 2)
-        #expect(!events.contains { if case .final = $0 { return true }; return false })
     }
 }
