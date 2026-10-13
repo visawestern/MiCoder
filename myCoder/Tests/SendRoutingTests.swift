@@ -62,15 +62,16 @@ struct SendRoutingTests {
         #expect(route == .openAICompatible(baseURL: "http://127.0.0.1:11434/v1", apiKey: nil, model: "llama3"))
     }
 
-    @Test func openCodeLocalGetsV1Base() {
-        // Audit P10: generic OpenAI-compatible local servers need /v1.
-        let oc = LocalProviderConfig(kind: .openCode, host: "127.0.0.1", port: 1234)
+    @Test func openCodeLocalRoutesToServeSessionAPI() {
+        // A real `opencode serve` speaks the session REST API, not OpenAI /v1
+        // (verified live against 1.18.29) — route it to the session client.
+        let oc = LocalProviderConfig(kind: .openCode, host: "127.0.0.1", port: 4096)
         let route = SendRouteResolver.route(
-            selectedProviderID: oc.id, selectedModel: "m",
+            selectedProviderID: oc.id, selectedModel: "big-pickle",
             serverConnected: false, isACP: false,
             customProviders: [], localProviders: [oc], webProviderIDs: []
         )
-        #expect(route == .openAICompatible(baseURL: "http://127.0.0.1:1234/v1", apiKey: nil, model: "m"))
+        #expect(route == .openCodeServe(baseURL: "http://127.0.0.1:4096", headers: [:], model: "big-pickle"))
     }
 
     @Test func mimoCLILocalUsesServeBaseNoV1() {
