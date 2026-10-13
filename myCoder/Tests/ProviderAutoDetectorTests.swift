@@ -97,4 +97,46 @@ struct ProviderAutoDetectorTests {
         #expect(!ProviderAutoDetector.isLikelyLocal("example.com"))
         #expect(!ProviderAutoDetector.isLikelyLocal("8.8.8.8"))
     }
+
+    @Test func detectsOpenCodeServeViaConfigProviders() async {
+        // Authenticated `opencode serve`: /global/health is 200 AND
+        // /config/providers carries the opencode entry — must win over the
+        // generic mimoCLI branch (same health path, wrong protocol).
+        let probe = ScriptedProbe(routes: [
+            ("/global/health", 200, data(#"{"healthy":true,"version":"1.18.29"}"#)),
+            ("/config/providers", 200, data(#"{"providers":[{"id":"opencode","models":{"big-pickle":{"id":"big-pickle"},"muse-spark-1.3-contributor-free":{"id":"muse-spark-1.3-contributor-free"}}},{"id":"google","models":{"gemini-flash-latest":{"id":"gemini-flash-latest"}}}]}"#)),
+        ])
+        let info = await ProviderAutoDetector.detect(host: "127.0.0.1", port: 4096, headers: ["Authorization": "Basic b3BlbmNvZGU6dGVzdA=="], probe: probe)
+        #expect(info?.kind == .openCode)
+        #expect(info?.models.contains("big-pickle") == true)
+        #expect(info?.models.contains("muse-spark-1.3-contributor-free") == true)
+        #expect(info?.models.contains("gemini-flash-latest") == false)
+    }
+
+    @Test func lockedServeWithoutAuthDetectsNothing() async {
+        // Password-protected serve answers 401 without credentials —
+        // must not misclassify as anything (certainly not as sending-ready).
+        let probe = ScriptedProbe(routes: [
+            ("/global/health", 401, Data()),
+            ("/acp/v1/models", 404, Data()),
+            ("/v1/models", 404, Data()),
+        ])
+        let info = await ProviderAutoDetector.detect(host: "127.0.0.1", port: 4096, probe: probe)
+        #expect(info == nil)
+    }
+
+    @Test func parseOpenCodeProvidersPrefersOpencodeEntry() {
+        let providers = ProviderAutoDetector.parseOpenCodeProviders(data(#"{"providers":[{"id":"opencode","models":{"big-pickle":{"id":"big-pickle"}}},{"id":"other","models":{"x":{"id":"x"}}}]}"#))
+        #expect(providers == ["big-pickle"])
+    }
+
+    @Test func parseOpenCodeProvidersFallsBackToAllKeys() {
+        let providers = ProviderAutoDetector.parseOpenCodeProviders(data(#"{"providers":[{"id":"google","models":{"gemini-flash-latest":{"id":"a"}}}]}"#))
+        #expect(providers == ["gemini-flash-latest"])
+    }
+
+    @Test func parseOpenCodeProvidersRejectsGarbage() {
+        #expect(ProviderAutoDetector.parseOpenCodeProviders(data(#"{"nope":[]}"#)) == nil)
+        #expect(ProviderAutoDetector.parseOpenCodeProviders(Data()) == nil)
+    }
 }
