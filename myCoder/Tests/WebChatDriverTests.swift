@@ -469,4 +469,19 @@ struct WebChatApprovalInterruptionTests {
         func execute(_ call: WebToolCall) async -> String { await body(call) }
         func execute(_ call: WebToolCall, userApproved: Bool) async -> String { await body(call) }
     }
+
+    @Test("idle loop stops before the third identical tool call executes")
+    func idleLoopStopsOnRepeat() async {
+        let toolBlock = "```tool\n{\"name\": \"list_dir\", \"args\": {\"path\": \".\"}}\n```"
+        let bridge = FakeBridge(responses: [toolBlock])
+        let exec = RecordingExecutor { _ in "contents" }
+        let driver = makeDriver(bridge: bridge, executor: exec)
+
+        var events: [WebChatEvent] = []
+        await driver.runTurn(userMessage: "list", isFirstMessage: false) { events.append($0) }
+
+        #expect(events.contains { if case .idleLoopStopped = $0 { return true }; return false })
+        #expect(exec.executed.count == 2)
+        #expect(!events.contains { if case .final = $0 { return true }; return false })
+    }
 }
