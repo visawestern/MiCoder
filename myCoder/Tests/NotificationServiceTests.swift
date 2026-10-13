@@ -4,6 +4,7 @@ import Foundation
 
 @Suite("Notification Service")
 struct NotificationServiceTests {
+    init() { LocalizationRuntime.currentLanguage = .english }
     
     // MARK: - Basic Operations
     
@@ -259,6 +260,7 @@ struct NotificationServiceTests {
 
 @Suite("myCoder Auto Free switch notifications")
 struct MiCoderAutoFreeNotificationTests {
+    init() { LocalizationRuntime.currentLanguage = .english }
     @Test("Rate-limit switch creates a prominent error notification")
     func rateLimitMessage() {
         let notification = MiCoderAutoFreeNotificationLogic.make(userInfo: [

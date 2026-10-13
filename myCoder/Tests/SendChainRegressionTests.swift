@@ -16,6 +16,7 @@ import Foundation
 
 @Suite("Send chain — no silent no-op (Round 8)")
 struct SendChainRegressionTests {
+    init() { LocalizationRuntime.currentLanguage = .english }
 
     // MARK: - P1: the disabled send button must expose WHY it is disabled
 

@@ -4,6 +4,7 @@ import Foundation
 
 @Suite("Web chat event presenter — captcha in chat (plan Раздел 12 Блок 3 п.34)")
 struct WebChatEventPresenterTests {
+    init() { LocalizationRuntime.currentLanguage = .english }
 
     @Test func captchaEventProducesInlineCaptcha() {
         let png = Data("PNGDATA".utf8)
