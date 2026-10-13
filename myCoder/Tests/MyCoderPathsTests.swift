@@ -117,6 +117,18 @@ struct MyCoderPathsTests {
         #expect(MyCoderDefaults.string("theme", in: defaults) == "new")
     }
 
+    @Test func globalDatabaseLivesUnderMycoder() {
+        let home = URL(fileURLWithPath: "/tmp/fake-home")
+        #expect(MyCoderPaths.globalDatabaseURL(homeDirectory: home).path
+            == "/tmp/fake-home/.mycoder/mimo.db")
+    }
+
+    @Test func storageResetPlanUsesMycoder() {
+        let home = URL(fileURLWithPath: "/tmp/fake-home")
+        let plan = StorageResetLogic.plan(for: .appCacheOnly, homeDirectory: home)
+        #expect(plan.deletesPaths == ["/tmp/fake-home/.mycoder/mimo.db"])
+    }
+
     @Test func migrateAllKnownKeysCarriesLegacyForward() {
         let suite = "mycoder-r6-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
