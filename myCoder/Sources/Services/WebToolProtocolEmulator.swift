@@ -78,6 +78,35 @@ enum WebEmulatedTool: String, CaseIterable {
         case .task: return "Launch a sub-agent for a complex task (runs in background, returns result)."
         }
     }
+
+    /// Harness-tax C2: the always-loaded core. Five tools cover the
+    /// read→edit→verify loop; everything else loads on request so the
+    /// initial context stays small (Pi-style minimal profile).
+    var isCore: Bool {
+        switch self {
+        case .readFile, .writeFile, .editFile, .listDir, .runCommand:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
+/// Harness-tax C2: which tools ship inline in the preamble per profile.
+/// `unknown` (legacy rows) behaves like `full` — no behavior change for
+/// existing callers until a profile is explicitly chosen (C4).
+extension HarnessProfile {
+    var tools: [WebEmulatedTool] {
+        switch self {
+        case .minimal:
+            return WebEmulatedTool.allCases.filter { $0.isCore }
+        case .standard:
+            let extra: Set<String> = ["grep", "glob", "git_status", "git_diff", "todo_read", "todo_write"]
+            return WebEmulatedTool.allCases.filter { $0.isCore || extra.contains($0.rawValue) }
+        case .full, .unknown:
+            return WebEmulatedTool.allCases
+        }
+    }
 }
 
 /// Emulates a tool-calling protocol over a plain web chat that has no native
@@ -92,17 +121,60 @@ enum WebToolProtocolEmulator {
     /// a tool-usage policy, the exact tool-call wire format, and the full tool
     /// list. Web chat has no native tool API, so the host emulates one and the
     /// model must announce each tool call in a parseable block.
+    ///
+    /// Harness-tax C2: `profile` selects how many tools ship inline —
+    /// `.minimal` lists only the 5 core tools and names the rest on one
+    /// "available on request" line (their schemas follow when asked).
+    /// `nil` (default) preserves the legacy full-list behavior exactly.
+    /// `budgetBytes` caps the total size by truncating the tail of
+    /// `userSystemPrompt` (marked); the wire format is never cut.
     static func systemPreamble(tools: [WebEmulatedTool] = WebEmulatedTool.allCases,
                                userSystemPrompt: String = "",
                                projectRoot: String = "",
                                directory: String = "",
                                isGitRepo: Bool = false,
-                               date: Date = Date()) -> String {
+                               date: Date = Date(),
+                               profile: HarnessProfile? = nil,
+                               budgetBytes: Int? = nil) -> String {
         // Audit 2026-09-08 (Kimi): vendors convert pastes over ~4000 bytes
         // into .txt attachments, and free web models answer each split part
         // instead of honoring the continuation header — so the preamble MUST
         // ship as ONE message under 3900 bytes. Compact form, same wire
         // protocol (```tool blocks + tool_result feedback).
+        let listed = profile.map { $0.tools } ?? tools
+        let listedNames = Set(listed.map(\.rawValue))
+        let onRequest = WebEmulatedTool.allCases.filter { !listedNames.contains($0.rawValue) }
+        var prompt = userSystemPrompt
+        if let budget = budgetBytes {
+            // Reserve room for everything except the user prompt: build once
+            // without it, then fit the tail of the prompt into the remainder.
+            let base = buildPreambleLines(userSystemPrompt: "", projectRoot: projectRoot,
+                                          directory: directory, isGitRepo: isGitRepo, date: date,
+                                          listed: listed, onRequest: onRequest)
+                .joined(separator: "\n").utf8.count
+            let room = max(0, budget - base)
+            if prompt.utf8.count > room {
+                var cut = prompt
+                let target = max(0, room - 14)
+                while cut.utf8.count > target && !cut.isEmpty {
+                    cut.removeLast(max(1, (cut.utf8.count - target) / 2))
+                }
+                prompt = cut + "\n[truncated]"
+            }
+        }
+        return buildPreambleLines(userSystemPrompt: prompt, projectRoot: projectRoot,
+                                  directory: directory, isGitRepo: isGitRepo, date: date,
+                                  listed: listed, onRequest: onRequest)
+            .joined(separator: "\n")
+    }
+
+    private static func buildPreambleLines(userSystemPrompt: String,
+                                           projectRoot: String,
+                                           directory: String,
+                                           isGitRepo: Bool,
+                                           date: Date,
+                                           listed: [WebEmulatedTool],
+                                           onRequest: [WebEmulatedTool]) -> [String] {
         var lines: [String] = []
         if !userSystemPrompt.isEmpty {
             lines.append(userSystemPrompt)
@@ -128,12 +200,17 @@ enum WebToolProtocolEmulator {
         lines.append(#"{"name": "list_dir", "args": {"path": "."}}"#)
         lines.append("```")
         lines.append("Rules: every listed tool above IS available — never say a tool is missing or unavailable, never refuse with \"I'm a sandboxed model / I can't access your machine\", never narrate tool use in prose, never invent results. When a task needs a tool, emit its block immediately, then wait for the result.")
-        lines.append("Policy: inspect first (read_file/list_dir/grep/glob); write via write_file/edit_file; run_command only at full access (read-only prints like cat/grep/sed -n/git log run without approval); git_* for VCS; todo_* for checklists. Page large files with read_file offset/limit instead of re-reading from the start. When done, reply without a tool block.")
+        let listedNames2 = Set(listed.map(\.rawValue))
+        let inspectors = ["read_file", "list_dir", "grep", "glob"].filter { listedNames2.contains($0) }
+        lines.append("Policy: inspect first (\(inspectors.joined(separator: "/"))); write via write_file/edit_file; run_command only at full access (read-only prints like cat/grep/sed -n/git log run without approval); git_* for VCS; todo_* for checklists. Page large files with read_file offset/limit instead of re-reading from the start. When done, reply without a tool block.")
         lines.append("Tools:")
-        for tool in tools {
+        for tool in listed {
             lines.append("- \(tool.rawValue) args: \(tool.argumentSchema)")
         }
-        return lines.joined(separator: "\n")
+        if !onRequest.isEmpty {
+            lines.append("Further tools available on request (name one and its schema follows): \(onRequest.map(\.rawValue).joined(separator: ", ")).")
+        }
+        return lines
     }
 
     /// Extract all tool calls from a model response. Tolerant of surrounding

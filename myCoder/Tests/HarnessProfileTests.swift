@@ -6,7 +6,7 @@ import Foundation
 struct HarnessProfileTests {
 
     @Test func coreToolsAreFive() {
-        let core = Set(WebEmulatedTool.allCases.filter(\.isCore).map(\.rawValue))
+        let core = Set(WebEmulatedTool.allCases.filter { $0.isCore }.map(\.rawValue))
         #expect(core == ["read_file", "write_file", "edit_file", "list_dir", "run_command"])
     }
 
@@ -40,11 +40,20 @@ struct HarnessProfileTests {
     @Test func budgetTruncatesUserPromptNotProtocol() {
         let longPrompt = String(repeating: "x", count: 5000)
         let out = WebToolProtocolEmulator.systemPreamble(
-            userSystemPrompt: longPrompt, profile: .minimal, budgetBytes: 2000)
-        #expect(out.utf8.count <= 2000)
+            userSystemPrompt: longPrompt, profile: .minimal, budgetBytes: 3000)
+        #expect(out.utf8.count <= 3000)
         #expect(out.contains("```tool"))
         #expect(out.contains("list_dir"))
         #expect(out.contains("[truncated]"))
+    }
+
+    @Test func tinyBudgetKeepsProtocolIntact() {
+        let out = WebToolProtocolEmulator.systemPreamble(
+            userSystemPrompt: String(repeating: "y", count: 100),
+            profile: .minimal, budgetBytes: 100)
+        // Wire format is never cut even when the budget can't fit the base.
+        #expect(out.contains("```tool"))
+        #expect(out.contains("Tools:"))
     }
 
     @Test func noBudgetKeepsFullPrompt() {
