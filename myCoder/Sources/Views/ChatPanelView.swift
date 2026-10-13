@@ -824,6 +824,37 @@ struct ChatPanelView: View {
         }
 
         do {
+            // ── Local `opencode serve` branch (OC-3) ──────────
+            // The user's own authenticated server: session REST API with
+            // basic auth, NOT OpenAI /v1. Serve sessions persist server-side;
+            // reuse ours per chat so follow-ups keep context.
+            if case .openCodeServe(let baseURL, let headers, let model) = route {
+                let chatKey = preparedSessionID ?? assistantID
+                await MainActor.run {
+                    self.messageStore.update(id: assistantID) { msg in
+                        msg.content = SendStatusText.waitingForResponse(modelID: model, providerName: "OpenCode")
+                    }
+                }
+                let sid = OpenCodeServeSessionStore.shared.sessionID(for: chatKey)
+                let result = try await OpenCodeServeClient.send(
+                    baseURL: baseURL, headers: headers, modelID: model,
+                    text: modelText, sessionID: sid
+                )
+                OpenCodeServeSessionStore.shared.remember(sessionID: result.sessionID, for: chatKey)
+                await MainActor.run {
+                    self.appState.isLoading = false
+                    self.appState.isStreaming = false
+                    self.streamingText = ""
+                    self.messageStore.update(id: assistantID) { msg in
+                        msg.content = result.content
+                        msg.isFinished = true
+                        msg.isStreaming = false
+                    }
+                    self.currentAssistantMessageID = nil
+                }
+                return
+            }
+
             // ── Local / custom OpenAI-compatible branch ──────────
             if case .openAICompatible(let baseURL, let apiKey, let model) = route {
                 let params = ModelCallParametersStore.parameters(for: model)

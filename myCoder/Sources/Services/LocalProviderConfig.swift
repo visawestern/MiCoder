@@ -15,6 +15,11 @@ enum LocalProviderKind: String, Codable, CaseIterable, Identifiable {
     /// an auto-detected ACP server is NOT stored as OpenCode: OpenCode routes
     /// to OpenAI /v1/chat/completions, which a real ACP server doesn't speak.
     case acp
+    /// Generic OpenAI-compatible server (probe: GET /v1/models). Kept apart
+    /// from OpenCode for the mirror reason: a generic server does NOT speak
+    /// the opencode session REST API that `openCode` routes to (OC-3/OC-4,
+    /// verified live against `opencode serve` 1.18.29).
+    case openAICompatible
 
     var id: String { rawValue }
 
@@ -24,6 +29,7 @@ enum LocalProviderKind: String, Codable, CaseIterable, Identifiable {
         case .openCode: return "OpenCode"
         case .localAgent: return "Local Agent"
         case .acp: return "ACP"
+        case .openAICompatible: return "OpenAI-compatible"
         }
     }
 
@@ -33,6 +39,7 @@ enum LocalProviderKind: String, Codable, CaseIterable, Identifiable {
         case .openCode: return "terminal"
         case .localAgent: return "cpu"
         case .acp: return "terminal.fill"
+        case .openAICompatible: return "network"
         }
     }
 
@@ -43,6 +50,7 @@ enum LocalProviderKind: String, Codable, CaseIterable, Identifiable {
         case .openCode: return "/global/health"
         case .localAgent: return "/global/health"
         case .acp: return "/models" // relative to the /acp/v1 API base
+        case .openAICompatible: return "/v1/models"
         }
     }
 
@@ -52,6 +60,7 @@ enum LocalProviderKind: String, Codable, CaseIterable, Identifiable {
         case .openCode: return 4096
         case .localAgent: return 4096
         case .acp: return 8080
+        case .openAICompatible: return 1234
         }
     }
 }
@@ -172,22 +181,34 @@ enum LocalProviderLogic {
 
     /// Fetch live models from a local provider's HTTP endpoint. Returns nil on
     /// any failure so callers can keep the existing list rather than wiping it.
+    /// Authenticated when the config carries basic-auth credentials (opencode
+    /// serve locks every endpoint without them).
     static func fetchModels(for config: LocalProviderConfig) async -> [String]? {
         let endpoint: String
         switch config.kind {
         case .ollama:
             endpoint = config.serveBaseURL + "/api/tags"
-        case .openCode, .localAgent:
+        case .openCode:
+            endpoint = config.serveBaseURL + "/config/providers"
+        case .localAgent:
             endpoint = config.serveBaseURL + "/global/models"
         case .acp:
             endpoint = config.serveBaseURL + "/acp/v1/models"
+        case .openAICompatible:
+            endpoint = config.serveBaseURL + "/v1/models"
         }
         guard let url = URL(string: endpoint) else { return nil }
         var request = URLRequest(url: url)
         request.timeoutInterval = 5
+        for (field, value) in config.authHeaders() {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+            if config.kind == .openCode {
+                return ProviderAutoDetector.parseOpenCodeProviders(data)
+            }
             return parseModels(from: data, kind: config.kind)
         } catch {
             return nil
@@ -210,6 +231,12 @@ enum LocalProviderLogic {
                 names = models.compactMap { $0["id"] as? String ?? $0["name"] as? String }
             }
         case .acp:
+            if let dict = json as? [String: Any], let models = dict["models"] as? [[String: Any]] {
+                names = models.compactMap { $0["id"] as? String ?? $0["name"] as? String }
+            } else if let models = json as? [[String: Any]] {
+                names = models.compactMap { $0["id"] as? String ?? $0["name"] as? String }
+            }
+        case .openAICompatible:
             if let dict = json as? [String: Any], let models = dict["models"] as? [[String: Any]] {
                 names = models.compactMap { $0["id"] as? String ?? $0["name"] as? String }
             } else if let models = json as? [[String: Any]] {
@@ -246,9 +273,20 @@ enum LocalProviderConfirmLogic {
         case .ollama: kind = .ollama
         case .mimoCLI: kind = .localAgent
         case .acp: kind = .acp
-        case .openAICompatible: kind = .openCode
+        case .openCode: kind = .openCode
+        case .openAICompatible: kind = .openAICompatible
         }
         return LocalProviderConfig(kind: kind, host: host, port: port, models: info.models)
+    }
+
+    /// Pure credential attach for the confirm step: username persists on the
+    /// config; the password is returned for the caller to store in the
+    /// Keychain (never in UserDefaults — see OC-1 test).
+    /// Returns the updated config (password is NOT embedded in it).
+    static func applyCredentials(to config: LocalProviderConfig, username: String) -> LocalProviderConfig {
+        var updated = config
+        updated.username = username
+        return updated
     }
 
     /// True when a config for the same host:port is already configured —
@@ -263,6 +301,7 @@ enum LocalProviderConfirmLogic {
         case .ollama: return "Ollama"
         case .mimoCLI: return "Local Agent"
         case .acp: return "ACP"
+        case .openCode: return "OpenCode"
         case .openAICompatible: return "OpenAI-compatible"
         }
     }

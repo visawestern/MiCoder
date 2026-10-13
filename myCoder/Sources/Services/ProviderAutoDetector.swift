@@ -9,7 +9,7 @@ import FoundationNetworking
 /// then auto-loads the model list for the detected type.
 
 struct DetectedProviderInfo: Equatable {
-    enum Kind: Equatable { case ollama, openAICompatible, mimoCLI, acp }
+    enum Kind: Equatable { case ollama, openAICompatible, mimoCLI, acp, openCode }
     let kind: Kind
     let baseURL: String
     /// Model ids discovered during probing (may be empty if the probe
@@ -37,42 +37,79 @@ enum ProviderAutoDetector {
     /// stretch detection beyond the budget (a start-gate alone would still
     /// allow a single hanging probe to eat a full step timeout, and the
     /// default 4 × stepTimeout would then exceed the overall timeout).
-    static func detect(host: String, port: Int, probe: ProviderProbe) async -> DetectedProviderInfo? {
-        await detect(host: host, port: port, probe: probe, overallTimeout: overallTimeout)
+    /// Basic-auth headers ride every probe (opencode serve locks all
+    /// endpoints without them). Empty by default — old callers unaffected.
+    static func detect(host: String, port: Int, headers: [String: String] = [:], probe: ProviderProbe) async -> DetectedProviderInfo? {
+        await detect(host: host, port: port, headers: headers, probe: probe, overallTimeout: overallTimeout)
     }
 
     static func detect(host: String, port: Int, probe: ProviderProbe,
+                       overallTimeout: TimeInterval) async -> DetectedProviderInfo? {
+        await detect(host: host, port: port, headers: [:], probe: probe, overallTimeout: overallTimeout)
+    }
+
+    static func detect(host: String, port: Int, headers: [String: String] = [:], probe: ProviderProbe,
                        overallTimeout: TimeInterval) async -> DetectedProviderInfo? {
         let base = "http://\(host):\(port)"
         let deadline = Date().addingTimeInterval(overallTimeout)
 
         // (1) Ollama: GET /api/tags
-        if let result = await probeOnce(probe, url: "\(base)/api/tags", headers: [:], deadline: deadline),
+        if let result = await probeOnce(probe, url: "\(base)/api/tags", headers: headers, deadline: deadline),
            let models = parseOllamaTags(result.1) {
             return DetectedProviderInfo(kind: .ollama, baseURL: base, models: models)
         }
 
+        // (1b) OpenCode serve: GET /global/health (200) + /config/providers
+        // with the opencode entry. MUST precede the mimoCLI branch: both share
+        // /global/health, but only the session REST API sends to opencode
+        // correctly (verified live against 1.18.29). Without credentials a
+        // locked serve answers 401 and detection honestly yields nil.
+        if let health = await probeOnce(probe, url: "\(base)/global/health", headers: headers, deadline: deadline),
+           health.0 == 200,
+           let providers = await probeOnce(probe, url: "\(base)/config/providers", headers: headers, deadline: deadline),
+           let models = parseOpenCodeProviders(providers.1) {
+            return DetectedProviderInfo(kind: .openCode, baseURL: base, models: models)
+        }
+
         // (2) MiMo CLI/Serve: GET /global/health
-        if let health = await probeOnce(probe, url: "\(base)/global/health", headers: [:], deadline: deadline),
+        if let health = await probeOnce(probe, url: "\(base)/global/health", headers: headers, deadline: deadline),
            health.0 == 200 {
-            let models = (await probeOnce(probe, url: "\(base)/global/models", headers: [:], deadline: deadline))
+            let models = (await probeOnce(probe, url: "\(base)/global/models", headers: headers, deadline: deadline))
                 .flatMap { parseOpenAIModels($0.1) } ?? []
             return DetectedProviderInfo(kind: .mimoCLI, baseURL: base, models: models)
         }
 
         // (3) ACP: GET /acp/v1/models
-        if let result = await probeOnce(probe, url: "\(base)/acp/v1/models", headers: [:], deadline: deadline),
+        if let result = await probeOnce(probe, url: "\(base)/acp/v1/models", headers: headers, deadline: deadline),
            let models = parseOpenAIModels(result.1) {
             return DetectedProviderInfo(kind: .acp, baseURL: base, models: models)
         }
 
         // (4) Generic OpenAI-compatible: GET /v1/models (fallback)
-        if let result = await probeOnce(probe, url: "\(base)/v1/models", headers: [:], deadline: deadline),
+        if let result = await probeOnce(probe, url: "\(base)/v1/models", headers: headers, deadline: deadline),
            let models = parseOpenAIModels(result.1) {
             return DetectedProviderInfo(kind: .openAICompatible, baseURL: base, models: models)
         }
 
         return nil
+    }
+
+    /// Parse model ids from an opencode serve `/config/providers` payload:
+    /// `{providers: [{id, models: {<modelID>: {...}}}]}. Prefers the entry
+    /// with id "opencode"; without it, unions every entry's model keys.
+    /// Returns nil when nothing parses (caller falls through to the next
+    /// probe branch instead of misclassifying).
+    static func parseOpenCodeProviders(_ data: Data) -> [String]? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let providers = json["providers"] as? [[String: Any]], !providers.isEmpty else {
+            return nil
+        }
+        if let opencode = providers.first(where: { ($0["id"] as? String) == "opencode" }),
+           let models = opencode["models"] as? [String: Any], !models.isEmpty {
+            return models.keys.sorted()
+        }
+        let all = Set(providers.compactMap { $0["models"] as? [String: Any] }.flatMap { $0.keys })
+        return all.isEmpty ? nil : all.sorted()
     }
 
     /// Runs one probe but refuses to wait past `deadline`. The probe races a

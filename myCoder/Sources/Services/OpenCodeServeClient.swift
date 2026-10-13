@@ -26,6 +26,30 @@ enum OpenCodeServeError: Error, Equatable, LocalizedError {
     }
 }
 
+/// In-memory map from myCoder chat id → opencode serve session id (OC-3).
+/// Follow-up turns reuse the server-side session so context carries over.
+/// Process-local only (documented follow-up: persist per project DB).
+final class OpenCodeServeSessionStore: @unchecked Sendable {
+    static let shared = OpenCodeServeSessionStore()
+    private let lock = NSLock()
+    private var map: [String: String] = [:]
+
+    func sessionID(for chatID: String) -> String? {
+        lock.lock(); defer { lock.unlock() }
+        return map[chatID]
+    }
+
+    func remember(sessionID: String, for chatID: String) {
+        lock.lock(); defer { lock.unlock() }
+        map[chatID] = sessionID
+    }
+
+    func forget(chatID: String) {
+        lock.lock(); defer { lock.unlock() }
+        map.removeValue(forKey: chatID)
+    }
+}
+
 /// Thin client for a user-run `opencode serve` (their own OAuth identity —
 /// the only path that passes the upstream free-tier gate; anonymous header
 /// tricks are gated server-side, probed live 2026-10-13).

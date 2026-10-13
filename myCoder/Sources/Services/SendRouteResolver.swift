@@ -11,6 +11,10 @@ enum SendRoute: Equatable {
     case mimoServe
     /// OpenAI-compatible HTTP endpoint (Ollama/OpenCode/custom OpenAI providers).
     case openAICompatible(baseURL: String, apiKey: String?, model: String)
+    /// Local `opencode serve` session REST API (verified live: it does NOT
+    /// speak OpenAI /v1 — POST /session then POST /session/:id/message).
+    /// Headers carry basic auth when the serve instance requires it.
+    case openCodeServe(baseURL: String, headers: [String: String], model: String)
     /// Web-chat provider driven through the browser (WebChatDriver).
     case web(configID: String)
     /// Built-in myCoder Auto Free provider (direct to OpenCode Zen).
@@ -44,8 +48,10 @@ enum SendRouteResolver {
         //    /acp/v1, not OpenAI /v1/chat/completions).
         if let local = localProviders.first(where: { $0.id == selectedProviderID && $0.isEnabled }) {
             switch local.kind {
-            case .ollama, .openCode:
+            case .ollama, .openAICompatible:
                 return .openAICompatible(baseURL: "\(local.apiBaseURL)/v1", apiKey: nil, model: selectedModel)
+            case .openCode:
+                return .openCodeServe(baseURL: local.apiBaseURL, headers: local.authHeaders(), model: selectedModel)
             case .localAgent:
                 return .openAICompatible(baseURL: local.apiBaseURL, apiKey: nil, model: selectedModel)
             case .acp:

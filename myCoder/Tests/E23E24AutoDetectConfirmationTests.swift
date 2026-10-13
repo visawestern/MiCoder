@@ -194,9 +194,11 @@ struct E23E24AutoDetectConfirmationTests {
         let mimo = DetectedProviderInfo(kind: .mimoCLI, baseURL: "http://x", models: ["a"])
         #expect(LocalProviderConfirmLogic.config(from: mimo, host: "x", port: 1).kind == .localAgent)
         let compat = DetectedProviderInfo(kind: .openAICompatible, baseURL: "http://x", models: ["a"])
-        #expect(LocalProviderConfirmLogic.config(from: compat, host: "x", port: 1).kind == .openCode)
+        #expect(LocalProviderConfirmLogic.config(from: compat, host: "x", port: 1).kind == .openAICompatible)
         let acp = DetectedProviderInfo(kind: .acp, baseURL: "http://x", models: ["a"])
         #expect(LocalProviderConfirmLogic.config(from: acp, host: "x", port: 1).kind == .acp)
+        let oc = DetectedProviderInfo(kind: .openCode, baseURL: "http://x", models: ["a"])
+        #expect(LocalProviderConfirmLogic.config(from: oc, host: "x", port: 1).kind == .openCode)
     }
 
     @Test("an auto-detected ACP local provider routes through the ACP route, not OpenAI-compatible")
@@ -214,18 +216,29 @@ struct E23E24AutoDetectConfirmationTests {
         #expect(route == .acp)
     }
 
-    @Test("openCode and Ollama locals still route as OpenAI-compatible")
+    @Test("Ollama locals still route as OpenAI-compatible; OpenCode locals use the session API")
     func nonACPLocalsStillRouteOpenAICompatible() {
         let openCode = LocalProviderConfig(kind: .openCode, host: "localhost", port: 4096)
         let route = SendRouteResolver.route(
             selectedProviderID: openCode.id, selectedModel: "m",
             serverConnected: false, isACP: false,
             customProviders: [], localProviders: [openCode], webProviderIDs: [])
-        guard case .openAICompatible(let baseURL, _, _) = route else {
-            Issue.record("expected openAICompatible route, got \(route)")
+        guard case .openCodeServe(let baseURL, _, let model) = route else {
+            Issue.record("expected openCodeServe route, got \(route)")
             return
         }
-        #expect(baseURL == "http://localhost:4096/v1")
+        #expect(baseURL == "http://localhost:4096")
+        #expect(model == "m")
+        let ollama = LocalProviderConfig(kind: .ollama, host: "localhost", port: 11434)
+        let oroute = SendRouteResolver.route(
+            selectedProviderID: ollama.id, selectedModel: "m",
+            serverConnected: false, isACP: false,
+            customProviders: [], localProviders: [ollama], webProviderIDs: [])
+        guard case .openAICompatible(let obase, _, _) = oroute else {
+            Issue.record("expected openAICompatible route, got \(oroute)")
+            return
+        }
+        #expect(obase == "http://localhost:11434/v1")
     }
 
     // MARK: - E23: dedupe + status text (testable out of the view)

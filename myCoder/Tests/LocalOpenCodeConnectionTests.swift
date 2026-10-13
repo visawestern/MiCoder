@@ -51,13 +51,6 @@ struct LocalOpenCodeConnectionTests {
     }
 
     @Test func detectorForwardsAuthHeaders() async {
-        struct CaptureProbe: ProviderProbe {
-            var seen: [String: [String: String]] = [:]
-            mutating func seenHeaders() -> [[String: String]] { Array(seen.values) }
-            func get(url: String, headers: [String : String]) async -> (Int, Data)? {
-                nil
-            }
-        }
         // Headers must reach the probe (locked serve answers 401 without them).
         final class Box: @unchecked Sendable {
             var all: [[String: String]] = []

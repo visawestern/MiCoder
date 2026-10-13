@@ -458,6 +458,8 @@ struct AutoFreeModelCard: View {
 struct LocalProvidersSection: View {
     @EnvironmentObject var appState: AppState
     @State private var address: String = "localhost:11434"
+    @State private var detectUsername: String = ""
+    @State private var detectPassword: String = ""
     @State private var detecting = false
     @State private var detectResult: String = ""
     @State private var locals: [LocalProviderConfig] = LocalProviderLogic.load()
@@ -491,6 +493,16 @@ struct LocalProvidersSection: View {
                 .buttonStyle(.plain)
                 .disabled(detecting)
             }
+            // Optional basic-auth for locked servers (`opencode serve`
+            // answers 401 on every endpoint without it).
+            HStack(spacing: 8) {
+                TextField("Username (optional)", text: $detectUsername)
+                    .zcodeTextFieldStyle()
+                    .interfaceFont(size: 12)
+                SecureField("Password (optional)", text: $detectPassword)
+                    .zcodeTextFieldStyle()
+                    .interfaceFont(size: 12)
+            }
 
             if !detectResult.isEmpty {
                 Text(detectResult)
@@ -514,7 +526,9 @@ struct LocalProvidersSection: View {
                         LocalProviderRow(config: cfg,
                                          onRemove: { removeLocal(cfg) },
                                          onToggle: { toggleLocal(cfg) },
-                                         onSelect: { model in selectLocalModel(model, from: cfg) })
+                                         onSelect: { model in selectLocalModel(model, from: cfg) },
+                                         onUpdate: { updateLocal($0) },
+                                         onPassword: { updated, secret in saveLocalPassword(updated, secret) })
                     }
                 }
                 .padding(12)
@@ -557,11 +571,13 @@ struct LocalProvidersSection: View {
         // and then immediately wiped by `detectResult = ""` below, so the
         // "is this really your local server?" warning never displayed.
         let warning = AutoDetectStatusText.warningForNonLocal(host)
+        let headers = LocalProviderConfig.basicAuthHeader(
+            username: detectUsername, password: detectPassword).map { ["Authorization": $0] } ?? [:]
         detecting = true
         detectResult = ""
         Task {
             let probe = URLSessionProviderProbe()
-            let info = await ProviderAutoDetector.detect(host: host, port: port, probe: probe)
+            let info = await ProviderAutoDetector.detect(host: host, port: port, headers: headers, probe: probe)
             await MainActor.run {
                 detecting = false
                 let line: String
@@ -569,7 +585,8 @@ struct LocalProvidersSection: View {
                     line = AutoDetectStatusText.detected(info, host: host, port: port)
                     // E23: never add on our own — hold the finding for the
                     // user's explicit confirm/cancel decision.
-                    pendingDetection = PendingDetection(info: info, host: host, port: port)
+                    pendingDetection = PendingDetection(info: info, host: host, port: port,
+                                                        username: detectUsername, password: detectPassword)
                 } else {
                     line = AutoDetectStatusText.nothingDetected(host: host, port: port)
                 }
@@ -580,13 +597,18 @@ struct LocalProvidersSection: View {
 
     private func confirmPendingDetection() {
         guard let pending = pendingDetection else { return }
-        let cfg = LocalProviderConfirmLogic.config(from: pending.info, host: pending.host, port: pending.port)
+        var cfg = LocalProviderConfirmLogic.config(from: pending.info, host: pending.host, port: pending.port)
+        cfg = LocalProviderConfirmLogic.applyCredentials(to: cfg, username: pending.username)
+        if !pending.password.isEmpty {
+            try? cfg.savePassword(pending.password)
+        }
         if !LocalProviderConfirmLogic.isDuplicate(locals, of: cfg) {
             locals.append(cfg)
             LocalProviderLogic.save(locals)
         }
         detectResult = AutoDetectStatusText.confirmed(pending.info, host: pending.host, port: pending.port)
         pendingDetection = nil
+        detectPassword = ""
     }
 
     private func selectLocalModel(_ model: String, from config: LocalProviderConfig) {
@@ -615,6 +637,17 @@ struct LocalProvidersSection: View {
             LocalProviderLogic.save(locals)
         }
     }
+
+    private func updateLocal(_ cfg: LocalProviderConfig) {
+        if let idx = locals.firstIndex(where: { $0.id == cfg.id }) {
+            locals[idx] = cfg
+            LocalProviderLogic.save(locals)
+        }
+    }
+
+    private func saveLocalPassword(_ cfg: LocalProviderConfig, _ secret: String) {
+        try? cfg.savePassword(secret)
+    }
 }
 
 
@@ -625,6 +658,10 @@ struct PendingDetection: Identifiable {
     let info: DetectedProviderInfo
     let host: String
     let port: Int
+    /// Transient basic-auth for the confirm step (never persisted as-is:
+    /// username lands on the config, password goes to the Keychain).
+    var username: String = ""
+    var password: String = ""
 }
 
 struct LocalProviderCard: View {
@@ -662,10 +699,16 @@ struct LocalProviderRow: View {
     let onRemove: () -> Void
     let onToggle: () -> Void
     let onSelect: (String) -> Void
+    /// Persisted credential edits (username stored on the config).
+    let onUpdate: (LocalProviderConfig) -> Void
+    /// Password handoff — the section stores it in the Keychain.
+    let onPassword: (LocalProviderConfig, String) -> Void
 
     @State private var refreshing = false
     @State private var models: [String] = []
     @State private var showModelPicker = false
+    @State private var username: String = ""
+    @State private var password: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -725,9 +768,34 @@ struct LocalProviderRow: View {
                     }
                 }
             }
+            // `opencode serve` locks every endpoint behind basic auth
+            // (verified live) — credentials live here, password in Keychain.
+            if config.kind == .openCode {
+                HStack(spacing: 8) {
+                    TextField("Username (default: opencode)", text: $username)
+                        .zcodeTextFieldStyle()
+                        .interfaceFont(size: 12)
+                        .onSubmit { commitCredentials() }
+                    SecureField("Password (OPENCODE_SERVER_PASSWORD)", text: $password)
+                        .zcodeTextFieldStyle()
+                        .interfaceFont(size: 12)
+                        .onSubmit { commitCredentials() }
+                }
+            }
         }
         .padding(.vertical, 4)
-        .onAppear { models = config.models }
+        .onAppear {
+            models = config.models
+            username = config.username
+        }
+    }
+
+    private func commitCredentials() {
+        var updated = config
+        updated.username = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        onUpdate(updated)
+        onPassword(updated, password)
+        password = ""
     }
 
     private func isSelected(_ model: String) -> Bool {

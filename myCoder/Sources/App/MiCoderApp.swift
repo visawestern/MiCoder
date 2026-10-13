@@ -719,7 +719,7 @@ class AppState: ObservableObject {
             return
         }
         if let local = LocalProviderLogic.load().first(where: { $0.id == providerID && $0.isEnabled }) {
-            providerConnectivity[providerID] = await probeProviderURL(local.healthURL)
+            providerConnectivity[providerID] = await probeProviderURL(local.healthURL, headers: local.authHeaders())
             return
         }
         if let custom = customProviders.first(where: { $0.id == providerID && $0.isEnabled }) {
@@ -730,10 +730,13 @@ class AppState: ObservableObject {
         providerConnectivity[providerID] = false
     }
 
-    private func probeProviderURL(_ string: String) async -> Bool {
+    private func probeProviderURL(_ string: String, headers: [String: String] = [:]) async -> Bool {
         guard let url = URL(string: string) else { return false }
         var request = URLRequest(url: url)
         request.timeoutInterval = 5
+        for (field, value) in headers {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
         do {
             let (_, response) = try await URLSession.shared.data(for: request)
             guard let status = (response as? HTTPURLResponse)?.statusCode else { return false }
