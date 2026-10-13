@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
-  <rect width="256" height="256" fill="#fff"/>
-  <!-- B: cursor-block — solid squircle, negative-space block cursor + caret notch -->
-  <path fill="#000" fill-rule="evenodd" d="M128 8 C180 8 248 40 248 128 C248 216 180 248 128 248 C76 248 8 216 8 128 C8 40 76 8 128 8 Z
-    M88 76 h64 v88 h-40 v40 h-24 Z
-    M176 176 l32 20 -32 20 Z"/>
-</svg>
