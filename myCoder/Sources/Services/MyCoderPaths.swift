@@ -51,6 +51,15 @@ enum MyCoderPaths {
         appDir(homeDirectory: homeDirectory).appendingPathComponent("logs", isDirectory: true)
     }
 
+    /// Legacy global registry DB filename is kept (`mimo.db`) — only the
+    /// directory migrates. Renaming the file itself would require content
+    /// migration for zero user value.
+    static let globalDatabaseFilename = "mimo.db"
+
+    static func globalDatabaseURL(homeDirectory: URL) -> URL {
+        appDir(homeDirectory: homeDirectory).appendingPathComponent(globalDatabaseFilename)
+    }
+
     // MARK: - Agent resources (skills / MCP / commands / plugins / sessions)
 
     static func skillsDir(homeDirectory: URL) -> URL {

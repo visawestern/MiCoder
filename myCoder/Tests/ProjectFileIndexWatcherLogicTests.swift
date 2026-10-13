@@ -19,7 +19,7 @@ struct ProjectFileIndexWatcherLogicTests {
             projectPath: "/tmp/project"
         ))
         #expect(!ProjectFileIndexWatcherLogic.shouldInvalidate(
-            changedPath: "/tmp/project/.micoder/file_index.json",
+            changedPath: "/tmp/project/.mycoder/file_index.json",
             projectPath: "/tmp/project"
         ))
     }

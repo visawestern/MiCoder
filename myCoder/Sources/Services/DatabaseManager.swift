@@ -156,9 +156,9 @@ class DatabaseManager {
         } else {
             self.isInMemory = false
             let homeDir = FileManager.default.homeDirectoryForCurrentUser
-            let mimoDir = homeDir.appendingPathComponent(".micoder")
-            try? FileManager.default.createDirectory(at: mimoDir, withIntermediateDirectories: true)
-            self.dbPath = mimoDir.appendingPathComponent("mimo.db").path
+            let appDir = MyCoderPaths.appDir(homeDirectory: homeDir)
+            try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
+            self.dbPath = appDir.appendingPathComponent(MyCoderPaths.globalDatabaseFilename).path
         }
         initialize()
     }

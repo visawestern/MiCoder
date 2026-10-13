@@ -20,7 +20,7 @@ struct Round14IdentityAndResetTests {
     func resetStorageIsScopedToInjectedHome() throws {
         let sandbox = FileManager.default.temporaryDirectory
             .appendingPathComponent("r14-reset-\(UUID().uuidString)", isDirectory: true)
-        let mimoDir = sandbox.appendingPathComponent(".micoder")
+        let mimoDir = sandbox.appendingPathComponent(".mycoder")
         try FileManager.default.createDirectory(at: mimoDir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: sandbox) }
 

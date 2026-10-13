@@ -163,18 +163,18 @@ struct ProjectHistoryIntegrityTests {
         let registryEntry = try registry.getAllProjects().first { $0.path == ChatSession.normalizedPath(originalPath) }
         #expect(registryEntry?.stableId != nil, "insertProject mints its own registry-side stable id when none is supplied")
 
-        // Simulate: folder gets renamed on disk. The .micoder/project.db (and its stable id) travels with it.
+        // Simulate: folder gets renamed on disk. The .mycoder/project.db (and its stable id) travels with it.
         let renamedPath = try makeTempProjectDir("relink-renamed")
         defer { try? FileManager.default.removeItem(atPath: renamedPath) }
-        let movedMimocodeDir = (renamedPath as NSString).appendingPathComponent(".micoder")
+        let movedMimocodeDir = (renamedPath as NSString).appendingPathComponent(".mycoder")
         try FileManager.default.moveItem(
-            atPath: (originalPath as NSString).appendingPathComponent(".micoder"),
+            atPath: (originalPath as NSString).appendingPathComponent(".mycoder"),
             toPath: movedMimocodeDir
         )
         ProjectDatabaseManager.evictProject(projectPath: originalPath)
         ProjectDatabaseManager.evictProject(projectPath: renamedPath)
         let movedDB = try ProjectDatabaseManager.manager(forProjectPath: renamedPath)
-        #expect(try movedDB.stableProjectId() == stableId, "moving the .micoder folder must preserve the stable id")
+        #expect(try movedDB.stableProjectId() == stableId, "moving the .mycoder folder must preserve the stable id")
 
         let newId = try registry.relinkProject(
             oldId: ChatSession.normalizedPath(originalPath),

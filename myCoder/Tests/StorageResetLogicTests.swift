@@ -9,7 +9,7 @@ struct StorageResetLogicTests {
 
     @Test func appCacheOnlyClearsMimoDBOnly() {
         let plan = StorageResetLogic.plan(for: .appCacheOnly, homeDirectory: home)
-        #expect(plan.deletesPaths == ["/home/user/.micoder/mimo.db"])
+        #expect(plan.deletesPaths == ["/home/user/.mycoder/mimo.db"])
         #expect(plan.scope == .appCacheOnly)
     }
 

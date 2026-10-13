@@ -20,11 +20,11 @@ enum StorageResetLogic {
     /// Build the concrete plan for a given scope. Paths are relative to the
     /// provided home directory.
     static func plan(for scope: StorageResetScope,
-                    homeDirectory: URL) -> StorageResetPlan {
-        let mimoDB = homeDirectory.appendingPathComponent(".micoder/mimo.db").path
+                     homeDirectory: URL) -> StorageResetPlan {
+        let dbURL = MyCoderPaths.globalDatabaseURL(homeDirectory: homeDirectory)
         switch scope {
         case .appCacheOnly:
-            return StorageResetPlan(scope: scope, deletesPaths: [mimoDB])
+            return StorageResetPlan(scope: scope, deletesPaths: [dbURL.path])
         }
     }
 
