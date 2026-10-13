@@ -495,20 +495,7 @@ final class MiCoderAutoFreeClient {
         }
         guard (200..<300).contains(http.statusCode) else {
             let body = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            if MiCoderAutoFreeError.isFreeTierGate(statusCode: http.statusCode, body: body) {
-                throw MiCoderAutoFreeError.freeTierBlocked(body)
-            }
-            let suffix = body.isEmpty ? "" : ": \(String(body.prefix(400)))"
-            if http.statusCode == 429 {
-                throw MiCoderAutoFreeError.rateLimited("Free model rate limit reached. Try again later or switch model.")
-            }
-            if http.statusCode == 503 {
-                throw MiCoderAutoFreeError.rateLimited("Free model server is temporarily unavailable (503). Try again in a moment.")
-            }
-            if [400, 403, 404, 410].contains(http.statusCode) {
-                throw MiCoderAutoFreeError.modelUnavailable("unknown", "Free model unavailable (HTTP \(http.statusCode))\(suffix)")
-            }
-            throw MiCoderAutoFreeError.apiError("Free model request failed (HTTP \(http.statusCode))\(suffix)")
+            throw MiCoderAutoFreeError.mapHttpError(statusCode: http.statusCode, body: body, operation: operation)
         }
     }
 }
@@ -601,6 +588,32 @@ enum MiCoderAutoFreeError: LocalizedError {
         return lower.contains("freetiererror") || lower.contains("missingsessionid")
             || lower.contains("only be used from within opencode")
             || lower.contains("only be used in opencode")
+    }
+
+    /// Pure HTTP→error mapping shared by validate() and tests.
+    /// Bare 400/403 on the anonymous free-chat operations maps to the gate:
+    /// the streaming path validates before any SSE line arrives, and the only
+    /// observed 400/403 shapes there are the gate itself (probed live).
+    /// The catalog operation keeps body-based mapping only.
+    static func mapHttpError(statusCode: Int, body: String, operation: String) -> MiCoderAutoFreeError {
+        let isFreeChat = operation == "Free model streaming" || operation == "Free model chat"
+        if isFreeTierGate(statusCode: statusCode, body: body) {
+            return .freeTierBlocked(body)
+        }
+        if isFreeChat, (statusCode == 400 || statusCode == 403), body.isEmpty {
+            return .freeTierBlocked("(empty body; HTTP \(statusCode) on anonymous free chat — gate per live probe)")
+        }
+        let suffix = body.isEmpty ? "" : ": \(String(body.prefix(400)))"
+        if statusCode == 429 {
+            return .rateLimited("Free model rate limit reached. Try again later or switch model.")
+        }
+        if statusCode == 503 {
+            return .rateLimited("Free model server is temporarily unavailable (503). Try again in a moment.")
+        }
+        if [400, 403, 404, 410].contains(statusCode) {
+            return .modelUnavailable("unknown", "Free model unavailable (HTTP \(statusCode))\(suffix)")
+        }
+        return .apiError("Free model request failed (HTTP \(statusCode))\(suffix)")
     }
 
     /// True when `text` is an error envelope carrying the gate (used for both
