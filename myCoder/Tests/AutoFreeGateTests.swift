@@ -37,4 +37,30 @@ struct AutoFreeGateTests {
         #expect(MiCoderAutoFreeFailoverLogic.reason(
             errorDescription: "FreeTierError gate", failureCount: 3) == "free-tier gate")
     }
+
+    @Test func bare403OnFreeChatMapsToGate() {
+        // Live 2026-10-13: the streaming path validates before any SSE line
+        // arrives, so the gate shows up as a bare 403 with an empty body.
+        // On the anonymous free-chat operations the only observed 400/403
+        // shapes are the gate itself.
+        let err = MiCoderAutoFreeError.mapHttpError(statusCode: 403, body: "", operation: "Free model streaming")
+        guard case .freeTierBlocked = err else {
+            Issue.record("bare 403 on streaming must map to the gate, got \(err)")
+            return
+        }
+        let err2 = MiCoderAutoFreeError.mapHttpError(statusCode: 403, body: "", operation: "Free model chat")
+        guard case .freeTierBlocked = err2 else {
+            Issue.record("bare 403 on chat must map to the gate, got \(err2)")
+            return
+        }
+    }
+
+    @Test func listPathKeepsBodyBasedMapping() {
+        // The catalog operation keeps the old contract: no body sniffing.
+        let err = MiCoderAutoFreeError.mapHttpError(statusCode: 403, body: "", operation: "OpenCode free model list")
+        guard case .modelUnavailable = err else {
+            Issue.record("list path must keep modelUnavailable, got \(err)")
+            return
+        }
+    }
 }
