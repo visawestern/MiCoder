@@ -730,7 +730,8 @@ struct ChatPanelView: View {
             providers: appState.serverProviders,
             customProviders: appState.customProviders,
             messageID: messageID,
-            accessLevel: appState.accessLevel
+            accessLevel: appState.accessLevel,
+            localProviderIDs: appState.localProviderIDs
         )
         if let error = SendReadinessLogic.sendValidationError(
             modelID: appState.selectedModel,

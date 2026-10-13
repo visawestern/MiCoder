@@ -32,15 +32,19 @@ enum SessionSendLogic {
         providers: [MimoProviderResponse],
         customProviders: [CustomProvider],
         messageID: String? = nil,
-        accessLevel: AccessLevel? = nil
+        accessLevel: AccessLevel? = nil,
+        localProviderIDs: [String] = []
     ) -> MessageSendOptions {
         let agent = sendMode(for: agentMode)
         MiCoderAPIServer.appendLog("📍 buildSendOptions: selectedProviderID=\(selectedProviderID), modelID=\(modelID)")
         // Web providers are not part of the myCoder Serve provider catalog.
         // Preserve the explicit `web:<config-id>` so the serve-only resolver
         // does not erase it and trigger "Select a provider" before routing.
+        // Same for local provider ids (Ollama/OpenCode/ACP): they never appear
+        // in the serve catalog, and erasing them breaks local sends.
         let providerID: String?
-        if selectedProviderID.hasPrefix("web:") || selectedProviderID == MiCoderAutoFreeProvider.builtInID {
+        if selectedProviderID.hasPrefix("web:") || selectedProviderID == MiCoderAutoFreeProvider.builtInID
+            || localProviderIDs.contains(selectedProviderID) {
             providerID = selectedProviderID
             MiCoderAPIServer.appendLog("📍 buildSendOptions: preserved providerID=\(providerID ?? "nil")")
         } else {
