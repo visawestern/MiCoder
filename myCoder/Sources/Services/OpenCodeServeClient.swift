@@ -102,12 +102,15 @@ enum OpenCodeServeClient {
                      text: String,
                      sessionID: String? = nil,
                      transport: DirectChatTransport = URLSessionDirectChatTransport()) async throws -> SendResult {
+        // The serve API speaks JSON; transports leave Content-Type unset.
+        var jsonHeaders = headers
+        jsonHeaders["Content-Type"] = "application/json"
         let sid: String
         if let sessionID, !sessionID.isEmpty {
             sid = sessionID
         } else {
             let body = try JSONSerialization.data(withJSONObject: ["title": String(text.prefix(60))])
-            guard let (status, data) = await transport.post(url: sessionURL(baseURL: baseURL), headers: headers, body: body) else {
+            guard let (status, data) = await transport.post(url: sessionURL(baseURL: baseURL), headers: jsonHeaders, body: body) else {
                 throw OpenCodeServeError.transport("No response from \(baseURL)")
             }
             guard status != 401 else { throw OpenCodeServeError.unauthorized }
@@ -117,7 +120,7 @@ enum OpenCodeServeClient {
             sid = id
         }
         let msgBody = try JSONSerialization.data(withJSONObject: messageBody(modelID: modelID, text: text))
-        guard let (status, data) = await transport.post(url: messageURL(baseURL: baseURL, sessionID: sid), headers: headers, body: msgBody) else {
+        guard let (status, data) = await transport.post(url: messageURL(baseURL: baseURL, sessionID: sid), headers: jsonHeaders, body: msgBody) else {
             throw OpenCodeServeError.transport("No response from \(baseURL)")
         }
         guard status != 401 else { throw OpenCodeServeError.unauthorized }
