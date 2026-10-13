@@ -40,4 +40,41 @@ struct LocalOpenCodeConnectionTests {
         let cfg = LocalProviderConfig(id: "abc", kind: .openCode)
         #expect(cfg.passwordKeychainIdentifier == "local-provider-password-abc")
     }
+
+    @Test func confirmAppliesCredentialsWithoutPersistingPassword() throws {
+        let cfg = LocalProviderConfirmLogic.applyCredentials(
+            to: LocalProviderConfig(kind: .openCode, host: "127.0.0.1", port: 4096),
+            username: "opencode")
+        #expect(cfg.username == "opencode")
+        let data = try JSONEncoder().encode(cfg)
+        #expect(!(String(data: data, encoding: .utf8) ?? "").contains("password"))
+    }
+
+    @Test func detectorForwardsAuthHeaders() async {
+        struct CaptureProbe: ProviderProbe {
+            var seen: [String: [String: String]] = [:]
+            mutating func seenHeaders() -> [[String: String]] { Array(seen.values) }
+            func get(url: String, headers: [String : String]) async -> (Int, Data)? {
+                nil
+            }
+        }
+        // Headers must reach the probe (locked serve answers 401 without them).
+        final class Box: @unchecked Sendable {
+            var all: [[String: String]] = []
+        }
+        let box = Box()
+        struct CapProbe: ProviderProbe {
+            let box: Box
+            func get(url: String, headers: [String : String]) async -> (Int, Data)? {
+                box.all.append(headers)
+                return nil
+            }
+        }
+        _ = await ProviderAutoDetector.detect(
+            host: "127.0.0.1", port: 4096,
+            headers: ["Authorization": "Basic eA=="],
+            probe: CapProbe(box: box))
+        #expect(!box.all.isEmpty)
+        #expect(box.all.allSatisfy { $0["Authorization"] == "Basic eA==" })
+    }
 }
