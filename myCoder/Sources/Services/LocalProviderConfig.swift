@@ -40,7 +40,7 @@ enum LocalProviderKind: String, Codable, CaseIterable, Identifiable {
     var healthPath: String {
         switch self {
         case .ollama: return "/api/tags"
-        case .openCode: return "/health"
+        case .openCode: return "/global/health"
         case .localAgent: return "/global/health"
         case .acp: return "/models" // relative to the /acp/v1 API base
         }
@@ -59,6 +59,11 @@ enum LocalProviderKind: String, Codable, CaseIterable, Identifiable {
 /// Configuration of a local provider reached over HTTP. There is exactly one
 /// way to reach it — connect to a server the user is already running on
 /// `host:port`. No CLI mode, no executable path, no auto-start.
+///
+/// `opencode serve` requires HTTP basic auth on every endpoint (verified live:
+/// without `OPENCODE_SERVER_PASSWORD` everything is 401), so OpenCode-kind
+/// configs carry a username + a Keychain-stored password. The password is
+/// deliberately excluded from Codable — it never lands in UserDefaults JSON.
 struct LocalProviderConfig: Identifiable, Codable, Equatable {
     let id: String
     var kind: LocalProviderKind
@@ -66,19 +71,28 @@ struct LocalProviderConfig: Identifiable, Codable, Equatable {
     var port: Int
     var isEnabled: Bool
     var models: [String]
+    /// Basic-auth username for servers that require it (opencode serve).
+    /// Empty = no auth header is sent.
+    var username: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, kind, host, port, isEnabled, models, username
+    }
 
     init(id: String = UUID().uuidString,
          kind: LocalProviderKind,
          host: String = "127.0.0.1",
          port: Int? = nil,
          isEnabled: Bool = true,
-         models: [String] = []) {
+         models: [String] = [],
+         username: String = "") {
         self.id = id
         self.kind = kind
         self.host = host
         self.port = port ?? kind.defaultPort
         self.isEnabled = isEnabled
         self.models = models
+        self.username = username
     }
 
     /// Base URL for the serve endpoint (used for health-check and model list).
@@ -94,6 +108,39 @@ struct LocalProviderConfig: Identifiable, Codable, Equatable {
     var healthURL: String { apiBaseURL + kind.healthPath }
 
     var displayName: String { kind.displayName }
+
+    /// Keychain identifier for this provider's basic-auth password.
+    var passwordKeychainIdentifier: String { "local-provider-password-\(id)" }
+
+    /// Pure Basic-auth header value, or nil when no password is set.
+    /// The password travels as a parameter (never read here) so the helper
+    /// stays testable without touching the Keychain.
+    static func basicAuthHeader(username: String, password: String) -> String? {
+        guard !password.isEmpty else { return nil }
+        let credentials = "\(username):\(password)"
+        guard let data = credentials.data(using: .utf8) else { return nil }
+        return "Basic " + data.base64EncodedString()
+    }
+
+    /// HTTP headers for authenticated requests to this provider's server.
+    /// Password comes from the Keychain; missing/empty password = no header.
+    func authHeaders() -> [String: String] {
+        guard !username.isEmpty,
+              let password = try? KeychainManager.shared.getSecret(identifier: passwordKeychainIdentifier),
+              let header = Self.basicAuthHeader(username: username, password: password) else {
+            return [:]
+        }
+        return ["Authorization": header]
+    }
+
+    /// Store the basic-auth password in the Keychain (never in UserDefaults).
+    func savePassword(_ password: String) throws {
+        if password.isEmpty {
+            try? KeychainManager.shared.deleteSecret(identifier: passwordKeychainIdentifier)
+            return
+        }
+        try KeychainManager.shared.saveSecret(password, identifier: passwordKeychainIdentifier)
+    }
 }
 
 /// Pure logic for the unified Providers tab (plan Раздел 1 Блок 3-5).
