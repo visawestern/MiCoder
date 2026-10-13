@@ -34,7 +34,7 @@ struct ProjectDeleteConfirmationTests {
         let projectPath = URL(fileURLWithPath: "/Users/test/Projects/MyApp")
         let dataDir = ProjectDatabaseLocator.projectMimoDir(projectPath: projectPath.path)
         let relative = dataDir.path.replacingOccurrences(of: home.path, with: "")
-        #expect(relative.hasPrefix("/Projects/MyApp/.micoder"))
+        #expect(relative.hasPrefix("/Projects/MyApp/.mycoder"))
         #expect(!dataDir.path.contains("..")) // no path traversal
     }
 }

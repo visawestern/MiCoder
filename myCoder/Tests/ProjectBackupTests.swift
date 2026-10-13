@@ -11,11 +11,11 @@ struct ProjectBackupTests {
 
     @Test func planListsOnlyDataInsideProject() {
         let plan = ProjectBackupLogic.plan(projectPath: "/Users/x/Projects/MyApp")
-        #expect(plan.sourceDir.path.hasSuffix("/Projects/MyApp/.micoder"))
+        #expect(plan.sourceDir.path.hasSuffix("/Projects/MyApp/.mycoder"))
         #expect(plan.archiveName == "MyApp-micoder-backup.zip")
         // User files must never be swept into the archive — only .micoder.
         #expect(!plan.sourceDir.path.hasSuffix("/MyApp"))
-        #expect(plan.sourceDir.path.hasSuffix("/MyApp/.micoder"))
+        #expect(plan.sourceDir.path.hasSuffix("/MyApp/.mycoder"))
     }
 
     @Test func planUsesProjectFolderNameForArchive() {

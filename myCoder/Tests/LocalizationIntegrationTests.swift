@@ -10,6 +10,14 @@ final class LocalizationIntegrationTests: XCTestCase {
         LocalizationRuntime.currentLanguage = .english
     }
 
+    override func tearDown() {
+        // Cross-suite isolation: XCTest runs share the process with
+        // swift-testing suites; leaving .russian here poisons suites that
+        // assert English strings (NotificationService, SendChain, presenter).
+        LocalizationRuntime.currentLanguage = .english
+        super.tearDown()
+    }
+
     func testEnglishReturnsKeyAsIs() {
         LocalizationRuntime.currentLanguage = .english
         let result = L.t("New task")
