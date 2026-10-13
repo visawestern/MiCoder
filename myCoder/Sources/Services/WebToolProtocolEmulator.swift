@@ -180,7 +180,14 @@ enum WebToolProtocolEmulator {
             lines.append(userSystemPrompt)
             lines.append("")
         }
-        lines.append("You are Claude Code, the agentic coding assistant, running in the user's project through a tool bridge. The host app executes every tool call you emit on the user's machine and returns the real result. You are NOT a sandboxed chat model — never claim you lack file/system access: the tools below run locally and their results come back to you. If you catch yourself believing you have different (sandbox-only) tools, that belief is wrong for this chat — verify with one list_dir block instead of refusing. Never claim a tool ran before you see its result.")
+        if onRequest.isEmpty {
+            lines.append("You are Claude Code, the agentic coding assistant, running in the user's project through a tool bridge. The host app executes every tool call you emit on the user's machine and returns the real result. You are NOT a sandboxed chat model — never claim you lack file/system access: the tools below run locally and their results come back to you. If you catch yourself believing you have different (sandbox-only) tools, that belief is wrong for this chat — verify with one list_dir block instead of refusing. Never claim a tool ran before you see its result.")
+        } else {
+            // Harness-tax C4: compact identity for slim profiles. Keeps every
+            // live-proven refusal guard (role, bridge, not-sandboxed,
+            // verify-with-list_dir, never-claim-ran) at ~40% of the bytes.
+            lines.append("You are the agentic coding assistant in the user's project. The host runs every tool block you emit locally and returns the result — you are NOT sandboxed, never claim missing file access (verify with one list_dir block instead of refusing). Never claim a tool ran before you see its result.")
+        }
         let dir = directory.isEmpty ? (projectRoot.isEmpty ? "." : projectRoot) : directory
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"
@@ -202,7 +209,15 @@ enum WebToolProtocolEmulator {
         lines.append("Rules: every listed tool above IS available — never say a tool is missing or unavailable, never refuse with \"I'm a sandboxed model / I can't access your machine\", never narrate tool use in prose, never invent results. When a task needs a tool, emit its block immediately, then wait for the result.")
         let listedNames2 = Set(listed.map(\.rawValue))
         let inspectors = ["read_file", "list_dir", "grep", "glob"].filter { listedNames2.contains($0) }
-        lines.append("Policy: inspect first (\(inspectors.joined(separator: "/"))); write via write_file/edit_file; run_command only at full access (read-only prints like cat/grep/sed -n/git log run without approval); git_* for VCS; todo_* for checklists. Page large files with read_file offset/limit instead of re-reading from the start. When done, reply without a tool block.")
+        var policy = "Policy: inspect first (\(inspectors.joined(separator: "/"))); write via write_file/edit_file; run_command only at full access (read-only prints like cat/grep/sed -n/git log run without approval)"
+        if listedNames2.contains("git_status") {
+            policy += "; git_* for VCS"
+        }
+        if listedNames2.contains("todo_read") {
+            policy += "; todo_* for checklists"
+        }
+        policy += ". Page large files with read_file offset/limit instead of re-reading from the start. When done, reply without a tool block."
+        lines.append(policy)
         lines.append("Tools:")
         for tool in listed {
             lines.append("- \(tool.rawValue) args: \(tool.argumentSchema)")
