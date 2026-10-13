@@ -1,0 +1,43 @@
+import Testing
+import Foundation
+@testable import myCoder
+
+/// Local OpenCode server connection (user's own `opencode serve`).
+/// Proved live 2026-10-13: anonymous Zen is gated (403), random ses_ IDs are
+/// gated too — the only working path is the user's authenticated local
+/// server (basic auth, session REST API).
+@Suite("Local OpenCode server connection (OC-1)")
+struct LocalOpenCodeConnectionTests {
+
+    @Test func healthPathIsGlobalHealth() {
+        #expect(LocalProviderKind.openCode.healthPath == "/global/health")
+        let cfg = LocalProviderConfig(kind: .openCode, host: "127.0.0.1", port: 4096)
+        #expect(cfg.healthURL == "http://127.0.0.1:4096/global/health")
+    }
+
+    @Test func basicAuthHeaderEncodesCredentials() {
+        let header = LocalProviderConfig.basicAuthHeader(username: "opencode", password: "test123")
+        #expect(header == "Basic " + Data("opencode:test123".utf8).base64EncodedString())
+    }
+
+    @Test func emptyPasswordYieldsNoHeader() {
+        #expect(LocalProviderConfig.basicAuthHeader(username: "opencode", password: "") == nil)
+        #expect(LocalProviderConfig.basicAuthHeader(username: "", password: "") == nil)
+    }
+
+    @Test func passwordNotPersistedInUserDefaultsJSON() throws {
+        var cfg = LocalProviderConfig(kind: .openCode, host: "127.0.0.1", port: 4096)
+        cfg.username = "opencode"
+        let data = try JSONEncoder().encode(cfg)
+        let json = String(data: data, encoding: .utf8) ?? ""
+        #expect(!json.contains("password"))
+        #expect(!json.contains("test123"))
+        let decoded = try JSONDecoder().decode(LocalProviderConfig.self, from: data)
+        #expect(decoded == cfg)
+    }
+
+    @Test func keychainIdentifierIsStablePerProvider() {
+        let cfg = LocalProviderConfig(id: "abc", kind: .openCode)
+        #expect(cfg.passwordKeychainIdentifier == "local-provider-password-abc")
+    }
+}
