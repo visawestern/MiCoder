@@ -676,29 +676,40 @@ class AppState: ObservableObject {
         }
 
         // Local providers carry their own model lists (persisted at
-        // detect/refresh time) — the server+custom cascade knows nothing
-        // about them and would blank the model. Resolve from the local list
-        // now, then refresh it in the background so a stale single-model
-        // list (e.g. from before credentials existed) heals itself.
+        // detect/refresh time) — the server+custom cascade below knows
+        // nothing about them and would blank the model. Resolve from the
+        // local list instead, then refresh it in the background so a stale
+        // single-model list (e.g. from before credentials existed) heals.
+        let localConfig = LocalProviderLogic.load(defaults: defaults).first(where: { $0.id == providerID })
+        if let local = localConfig {
+            let resolved = LocalModelRefreshLogic.reconcile(current: selectedModel, fresh: local.models)
+            selectedModel = resolved
+            defaults.set(resolved, forKey: "com.mycoder.selectedModel")
+            Task { await self.refreshLocalModels(providerID) }
+        } else {
+            let result = ProviderSelectionLogic.cascade(
+                to: providerID,
+                currentModelID: selectedModel,
+                currentVariant: selectedVariant.isEmpty ? nil : selectedVariant,
+                serverProviders: serverProviders,
+                customProviders: customProviders
+            )
+            selectedModel = result.modelID
+            defaults.set(result.modelID, forKey: "com.mycoder.selectedModel")
+            selectedVariant = result.variant ?? ""
+        }
+
+        // Local providers carry their own model lists (persisted at
+        // detect/refresh time) — the server+custom cascade above knows
+        // nothing about them and would blank the model. Resolve from the
+        // local list instead, then refresh it in the background so a stale
+        // single-model list (e.g. from before credentials existed) heals.
         if let local = LocalProviderLogic.load(defaults: defaults).first(where: { $0.id == providerID }) {
             let resolved = LocalModelRefreshLogic.reconcile(current: selectedModel, fresh: local.models)
             selectedModel = resolved
             defaults.set(resolved, forKey: "com.mycoder.selectedModel")
-            selectedVariant = ""
             Task { await self.refreshLocalModels(providerID) }
-            return
         }
-
-        let result = ProviderSelectionLogic.cascade(
-            to: providerID,
-            currentModelID: selectedModel,
-            currentVariant: selectedVariant.isEmpty ? nil : selectedVariant,
-            serverProviders: serverProviders,
-            customProviders: customProviders
-        )
-        selectedModel = result.modelID
-        defaults.set(result.modelID, forKey: "com.mycoder.selectedModel")
-        selectedVariant = result.variant ?? ""
 
         if agentMode == .plan,
            !ProviderCapabilityGates.canSelectPlanAgent(
@@ -1135,30 +1146,36 @@ class AppState: ObservableObject {
     /// Background refresh of a local provider's model list (fetch → persist →
     /// reconcile selection). Never wipes: failed/empty fetch keeps everything
     /// as-is with an honest status message. `fetch` is injectable for tests.
+    /// All state mutations hop to MainActor: @Published writes from a
+    /// background task abort the app via AppKit menu assertions (crash
+    /// 2026-10-15, `providerModelLoadMessages.modify` off-main).
     func refreshLocalModels(
         _ providerID: String,
         fetch: @escaping (LocalProviderConfig) async -> [String]? = { await LocalProviderLogic.fetchModels(for: $0) }
     ) async {
         let locals = LocalProviderLogic.load(defaults: defaults)
         guard let config = locals.first(where: { $0.id == providerID && $0.isEnabled }) else { return }
-        guard let fresh = await fetch(config), !fresh.isEmpty else {
-            providerModelLoadMessages[providerID] =
-                "Could not refresh models from \(config.serveBaseURL). Check the server and credentials; keeping existing list."
-            return
-        }
-        var updated = locals
-        if let idx = updated.firstIndex(where: { $0.id == providerID }) {
-            updated[idx].models = fresh
-            LocalProviderLogic.save(updated, defaults: defaults)
-        }
-        if selectedProviderID == providerID {
-            let next = LocalModelRefreshLogic.reconcile(current: selectedModel, fresh: fresh)
-            if next != selectedModel {
-                selectedModel = next
-                defaults.set(next, forKey: "com.mycoder.selectedModel")
+        let fresh = await fetch(config)
+        await MainActor.run {
+            guard let fresh, !fresh.isEmpty else {
+                self.providerModelLoadMessages[providerID] =
+                    "Could not refresh models from \(config.serveBaseURL). Check the server and credentials; keeping existing list."
+                return
             }
+            var updated = LocalProviderLogic.load(defaults: self.defaults)
+            if let idx = updated.firstIndex(where: { $0.id == providerID }) {
+                updated[idx].models = fresh
+                LocalProviderLogic.save(updated, defaults: self.defaults)
+            }
+            if self.selectedProviderID == providerID {
+                let next = LocalModelRefreshLogic.reconcile(current: self.selectedModel, fresh: fresh)
+                if next != self.selectedModel {
+                    self.selectedModel = next
+                    self.defaults.set(next, forKey: "com.mycoder.selectedModel")
+                }
+            }
+            self.providerModelLoadMessages[providerID] = "Loaded \(fresh.count) model\(fresh.count == 1 ? "" : "s") from \(config.serveBaseURL)."
         }
-        providerModelLoadMessages[providerID] = "Loaded \(fresh.count) model\(fresh.count == 1 ? "" : "s") from \(config.serveBaseURL)."
     }
 
     func removeModel(_ modelID: String, from providerID: String) {

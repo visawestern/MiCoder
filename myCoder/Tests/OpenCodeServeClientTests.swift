@@ -50,6 +50,7 @@ struct OpenCodeServeClientTests {
                 if url.hasSuffix("/session") { return (200, session) }
                 return (200, answer)
             }
+            func get(url: String, headers: [String : String]) async -> (Int, Data)? { nil }
             let session: Data
             let answer: Data
             init(session: Data, answer: Data) { self.session = session; self.answer = answer }
@@ -76,6 +77,7 @@ struct OpenCodeServeClientTests {
                 calls.append(url)
                 return (200, answer)
             }
+            func get(url: String, headers: [String : String]) async -> (Int, Data)? { nil }
         }
         let transport = Script(answer: answer)
         let result = try await OpenCodeServeClient.send(
@@ -92,6 +94,7 @@ struct OpenCodeServeClientTests {
             func post(url: String, headers: [String : String], body: Data) async -> (Int, Data)? {
                 (401, Data())
             }
+            func get(url: String, headers: [String : String]) async -> (Int, Data)? { nil }
         }
         do {
             _ = try await OpenCodeServeClient.send(
@@ -117,6 +120,7 @@ struct OpenCodeServeClientTests {
                 self.headers.append(headers)
                 return (200, answer)
             }
+            func get(url: String, headers: [String : String]) async -> (Int, Data)? { nil }
         }
         let transport = Cap(answer: answer)
         _ = try await OpenCodeServeClient.send(
@@ -188,6 +192,7 @@ struct OpenCodeServeClientTests {
             func post(url: String, headers: [String: String], body: Data) async -> (Int, Data)? {
                 (204, Data())
             }
+            func get(url: String, headers: [String: String]) async -> (Int, Data)? { nil }
         }
         let (returnedSID, stream) = try await OpenCodeServeClient.streamSend(
             baseURL: "http://127.0.0.1:4096", headers: [:],
@@ -211,6 +216,7 @@ struct OpenCodeServeClientTests {
             func post(url: String, headers: [String: String], body: Data) async -> (Int, Data)? {
                 (204, Data())
             }
+            func get(url: String, headers: [String: String]) async -> (Int, Data)? { nil }
         }
         do {
             let (_, stream) = try await OpenCodeServeClient.streamSend(
@@ -224,5 +230,46 @@ struct OpenCodeServeClientTests {
         } catch {
             Issue.record("wrong error type: \(error)")
         }
+    }
+
+    @Test func messageListURLTargetsSessionMessages() {
+        #expect(OpenCodeServeClient.messageListURL(baseURL: "http://127.0.0.1:4096", sessionID: "ses_1")
+            == "http://127.0.0.1:4096/session/ses_1/message")
+    }
+
+    @Test func fetchLastAssistantTextSkipsUserMessages() async {
+        let list = """
+        [{"info":{"id":"m1","role":"user"},"parts":[{"type":"text","text":"hi"}]},
+         {"info":{"id":"m2","role":"assistant"},"parts":[{"type":"step-start"},{"type":"text","text":"Hel"},{"type":"text","text":"lo"}]},
+         {"info":{"id":"m3","role":"user"},"parts":[{"type":"text","text":"again?"}]}]
+        """.data(using: .utf8)!
+        struct History: DirectChatTransport {
+            let list: Data
+            func post(url: String, headers: [String: String], body: Data) async -> (Int, Data)? { nil }
+            func get(url: String, headers: [String: String]) async -> (Int, Data)? {
+                (200, list)
+            }
+        }
+        let text = await OpenCodeServeClient.fetchLastAssistantText(
+            baseURL: "http://127.0.0.1:4096", headers: [:],
+            sessionID: "ses_1", transport: History(list: list))
+        #expect(text == "Hello")
+    }
+
+    @Test func fetchLastAssistantTextIsNilWhenNoAssistantText() async {
+        let list = """
+        [{"info":{"id":"m1","role":"user"},"parts":[{"type":"text","text":"hi"}]}]
+        """.data(using: .utf8)!
+        struct History: DirectChatTransport {
+            let list: Data
+            func post(url: String, headers: [String: String], body: Data) async -> (Int, Data)? { nil }
+            func get(url: String, headers: [String: String]) async -> (Int, Data)? {
+                (200, list)
+            }
+        }
+        let text = await OpenCodeServeClient.fetchLastAssistantText(
+            baseURL: "http://127.0.0.1:4096", headers: [:],
+            sessionID: "ses_1", transport: History(list: list))
+        #expect(text == nil)
     }
 }

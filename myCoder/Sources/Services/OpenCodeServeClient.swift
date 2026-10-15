@@ -146,6 +146,36 @@ enum OpenCodeServeClient {
         return "\(base)/event"
     }
 
+    static func messageListURL(baseURL: String, sessionID: String) -> String {
+        messageURL(baseURL: baseURL, sessionID: sessionID)
+    }
+
+    /// Best-effort recovery when the SSE stream dies after prompt_async was
+    /// accepted: re-sending would duplicate the user message, so read back
+    /// the latest assistant text instead. Returns nil when unavailable —
+    /// the caller then falls back to the blocking send.
+    static func fetchLastAssistantText(baseURL: String,
+                                       headers: [String: String],
+                                       sessionID: String,
+                                       transport: DirectChatTransport = URLSessionDirectChatTransport()) async -> String? {
+        guard let (status, data) = await transport.get(url: messageListURL(baseURL: baseURL, sessionID: sessionID), headers: headers),
+              (200..<300).contains(status),
+              let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return nil
+        }
+        for entry in list.reversed() {
+            guard let info = entry["info"] as? [String: Any],
+                  info["role"] as? String == "assistant",
+                  let parts = entry["parts"] as? [[String: Any]] else { continue }
+            let text = parts.compactMap { part -> String? in
+                guard part["type"] as? String == "text" else { return nil }
+                return part["text"] as? String
+            }.joined()
+            if !text.isEmpty { return text }
+        }
+        return nil
+    }
+
     /// Parse one SSE line from the serve `/event` stream. Returns nil for
     /// comments, heartbeats, and unrelated event types.
     static func parseStreamEvent(_ line: String) -> OpenCodeStreamEvent? {

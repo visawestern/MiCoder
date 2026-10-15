@@ -190,6 +190,7 @@ struct SendRoutingTests {
         let status: Int
         let body: Data
         func post(url: String, headers: [String: String], body: Data) async -> (Int, Data)? { (status, self.body) }
+        func get(url: String, headers: [String: String]) async -> (Int, Data)? { nil }
     }
 
     @Test func sendReturnsAssistantText() async throws {

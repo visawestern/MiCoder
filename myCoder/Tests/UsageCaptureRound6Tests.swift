@@ -8,6 +8,7 @@ struct MockDirectChatTransport: DirectChatTransport {
     func post(url: String, headers: [String: String], body: Data) async -> (Int, Data)? {
         response
     }
+    func get(url: String, headers: [String: String]) async -> (Int, Data)? { nil }
 }
 
 @Suite("DirectChatClient usage extraction (round 6)")

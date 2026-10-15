@@ -69,6 +69,8 @@ struct DirectChatMessage: Equatable {
 protocol DirectChatTransport {
     /// POST JSON to url, return (status, body) or nil on failure.
     func post(url: String, headers: [String: String], body: Data) async -> (Int, Data)?
+    /// GET url, return (status, body) or nil on failure.
+    func get(url: String, headers: [String: String]) async -> (Int, Data)?
 }
 
 enum DirectChatClient {
@@ -252,6 +254,21 @@ struct URLSessionDirectChatTransport: DirectChatTransport {
         var req = URLRequest(url: u)
         req.httpMethod = "POST"
         req.httpBody = body
+        for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
+        return await withCheckedContinuation { cont in
+            session.dataTask(with: req) { data, response, _ in
+                guard let http = response as? HTTPURLResponse, let data = data else {
+                    cont.resume(returning: nil); return
+                }
+                cont.resume(returning: (http.statusCode, data))
+            }.resume()
+        }
+    }
+
+    func get(url: String, headers: [String: String]) async -> (Int, Data)? {
+        guard let u = URL(string: url) else { return nil }
+        var req = URLRequest(url: u)
+        req.httpMethod = "GET"
         for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
         return await withCheckedContinuation { cont in
             session.dataTask(with: req) { data, response, _ in
