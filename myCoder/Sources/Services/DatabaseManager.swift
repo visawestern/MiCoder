@@ -1063,6 +1063,15 @@ class DatabaseManager {
         let count = try db.run(archived.delete())
         return count
     }
+
+    /// Hard delete one session and its messages (FK cascade).
+    /// Used for test cleanup and (follow-up) user-initiated chat deletion.
+    /// Returns true when a row was removed.
+    @discardableResult
+    func deleteSession(id: String) throws -> Bool {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        return try db.run(sessions.filter(sessionId == id).delete()) > 0
+    }
     
     /// Hard delete sessions older than N days (including their messages via FK cascade)
     func deleteSessionsOlderThan(days: Int) throws -> Int {
