@@ -897,8 +897,10 @@ struct SessionTaskRow: View {
                     .buttonStyle(.plain)
                     
                     Menu {
-                        Button(L.t(AppLocalizationKey.locShowInFinder)) {
-                            appState.openFolderInFinder(session.directory.isEmpty ? workspace.path : session.directory)
+                        if SessionRowActions.showInFinderURL(session: session, workspace: workspace) != nil {
+                            Button(L.t(AppLocalizationKey.locShowInFinder)) {
+                                appState.openFolderInFinder(session.directory.isEmpty ? workspace.path : session.directory)
+                            }
                         }
                         Button(L.t(AppLocalizationKey.locNewTaskSidebar)) {
                             appState.startNewTask(in: workspace)
