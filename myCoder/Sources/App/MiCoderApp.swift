@@ -2048,6 +2048,15 @@ class AppState: ObservableObject {
         selectedWorkspace = workspace
         // User directive 2026-09-08: reopen the last project on app launch.
         defaults.set(workspace.id, forKey: "com.mycoder.lastWorkspaceID")
+        // The synthetic "Chats" group is not a project: there is no project
+        // database to load, so wiping here strands the list until the next
+        // restart (the "+" on a project-less chat did exactly this). Merge
+        // standalone rows synchronously instead.
+        if workspace.id == ChatSession.standaloneProjectKey {
+            selectedSession = nil
+            sessions = DatabaseBridge.shared.loadStandaloneSessions()
+            return
+        }
         guard reloadSessions,
               WorkspaceSelectionLogic.shouldReloadSessions(previousID: previousID, newID: workspace.id) else {
             return

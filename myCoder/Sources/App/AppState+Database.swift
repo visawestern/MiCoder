@@ -64,7 +64,16 @@ extension AppState {
     /// Загрузить сессии проекта из БД
     @MainActor
     func loadSessionsFromDatabase(projectId: String) async {
+        // The synthetic "Chats" group (and any unknown id) has no project
+        // database: fall back to the standalone rows instead of leaving a
+        // wiped list behind. Belt and suspenders with the selectWorkspace
+        // early-merge above — whichever path runs, chats stay visible.
+        guard projectId != ChatSession.standaloneProjectKey else {
+            self.sessions = db.loadStandaloneSessions()
+            return
+        }
         guard let targetWorkspace = workspaces.first(where: { $0.id == projectId || $0.path == projectId }) else {
+            self.sessions = db.loadStandaloneSessions()
             return
         }
         let projectPath = targetWorkspace.path
