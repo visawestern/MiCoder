@@ -69,6 +69,7 @@ struct StandaloneListWipeTests {
         let cleared = await MainActor.run { state.selectedSession == nil }
         #expect(cleared, "composer must be empty for the new task")
     }
+}
 
 @Suite("Session row actions (click-path audit)")
 struct SessionRowActionsTests {
