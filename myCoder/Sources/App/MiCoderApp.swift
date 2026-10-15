@@ -675,6 +675,20 @@ class AppState: ObservableObject {
             return
         }
 
+        // Local providers carry their own model lists (persisted at
+        // detect/refresh time) — the server+custom cascade knows nothing
+        // about them and would blank the model. Resolve from the local list
+        // now, then refresh it in the background so a stale single-model
+        // list (e.g. from before credentials existed) heals itself.
+        if let local = LocalProviderLogic.load(defaults: defaults).first(where: { $0.id == providerID }) {
+            let resolved = LocalModelRefreshLogic.reconcile(current: selectedModel, fresh: local.models)
+            selectedModel = resolved
+            defaults.set(resolved, forKey: "com.mycoder.selectedModel")
+            selectedVariant = ""
+            Task { await self.refreshLocalModels(providerID) }
+            return
+        }
+
         let result = ProviderSelectionLogic.cascade(
             to: providerID,
             currentModelID: selectedModel,
@@ -1116,6 +1130,35 @@ class AppState: ObservableObject {
     func refreshModels(for providerID: String) {
         guard let provider = customProviders.first(where: { $0.id == providerID }) else { return }
         loadModelsFromCustomProvider(provider)
+    }
+
+    /// Background refresh of a local provider's model list (fetch → persist →
+    /// reconcile selection). Never wipes: failed/empty fetch keeps everything
+    /// as-is with an honest status message. `fetch` is injectable for tests.
+    func refreshLocalModels(
+        _ providerID: String,
+        fetch: @escaping (LocalProviderConfig) async -> [String]? = { await LocalProviderLogic.fetchModels(for: $0) }
+    ) async {
+        let locals = LocalProviderLogic.load(defaults: defaults)
+        guard let config = locals.first(where: { $0.id == providerID && $0.isEnabled }) else { return }
+        guard let fresh = await fetch(config), !fresh.isEmpty else {
+            providerModelLoadMessages[providerID] =
+                "Could not refresh models from \(config.serveBaseURL). Check the server and credentials; keeping existing list."
+            return
+        }
+        var updated = locals
+        if let idx = updated.firstIndex(where: { $0.id == providerID }) {
+            updated[idx].models = fresh
+            LocalProviderLogic.save(updated, defaults: defaults)
+        }
+        if selectedProviderID == providerID {
+            let next = LocalModelRefreshLogic.reconcile(current: selectedModel, fresh: fresh)
+            if next != selectedModel {
+                selectedModel = next
+                defaults.set(next, forKey: "com.mycoder.selectedModel")
+            }
+        }
+        providerModelLoadMessages[providerID] = "Loaded \(fresh.count) model\(fresh.count == 1 ? "" : "s") from \(config.serveBaseURL)."
     }
 
     func removeModel(_ modelID: String, from providerID: String) {

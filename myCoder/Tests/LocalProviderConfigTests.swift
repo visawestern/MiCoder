@@ -57,4 +57,42 @@ struct LocalProviderConfigTests {
         let decoded = try JSONDecoder().decode(LocalProviderConfig.self, from: data)
         #expect(decoded == cfg)
     }
+
+    @Test func refreshReconcileKeepsValidSelection() {
+        #expect(LocalModelRefreshLogic.reconcile(current: "big-pickle", fresh: ["big-pickle", "x-free"]) == "big-pickle")
+    }
+
+    @Test func refreshReconcileFallsBackToFirst() {
+        #expect(LocalModelRefreshLogic.reconcile(current: "gone", fresh: ["a-free", "b-free"]) == "a-free")
+    }
+
+    @Test func refreshReconcileNeverWipesOnFailure() {
+        #expect(LocalModelRefreshLogic.reconcile(current: "big-pickle", fresh: []) == "big-pickle")
+        #expect(LocalModelRefreshLogic.reconcile(current: "", fresh: []) == "")
+    }
+
+    @Test func refreshReconcileFillsEmptySelection() {
+        #expect(LocalModelRefreshLogic.reconcile(current: "", fresh: ["a-free"]) == "a-free")
+    }
+
+    @Test func livePayloadYieldsOnlyFreeModels() {
+        // Shape captured live from `opencode serve` /config/providers
+        // 2026-10-15: the "opencode" entry must win so the picker shows
+        // only models that need no extra provider keys (free filter).
+        let payload = """
+        {"providers":[
+          {"id":"google","models":{"gemini-flash-latest":{}}},
+          {"id":"opencode","models":{
+            "big-pickle":{},"cat-jam-free":{},"space-bunny-free":{},
+            "mimo-v2.6-flash-free":{},"nemotron-3-ultra-free":{},
+            "nemotron-3.5-lightning-free":{},
+            "muse-spark-1.3-contributor-free":{},
+            "longcat-2.5-preview-free":{},"step-5-preview-free":{}}}
+        ]}
+        """
+        let data = payload.data(using: .utf8)!
+        let models = ProviderAutoDetector.parseOpenCodeProviders(data)
+        #expect(models?.count == 9)
+        #expect(models?.allSatisfy { $0 == "big-pickle" || $0.hasSuffix("-free") } == true)
+    }
 }

@@ -133,4 +133,150 @@ enum OpenCodeServeClient {
         }
         return SendResult(content: content, sessionID: sid)
     }
+
+    // MARK: - SSE streaming (prompt_async + /event)
+
+    static func promptAsyncURL(baseURL: String, sessionID: String) -> String {
+        let base = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
+        return "\(base)/session/\(sessionID)/prompt_async"
+    }
+
+    static func eventURL(baseURL: String) -> String {
+        let base = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
+        return "\(base)/event"
+    }
+
+    /// Parse one SSE line from the serve `/event` stream. Returns nil for
+    /// comments, heartbeats, and unrelated event types.
+    static func parseStreamEvent(_ line: String) -> OpenCodeStreamEvent? {
+        guard line.hasPrefix("data:") else { return nil }
+        let json = String(line.dropFirst("data:".count)).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let type = obj["type"] as? String,
+              let props = obj["properties"] as? [String: Any],
+              let sessionID = props["sessionID"] as? String else { return nil }
+        switch type {
+        case "message.part.delta":
+            guard let messageID = props["messageID"] as? String,
+                  props["field"] as? String == "text",
+                  let delta = props["delta"] as? String else { return nil }
+            return .delta(sessionID: sessionID, messageID: messageID, text: delta)
+        case "session.idle":
+            return .idle(sessionID: sessionID)
+        default:
+            return nil
+        }
+    }
+
+    /// Stream one turn: prompt_async, then text deltas for our session until
+    /// its `session.idle`. Returns the serve session id plus the live event
+    /// stream. Deltas from other sessions are ignored; a stream that ends
+    /// with zero deltas throws `.emptyResponse` so the caller can fall back
+    /// to the blocking `send`.
+    static func streamSend(baseURL: String,
+                           headers: [String: String],
+                           modelID: String,
+                           text: String,
+                           sessionID: String? = nil,
+                           transport: DirectChatTransport = URLSessionDirectChatTransport(),
+                           events: OpenCodeEventSource = URLSessionEventSource()) async throws -> (String, AsyncThrowingStream<StreamEvent, Error>) {
+        var jsonHeaders = headers
+        jsonHeaders["Content-Type"] = "application/json"
+        let sid: String
+        if let sessionID, !sessionID.isEmpty {
+            sid = sessionID
+        } else {
+            let body = try JSONSerialization.data(withJSONObject: ["title": String(text.prefix(60))])
+            guard let (status, data) = await transport.post(url: sessionURL(baseURL: baseURL), headers: jsonHeaders, body: body) else {
+                throw OpenCodeServeError.transport("No response from \(baseURL)")
+            }
+            guard status != 401 else { throw OpenCodeServeError.unauthorized }
+            guard (200..<300).contains(status), let id = extractSessionID(from: data) else {
+                throw OpenCodeServeError.http(status: status, body: String(data: data, encoding: .utf8) ?? "")
+            }
+            sid = id
+        }
+        let msgBody = try JSONSerialization.data(withJSONObject: messageBody(modelID: modelID, text: text))
+        guard let (status, data) = await transport.post(url: promptAsyncURL(baseURL: baseURL, sessionID: sid), headers: jsonHeaders, body: msgBody) else {
+            throw OpenCodeServeError.transport("No response from \(baseURL)")
+        }
+        guard status != 401 else { throw OpenCodeServeError.unauthorized }
+        guard (200..<300).contains(status) else {
+            throw OpenCodeServeError.http(status: status, body: String(data: data, encoding: .utf8) ?? "")
+        }
+        let stream = AsyncThrowingStream<StreamEvent, Error> { continuation in
+            Task {
+                do {
+                    var emitted = 0
+                    for try await line in events.lines(url: eventURL(baseURL: baseURL), headers: headers) {
+                        guard let event = parseStreamEvent(line) else { continue }
+                        switch event {
+                        case .delta(let dsid, _, let deltaText) where dsid == sid:
+                            guard !deltaText.isEmpty else { continue }
+                            emitted += 1
+                            continuation.yield(.content(deltaText))
+                        case .idle(let isid) where isid == sid:
+                            continuation.finish()
+                            return
+                        default:
+                            continue
+                        }
+                    }
+                    if emitted == 0 {
+                        continuation.finish(throwing: OpenCodeServeError.emptyResponse)
+                    } else {
+                        continuation.finish()
+                    }
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+        return (sid, stream)
+    }
+}
+
+/// One parsed `/event` line relevant to streaming.
+enum OpenCodeStreamEvent: Equatable {
+    /// Text delta for an assistant message part in the given session.
+    case delta(sessionID: String, messageID: String, text: String)
+    /// The given session went idle (turn complete).
+    case idle(sessionID: String)
+}
+
+/// Source of raw SSE lines from the serve `/event` endpoint.
+/// Scripted in tests; live over URLSession in production.
+protocol OpenCodeEventSource {
+    func lines(url: String, headers: [String: String]) -> AsyncThrowingStream<String, Error>
+}
+
+/// Live SSE reader: yields raw lines from a `text/event-stream` response.
+struct URLSessionEventSource: OpenCodeEventSource {
+    func lines(url: String, headers: [String: String]) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    guard let requestURL = URL(string: url) else {
+                        throw OpenCodeServeError.transport("Bad event URL: \(url)")
+                    }
+                    var request = URLRequest(url: requestURL)
+                    request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                    for (field, value) in headers {
+                        request.setValue(value, forHTTPHeaderField: field)
+                    }
+                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                    guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                        throw OpenCodeServeError.http(status: (response as? HTTPURLResponse)?.statusCode ?? 0, body: "")
+                    }
+                    for try await line in bytes.lines {
+                        continuation.yield(line)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
 }

@@ -887,6 +887,49 @@ struct AppStateSettingsIntegrationTests {
         #expect(state.selectedProviderID == "c1")
     }
 
+    @Test("AppState selectProvider resolves model from local provider list instead of blanking")
+    func appStateSelectProviderLocalResolvesModel() {
+        let defaults = UserDefaults(suiteName: "test-local-select-\(UUID().uuidString)")!
+        let cfg = LocalProviderConfig(id: "oc-test", kind: .openCode, host: "127.0.0.1", port: 4096,
+                                      models: ["big-pickle", "x-free"])
+        LocalProviderLogic.save([cfg], defaults: defaults)
+        let state = AppState(defaults: defaults)
+        state.selectProvider("oc-test", persistPreference: false)
+        #expect(state.selectedProviderID == "oc-test")
+        // Must come from the local list — cascade knows nothing about locals.
+        #expect(state.selectedModel == "big-pickle")
+    }
+
+    @Test("AppState refreshLocalModels persists fetched list and reconciles selection")
+    func appStateRefreshLocalModels() async {
+        let defaults = UserDefaults(suiteName: "test-local-refresh-\(UUID().uuidString)")!
+        let cfg = LocalProviderConfig(id: "oc-test", kind: .openCode, host: "127.0.0.1", port: 4096,
+                                      models: ["stale-only"])
+        LocalProviderLogic.save([cfg], defaults: defaults)
+        let state = AppState(defaults: defaults)
+        state.selectedModel = "stale-only"
+        state.selectedProviderID = "oc-test"
+        await state.refreshLocalModels("oc-test", fetch: { _ in ["big-pickle", "x-free"] })
+        let reloaded = LocalProviderLogic.load(defaults: defaults).first(where: { $0.id == "oc-test" })
+        #expect(reloaded?.models == ["big-pickle", "x-free"])
+        #expect(state.selectedModel == "big-pickle")
+        #expect(state.providerModelLoadMessage(for: "oc-test")?.contains("2") == true)
+    }
+
+    @Test("AppState refreshLocalModels keeps selection when fetch fails")
+    func appStateRefreshLocalModelsKeepsOnFailure() async {
+        let defaults = UserDefaults(suiteName: "test-local-refresh-fail-\(UUID().uuidString)")!
+        let cfg = LocalProviderConfig(id: "oc-test", kind: .openCode, host: "127.0.0.1", port: 4096,
+                                      models: ["big-pickle"])
+        LocalProviderLogic.save([cfg], defaults: defaults)
+        let state = AppState(defaults: defaults)
+        state.selectedModel = "big-pickle"
+        await state.refreshLocalModels("oc-test", fetch: { _ in nil })
+        let reloaded = LocalProviderLogic.load(defaults: defaults).first(where: { $0.id == "oc-test" })
+        #expect(reloaded?.models == ["big-pickle"])
+        #expect(state.selectedModel == "big-pickle")
+    }
+
     @Test("AppState selectModel sets selectedModel only if model available")
     func appStateSelectModel() {
         let state = AppState()

@@ -126,4 +126,103 @@ struct OpenCodeServeClientTests {
         #expect(transport.headers.first?["Content-Type"] == "application/json")
         #expect(transport.headers.first?["Authorization"] == "Basic eA==")
     }
+
+    // MARK: - SSE streaming (prompt_async + /event)
+
+    private func deltaLine(session: String, message: String, text: String) -> String {
+        "data: {\"id\":\"evt_1\",\"type\":\"message.part.delta\"," +
+        "\"properties\":{\"sessionID\":\"\(session)\",\"messageID\":\"\(message)\"," +
+        "\"partID\":\"prt_1\",\"field\":\"text\",\"delta\":\"\(text)\"}}"
+    }
+
+    private func idleLine(session: String) -> String {
+        "data: {\"id\":\"evt_2\",\"type\":\"session.idle\"," +
+        "\"properties\":{\"sessionID\":\"\(session)\"}}"
+    }
+
+    @Test func promptAsyncURLTargetsSession() {
+        #expect(OpenCodeServeClient.promptAsyncURL(baseURL: "http://127.0.0.1:4096", sessionID: "ses_1")
+            == "http://127.0.0.1:4096/session/ses_1/prompt_async")
+        #expect(OpenCodeServeClient.eventURL(baseURL: "http://127.0.0.1:4096/") == "http://127.0.0.1:4096/event")
+    }
+
+    @Test func streamEventParsesDeltaAndIdle() {
+        let sid = "ses_9", mid = "msg_7"
+        let delta = OpenCodeServeClient.parseStreamEvent(deltaLine(session: sid, message: mid, text: "Hi"))
+        guard case .delta(let ds, let dm, let text)? = delta else {
+            Issue.record("expected delta, got \(String(describing: delta))")
+            return
+        }
+        #expect(ds == sid)
+        #expect(dm == mid)
+        #expect(text == "Hi")
+        guard case .idle(let idleSID)? = OpenCodeServeClient.parseStreamEvent(idleLine(session: sid)) else {
+            Issue.record("expected idle")
+            return
+        }
+        #expect(idleSID == sid)
+        #expect(OpenCodeServeClient.parseStreamEvent(":comment") == nil)
+        #expect(OpenCodeServeClient.parseStreamEvent("data: not-json") == nil)
+        #expect(OpenCodeServeClient.parseStreamEvent("data: {\"type\":\"server.heartbeat\"}") == nil)
+    }
+
+    @Test func streamSendYieldsDeltasThenFinishesOnIdle() async throws {
+        struct ScriptEvents: OpenCodeEventSource {
+            let lines: [String]
+            func lines(url: String, headers: [String: String]) -> AsyncThrowingStream<String, Error> {
+                AsyncThrowingStream { continuation in
+                    for line in lines { continuation.yield(line) }
+                    continuation.finish()
+                }
+            }
+        }
+        let sid = "ses_1", mid = "msg_1"
+        let events = ScriptEvents(lines: [
+            ":connected",
+            deltaLine(session: sid, message: mid, text: "Hel"),
+            deltaLine(session: "ses_OTHER", message: "msg_X", text: "SHOULD-BE-IGNORED"),
+            deltaLine(session: sid, message: mid, text: "lo"),
+            idleLine(session: sid),
+        ])
+        final class Posts: DirectChatTransport, @unchecked Sendable {
+            func post(url: String, headers: [String: String], body: Data) async -> (Int, Data)? {
+                (204, Data())
+            }
+        }
+        let (returnedSID, stream) = try await OpenCodeServeClient.streamSend(
+            baseURL: "http://127.0.0.1:4096", headers: [:],
+            modelID: "big-pickle", text: "hi", sessionID: sid,
+            transport: Posts(), events: events)
+        #expect(returnedSID == sid)
+        var chunks: [String] = []
+        for try await event in stream {
+            if case .content(let text) = event { chunks.append(text) }
+        }
+        #expect(chunks == ["Hel", "lo"])
+    }
+
+    @Test func streamSendThrowsWhenIdleNeverArrives() async {
+        struct EmptyEvents: OpenCodeEventSource {
+            func lines(url: String, headers: [String: String]) -> AsyncThrowingStream<String, Error> {
+                AsyncThrowingStream { $0.finish() }
+            }
+        }
+        final class Posts: DirectChatTransport, @unchecked Sendable {
+            func post(url: String, headers: [String: String], body: Data) async -> (Int, Data)? {
+                (204, Data())
+            }
+        }
+        do {
+            let (_, stream) = try await OpenCodeServeClient.streamSend(
+                baseURL: "http://127.0.0.1:4096", headers: [:],
+                modelID: "big-pickle", text: "hi", sessionID: "ses_1",
+                transport: Posts(), events: EmptyEvents())
+            for try await _ in stream {}
+            Issue.record("expected throw")
+        } catch let error as OpenCodeServeError {
+            #expect(error == .emptyResponse)
+        } catch {
+            Issue.record("wrong error type: \(error)")
+        }
+    }
 }

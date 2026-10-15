@@ -339,3 +339,15 @@ enum AutoDetectStatusText {
         "Enter an address as host:port."
     }
 }
+
+/// Pure reconcile for background model-list refreshes of local providers.
+/// Refresh must never leave the user model-less: a failed/empty refresh
+/// keeps the current selection, and an empty selection takes the first
+/// fresh model. No I/O here — fetching + persistence stay in the caller.
+enum LocalModelRefreshLogic {
+    static func reconcile(current: String, fresh: [String]) -> String {
+        if fresh.isEmpty { return current }
+        if current.isEmpty { return fresh[0] }
+        return fresh.contains(current) ? current : fresh[0]
+    }
+}

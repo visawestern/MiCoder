@@ -837,17 +837,46 @@ struct ChatPanelView: View {
                     }
                 }
                 let sid = OpenCodeServeSessionStore.shared.sessionID(for: chatKey)
-                let result = try await OpenCodeServeClient.send(
-                    baseURL: baseURL, headers: headers, modelID: model,
-                    text: modelText, sessionID: sid
-                )
-                OpenCodeServeSessionStore.shared.remember(sessionID: result.sessionID, for: chatKey)
+                var streamed = ""
+                do {
+                    // Prefer SSE streaming (prompt_async + /event); fall back
+                    // to the blocking call when the stream yields nothing
+                    // (e.g. older serve without prompt_async).
+                    let (streamSID, stream) = try await OpenCodeServeClient.streamSend(
+                        baseURL: baseURL, headers: headers, modelID: model,
+                        text: modelText, sessionID: sid
+                    )
+                    OpenCodeServeSessionStore.shared.remember(sessionID: streamSID, for: chatKey)
+                    for try await event in stream {
+                        streamed += event.text
+                        let snapshot = streamed
+                        await MainActor.run {
+                            self.messageStore.update(id: assistantID) { msg in
+                                msg.content = snapshot
+                                msg.isStreaming = true
+                            }
+                        }
+                    }
+                } catch {
+                    guard !streamed.isEmpty else {
+                        throw error
+                    }
+                }
+                if streamed.isEmpty {
+                    let result = try await OpenCodeServeClient.send(
+                        baseURL: baseURL, headers: headers, modelID: model,
+                        text: modelText, sessionID: sid
+                    )
+                    OpenCodeServeSessionStore.shared.remember(sessionID: result.sessionID, for: chatKey)
+                    streamed = result.content
+                }
+                let finalText = streamed
                 await MainActor.run {
                     self.appState.isLoading = false
                     self.appState.isStreaming = false
                     self.streamingText = ""
                     self.messageStore.update(id: assistantID) { msg in
-                        msg.content = result.content
+                        msg.content = finalText
                         msg.isFinished = true
                         msg.isStreaming = false
                     }
