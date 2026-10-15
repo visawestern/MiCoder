@@ -2471,8 +2471,7 @@ class AppState: ObservableObject {
     @discardableResult
     func createStandaloneSession(title: String) -> ChatSession {
         let sessionID = UUID().uuidString
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        let sessionTitle = trimmed.isEmpty ? "New Chat" : String(trimmed.prefix(80))
+        let sessionTitle = ChatTitleLogic.title(for: title, existingTitles: sessions.map(\.title))
         DatabaseBridge.shared.createSession(
             id: sessionID,
             projectId: ChatSession.standaloneProjectKey,
@@ -2540,9 +2539,7 @@ class AppState: ObservableObject {
             return session.id
         }
         let sessionID = UUID().uuidString
-        let sessionTitle = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? "New Chat"
-            : String(title.prefix(80))
+        let sessionTitle = ChatTitleLogic.title(for: title, existingTitles: sessions.map(\.title))
         DatabaseBridge.shared.createSession(
             id: sessionID,
             projectId: workspace.path,

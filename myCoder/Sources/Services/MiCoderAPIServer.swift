@@ -215,7 +215,8 @@ final class MiCoderAPIServer {
             let target = Self.resolveSendTargets(appState: appState,
                                                  providerId: providerId,
                                                  modelId: modelId,
-                                                 chatId: chatId)
+                                                 chatId: chatId,
+                                                 message: message)
             NotificationCenter.default.post(
                 name: Notification.Name("apiSendRequested"),
                 object: nil,
@@ -251,7 +252,8 @@ final class MiCoderAPIServer {
     static func resolveSendTargets(appState: AppState,
                                    providerId: String?,
                                    modelId: String?,
-                                   chatId: String?) -> ResolvedSendTarget {
+                                   chatId: String?,
+                                   message: String = "") -> ResolvedSendTarget {
         if let providerId = providerId {
             appState.selectProvider(providerId, persistPreference: false)
         }
@@ -275,7 +277,7 @@ final class MiCoderAPIServer {
             // directory, never persisted) and vanished after restart. Create
             // a persisted standalone chat so it survives and shows in the
             // sidebar's Chats group (user directive 2026-09-08).
-            targetSession = appState.createStandaloneSession(title: "API Chat")
+            targetSession = appState.createStandaloneSession(title: message.isEmpty ? "API Chat" : message)
         }
         if let session = targetSession {
             appState.selectedSession = session
@@ -958,7 +960,8 @@ final class MiCoderAPIServer {
             let t = Self.resolveSendTargets(appState: appState,
                                              providerId: providerId,
                                              modelId: modelId,
-                                             chatId: json["chatId"] as? String)
+                                             chatId: json["chatId"] as? String,
+                                             message: message)
             NotificationCenter.default.post(
                 name: Notification.Name("apiSendRequested"),
                 object: nil,
