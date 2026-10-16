@@ -367,6 +367,24 @@ final class MiCoderAutoFreeClient {
                 properties["prompt"] = ["type": "string", "description": "Detailed prompt"]
                 properties["subagentType"] = ["type": "string", "description": "Agent type"]
                 required = ["description", "prompt"]
+            case .webFetch:
+                properties["url"] = ["type": "string", "description": "http(s) URL to fetch as text"]
+                properties["limit"] = ["type": "integer", "description": "Max chars to return"]
+                required = ["url"]
+            case .skill:
+                properties["name"] = ["type": "string", "description": "Installed skill id (omit to list skills)"]
+                required = []
+            case .taskCreate:
+                properties["content"] = ["type": "string", "description": "Task text"]
+                properties["status"] = ["type": "string", "enum": ["pending", "in_progress", "completed"]]
+                required = ["content"]
+            case .taskList:
+                break
+            case .taskUpdate:
+                properties["id"] = ["type": "string", "description": "Todo id from task_list"]
+                properties["content"] = ["type": "string", "description": "New text (optional)"]
+                properties["status"] = ["type": "string", "enum": ["pending", "in_progress", "completed"]]
+                required = ["id"]
             }
             return [
                 "type": "function",

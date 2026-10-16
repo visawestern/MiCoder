@@ -32,6 +32,15 @@ enum WebEmulatedTool: String, CaseIterable {
     case todoWrite = "todo_write"
     // Sub-agent / task tool
     case task = "task"
+    // Web fetch (Claude Code WebFetch parity)
+    case webFetch = "web_fetch"
+    // Installed skill lookup (Claude Code Skill parity)
+    case skill = "skill"
+    // Granular task tools (Claude Code TaskCreate/List/Update parity),
+    // backed by the same todo store as todo_read/todo_write.
+    case taskCreate = "task_create"
+    case taskList = "task_list"
+    case taskUpdate = "task_update"
 
     var argumentSchema: String {
         switch self {
@@ -53,6 +62,11 @@ enum WebEmulatedTool: String, CaseIterable {
         case .todoRead: return #"{}"#
         case .todoWrite: return #"{"todos": [{"id": "<id>", "content": "<text>", "status": "<pending|in_progress|completed>"}]}"#
         case .task: return #"{"description": "<task description>", "prompt": "<detailed prompt>", "subagentType": "<general|code|debug|review>"}"#
+        case .webFetch: return #"{"url": "<http(s) URL>", "limit": "<optional max chars>"}"#
+        case .skill: return #"{"name": "<installed skill id> (omit to list installed skills)"}"#
+        case .taskCreate: return #"{"content": "<task text>", "status": "<optional pending|in_progress|completed>"}"#
+        case .taskList: return #"{}"#
+        case .taskUpdate: return #"{"id": "<todo id>", "content": "<optional new text>", "status": "<optional pending|in_progress|completed>"}"#
         }
     }
 
@@ -76,6 +90,11 @@ enum WebEmulatedTool: String, CaseIterable {
         case .todoRead: return "Read the current todo list."
         case .todoWrite: return "Write/update the todo list."
         case .task: return "Launch a sub-agent for a complex task (runs in background, returns result)."
+        case .webFetch: return "Fetch a web page as text (http/https only, bounded)."
+        case .skill: return "Show an installed skill's instructions (omit name to list skills)."
+        case .taskCreate: return "Add one task to the checklist."
+        case .taskList: return "List checklist tasks."
+        case .taskUpdate: return "Update one checklist task by id."
         }
     }
 
@@ -529,20 +548,28 @@ enum WebToolProtocolEmulator {
     /// Web models write "LS"/"ls" for list_dir, "Read" for read_file, etc.
     /// Unknown names → nil so they surface as `.unknownTool` validation errors
     /// instead of being silently dropped.
+    ///
+    /// Normalization (applied before matching): trim, lowercase, "-" → "_".
+    /// This covers Anthropic PascalCase (Read/Edit/Write/Bash/Glob/Grep/Task/
+    /// TodoWrite/WebFetch/Skill/TaskCreate/...), snake_case, and hyphenated
+    /// spellings (git-commit, read-file) with one rule instead of N entries.
     static func canonicalToolName(_ name: String) -> String? {
-        let lower = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let lower = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .replacingOccurrences(of: "-", with: "_")
         switch lower {
-        case "ls", "list_dir", "list", "dir", "directory":
+        case "ls", "list_dir", "list", "dir", "directory", "ls_dir":
             return WebEmulatedTool.listDir.rawValue
         case "read_file", "read", "cat", "view":
             return WebEmulatedTool.readFile.rawValue
-        case "write_file", "write", "create":
+        case "write_file", "write", "create", "create_file":
             return WebEmulatedTool.writeFile.rawValue
-        case "edit_file", "edit", "replace":
+        case "edit_file", "edit", "replace", "apply_patch", "str_replace":
             return WebEmulatedTool.editFile.rawValue
-        case "grep", "search", "find":
+        case "grep", "search", "find", "rg", "ripgrep":
             return WebEmulatedTool.grep.rawValue
-        case "run_command", "run", "execute", "execute_command", "shell":
+        case "run_command", "run", "execute", "execute_command", "shell",
+             "sh", "bash", "cmd":
             return WebEmulatedTool.runCommand.rawValue
         // Git operations
         case "git_status", "status", "gs":
@@ -564,16 +591,126 @@ enum WebToolProtocolEmulator {
         // File search & glob
         case "glob", "glob_search", "find_files":
             return WebEmulatedTool.glob.rawValue
-        case "todo_read", "todos", "todo":
+        case "todo_read", "todos", "todo", "todoread":
             return WebEmulatedTool.todoRead.rawValue
-        case "todo_write", "todo_add", "todo_update":
+        case "todo_write", "todowrite", "todo_add", "todo_update":
             return WebEmulatedTool.todoWrite.rawValue
         // Sub-agent / task tool
         case "task", "subagent", "agent", "spawn":
             return WebEmulatedTool.task.rawValue
+        // Web fetch (Claude Code WebFetch parity)
+        case "web_fetch", "webfetch", "fetch", "web_fetch_url", "fetch_url":
+            return WebEmulatedTool.webFetch.rawValue
+        // Installed skills (Claude Code Skill parity)
+        case "skill", "use_skill", "load_skill", "skills":
+            return WebEmulatedTool.skill.rawValue
+        // Granular task tools (Claude Code TaskCreate/List/Update parity)
+        case "task_create", "taskcreate", "create_task", "add_task", "new_task":
+            return WebEmulatedTool.taskCreate.rawValue
+        case "task_list", "tasklist", "list_tasks", "tasks", "list_todos":
+            return WebEmulatedTool.taskList.rawValue
+        case "task_update", "taskupdate", "update_task", "edit_task", "complete_task":
+            return WebEmulatedTool.taskUpdate.rawValue
         default:
             return nil
         }
+    }
+
+    /// Normalize a model's argument spellings to this tool's canonical keys.
+    /// Different model families write `file_path`, `old_string`, `cmd`, etc.
+    /// Canonical keys always win; unknown keys pass through untouched.
+    static func normalizedArguments(for tool: WebEmulatedTool,
+                                    from args: [String: String]) -> [String: String] {
+        // Canonical key -> accepted spellings (canonical first).
+        let table: [String: [String]]
+        switch tool {
+        case .readFile, .listDir:
+            table = ["path": ["path", "file_path", "filepath", "file", "filename",
+                              "target_file", "target", "dir", "directory", "folder", "location"]]
+        case .editFile:
+            table = ["path": ["path", "file_path", "filepath", "file", "filename", "target_file"],
+                     "old": ["old", "old_string", "old_str", "old_text", "search", "find"],
+                     "new": ["new", "new_string", "new_str", "new_text", "replace", "replacement", "replace_with"]]
+        case .grep:
+            table = ["pattern": ["pattern", "regex", "regexp", "query", "search_pattern", "text"],
+                     "path": ["path", "dir", "directory", "folder", "location", "file_path", "filepath", "file"]]
+        case .glob:
+            table = ["pattern": ["pattern", "glob_pattern", "glob", "files", "file_pattern", "query"],
+                     "path": ["path", "dir", "directory", "folder", "location"]]
+        case .runCommand:
+            table = ["command": ["command", "cmd", "cmdline", "bash_command", "shell_command", "command_line", "script"]]
+        case .gitBranch, .gitCheckout:
+            table = ["branch": ["branch", "branch_name", "new_branch", "target_branch", "ref"],
+                     "create": ["create"]]
+        case .gitCommit:
+            table = ["message": ["message", "commit_message", "msg", "commit_msg", "title"],
+                     "addAll": ["addAll", "add_all", "all"]]
+        case .gitPush, .gitPull:
+            table = ["remote": ["remote", "remote_name"],
+                     "branch": ["branch", "branch_name", "ref"]]
+        case .gitLog:
+            table = ["limit": ["limit", "max_count", "n", "count"],
+                     "path": ["path"]]
+        case .gitDiff:
+            table = ["staged": ["staged"], "path": ["path"]]
+        case .gitStatus:
+            table = ["path": ["path"]]
+        case .todoWrite:
+            table = ["todos": ["todos", "tasks", "items", "todo_list"]]
+        case .taskCreate:
+            table = ["content": ["content", "text", "task", "title", "description", "name", "todo"],
+                     "status": ["status", "state"]]
+        case .taskUpdate:
+            table = ["id": ["id", "task_id", "todo_id"],
+                     "content": ["content", "text", "task", "title", "description", "name", "todo"],
+                     "status": ["status", "state"]]
+        case .webFetch:
+            table = ["url": ["url", "link", "uri", "href", "address", "website", "page"],
+                     "limit": ["limit", "max_chars", "maxchars", "max_length", "chars"]]
+        case .skill:
+            table = ["name": ["name", "skill", "skill_name", "skill_id", "id"]]
+        case .todoRead, .taskList, .task:
+            // No canonical keys to normalize (free-form or empty args) —
+            // pass through untouched.
+            return args
+        case .writeFile:
+            table = ["path": ["path", "file_path", "filepath", "file", "filename", "target_file"],
+                     "content": ["content", "text", "data", "body", "contents", "new_content"]]
+        }
+        // Lowercased lookup so FILE_PATH and FilePath also match.
+        let lowered: [(String, String)] = args.map {
+            ($0.key.lowercased().replacingOccurrences(of: "-", with: "_"), $0.value)
+        }
+        var out: [String: String] = [:]
+        for (canonical, variants) in table {
+            for key in [canonical] + variants {
+                if let match = lowered.first(where: { $0.0 == key }) {
+                    out[canonical] = match.1
+                    break
+                }
+            }
+        }
+        // Pass through anything unmapped (limit, offset, staged, flags):
+        // normalization must never drop arguments the tool needs.
+        let taken = Set(out.keys.map { $0.lowercased() })
+        for (key, value) in args where !taken.contains(key.lowercased()) {
+            out[key] = value
+        }
+        return out
+    }
+
+    /// Resolve a call to its canonical tool name (aliases → canonical).
+    /// Unknown names pass through unchanged so validation still reports the
+    /// model's original spelling in `.unknownTool` errors. Every consumer
+    /// that switches on tool identity (gate, validate, executor) must use
+    /// the resolved call — otherwise an alias like "Bash" would bypass the
+    /// run_command approval gate by falling into `.none`.
+    static func canonicalized(_ call: WebToolCall) -> WebToolCall {
+        guard let canonical = canonicalToolName(call.name),
+              canonical != call.name else {
+            return call
+        }
+        return WebToolCall(name: canonical, arguments: call.arguments)
     }
 
     private static func parseSingleCall(_ jsonString: String) -> WebToolCall? {
@@ -707,6 +844,7 @@ enum WebToolProtocolEmulator {
     /// paths must stay within the project root UNLESS accessLevel allows broader access;
     /// destructive tools flagged. Returns `nil` when valid, or the specific validation error.
     static func validate(_ call: WebToolCall, projectRoot: String, accessLevel: AccessLevel = .askBeforeChanges) -> WebToolValidationError? {
+        let call = canonicalized(call)
         guard WebEmulatedTool(rawValue: call.name) != nil else {
             return .unknownTool(call.name)
         }
@@ -721,8 +859,8 @@ enum WebToolProtocolEmulator {
     }
 
     static func requiresApproval(_ call: WebToolCall) -> Bool {
-        switch WebEmulatedTool(rawValue: call.name) {
-        case .writeFile, .editFile, .todoWrite,
+        switch WebEmulatedTool(rawValue: canonicalized(call).name) {
+        case .writeFile, .editFile, .todoWrite, .taskCreate, .taskUpdate,
              .gitBranch, .gitCheckout, .gitCommit, .gitPush, .gitPull,
              .runCommand, .task:
             return true

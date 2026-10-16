@@ -16,6 +16,9 @@ struct ProjectWebToolExecutor: WebToolExecutor {
     let undoManager: ProjectUndoManager?
     let sessionId: String?
     let accessLevel: AccessLevel
+    /// Home directory for user-global reads (installed skills). Defaults to
+    /// the real home; injectable so skill tests use a temp sandbox.
+    let homeDirectory: URL
     var bridge: WKWebViewBrowserBridge?
     var selectors: WebVendorSelectors?
 
@@ -23,12 +26,14 @@ struct ProjectWebToolExecutor: WebToolExecutor {
          fileManager: FileManager = .default,
          undoManager: ProjectUndoManager? = nil,
          sessionId: String? = nil,
-         accessLevel: AccessLevel = .askBeforeChanges) {
+         accessLevel: AccessLevel = .askBeforeChanges,
+         homeDirectory: URL? = nil) {
         self.projectRoot = projectRoot
         self.fileManager = fileManager
         self.undoManager = undoManager
         self.sessionId = sessionId
         self.accessLevel = accessLevel
+        self.homeDirectory = homeDirectory ?? fileManager.homeDirectoryForCurrentUser
     }
 
     func execute(_ call: WebToolCall) async -> String {
@@ -51,7 +56,17 @@ struct ProjectWebToolExecutor: WebToolExecutor {
     /// execute(_:) / the driver's approval-box flow, never here).
     private func run(_ call: WebToolCall) async -> String {
         let root = URL(fileURLWithPath: projectRoot)
-        switch WebEmulatedTool(rawValue: call.name) {
+        // Resolve model-specific spellings ("Bash", "git-commit", ...) to the
+        // canonical tool AND normalize argument names ("file_path" → "path")
+        // BEFORE dispatch, so every wire format executes identically.
+        guard let tool = WebEmulatedTool(rawValue: WebToolProtocolEmulator.canonicalToolName(call.name) ?? call.name) else {
+            return "error: unknown tool \(call.name)"
+        }
+        let call = WebToolCall(
+            name: tool.rawValue,
+            arguments: WebToolProtocolEmulator.normalizedArguments(for: tool, from: call.arguments)
+        )
+        switch tool {
         case .readFile:
             guard let path = call.arguments["path"] else { return "error: missing path" }
             let url = root.appendingPathComponent(path)
@@ -191,8 +206,29 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         case .task:
             // Sub-agent task tool - launch async sub-agent
             return await executeTask(call: call)
-        case .none:
-            return "error: unknown tool \(call.name)"
+        case .webFetch:
+            guard let url = call.arguments["url"], !url.isEmpty else {
+                return "error: missing url (http/https only)"
+            }
+            let limit = call.arguments["limit"].flatMap { Int($0.filter(\.isNumber)) }
+            return await fetchWebPage(urlString: url, limit: limit)
+        case .skill:
+            if let name = call.arguments["name"], !name.isEmpty {
+                return skillRead(name: name)
+            }
+            return skillList()
+        case .taskCreate:
+            guard let content = call.arguments["content"], !content.isEmpty else {
+                return "error: missing content"
+            }
+            return taskCreate(content: content, status: call.arguments["status"])
+        case .taskList:
+            return todoRead()
+        case .taskUpdate:
+            guard let id = call.arguments["id"], !id.isEmpty else {
+                return "error: missing id"
+            }
+            return taskUpdate(id: id, content: call.arguments["content"], status: call.arguments["status"])
         }
     }
 
@@ -313,23 +349,7 @@ struct ProjectWebToolExecutor: WebToolExecutor {
 
     /// Read the current todo list from `<project>/.mycoder/todos.json`.
     private func todoRead() -> String {
-        let url = todoFileURL()
-        guard let data = try? Data(contentsOf: url) else {
-            return "[]"
-        }
-        guard let json = try? JSONSerialization.jsonObject(with: data) else {
-            return "[]"
-        }
-        // Accept both a bare array and {"todos": [...]} wrapper.
-        let todos: [[String: Any]]
-        if let array = json as? [[String: Any]] {
-            todos = array
-        } else if let dict = json as? [String: Any],
-                  let array = dict["todos"] as? [[String: Any]] {
-            todos = array
-        } else {
-            return "[]"
-        }
+        let todos = loadTodoItems()
         guard !todos.isEmpty else { return "[]" }
         var lines: [String] = []
         for item in todos {
@@ -339,6 +359,25 @@ struct ProjectWebToolExecutor: WebToolExecutor {
             lines.append("[\(status)] \(id): \(content)")
         }
         return lines.joined(separator: "\n")
+    }
+
+    /// Raw todo items (bare array), shared by todo_read/todo_write and the
+    /// granular task_create/list/update tools (Claude Code Task* parity).
+    /// Corrupt or missing files read as empty — never a crash.
+    func loadTodoItems() -> [[String: Any]] {
+        let url = todoFileURL()
+        guard let data = try? Data(contentsOf: url),
+              let json = try? JSONSerialization.jsonObject(with: data) else {
+            return []
+        }
+        if let array = json as? [[String: Any]] {
+            return array
+        }
+        if let dict = json as? [String: Any],
+           let array = dict["todos"] as? [[String: Any]] {
+            return array
+        }
+        return []
     }
 
     /// Replace the todo list with the provided JSON array and persist it.
@@ -364,17 +403,206 @@ struct ProjectWebToolExecutor: WebToolExecutor {
                 return "error: each todo must have non-empty 'id' and 'content' strings"
             }
         }
+        return saveTodoItems(todos, operation: "todo_write")
+    }
+
+    /// Persist validated todo items (bare array) through undo + history.
+    /// Shared by todo_write and the granular task_* tools.
+    private func saveTodoItems(_ todos: [[String: Any]], operation: String) -> String {
         let url = todoFileURL()
         do {
             try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             let outData = try JSONSerialization.data(withJSONObject: todos, options: [.prettyPrinted, .sortedKeys])
-            try performFileOperation(operation: "todo_write", fileURL: url) {
+            try performFileOperation(operation: operation, fileURL: url) {
                 try outData.write(to: url)
             }
             return "ok: saved \(todos.count) todo\(todos.count == 1 ? "" : "s")"
         } catch {
             return "error: \(error.localizedDescription)"
         }
+    }
+
+    // MARK: - Granular task tools (Claude Code TaskCreate/List/Update parity)
+
+    /// Valid task statuses. Common model spellings are normalized.
+    static func normalizedTaskStatus(_ raw: String?) -> String? {
+        guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+              !raw.isEmpty else {
+            return nil
+        }
+        switch raw {
+        case "pending", "todo", "open", "new":
+            return "pending"
+        case "in_progress", "in-progress", "inprogress", "active", "doing", "started":
+            return "in_progress"
+        case "completed", "complete", "done", "finished", "closed":
+            return "completed"
+        default:
+            return nil
+        }
+    }
+
+    private func taskCreate(content: String, status: String?) -> String {
+        let resolved: String
+        if let s = status, !s.isEmpty {
+            guard let normalized = Self.normalizedTaskStatus(s) else {
+                return "error: unknown status '\(s)' (use pending, in_progress, or completed)"
+            }
+            resolved = normalized
+        } else {
+            resolved = "pending"
+        }
+        var todos = loadTodoItems()
+        let id = UUID().uuidString.prefix(8).lowercased()
+        todos.append(["id": String(id), "content": content, "status": resolved])
+        let result = saveTodoItems(todos, operation: "task_create")
+        guard result.hasPrefix("ok") else { return result }
+        return "ok: created task \(id) [\(resolved)]: \(content)"
+    }
+
+    private func taskUpdate(id: String, content: String?, status: String?) -> String {
+        var todos = loadTodoItems()
+        guard let idx = todos.firstIndex(where: { ($0["id"] as? String) == id }) else {
+            return "error: no task with id '\(id)' — use task_list to see ids"
+        }
+        if let content, !content.isEmpty {
+            todos[idx]["content"] = content
+        }
+        if let s = status, !s.isEmpty {
+            guard let normalized = Self.normalizedTaskStatus(s) else {
+                return "error: unknown status '\(s)' (use pending, in_progress, or completed)"
+            }
+            todos[idx]["status"] = normalized
+        }
+        let result = saveTodoItems(todos, operation: "task_update")
+        guard result.hasPrefix("ok") else { return result }
+        let item = todos[idx]
+        return "ok: updated task \(id) [\((item["status"] as? String) ?? "pending")]: \((item["content"] as? String) ?? "")"
+    }
+
+    // MARK: - Installed skill lookup (Claude Code Skill parity)
+
+    /// List installed skill ids. Real filesystem read, never a stub.
+    func skillList() -> String {
+        let dir = MyCoderPaths.skillsDir(homeDirectory: homeDirectory)
+        guard let entries = try? fileManager.contentsOfDirectory(
+            at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else {
+            return "no installed skills (add them under ~/.mycoder/skills/<id>/SKILL.md)"
+        }
+        let ids = entries.filter { $0.hasDirectoryPath }
+            .map { $0.deletingPathExtension().lastPathComponent }
+            .filter { $0 != "registry" }
+            .sorted()
+        guard !ids.isEmpty else {
+            return "no installed skills (add them under ~/.mycoder/skills/<id>/SKILL.md)"
+        }
+        return "installed skills:\n" + ids.map { "- \($0)" }.joined(separator: "\n")
+    }
+
+    /// Return an installed skill's SKILL.md (bounded). Unknown names fail
+    /// honestly with the installed list instead of hallucinating content.
+    func skillRead(name: String) -> String {
+        let dir = MyCoderPaths.skillsDir(homeDirectory: homeDirectory)
+            .appendingPathComponent(name, isDirectory: true)
+        let file = dir.appendingPathComponent("SKILL.md")
+        guard let content = try? String(contentsOf: file, encoding: .utf8),
+              !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return "error: no installed skill named '\(name)'. \(skillList())"
+        }
+        return Self.boundedSkillText(content, name: name)
+    }
+
+    static func boundedSkillText(_ content: String, name: String, charCap: Int = 12000) -> String {
+        guard content.count > charCap else { return content }
+        return String(content.prefix(charCap))
+            + "\n\n[truncated: skill '\(name)' exceeds \(charCap) chars, first \(charCap) shown]"
+    }
+
+    // MARK: - Web fetch (Claude Code WebFetch parity)
+
+    /// Fetch a page as bounded plain text. http/https only; localhost allowed
+    /// (the tool runs on the user's own machine under their approval policy).
+    func fetchWebPage(urlString: String, limit: Int? = nil,
+                      session: URLSession = .shared) async -> String {
+        guard let url = Self.validatedFetchURL(urlString) else {
+            return "error: invalid URL '\(urlString)' (http/https only)"
+        }
+        var request = URLRequest(url: url, timeoutInterval: 15)
+        request.setValue("myCoder/1.0 (tool web_fetch)", forHTTPHeaderField: "User-Agent")
+        request.setValue("text/html,application/xhtml+xml,text/plain,*/*", forHTTPHeaderField: "Accept")
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                return "error: no HTTP response from \(urlString)"
+            }
+            guard (200..<300).contains(http.statusCode) else {
+                return "error: HTTP \(http.statusCode) from \(urlString)"
+            }
+            guard let html = String(data: data, encoding: .utf8)
+                    ?? String(data: data, encoding: .isoLatin1) else {
+                return "error: undecodable response body from \(urlString)"
+            }
+            let text = Self.stripHTMLToText(html)
+            guard !text.isEmpty else {
+                return "error: no readable text at \(urlString)"
+            }
+            return Self.truncateFetch(text, limit: limit)
+        } catch {
+            return "error: fetch failed for \(urlString): \(error.localizedDescription)"
+        }
+    }
+
+    /// http/https URLs only — no file:, ftp:, data:, javascript: schemes.
+    static func validatedFetchURL(_ raw: String) -> URL? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed),
+              let scheme = url.scheme?.lowercased(),
+              (scheme == "http" || scheme == "https"),
+              url.host != nil else {
+            return nil
+        }
+        return url
+    }
+
+    /// Strip scripts/styles/tags to readable text. Pure and unit-tested;
+    /// intentionally simple (block tags → newlines, entities decoded).
+    static func stripHTMLToText(_ html: String) -> String {
+        var text = html
+        for pattern in ["(?s)<script.*?</script>",
+                        "(?s)<style.*?</style>",
+                        "(?s)<!--.*?-->",
+                        "(?s)<noscript.*?</noscript>"] {
+            if let regex = try? NSRegularExpression(pattern: pattern,
+                                                    options: [.caseInsensitive]) {
+                text = regex.stringByReplacingMatches(
+                    in: text,
+                    range: NSRange(text.startIndex..., in: text),
+                    withTemplate: " ")
+            }
+        }
+        text = text.replacingOccurrences(of: "(?i)<\\s*br\\s*/?\\s*>",
+                                         with: "\n", options: .regularExpression)
+        text = text.replacingOccurrences(of: "(?i)</\\s*(p|div|h[1-6]|li|tr|section|article|header|footer|blockquote)\\s*>",
+                                         with: "\n", options: .regularExpression)
+        text = text.replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
+        let entities: [(String, String)] = [
+            ("&amp;", "&"), ("&lt;", "<"), ("&gt;", ">"), ("&quot;", "\""),
+            ("&#39;", "'"), ("&apos;", "'"), ("&nbsp;", " "),
+        ]
+        for (entity, char) in entities {
+            text = text.replacingOccurrences(of: entity, with: char)
+        }
+        let lines = text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        return lines.joined(separator: "\n")
+    }
+
+    static func truncateFetch(_ text: String, limit: Int?) -> String {
+        let cap = max(0, limit ?? 8000)
+        guard text.count > cap else { return text }
+        return String(text.prefix(cap))
+            + "\n\n[truncated: page exceeds \(cap) chars, first \(cap) shown. Re-fetch with a larger limit to read more.]"
     }
 
     /// Grep a single file (path pointed at a file, not a directory).

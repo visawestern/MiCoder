@@ -17,13 +17,28 @@ enum WebToolPermission: Equatable {
 enum WebToolAccessGate {
 
     static func permission(for call: WebToolCall, accessLevel: AccessLevel) -> WebToolPermission {
-        switch WebEmulatedTool(rawValue: call.name) {
+        // Resolve aliases FIRST: an alias like "Bash" must face the
+        // run_command gate, never slip through as unknown (.none → allow).
+        let call = WebToolProtocolEmulator.canonicalized(call)
+        // Unknown tools fail closed below fullAccess (an unrecognized
+        // capability must not execute unseen); at fullAccess they pass
+        // through to the executor, which answers "error: unknown tool".
+        guard let tool = WebEmulatedTool(rawValue: call.name) else {
+            return accessLevel == .fullAccess ? .allow : .requireApproval
+        }
+        // Normalize argument spellings BEFORE inspecting them: a model may
+        // send the command under "cmd"/"script" instead of "command", and an
+        // empty lookup would vacantly pass isReadOnlyCommand (""/allow) —
+        // letting a mutating command through without approval.
+        let args = WebToolProtocolEmulator.normalizedArguments(for: tool, from: call.arguments)
+        switch tool {
         // Read-only tools — always allowed
-        case .readFile, .listDir, .grep, .gitStatus, .gitDiff, .gitLog, .glob, .todoRead:
+        case .readFile, .listDir, .grep, .gitStatus, .gitDiff, .gitLog, .glob, .todoRead,
+             .webFetch, .skill, .taskList:
             return .allow
         // File-modifying tools — ask before mutating; higher edit levels allow
         // execution after the user has chosen the corresponding global policy.
-        case .writeFile, .editFile, .todoWrite:
+        case .writeFile, .editFile, .todoWrite, .taskCreate, .taskUpdate:
             return accessLevel == .askBeforeChanges ? .requireApproval : .allow
         // Git mutating operations
         case .gitBranch, .gitCheckout, .gitCommit, .gitPush, .gitPull:
@@ -33,15 +48,13 @@ enum WebToolAccessGate {
         // and always run; anything that can mutate the machine still requires
         // fullAccess (or an explicit approval at lower levels).
         case .runCommand:
-            if isReadOnlyCommand(call.arguments["command"] ?? "") {
+            if isReadOnlyCommand(args["command"] ?? "") {
                 return .allow
             }
             return accessLevel == .fullAccess ? .allow : .requireApproval
         // Sub-agent task tool
         case .task:
             return accessLevel == .askBeforeChanges ? .requireApproval : .allow
-        case .none:
-            return .allow
         }
     }
 
