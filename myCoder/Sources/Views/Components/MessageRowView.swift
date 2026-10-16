@@ -50,6 +50,7 @@ private enum MessageContentSegment: Identifiable {
 struct MessageRow: View {
     let message: Message
     @State private var copied = false
+    @State private var showRawText = false
 
     private var displayTexts: [String] {
         let partTexts = message.parts.compactMap { part -> String? in
@@ -67,7 +68,22 @@ struct MessageRow: View {
     }
 
     private var reasoningText: String {
-        MessageResponseMergeLogic.reasoningForDisplay(message)
+        let base = MessageResponseMergeLogic.reasoningForDisplay(message)
+        if !base.isEmpty { return base }
+        // Models that inline <think> blocks (Qwen/DeepSeek-style free
+        // routers) carry no separate reasoning channel — surface the
+        // extracted thinking in the spoiler instead of leaking tags.
+        return ThinkTagLogic.inlineThinking(in: rawJoinedText)
+    }
+
+    /// Unsanitized answer text for think extraction (display text already
+    /// has the blocks stripped, so it can never be the source).
+    private var rawJoinedText: String {
+        let partTexts = message.parts.compactMap { part -> String? in
+            if case .text(let text) = part { return text }
+            return nil
+        }
+        return (partTexts.isEmpty ? [message.content] : partTexts).joined(separator: "\n\n")
     }
 
     private var showsThinkingSpoiler: Bool {
@@ -153,6 +169,17 @@ struct MessageRow: View {
 
     @ViewBuilder
     private var messageContent: some View {
+        // Raw mode: one contiguous selectable bubble — formatted bubbles are
+        // heterogeneous views, so whole-answer selection only works here.
+        if showRawText, !messageText.isEmpty {
+            rawTextBubble
+        } else {
+            formattedContent
+        }
+    }
+
+    @ViewBuilder
+    private var formattedContent: some View {
         if !hasRenderableTextParts && !message.content.isEmpty {
             if let sanitized = MessageContentSanitizerLogic.sanitizedTextPart(message.content) {
                 markdownBubble(sanitized)
@@ -207,6 +234,23 @@ struct MessageRow: View {
         }
     }
 
+    /// Raw unformatted answer: single selectable Text so the whole reply can
+    /// be selected/copied as plain text in the same bubble.
+    private var rawTextBubble: some View {
+        ScrollView {
+            Text(messageText)
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundColor(Color.mimo.textPrimary)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.mimo.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
     private var messageActions: some View {
         HStack(spacing: 2) {
             if !messageText.isEmpty {
@@ -221,6 +265,16 @@ struct MessageRow: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                         withAnimation { copied = false }
                     }
+                }
+                // Raw/formatted toggle in the same bubble: formatted views
+                // are heterogeneous, so whole-answer selection only works
+                // on the single contiguous raw text.
+                MessageActionButton(
+                    icon: showRawText ? "doc.richtext" : "doc.plaintext",
+                    tooltip: showRawText ? L.t(AppLocalizationKey.locFormatted) : L.t(AppLocalizationKey.locRawText),
+                    isActive: showRawText
+                ) {
+                    withAnimation { showRawText.toggle() }
                 }
             }
 

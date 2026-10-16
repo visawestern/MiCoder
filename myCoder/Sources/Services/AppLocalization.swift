@@ -333,6 +333,8 @@ enum AppLocalizationKey: String, CaseIterable {
     case locConnectTheLocalAgentAddCustomProvider
     case locConnectTheLocalAgentAddCustomProviderGetStarted
     case locCopyAll
+    case locRawText
+    case locFormatted
     case locCreate
     case locCreateProject
     case locCreatePullRequest
@@ -1002,6 +1004,8 @@ enum AppLocalization {
         "locConnectTheLocalAgentAddCustomProviderGetStarted": ["en": "Connect the local agent or add a custom provider to get started.", "ru": "Подключите локальный агент или добавьте пользовательский провайдер для начала.", "es": "Conecte el agente local o agregue un proveedor personalizado para comenzar.", "fr": "Connectez l'agent local ou ajoutez un fournisseur personnalisé pour commencer.", "de": "Verbinden Sie den lokalen Agenten oder fügen Sie einen benutzerdefinierten Anbieter hinzu, um zu beginnen.", "zh": "连接本地代理或添加自定义提供商以开始使用。", "ja": "ローカルエージェントを接続するか、カスタムプロバイダーを追加して開始します。", "ko": "로컬 에이전트를 연결하거나 사용자 정의 공급자를 추가하여 시작하세요.", "pt": "Conecte o agente local ou adicione um provedor personalizado para começar.", "ar": "اتصل بالوكيل المحلي أو أضف مزودًا مخصصًا للبدء."],
         "locConnectLocalAgentInstanceAnotherHost": ["en": "Connect to a local agent instance on another host.", "ru": "Подключиться к локальному агенту на другом хосте.", "es": "Conectarse a una instancia de agente local en otro host.", "fr": "Se connecter à une instance d'agent local sur un autre hôte.", "de": "Mit einer lokalen Agenten-Instanz auf einem anderen Host verbinden.", "zh": "连接到另一台主机上的本地代理实例。", "ja": "別のホスト上のローカルエージェントインスタンスに接続。", "ko": "다른 호스트의 로컬 에이전트 인스턴스에 연결합니다.", "pt": "Conectar a uma instância de agente local em outro host.", "ar": "الاتصال بinstance وكيل מקומי على مضيف آخر."],
         "locCopyAll": ["en": "Copy All", "ru": "Копировать все", "es": "Copiar todo", "fr": "Tout copier", "de": "Alles kopieren", "zh": "全部复制", "ja": "すべてコピー", "ko": "모두 복사", "pt": "Copiar tudo", "ar": "نسخ الكل"],
+        "locRawText": ["en": "Raw text", "ru": "Исходный текст", "es": "Texto sin formato", "fr": "Texte brut", "de": "Rohtext", "zh": "纯文本", "ja": "プレーンテキスト", "ko": "원시 텍스트", "pt": "Texto sem formatação", "ar": "نص خام"],
+        "locFormatted": ["en": "Formatted", "ru": "Форматированный", "es": "Con formato", "fr": "Formaté", "de": "Formatiert", "zh": "格式化", "ja": "書式付き", "ko": "서식 있음", "pt": "Formatado", "ar": "منسق"],
         "locCreate": ["en": "Create PR", "ru": "Создать PR", "es": "Crear PR", "fr": "Créer PR", "de": "PR erstellen", "zh": "创建 PR", "ja": "PRを作成", "ko": "PR 생성", "pt": "Criar PR", "ar": "إنشاء PR"],
         "locCreateProject": ["en": "Create Project", "ru": "Создать проект", "es": "Crear proyecto", "fr": "Créer un projet", "de": "Projekt erstellen", "zh": "新建项目", "ja": "プロジェクトを作成", "ko": "프로젝트 생성", "pt": "Criar projeto", "ar": "إنشاء مشروع"],
         "locCreatePullRequest": ["en": "Create Pull Request", "ru": "Создать Pull Request", "es": "Crear Pull Request", "fr": "Créer une Pull Request", "de": "Pull Request erstellen", "zh": "创建 Pull Request", "ja": "Pull Requestを作成", "ko": "Pull Request 생성", "pt": "Criar Pull Request", "ar": "إنشاء طلب سحب"],

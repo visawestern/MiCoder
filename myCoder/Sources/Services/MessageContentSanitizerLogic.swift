@@ -10,7 +10,9 @@ enum MessageContentSanitizerLogic {
             return text.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         let stripped = regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
-        return stripped
+        // Inline <think> blocks belong in the thinking spoiler, not the answer.
+        let thinkCleaned = ThinkTagLogic.extract(from: stripped).cleaned
+        return thinkCleaned
             .replacingOccurrences(of: "\n\n\n", with: "\n\n")
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -29,6 +31,85 @@ enum MessageContentSanitizerLogic {
             return []
         }
         return [fallbackText]
+    }
+}
+
+/// Inline `<think>...</think>` reasoning that some models (Qwen, DeepSeek,
+/// free-tier routers) emit directly in the answer text instead of a separate
+/// reasoning channel. Without handling, stray tags like `</think>` leak into
+/// the rendered bubble. Closed blocks move to the thinking spoiler; lone
+/// tags are deleted; fenced code is never touched.
+enum ThinkTagLogic {
+    private static let closedPattern = #"(?i)<think\s*>(.*?)</think\s*>"#
+    private static let strayPattern = #"(?i)</?think\s*>"#
+
+    /// Split inline think blocks out of model text.
+    /// - Closed `<think>…</think>` pairs: inner text → `thinking`, removed.
+    /// - Stray tags without a pair: deleted, surrounding text kept.
+    /// - Unclosed opener (mid-stream truncation): tag deleted, text stays
+    ///   visible rather than vanishing into the spoiler.
+    static func extract(from text: String) -> (cleaned: String, thinking: [String]) {
+        var thinking: [String] = []
+        // Process line runs outside fenced code blocks only.
+        var outLines: [String] = []
+        var buffer: [String] = []
+        var inFence = false
+        func flushBuffer() {
+            guard !buffer.isEmpty else { return }
+            let chunk = buffer.joined(separator: "\n")
+            let (cleanedChunk, found) = stripUnfenced(chunk)
+            thinking.append(contentsOf: found)
+            outLines.append(cleanedChunk)
+            buffer = []
+        }
+        for line in text.components(separatedBy: "\n") {
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                flushBuffer()
+                inFence.toggle()
+                outLines.append(line)
+            } else if inFence {
+                outLines.append(line)
+            } else {
+                buffer.append(line)
+            }
+        }
+        flushBuffer()
+        return (outLines.joined(separator: "\n"), thinking)
+    }
+
+    /// Thinking chunks joined for the spoiler, or "" when there is none.
+    static func inlineThinking(in text: String) -> String {
+        extract(from: text).thinking.joined(separator: "\n\n")
+    }
+
+    private static func stripUnfenced(_ text: String) -> (String, [String]) {
+        var thinking: [String] = []
+        var result = text
+        if let regex = try? NSRegularExpression(
+            pattern: closedPattern,
+            options: [.dotMatchesLineSeparators]
+        ) {
+            let ns = result as NSString
+            let matches = regex.matches(in: result, range: NSRange(location: 0, length: ns.length))
+            for match in matches.reversed() {
+                if match.numberOfRanges >= 2,
+                   let inner = Range(match.range(at: 1), in: result) {
+                    thinking.insert(String(result[inner]), at: 0)
+                }
+                if let whole = Range(match.range(at: 0), in: result) {
+                    result.removeSubrange(whole)
+                }
+            }
+        }
+        if let stray = try? NSRegularExpression(pattern: strayPattern) {
+            let ns = result as NSString
+            result = stray.stringByReplacingMatches(
+                in: result,
+                range: NSRange(location: 0, length: ns.length),
+                withTemplate: ""
+            )
+        }
+        return (result, thinking)
     }
 }
 
