@@ -259,6 +259,47 @@ class DatabaseBridge: ObservableObject {
         }
     }
 
+    /// Rename a session in the store that owns it (project DB or global).
+    /// Returns true when a row was updated.
+    @discardableResult
+    func renameSession(id: String, title: String) -> Bool {
+        if let projectDB = resolveProjectDatabase(forSessionID: id) {
+            do {
+                try projectDB.updateSessionTitle(id: id, title: title)
+                return true
+            } catch {
+                print("❌ Failed to rename project session: \(error)")
+                return false
+            }
+        }
+        do {
+            try db.updateSessionTitle(sessionId: id, title: title)
+            return true
+        } catch {
+            print("❌ Failed to rename legacy session: \(error)")
+            return false
+        }
+    }
+
+    /// Hard-delete a session (messages cascade) from the store that owns it.
+    @discardableResult
+    func deleteSession(id: String) -> Bool {
+        if let projectDB = resolveProjectDatabase(forSessionID: id) {
+            do {
+                return try projectDB.deleteSession(id: id)
+            } catch {
+                print("❌ Failed to delete project session: \(error)")
+                return false
+            }
+        }
+        do {
+            return try db.deleteSession(id: id)
+        } catch {
+            print("❌ Failed to delete legacy session: \(error)")
+            return false
+        }
+    }
+
     /// Архивировать сессию в базе проекта, которому она принадлежит.
     func archiveSession(id: String) {
         guard let projectDB = resolveProjectDatabase(forSessionID: id) else {

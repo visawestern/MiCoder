@@ -834,6 +834,14 @@ struct SessionTaskRow: View {
     let groupColor: Color
     var isHovered: Bool = false
     @EnvironmentObject var appState: AppState
+    @State private var isRenaming = false
+    @State private var showingDeleteConfirm = false
+    @State private var renameText = ""
+
+    private func commitRename() {
+        isRenaming = false
+        appState.renameSessionInDatabaseUI(id: session.id, title: renameText)
+    }
     
     var isSelected: Bool {
         appState.selectedSession?.id == session.id
@@ -860,32 +868,40 @@ struct SessionTaskRow: View {
             }
             
             // Session content
-            Button(action: { appState.selectSession(session) }) {
-                HStack(spacing: 6) {
-                    Text(session.title)
-                        .interfaceFont(size: 12)
-                        .foregroundColor(isSelected ? Color.mimo.textPrimary : Color.mimo.textSecondary)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    
-                    if isSelected {
-                        // "now" badge
-                        Text(L.t(AppLocalizationKey.locNow))
-                            .interfaceFont(size: 9, weight: .medium)
-                            .foregroundColor(Color.mimo.textPrimary)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(Color.mimo.textPrimary.opacity(0.12))
-                            .cornerRadius(4)
-                    } else {
-                        // Time badge
-                        Text(timeBadge)
-                            .interfaceFont(size: 10)
-                            .foregroundColor(Color.mimo.textMuted)
+            if isRenaming {
+                TextField("Chat title", text: $renameText, onCommit: commitRename)
+                    .textFieldStyle(.plain)
+                    .interfaceFont(size: 12)
+                    .foregroundColor(Color.mimo.textPrimary)
+                    .onExitCommand { isRenaming = false }
+            } else {
+                Button(action: { appState.selectSession(session) }) {
+                    HStack(spacing: 6) {
+                        Text(session.title)
+                            .interfaceFont(size: 12)
+                            .foregroundColor(isSelected ? Color.mimo.textPrimary : Color.mimo.textSecondary)
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if isSelected {
+                            // "now" badge
+                            Text(L.t(AppLocalizationKey.locNow))
+                                .interfaceFont(size: 9, weight: .medium)
+                                .foregroundColor(Color.mimo.textPrimary)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
+                                .background(Color.mimo.textPrimary.opacity(0.12))
+                                .cornerRadius(4)
+                        } else {
+                            // Time badge
+                            Text(timeBadge)
+                                .interfaceFont(size: 10)
+                                .foregroundColor(Color.mimo.textMuted)
+                        }
                     }
                 }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
             
             if isHovered {
                 HStack(spacing: 4) {
@@ -897,6 +913,17 @@ struct SessionTaskRow: View {
                     .buttonStyle(.plain)
                     
                     Menu {
+                        Button("Rename…") {
+                            renameText = session.title
+                            isRenaming = true
+                        }
+                        ShareLink(item: appState.sessionTranscriptMarkdown(sessionId: session.id) ?? session.title) {
+                            Text("Share transcript")
+                        }
+                        Button("Export transcript…") {
+                            appState.exportSessionTranscript(sessionId: session.id)
+                        }
+                        Divider()
                         if SessionRowActions.showInFinderURL(session: session, workspace: workspace) != nil {
                             Button(L.t(AppLocalizationKey.locShowInFinder)) {
                                 appState.openFolderInFinder(session.directory.isEmpty ? workspace.path : session.directory)
@@ -904,6 +931,13 @@ struct SessionTaskRow: View {
                         }
                         Button(L.t(AppLocalizationKey.locNewTaskSidebar)) {
                             appState.startNewTask(in: workspace)
+                        }
+                        Button(L.t(AppLocalizationKey.locArchive)) {
+                            appState.archiveSessionInDatabaseUI(id: session.id)
+                        }
+                        Divider()
+                        Button("Delete…", role: .destructive) {
+                            showingDeleteConfirm = true
                         }
                     } label: {
                         Image(systemName: "ellipsis.vertical")
@@ -924,6 +958,14 @@ struct SessionTaskRow: View {
                 : Color.clear
         )
         .cornerRadius(6)
+        .alert("Delete this chat?", isPresented: $showingDeleteConfirm) {
+            Button("Delete", role: .destructive) {
+                appState.deleteSessionInDatabaseUI(id: session.id)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently removes the chat and its messages from the local database. It cannot be undone.")
+        }
     }
 }
 

@@ -1,5 +1,7 @@
 // DatabaseManager integration extension for AppState
 import Foundation
+import AppKit
+import UniformTypeIdentifiers
 
 extension AppState {
     
@@ -459,6 +461,66 @@ extension AppState {
             Task { @MainActor in
                 await loadSessionsFromDatabase(projectId: projectId)
             }
+        }
+    }
+
+    // MARK: - Session row actions (rename / share / export / delete)
+
+    /// Rename a chat from the sidebar. Updates the owning store first and the
+    /// in-memory list only after the DB write succeeds, so the UI can never
+    /// show a title that was not persisted.
+    @MainActor
+    func renameSessionInDatabaseUI(id: String, title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard db.renameSession(id: id, title: trimmed) else { return }
+        if let index = sessions.firstIndex(where: { $0.id == id }) {
+            sessions[index].title = trimmed
+        }
+        if selectedSession?.id == id {
+            selectedSession?.title = trimmed
+        }
+    }
+
+    /// Hard-delete a chat from the sidebar. Messages/parts cascade in the DB;
+    /// the in-memory list is updated only after a successful delete.
+    @MainActor
+    func deleteSessionInDatabaseUI(id: String) {
+        guard db.deleteSession(id: id) else { return }
+        sessions.removeAll { $0.id == id }
+        if selectedSession?.id == id {
+            selectedSession = nil
+        }
+    }
+
+    /// Full transcript (Markdown) for Share/Export, read from the store that
+    /// owns the session.
+    func sessionTranscriptMarkdown(sessionId: String) -> String? {
+        guard let session = sessions.first(where: { $0.id == sessionId }) else { return nil }
+        let messages = DatabaseBridge.shared.loadMessageTail(sessionId: sessionId, take: nil)
+        return SessionTranscriptLogic.markdown(title: session.title, messages: messages)
+    }
+
+    /// Save the transcript through a real save panel. Returns nil when the
+    /// user cancels or the write fails.
+    @MainActor
+    @discardableResult
+    func exportSessionTranscript(sessionId: String) -> URL? {
+        guard let markdown = sessionTranscriptMarkdown(sessionId: sessionId),
+              let session = sessions.first(where: { $0.id == sessionId }) else { return nil }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .plainText]
+        panel.nameFieldStringValue = SessionTranscriptLogic.fileName(title: session.title)
+        panel.canCreateDirectories = true
+        panel.prompt = "Export"
+        guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        do {
+            try markdown.write(to: url, atomically: true, encoding: .utf8)
+            return url
+        } catch {
+            shellActionNotice = "Could not export transcript: \(error.localizedDescription)"
+            shellActionNoticeTone = .error
+            return nil
         }
     }
 }

@@ -567,6 +567,15 @@ class DatabaseManager {
         try db.run(sessions.filter(sessionId == id).update(sessionGoal <- goal))
     }
 
+    /// Rename a session in the global (standalone) store.
+    func updateSessionTitle(sessionId id: String, title: String) throws {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        try db.run(sessions.filter(sessionId == id).update(
+            sessionTitle <- title,
+            sessionUpdatedAt <- Int64(Date().timeIntervalSince1970)
+        ))
+    }
+
     /// Read a session's persisted goal.
     func getSessionGoal(sessionId id: String) throws -> String? {
         guard let db = db else { throw DatabaseError.notInitialized }
@@ -1064,12 +1073,27 @@ class DatabaseManager {
         return count
     }
 
-    /// Hard delete one session and its messages (FK cascade).
-    /// Used for test cleanup and (follow-up) user-initiated chat deletion.
-    /// Returns true when a row was removed.
+    /// Hard delete one session and its messages. Foreign keys are OFF by
+    /// SQLite default, so dependents are removed explicitly (schema FKs alone
+    /// leave orphaned messages/parts behind).
     @discardableResult
     func deleteSession(id: String) throws -> Bool {
         guard let db = db else { throw DatabaseError.notInitialized }
+        let messageIDs = try SQLiteSafeQuery.rows(
+            db.prepareRowIterator(messages.filter(messageSessionId == id).select(messageId))
+        ).map { $0[messageId] }
+        if !messageIDs.isEmpty {
+            let callIDs = try SQLiteSafeQuery.rows(
+                db.prepareRowIterator(toolCalls.filter(messageIDs.contains(toolCallMessageId)).select(toolCallId))
+            ).map { $0[toolCallId] }
+            if !callIDs.isEmpty {
+                try db.run(fileChanges.filter(callIDs.contains(fileChangeToolCallId)).delete())
+            }
+            try db.run(toolCalls.filter(messageIDs.contains(toolCallMessageId)).delete())
+            try db.run(messageParts.filter(messageIDs.contains(partMessageId)).delete())
+            try db.run(messages.filter(messageIDs.contains(messageId)).delete())
+        }
+        try db.run(undoStack.filter(undoSessionId == id).delete())
         return try db.run(sessions.filter(sessionId == id).delete()) > 0
     }
     

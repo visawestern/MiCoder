@@ -669,6 +669,42 @@ final class ProjectDatabaseManager {
         try db.run(row.update(sessionUpdatedAt <- Int64(Date().timeIntervalSince1970)))
     }
 
+    /// Rename a session in this project store (sidebar context menu).
+    func updateSessionTitle(id: String, title: String) throws {
+        touch()
+        let row = sessions.filter(sessionId == id)
+        try db.run(row.update(
+            sessionTitle <- title,
+            sessionUpdatedAt <- Int64(Date().timeIntervalSince1970)
+        ))
+    }
+
+    /// Hard-delete one session. SQLite foreign keys are OFF by default on the
+    /// pooled connection, so dependents are deleted explicitly (schema FKs are
+    /// declared but cannot be relied on here); without this, messages orphaned
+    /// and a later session reusing the id would show stale history.
+    @discardableResult
+    func deleteSession(id: String) throws -> Bool {
+        touch()
+        let messageIDs = try SQLiteSafeQuery.rows(
+            db.prepareRowIterator(messages.filter(messageSessionId == id).select(messageId))
+        ).map { $0[messageId] }
+        if !messageIDs.isEmpty {
+            let callIDs = try SQLiteSafeQuery.rows(
+                db.prepareRowIterator(toolCalls.filter(messageIDs.contains(toolCallMessageId)).select(toolCallId))
+            ).map { $0[toolCallId] }
+            if !callIDs.isEmpty {
+                try db.run(fileChanges.filter(callIDs.contains(fileChangeToolCallId)).delete())
+            }
+            try db.run(toolCalls.filter(messageIDs.contains(toolCallMessageId)).delete())
+            try db.run(messageParts.filter(messageIDs.contains(partMessageId)).delete())
+            try db.run(messages.filter(messageIDs.contains(messageId)).delete())
+        }
+        try db.run(undoStack.filter(undoSessionId == id).delete())
+        try db.run(requestHistory.filter(requestHistorySessionId == id).delete())
+        return try db.run(sessions.filter(sessionId == id).delete()) > 0
+    }
+
     func archiveSession(id: String) throws {
         touch()
         let row = sessions.filter(sessionId == id)

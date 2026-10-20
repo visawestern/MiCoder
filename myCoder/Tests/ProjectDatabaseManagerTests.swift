@@ -96,6 +96,24 @@ struct ProjectDatabaseManagerTests {
         #expect(withArchived.count == 1)
     }
 
+    @Test("Rename persists and delete cascades messages")
+    func renameAndDeleteSession() throws {
+        let projectPath = try makeTempProjectDir()
+        defer { try? FileManager.default.removeItem(atPath: projectPath) }
+        let db = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
+
+        try db.insertSession(id: "s1", title: "Old title", directory: projectPath)
+        try db.insertMessage(id: "m1", sessionId: "s1", role: "user", content: "Hello")
+
+        try db.updateSessionTitle(id: "s1", title: "New title")
+        #expect(try db.getAllSessions().first?.title == "New title")
+
+        #expect(try db.deleteSession(id: "s1") == true)
+        #expect(try db.getAllSessions(includeArchived: true).isEmpty)
+        #expect(try db.getMessages(sessionId: "s1").isEmpty)
+        #expect(try db.deleteSession(id: "s1") == false)
+    }
+
     @Test("Messages and message parts round-trip with sequence ordering preserved")
     func messagesAndPartsRoundTrip() throws {
         let projectPath = try makeTempProjectDir()
