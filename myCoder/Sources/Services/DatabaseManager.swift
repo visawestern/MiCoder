@@ -568,9 +568,12 @@ class DatabaseManager {
     }
 
     /// Rename a session in the global (standalone) store.
-    func updateSessionTitle(sessionId id: String, title: String) throws {
+    /// Rename a session. Returns the number of rows updated so the caller can
+    /// detect a stale id instead of reporting success for a silent no-op.
+    @discardableResult
+    func updateSessionTitle(sessionId id: String, title: String) throws -> Int {
         guard let db = db else { throw DatabaseError.notInitialized }
-        try db.run(sessions.filter(sessionId == id).update(
+        return try db.run(sessions.filter(sessionId == id).update(
             sessionTitle <- title,
             sessionUpdatedAt <- Int64(Date().timeIntervalSince1970)
         ))

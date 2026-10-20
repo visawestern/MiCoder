@@ -33,4 +33,20 @@ struct DatabaseManagerMaintenanceTests {
         #expect(try db.deleteSessionsOlderThan(days: -1) == 0)
         #expect(try db.getAllSessionsAcrossProjects().count == 1)
     }
+
+    @Test("rename reports affected rows and persists the new title")
+    func renameSessionUpdatesTitle() throws {
+        let db = DatabaseManager.createInMemory()
+        try db.insertSession(
+            id: "session-rename",
+            projectId: "project-rename",
+            title: "Old",
+            directory: "/tmp/project-rename"
+        )
+
+        #expect(try db.updateSessionTitle(sessionId: "session-rename", title: "New") == 1)
+        let stored = try db.getAllSessionsAcrossProjects().first { $0.id == "session-rename" }
+        #expect(stored?.title == "New")
+        #expect(try db.updateSessionTitle(sessionId: "missing", title: "X") == 0)
+    }
 }

@@ -670,10 +670,13 @@ final class ProjectDatabaseManager {
     }
 
     /// Rename a session in this project store (sidebar context menu).
-    func updateSessionTitle(id: String, title: String) throws {
+    /// Returns the number of rows updated so callers can detect a stale id
+    /// instead of reporting success for a silent no-op.
+    @discardableResult
+    func updateSessionTitle(id: String, title: String) throws -> Int {
         touch()
         let row = sessions.filter(sessionId == id)
-        try db.run(row.update(
+        return try db.run(row.update(
             sessionTitle <- title,
             sessionUpdatedAt <- Int64(Date().timeIntervalSince1970)
         ))

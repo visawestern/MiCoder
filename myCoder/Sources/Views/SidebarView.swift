@@ -835,6 +835,7 @@ struct SessionTaskRow: View {
     var isHovered: Bool = false
     @EnvironmentObject var appState: AppState
     @State private var isRenaming = false
+    @FocusState private var isRenameFocused: Bool
     @State private var showingDeleteConfirm = false
     @State private var renameText = ""
 
@@ -869,11 +870,35 @@ struct SessionTaskRow: View {
             
             // Session content
             if isRenaming {
-                TextField("Chat title", text: $renameText, onCommit: commitRename)
-                    .textFieldStyle(.plain)
-                    .interfaceFont(size: 12)
-                    .foregroundColor(Color.mimo.textPrimary)
-                    .onExitCommand { isRenaming = false }
+                HStack(spacing: 6) {
+                    TextField("Chat title", text: $renameText)
+                        .textFieldStyle(.plain)
+                        .interfaceFont(size: 12)
+                        .foregroundColor(Color.mimo.textPrimary)
+                        .focused($isRenameFocused)
+                        .onAppear { isRenameFocused = true }
+                        .onSubmit(commitRename)
+                        .onChange(of: isRenameFocused) { focused in
+                            if !focused, isRenaming { commitRename() }
+                        }
+                        .onExitCommand { isRenaming = false }
+
+                    Button(action: commitRename) {
+                        Image(systemName: "checkmark")
+                            .interfaceFont(size: 10, weight: .semibold)
+                            .foregroundColor(Color.mimo.cyan)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Save title")
+
+                    Button(action: { isRenaming = false }) {
+                        Image(systemName: "xmark")
+                            .interfaceFont(size: 10)
+                            .foregroundColor(Color.mimo.textMuted)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Cancel rename")
+                }
             } else {
                 Button(action: { appState.selectSession(session) }) {
                     HStack(spacing: 6) {

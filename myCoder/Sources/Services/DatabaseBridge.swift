@@ -260,21 +260,19 @@ class DatabaseBridge: ObservableObject {
     }
 
     /// Rename a session in the store that owns it (project DB or global).
-    /// Returns true when a row was updated.
+    /// Returns true only when a row actually changed.
     @discardableResult
     func renameSession(id: String, title: String) -> Bool {
         if let projectDB = resolveProjectDatabase(forSessionID: id) {
             do {
-                try projectDB.updateSessionTitle(id: id, title: title)
-                return true
+                return try projectDB.updateSessionTitle(id: id, title: title) > 0
             } catch {
                 print("❌ Failed to rename project session: \(error)")
                 return false
             }
         }
         do {
-            try db.updateSessionTitle(sessionId: id, title: title)
-            return true
+            return try db.updateSessionTitle(sessionId: id, title: title) > 0
         } catch {
             print("❌ Failed to rename legacy session: \(error)")
             return false

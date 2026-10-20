@@ -473,7 +473,11 @@ extension AppState {
     func renameSessionInDatabaseUI(id: String, title: String) {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        guard db.renameSession(id: id, title: trimmed) else { return }
+        guard db.renameSession(id: id, title: trimmed) else {
+            shellActionNotice = "Could not rename the chat — it is no longer in the database."
+            shellActionNoticeTone = .error
+            return
+        }
         if let index = sessions.firstIndex(where: { $0.id == id }) {
             sessions[index].title = trimmed
         }
@@ -482,8 +486,9 @@ extension AppState {
         }
     }
 
-    /// Hard-delete a chat from the sidebar. Messages/parts cascade in the DB;
-    /// the in-memory list is updated only after a successful delete.
+    /// Hard-delete a chat from the sidebar. Dependent rows (messages, parts,
+    /// tool calls) are removed explicitly in the DB; the in-memory list is
+    /// updated only after a successful delete.
     @MainActor
     func deleteSessionInDatabaseUI(id: String) {
         guard db.deleteSession(id: id) else { return }

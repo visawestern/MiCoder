@@ -107,6 +107,7 @@ struct ProjectDatabaseManagerTests {
 
         try db.updateSessionTitle(id: "s1", title: "New title")
         #expect(try db.getAllSessions().first?.title == "New title")
+        #expect(try db.updateSessionTitle(id: "missing", title: "X") == 0)
 
         #expect(try db.deleteSession(id: "s1") == true)
         #expect(try db.getAllSessions(includeArchived: true).isEmpty)
