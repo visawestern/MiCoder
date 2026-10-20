@@ -63,6 +63,15 @@ struct SlashCommandExecutorTests {
         } else { Issue.record("expected injectInstruction") }
     }
 
+    @Test func compactCommandMapsToCompactionAction() {
+        let exec = SlashCommandExecutor(hasGitRepo: false)
+        #expect(exec.execute("/compact") == .compactConversation)
+        // Compaction must never be sent to the model as raw text.
+        if case .injectInstruction = exec.execute("/compact") {
+            Issue.record("/compact must not inject an instruction")
+        }
+    }
+
     @Test func executingCommandRecordsUsage() {
         SlashCommandRegistry.resetHistory()
         _ = SlashCommandExecutor(hasGitRepo: true).execute("/goal x")

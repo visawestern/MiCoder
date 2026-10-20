@@ -6,12 +6,13 @@ struct SlashCommandRegistryTests {
 
     @Test func builtInCommandsAlwaysPresent() {
         let cmds = SlashCommandRegistry.builtInCommands
-        #expect(cmds.count == 15)
+        #expect(cmds.count == BuiltInSlashCommand.allCases.count)
         let names = Set(cmds.map { $0.name })
         #expect(names.contains("goal"))
         #expect(names.contains("plan"))
         #expect(names.contains("review"))
         #expect(names.contains("verify"))
+        #expect(names.contains("compact"))
         #expect(cmds.allSatisfy { $0.isBuiltIn })
     }
 
@@ -40,7 +41,7 @@ struct SlashCommandRegistryTests {
         #expect(goalEntries.count == 1)            // built-in wins, custom dropped
         #expect(goalEntries.first?.isBuiltIn == true)
         #expect(all.contains { $0.name == "ship" && !$0.isBuiltIn })
-        #expect(all.count == 16)                    // 15 built-in + 1 custom
+        #expect(all.count == BuiltInSlashCommand.allCases.count + 1) // built-ins + 1 custom
     }
 
     @Test func parseExtractsNameAndArgument() {

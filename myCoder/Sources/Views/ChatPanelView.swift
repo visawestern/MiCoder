@@ -16,6 +16,7 @@ struct ChatPanelView: View {
     @State private var scrolledSessionID: String?
     @State private var draftSaveTask: Task<Void, Never>?
     @State private var serveTimeoutTask: Task<Void, Never>?
+    @State private var isCompacting = false
     #if canImport(WebKit)
     @State private var activeWebProviderID: String?
     @State private var activeWebChatID: String?
@@ -210,7 +211,8 @@ struct ChatPanelView: View {
                         isLoading: appState.isLoading,
                         attachmentStore: attachmentStore,
                         showFilePicker: $showFilePicker,
-                        messageQueue: messageQueue
+                        messageQueue: messageQueue,
+                        contextUsage: currentContextUsage
                     )
                 }
             }
@@ -573,6 +575,10 @@ struct ChatPanelView: View {
                 messageText = ""
                 messageStore.append(Message(role: .assistant, content: "🎯 Current goal: \(g)", isFinished: true))
                 return
+            case .compactConversation:
+                messageText = ""
+                Task { await self.compactConversation(reason: "manual /compact") }
+                return
             case .gitRequiredError(let cmd):
                 messageText = ""
                 messageStore.append(Message(role: .assistant, content: "Command /\(cmd) needs a git repository in this workspace.", isFinished: true))
@@ -692,6 +698,137 @@ struct ChatPanelView: View {
         }
     }
     
+    // MARK: - Context compaction (/compact + auto at 90%)
+
+    /// Routes that send the local feed as history can be compacted; server-
+    /// managed routes (mimo serve, opencode serve, web, ACP) keep their own
+    /// history, so replacing it locally would be a lie.
+    private func supportsLocalHistoryCompaction(_ route: SendRoute) -> Bool {
+        switch route {
+        case .openAICompatible, .autoFree: return true
+        default: return false
+        }
+    }
+
+    private var selectedContextLimit: Int {
+        let model = appState.effectiveSelectedModel()
+        var reported: Int?
+        if appState.selectedProviderID == MiCoderAutoFreeProvider.builtInID {
+            reported = MiCoderAutoFreeStore.shared.provider.models
+                .first(where: { $0.id == model })?.contextLength
+        }
+        return ContextWindowCatalog.limit(for: model, reported: reported)
+    }
+
+    /// Measured over the MODEL-BOUND history so the badge drops right after a
+    /// compaction instead of showing the whole visible feed.
+    private var currentContextUsage: ContextUsage? {
+        let history = ConversationCompactionLogic.historyForModel(messageStore.messages)
+        guard !history.isEmpty else { return nil }
+        return ContextUsageLogic.usage(messages: history, limitTokens: selectedContextLimit)
+    }
+
+    private func currentRoute() -> SendRoute {
+        SendRouteResolver.route(
+            selectedProviderID: appState.selectedProviderID,
+            selectedModel: appState.effectiveSelectedModel(),
+            serverConnected: appState.serverConnected,
+            isACP: appState.isSelectedACPProvider,
+            customProviders: appState.customProviders,
+            localProviders: LocalProviderLogic.load(),
+            webProviderIDs: appState.webProviderIDs
+        )
+    }
+
+    /// Route-specific summarizer transport: a plain one-shot completion that
+    /// never touches the visible chat (no streaming bubble, no tool protocol).
+    private func summaryTransport(for route: SendRoute) -> ConversationSummarizer.Transport {
+        switch route {
+        case .openAICompatible(let baseURL, let apiKey, let model):
+            return { prompt in
+                let result = try await DirectChatClient.send(
+                    baseURL: baseURL,
+                    apiKey: apiKey,
+                    model: model,
+                    messages: [DirectChatMessage(role: "user", content: prompt)]
+                )
+                return result.content
+            }
+        case .autoFree:
+            return { prompt in
+                let store = MiCoderAutoFreeStore.shared
+                store.syncModel(self.appState.effectiveSelectedModel())
+                var content = ""
+                for try await event in store.streamChat(
+                    messages: [MiCoderAutoFreeClient.Message(role: "user", content: prompt)]
+                ) {
+                    if case .content(let chunk) = event { content += chunk }
+                }
+                return content
+            }
+        default:
+            return { _ in throw ConversationSummarizerError.nothingToCompact }
+        }
+    }
+
+    /// Replace the model-bound history with a factual summary message. The
+    /// full chat stays visible; `historyForModel` cuts at the newest summary.
+    @MainActor
+    private func compactConversation(reason: String) async {
+        guard !isCompacting else { return }
+        let history = ConversationCompactionLogic.historyForModel(messageStore.messages)
+        guard ConversationCompactionLogic.plan(messages: history) != nil else {
+            messageStore.append(Message(
+                role: .assistant,
+                content: ConversationSummarizerError.nothingToCompact.errorDescription ?? "Nothing to compact.",
+                isFinished: true
+            ))
+            return
+        }
+        let route = currentRoute()
+        guard supportsLocalHistoryCompaction(route) else {
+            messageStore.append(Message(
+                role: .assistant,
+                content: "Compaction is not available for this provider: its history is kept on the server (mimo/opencode serve, web or ACP), so a local summary would not shrink it.",
+                isFinished: true
+            ))
+            return
+        }
+        isCompacting = true
+        defer { isCompacting = false }
+
+        let beforeTokens = ContextUsageLogic.usedTokens(messages: history)
+        let summarizer = ConversationSummarizer(transport: summaryTransport(for: route))
+        do {
+            let summary = try await summarizer.summarize(messages: history)
+            messageStore.append(ConversationCompactionLogic.summaryMessage(summary: summary))
+            let afterTokens = ContextUsageLogic.estimateTokens(summary)
+            messageStore.append(Message(
+                role: .assistant,
+                content: "Context compacted (\(reason)): \(history.count) messages summarized, ~\(ContextUsageLogic.formatTokens(beforeTokens)) → ~\(ContextUsageLogic.formatTokens(afterTokens)) tokens. The full chat stays visible; the model now continues from the summary.",
+                isFinished: true
+            ))
+        } catch {
+            messageStore.append(Message(
+                role: .assistant,
+                content: "Context compaction failed: \(error.localizedDescription)",
+                isFinished: true
+            ))
+        }
+    }
+
+    /// Auto-compaction trigger (plan: 90% of the window). Runs before the
+    /// outgoing history is built; failures never block the send.
+    @MainActor
+    private func autoCompactIfNeeded(route: SendRoute) async {
+        guard supportsLocalHistoryCompaction(route) else { return }
+        let history = ConversationCompactionLogic.historyForModel(messageStore.messages)
+        guard !history.isEmpty else { return }
+        let usage = ContextUsageLogic.usage(messages: history, limitTokens: selectedContextLimit)
+        guard ContextUsageLogic.shouldCompact(usage) else { return }
+        await compactConversation(reason: "auto at \(usage.percent)%")
+    }
+
     func sendDirectly(
         text: String,
         files: [FileInfo],
@@ -756,6 +893,10 @@ struct ChatPanelView: View {
             localProviders: localProviders,
             webProviderIDs: appState.webProviderIDs
         )
+        // Auto-compact BEFORE any history is assembled for this turn (plan:
+        // 90% of the model window). A failed summary is reported in-chat by
+        // compactConversation and the send proceeds with the full history.
+        await autoCompactIfNeeded(route: route)
         // A/B: host-side project auto-search. Gather files matching the request
         // from the stored index and prepend them to the MODEL-BOUND text only;
         // the displayed bubble keeps the raw user text. A missing/stale index
@@ -906,7 +1047,8 @@ struct ChatPanelView: View {
                 // and the empty assistant placeholder (audit P1 — carry history).
                 let prior = await MainActor.run { () -> [ChatHistoryBuilder.Turn] in
                     let msgs = messageStore.messages
-                    let history = msgs.count >= 2 ? Array(msgs.dropLast(2)) : []
+                    let modelHistory = ConversationCompactionLogic.historyForModel(msgs)
+                    let history = modelHistory.count >= 2 ? Array(modelHistory.dropLast(2)) : []
                     return history.map { ChatHistoryBuilder.Turn(role: roleString($0.role), content: $0.content, isFinished: $0.isFinished) }
                 }
                 // E01 (Раздел 9 п.10(c)): carry REAL image bytes to the direct
@@ -971,8 +1113,9 @@ struct ChatPanelView: View {
                 let model = appState.effectiveSelectedModel()
                 await MainActor.run { store.syncModel(model) }
                 let priorTurns = await MainActor.run { () -> [MiCoderAutoFreeHistoryLogic.Turn] in
-                    let priorMessages = messageStore.messages.count >= 2
-                        ? Array(messageStore.messages.dropLast(2))
+                    let modelHistory = ConversationCompactionLogic.historyForModel(messageStore.messages)
+                    let priorMessages = modelHistory.count >= 2
+                        ? Array(modelHistory.dropLast(2))
                         : []
                     return priorMessages.map {
                         MiCoderAutoFreeHistoryLogic.Turn(

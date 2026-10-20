@@ -83,7 +83,8 @@ enum SlashCommandDispatcher {
                 .appendAssistantMessage(contextSummary(context)),
                 .clearInput,
             ]
-        case .setSessionGoal, .showSessionGoal, .gitRequiredError, .unknownCommand:
+        case .setSessionGoal, .showSessionGoal, .gitRequiredError, .unknownCommand,
+             .compactConversation:
             // Handled directly by ChatPanelView (existing behavior) — nothing
             // to send to the model.
             return [.clearInput]

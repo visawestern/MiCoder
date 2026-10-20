@@ -537,6 +537,7 @@ struct BottomInputBar: View {
     @ObservedObject var attachmentStore: MessageAttachmentStore
     @Binding var showFilePicker: Bool
     @ObservedObject var messageQueue: MessageQueue
+    var contextUsage: ContextUsage? = nil
     @EnvironmentObject var appState: AppState
     @State private var showPlusMenu = false
     @State private var showPhotoPicker = false
@@ -638,6 +639,15 @@ struct BottomInputBar: View {
             }
 
             Divider()
+
+            if let contextUsage {
+                HStack(spacing: 8) {
+                    ContextUsageBadge(usage: contextUsage)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 4)
+            }
 
             MessageInputToolbar(
                 messageText: $messageText,

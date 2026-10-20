@@ -20,6 +20,8 @@ enum SlashCommandAction: Equatable {
     case injectInstruction(String)
     /// Show contextual info (open files, branch, model/provider).
     case showContext
+    /// Replace the model-bound history with a factual summary (context shrink).
+    case compactConversation
     /// The command needs a git repo but none is present.
     case gitRequiredError(command: String)
     /// Unknown command; suggest available ones.
@@ -98,6 +100,8 @@ struct SlashCommandExecutor {
             return .injectInstruction("List the TODO/FIXME items in the project.")
         case .summarize:
             return .injectInstruction("Summarize this session/dialog.")
+        case .compact:
+            return .compactConversation
         case .debug:
             return .injectInstruction("Run a systematic debugging workflow for: \(parsed.argument)".trimmingCharacters(in: .whitespaces))
         case .verify:
