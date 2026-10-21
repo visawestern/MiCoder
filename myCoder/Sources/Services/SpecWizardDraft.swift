@@ -42,7 +42,27 @@ struct SpecWizardDraft: Codable, Equatable {
     var decompositionNodeCount: Int = 0
     var updatedAt: TimeInterval = 0
 
-    init() {}
+    init(status: Status = .draft,
+         goal: String = "",
+         stack: String = "",
+         constraints: String = "",
+         plannerModel: String = "",
+         coderModel: String = "",
+         interviewComplete: Bool = false,
+         specVersion: Int = 0,
+         decompositionNodeCount: Int = 0,
+         updatedAt: TimeInterval = 0) {
+        self.status = status
+        self.goal = goal
+        self.stack = stack
+        self.constraints = constraints
+        self.plannerModel = plannerModel
+        self.coderModel = coderModel
+        self.interviewComplete = interviewComplete
+        self.specVersion = specVersion
+        self.decompositionNodeCount = decompositionNodeCount
+        self.updatedAt = updatedAt
+    }
 
     /// Forward-compatible decoding: drafts written before a field existed must
     /// keep opening. The gate state is too important to strand on a decode
