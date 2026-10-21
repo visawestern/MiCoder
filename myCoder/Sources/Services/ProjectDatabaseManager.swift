@@ -782,6 +782,14 @@ final class ProjectDatabaseManager {
                                           projectMetadataValue <- value))
     }
 
+    /// Spec wizard storage shares this project's connection but owns its own
+    /// table boundary. Keeping `db` private means callers cannot bypass the
+    /// append-only rules implemented by the store.
+    func makeSpecStore() -> ProjectSpecStore {
+        touch()
+        return ProjectSpecStore(db: db)
+    }
+
     // MARK: - Session Operations
 
     func insertSession(
