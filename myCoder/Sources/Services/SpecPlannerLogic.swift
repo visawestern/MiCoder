@@ -61,12 +61,20 @@ enum SpecPlannerJSON {
 
 // MARK: - Interview
 
-struct SpecInterviewQuestion: Equatable {
+struct SpecInterviewQuestion: Codable, Equatable {
     var id: String
     var question: String
     var suggestedAnswers: [String]
     var done: Bool
     var summary: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case question
+        case suggestedAnswers = "suggested_answers"
+        case done
+        case summary
+    }
 
     init(id: String,
          question: String,
@@ -81,23 +89,12 @@ struct SpecInterviewQuestion: Equatable {
     }
 }
 
-extension SpecInterviewQuestion: Decodable {
-    private enum CodingKeys: String, CodingKey {
-        case id
-        case question
-        case suggestedAnswers = "suggested_answers"
-        case suggestedAnswersCamel = "suggestedAnswers"
-        case done
-        case summary
-    }
-
+extension SpecInterviewQuestion {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(String.self, forKey: .id) ?? ""
         question = try container.decodeIfPresent(String.self, forKey: .question) ?? ""
-        let snake = try container.decodeIfPresent([String].self, forKey: .suggestedAnswers)
-        let camel = try container.decodeIfPresent([String].self, forKey: .suggestedAnswersCamel)
-        suggestedAnswers = snake ?? camel ?? []
+        suggestedAnswers = try container.decodeIfPresent([String].self, forKey: .suggestedAnswers) ?? []
         done = try container.decodeIfPresent(Bool.self, forKey: .done) ?? false
         summary = try container.decodeIfPresent(String.self, forKey: .summary)
     }

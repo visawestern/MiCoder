@@ -524,7 +524,7 @@ final class ProjectDatabaseManager {
             t.column(Expression<String?>("coder_provider_id"))
             t.column(Expression<String?>("coder_model_id"))
             t.column(Expression<String>("status"), defaultValue: "draft")
-            t.column(Expression<String>("current_step"), defaultValue: "models")
+            t.column(Expression<String>("current_step"), defaultValue: "setup")
             t.column(Expression<String?>("brief_goal"))
             t.column(Expression<String?>("brief_stack"))
             t.column(Expression<String?>("brief_constraints"))
