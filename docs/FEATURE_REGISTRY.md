@@ -782,14 +782,29 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 1241 executed tests,
 
 ---
 
+## F64: Spec-First Project Wizard
+**User Story:** As a user, I create a project through a wizard, answer the planner's questions, and get a versioned specification plus an atomic decomposition before any code is written.
+**Expected Behavior:**
+- Sidebar New Project is a dropdown: Empty project or Project with wizard
+- Wizard projects block chat until the spec is ready or the user force-finishes
+- Step 1 stores planner/coder roles and the project brief; checklist is derived from real data, never fake progress
+- Interview responses are parsed from planner JSON (fenced/prose-wrapped JSON accepted); malformed or empty questions are rejected
+- Decomposition validates unique keys, dependencies, acyclicity and acceptance criteria; execution selects exactly one ready node at a time
+- TZ revisions are append-only and versioned by the store; requirements, nodes, edges, history and node sessions persist in `spec_*` project tables
+**Status:** ⚠️ Partially Implemented
+**Tests:** SpecWizardDraftTests (5), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7); full suite 2641 GREEN
+**Gaps:** The wizard UI currently covers step 1 only (roles + brief + derived checklist + force finish). Interview/spec/decomposition screens, the planner network service, context builder and per-node coding flow are not wired yet. Live click-through of project creation was interrupted by the macOS lock screen; creation/persistence paths are covered by tests.
+
+---
+
 ## Summary
 
 | Status | Count |
 |--------|-------|
 | ✅ Fully Implemented | 61 |
-| ⚠️ Partially Implemented | 2 |
+| ⚠️ Partially Implemented | 3 |
 | ❌ Not Implemented | 0 |
-| **Total Features** | **63** |
+| **Total Features** | **64** |
 
 ---
 
