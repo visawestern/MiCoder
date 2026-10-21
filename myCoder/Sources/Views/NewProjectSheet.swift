@@ -14,9 +14,19 @@ struct NewProjectSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
             HStack {
-                Text(L.t(AppLocalizationKey.locNewProject))
-                    .interfaceFont(size: 18, weight: .semibold)
-                    .foregroundColor(Color.mimo.textPrimary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(appState.projectCreationMode == .wizard
+                         ? L.t("Project with wizard")
+                         : L.t(AppLocalizationKey.locNewProject))
+                        .interfaceFont(size: 18, weight: .semibold)
+                        .foregroundColor(Color.mimo.textPrimary)
+                    if appState.projectCreationMode == .wizard {
+                        Text(L.t("Next: model roles, the project brief and the spec interview. Chat opens after the wizard is finished or force-finished."))
+                            .interfaceFont(size: 11)
+                            .foregroundColor(Color.mimo.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
                 Spacer()
                 Button(action: { dismiss() }) {
                     Image(systemName: "xmark.circle.fill")
@@ -84,7 +94,7 @@ struct NewProjectSheet: View {
             }
         }
         .padding(24)
-        .frame(width: 420, height: 260)
+        .frame(width: 460, height: appState.projectCreationMode == .wizard ? 320 : 270)
         .background(Color.mimo.background)
         .onSubmit {
             createProject()
@@ -128,6 +138,9 @@ struct NewProjectSheet: View {
         case .valid(let name, let path):
             validationError = nil
             appState.createNewProject(name: name, path: path)
+            if appState.projectCreationMode == .wizard {
+                appState.openSpecWizard(for: path)
+            }
             dismiss()
         case .invalid(let issue):
             validationError = issue.message

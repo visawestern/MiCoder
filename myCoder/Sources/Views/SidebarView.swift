@@ -3,6 +3,7 @@ import AppKit
 
 struct SidebarView: View {
     @EnvironmentObject var appState: AppState
+    @State private var showNewProjectMenu = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -12,9 +13,7 @@ struct SidebarView: View {
                 SidebarActionRow(icon: SidebarLayout.newTaskIcon, label: L.t("New task"), shortcut: "⌘N") {
                     appState.startNewTask(in: appState.selectedWorkspace)
                 }
-                SidebarActionRow(icon: "folder.badge.plus", label: L.t(AppLocalizationKey.locNewProject), shortcut: "⌘⇧P") {
-                    appState.showProjectCreation = true
-                }
+                newProjectActionRow
                 SidebarActionRow(icon: "folder", label: L.t(AppLocalizationKey.locOpenProject), shortcut: "⌘O") {
                     let panel = NSOpenPanel()
                     panel.canChooseFiles = false
@@ -97,6 +96,47 @@ struct SidebarView: View {
         }
     }
     
+    private var newProjectActionRow: some View {
+        Button {
+            showNewProjectMenu.toggle()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "folder.badge.plus")
+                    .interfaceFont(size: 13)
+                    .frame(width: 18)
+                    .foregroundColor(Color.mimo.textSecondary)
+                Text(L.t(AppLocalizationKey.locNewProject))
+                    .interfaceFont(size: 13)
+                    .foregroundColor(Color.mimo.textPrimary)
+                Spacer()
+                Text("⌘⇧P")
+                    .interfaceFont(size: 11)
+                    .foregroundColor(Color.mimo.textMuted)
+                Image(systemName: "chevron.down")
+                    .interfaceFont(size: 8, weight: .semibold)
+                    .foregroundColor(Color.mimo.textMuted)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(showNewProjectMenu ? Color.mimo.surfaceHover : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(L.t("Create an empty project or start the spec wizard"))
+        .popover(isPresented: $showNewProjectMenu, arrowEdge: .bottom) {
+            NewProjectTypeMenu { mode in
+                showNewProjectMenu = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                    appState.beginProjectCreation(mode: mode)
+                }
+            }
+            .environmentObject(appState)
+        }
+    }
+
     private var sidebarNavigationRow: some View {
         HStack(spacing: 8) {
             Button(action: { appState.navigateBack() }) {

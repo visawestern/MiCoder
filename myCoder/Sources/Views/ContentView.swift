@@ -25,7 +25,13 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 TopBarView()
 
-                ChatPanelView()
+                if let wizardPath = appState.activeSpecWizardProjectPath,
+                   let workspace = appState.selectedWorkspace,
+                   ChatSession.normalizedPath(workspace.path) == wizardPath {
+                    SpecWizardView(projectPath: wizardPath, projectName: workspace.name)
+                } else {
+                    ChatPanelView()
+                }
                 
                 if appState.showTerminal {
                     Rectangle()

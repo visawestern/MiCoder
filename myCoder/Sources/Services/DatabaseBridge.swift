@@ -41,6 +41,31 @@ class DatabaseBridge: ObservableObject {
         return try? ProjectDatabaseManager.manager(forProjectPath: candidatePath)
     }
 
+    // MARK: - Spec wizard draft
+
+    func loadSpecWizardDraft(projectPath: String) -> SpecWizardDraft? {
+        guard let projectDB = resolveProjectDatabase(for: projectPath),
+              let raw = try? projectDB.metadataValue(forKey: "spec_wizard_draft"),
+              let data = raw.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode(SpecWizardDraft.self, from: data)
+    }
+
+    @discardableResult
+    func saveSpecWizardDraft(_ draft: SpecWizardDraft, projectPath: String) -> Bool {
+        guard let projectDB = resolveProjectDatabase(for: projectPath) else { return false }
+        var stored = draft
+        stored.updatedAt = Date().timeIntervalSince1970
+        guard let data = try? JSONEncoder().encode(stored),
+              let raw = String(data: data, encoding: .utf8) else { return false }
+        do {
+            try projectDB.setMetadataValue(raw, forKey: "spec_wizard_draft")
+            return true
+        } catch {
+            print("❌ Failed to save spec wizard draft: \(error)")
+            return false
+        }
+    }
+
     // MARK: - Project Management
     
     /// Загрузить все проекты из БД

@@ -79,6 +79,11 @@ struct MiCoderApp: App {
     }
 }
 
+enum ProjectCreationMode: String, CaseIterable {
+    case empty
+    case wizard
+}
+
 class AppState: ObservableObject {
     let instanceID = UUID().uuidString.prefix(8)
     deinit {
@@ -105,6 +110,12 @@ class AppState: ObservableObject {
     @Published var inputDropdownEnabled = true
     @Published var showSearch = false
     @Published var showProjectCreation = false
+    /// Distinguishes the two entries in the sidebar's New Project dropdown:
+    /// a plain project (chat immediately) or a spec-wizard project (chat is
+    /// gated until the project specification is finished or force-finished).
+    @Published var projectCreationMode: ProjectCreationMode = .empty
+    /// Project whose spec wizard is currently blocking the chat area.
+    @Published var activeSpecWizardProjectPath: String?
     @Published var isStreaming = false
     @Published var isLoading = false
     @Published var selectedModel = ""
@@ -2108,6 +2119,7 @@ class AppState: ObservableObject {
         selectedWorkspace = workspace
         // User directive 2026-09-08: reopen the last project on app launch.
         defaults.set(workspace.id, forKey: "com.mycoder.lastWorkspaceID")
+        restoreSpecWizardGate(for: workspace)
         // The synthetic "Chats" group is not a project: there is no project
         // database to load, so wiping here strands the list until the next
         // restart (the "+" on a project-less chat did exactly this). Merge
@@ -2713,5 +2725,39 @@ class AppState: ObservableObject {
         // Добавляем workspace если его ещё нет (addWorkspace also registers
         // the project in the registry — Round 14 п.11).
         addWorkspace(path: normalizedPath)
+    }
+
+    // MARK: - Spec wizard entry
+
+    /// A wizard draft stored in the project database re-opens the wizard when
+    /// the project is selected again (including after an app restart). Forced
+    /// or completed drafts never block chat.
+    private func restoreSpecWizardGate(for workspace: Workspace) {
+        guard workspace.id != ChatSession.standaloneProjectKey else { return }
+        let path = ChatSession.normalizedPath(workspace.path)
+        Task { @MainActor in
+            guard let draft = DatabaseBridge.shared.loadSpecWizardDraft(projectPath: path) else { return }
+            guard self.selectedWorkspace.map({ ChatSession.normalizedPath($0.path) }) == path else { return }
+            if draft.status == .draft {
+                self.activeSpecWizardProjectPath = path
+            } else if self.activeSpecWizardProjectPath == path {
+                self.activeSpecWizardProjectPath = nil
+            }
+        }
+    }
+
+    func beginProjectCreation(mode: ProjectCreationMode) {
+        projectCreationMode = mode
+        showProjectCreation = true
+    }
+
+    func openSpecWizard(for projectPath: String) {
+        activeSpecWizardProjectPath = ChatSession.normalizedPath(projectPath)
+    }
+
+    func finishSpecWizard(for projectPath: String) {
+        if activeSpecWizardProjectPath == ChatSession.normalizedPath(projectPath) {
+            activeSpecWizardProjectPath = nil
+        }
     }
 }

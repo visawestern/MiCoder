@@ -613,6 +613,23 @@ final class ProjectDatabaseManager {
         return row[projectMetadataValue]
     }
 
+    /// Read/write the project-scoped key-value store. Used by the spec wizard
+    /// so its draft survives app restarts without a separate global store.
+    func metadataValue(forKey key: String) throws -> String? {
+        touch()
+        guard let row = try db.pluck(projectMetadata.filter(projectMetadataKey == key)) else {
+            return nil
+        }
+        return row[projectMetadataValue]
+    }
+
+    func setMetadataValue(_ value: String, forKey key: String) throws {
+        touch()
+        try db.run(projectMetadata.insert(or: .replace,
+                                          projectMetadataKey <- key,
+                                          projectMetadataValue <- value))
+    }
+
     // MARK: - Session Operations
 
     func insertSession(
