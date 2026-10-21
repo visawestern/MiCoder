@@ -1,9 +1,29 @@
 import Foundation
 
+/// Ordered wizard phases. `ready` means the specification and its atomic
+/// decomposition exist; it does not depend on any implementation work.
+enum SpecWizardStep: String, Codable, CaseIterable {
+    case setup
+    case interview
+    case specification
+    case decomposition
+    case ready
+
+    var rank: Int {
+        switch self {
+        case .setup: return 0
+        case .interview: return 1
+        case .specification: return 2
+        case .decomposition: return 3
+        case .ready: return 4
+        }
+    }
+}
+
 /// Persisted state of the project spec wizard. Stored inside the project's own
 /// database (`project_metadata`) so it travels with the project and survives
-/// restarts. This is the first slice of the wizard: model roles + project
-/// brief. The model-driven interview and decomposition build on this draft.
+/// restarts. Long-form data (turns, revisions, nodes) lives in the dedicated
+/// `spec_*` tables; this draft is the small, frequently written gate state.
 struct SpecWizardDraft: Codable, Equatable {
     enum Status: String, Codable {
         case draft
@@ -17,7 +37,50 @@ struct SpecWizardDraft: Codable, Equatable {
     var constraints: String = ""
     var plannerModel: String = ""
     var coderModel: String = ""
+    var interviewComplete: Bool = false
+    var specVersion: Int = 0
+    var decompositionNodeCount: Int = 0
     var updatedAt: TimeInterval = 0
+
+    init() {}
+
+    /// Forward-compatible decoding: drafts written before a field existed must
+    /// keep opening. The gate state is too important to strand on a decode
+    /// failure after an app update.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        status = try container.decodeIfPresent(Status.self, forKey: .status) ?? .draft
+        goal = try container.decodeIfPresent(String.self, forKey: .goal) ?? ""
+        stack = try container.decodeIfPresent(String.self, forKey: .stack) ?? ""
+        constraints = try container.decodeIfPresent(String.self, forKey: .constraints) ?? ""
+        plannerModel = try container.decodeIfPresent(String.self, forKey: .plannerModel) ?? ""
+        coderModel = try container.decodeIfPresent(String.self, forKey: .coderModel) ?? ""
+        interviewComplete = try container.decodeIfPresent(Bool.self, forKey: .interviewComplete) ?? false
+        specVersion = try container.decodeIfPresent(Int.self, forKey: .specVersion) ?? 0
+        decompositionNodeCount = try container.decodeIfPresent(Int.self, forKey: .decompositionNodeCount) ?? 0
+        updatedAt = try container.decodeIfPresent(TimeInterval.self, forKey: .updatedAt) ?? 0
+    }
+
+    var hasModels: Bool {
+        !plannerModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !coderModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var hasBrief: Bool {
+        !goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !stack.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Derived, never stored: a stale `step` column must not be able to unlock
+    /// chat or skip a phase.
+    var step: SpecWizardStep {
+        if status != .draft { return .ready }
+        guard hasModels, hasBrief else { return .setup }
+        guard interviewComplete else { return .interview }
+        guard specVersion > 0 else { return .specification }
+        guard decompositionNodeCount > 0 else { return .decomposition }
+        return .ready
+    }
 
     var isEmpty: Bool {
         goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -33,6 +96,7 @@ enum SpecWizardChecklistLogic {
         case models
         case brief
         case interview
+        case specification
         case decomposition
     }
 
@@ -48,29 +112,33 @@ enum SpecWizardChecklistLogic {
     }
 
     static func items(for draft: SpecWizardDraft) -> [Item] {
-        let modelsReady = !draft.plannerModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !draft.coderModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let briefReady = !draft.goal.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !draft.stack.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-
+        let step = draft.step
         return [
-            Item(id: .models, state: modelsReady ? .done : .pending),
-            Item(id: .brief, state: briefReady ? .done : .pending),
-            // The interview/decomposition phases have no implementation yet.
-            // They are explicitly "upcoming" instead of pretending to be done.
-            Item(id: .interview, state: .upcoming),
-            Item(id: .decomposition, state: .upcoming)
+            Item(id: .models, state: draft.hasModels ? .done : .pending),
+            Item(id: .brief, state: draft.hasBrief ? .done : .pending),
+            phaseItem(id: .interview,
+                      done: draft.interviewComplete,
+                      available: step.rank >= SpecWizardStep.interview.rank),
+            phaseItem(id: .specification,
+                      done: draft.specVersion > 0,
+                      available: step.rank >= SpecWizardStep.specification.rank),
+            phaseItem(id: .decomposition,
+                      done: draft.decompositionNodeCount > 0,
+                      available: step.rank >= SpecWizardStep.decomposition.rank)
         ]
     }
 
-    /// Done items / actionable items. Upcoming phases are not counted until
-    /// they exist, so the progress bar never claims work that was not done.
+    private static func phaseItem(id: ItemID, done: Bool, available: Bool) -> Item {
+        Item(id: id, state: done ? .done : (available ? .pending : .upcoming))
+    }
+
+    /// All five phases count. Upcoming phases contribute zero rather than
+    /// being silently removed from the denominator (which made earlier
+    /// progress jump to 100% before the spec existed).
     static func progress(for draft: SpecWizardDraft) -> Double {
         let all = items(for: draft)
-        let actionable = all.filter { $0.state != .upcoming }
-        guard !actionable.isEmpty else { return 0 }
-        let done = actionable.filter { $0.state == .done }.count
-        return Double(done) / Double(actionable.count)
+        let done = all.filter { $0.state == .done }.count
+        return Double(done) / Double(all.count)
     }
 
     static func canFinish(_ draft: SpecWizardDraft) -> Bool {

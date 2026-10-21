@@ -334,6 +334,7 @@ struct SpecWizardView: View {
                 checklistRow(id: .models)
                 checklistRow(id: .brief)
                 checklistRow(id: .interview)
+                checklistRow(id: .specification)
                 checklistRow(id: .decomposition)
             }
 
@@ -375,6 +376,7 @@ struct SpecWizardView: View {
         case .models: return L.t("Planner and coder models")
         case .brief: return L.t("Project brief")
         case .interview: return L.t("Spec interview")
+        case .specification: return L.t("Specification")
         case .decomposition: return L.t("Atomic decomposition")
         }
     }
@@ -387,6 +389,12 @@ struct SpecWizardView: View {
             return L.t("Choose both roles")
         case (.brief, .pending):
             return L.t("Goal and stack are required")
+        case (.interview, .pending):
+            return L.t("Answer the planner's questions")
+        case (.specification, .pending):
+            return L.t("Generate the spec from the interview")
+        case (.decomposition, .pending):
+            return L.t("Split the spec into atomic nodes")
         default:
             return nil
         }

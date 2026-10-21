@@ -9,11 +9,12 @@ struct SpecWizardDraftTests {
     func emptyDraft() {
         let draft = SpecWizardDraft()
         let items = SpecWizardChecklistLogic.items(for: draft)
-        #expect(items.map(\.id) == [.models, .brief, .interview, .decomposition])
+        #expect(items.map(\.id) == [.models, .brief, .interview, .specification, .decomposition])
         #expect(items[0].state == .pending)
         #expect(items[1].state == .pending)
         #expect(items[2].state == .upcoming)
         #expect(items[3].state == .upcoming)
+        #expect(items[4].state == .upcoming)
         #expect(SpecWizardChecklistLogic.progress(for: draft) == 0)
     }
 
@@ -28,9 +29,14 @@ struct SpecWizardDraftTests {
 
         draft.plannerModel = "planner"
         draft.coderModel = "coder"
-        #expect(SpecWizardChecklistLogic.progress(for: draft) == 0.5)
+        #expect(SpecWizardChecklistLogic.progress(for: draft) == 1.0 / 5.0)
 
         draft.stack = "SwiftUI"
+        #expect(SpecWizardChecklistLogic.progress(for: draft) == 2.0 / 5.0)
+
+        draft.interviewComplete = true
+        draft.specVersion = 1
+        draft.decompositionNodeCount = 3
         #expect(SpecWizardChecklistLogic.progress(for: draft) == 1)
 
         let items = SpecWizardChecklistLogic.items(for: draft)
@@ -47,6 +53,36 @@ struct SpecWizardDraftTests {
         draft.coderModel = "coder"
         #expect(SpecWizardChecklistLogic.progress(for: draft) == 0)
         #expect(SpecWizardChecklistLogic.canFinish(draft) == false)
+    }
+
+    @Test("Interview, spec and decomposition drive their checklist rows")
+    func phasesDriveChecklist() {
+        var draft = SpecWizardDraft()
+        draft.plannerModel = "planner"
+        draft.coderModel = "coder"
+        draft.goal = "Goal"
+        draft.stack = "Swift"
+        draft.interviewComplete = true
+        draft.specVersion = 2
+        draft.decompositionNodeCount = 4
+
+        let items = SpecWizardChecklistLogic.items(for: draft)
+        #expect(items.allSatisfy { $0.state == .done })
+        #expect(SpecWizardChecklistLogic.canFinish(draft))
+        #expect(draft.step == .ready)
+    }
+
+    @Test("Legacy draft JSON without new fields still decodes")
+    func legacyDraftDecodes() throws {
+        let legacy = """
+        {"status":"draft","goal":"G","stack":"S","constraints":"C","plannerModel":"p","coderModel":"c","updatedAt":1}
+        """.data(using: .utf8)!
+        let draft = try JSONDecoder().decode(SpecWizardDraft.self, from: legacy)
+        #expect(draft.step == .interview)
+        #expect(draft.interviewComplete == false)
+        #expect(draft.specVersion == 0)
+        #expect(draft.decompositionNodeCount == 0)
+        #expect(draft.goal == "G")
     }
 
     @Test("Draft round-trips through the project metadata store")
