@@ -154,6 +154,17 @@ struct SpecWizardSessionTests {
         }
     }
 
+    @Test("Saving the draft does not mutate the published draft")
+    @MainActor
+    func saveDoesNotLoop() async throws {
+        try await withSession(responses: []) { session, _, _ in
+            prepare(session)
+            let before = session.draft.updatedAt
+            #expect(session.saveDraft())
+            #expect(session.draft.updatedAt == before)
+        }
+    }
+
     @Test("Forced finish persists without faking a decomposition")
     @MainActor
     func forcedFinish() async throws {

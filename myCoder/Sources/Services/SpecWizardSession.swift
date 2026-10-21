@@ -94,7 +94,8 @@ final class SpecWizardSession: ObservableObject {
     /// rows in one pass. Returns false and surfaces the error on the view.
     @discardableResult
     func saveDraft() -> Bool {
-        draft.updatedAt = Date().timeIntervalSince1970
+        var storedDraft = draft
+        storedDraft.updatedAt = Date().timeIntervalSince1970
         let now = Int64(Date().timeIntervalSince1970)
         do {
             let existing = try store.settings(projectID: projectID)
@@ -117,7 +118,7 @@ final class SpecWizardSession: ObservableObject {
             try store.saveSettings(settings)
             try store.replaceChecklist(projectID: projectID, items: checklistItems(now: now))
 
-            let data = try JSONEncoder().encode(draft)
+            let data = try JSONEncoder().encode(storedDraft)
             guard let raw = String(data: data, encoding: .utf8) else {
                 errorMessage = "Could not encode the wizard draft"
                 return false
