@@ -787,13 +787,15 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 1241 executed tests,
 **Expected Behavior:**
 - Sidebar New Project is a dropdown: Empty project or Project with wizard
 - Wizard projects block chat until the spec is ready or the user force-finishes
-- Step 1 stores planner/coder roles and the project brief; checklist is derived from real data, never fake progress
+- Setup stores planner/coder roles and the project brief; checklist is derived from real data, never fake progress
 - Interview responses are parsed from planner JSON (fenced/prose-wrapped JSON accepted); malformed or empty questions are rejected
+- The planner service maps the selected OpenAI-compatible, OpenCode serve or Auto Free route; unsupported web/ACP/MiMo serve routes fail with an explicit error instead of silently switching transport
 - Decomposition validates unique keys, dependencies, acyclicity and acceptance criteria; execution selects exactly one ready node at a time
 - TZ revisions are append-only and versioned by the store; requirements, nodes, edges, history and node sessions persist in `spec_*` project tables
+- A new TZ revision starts with an empty decomposition; older revisions and their nodes remain readable
 **Status:** ⚠️ Partially Implemented
-**Tests:** SpecWizardDraftTests (5), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7); full suite 2641 GREEN
-**Gaps:** The wizard UI currently covers step 1 only (roles + brief + derived checklist + force finish). Interview/spec/decomposition screens, the planner network service, context builder and per-node coding flow are not wired yet. Live click-through of project creation was interrupted by the macOS lock screen; creation/persistence paths are covered by tests.
+**Tests:** SpecWizardDraftTests (5), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7), SpecPlannerServiceTests (8), SpecWizardSessionTests (4); full suite 2653 GREEN
+**Gaps:** Interview, specification and decomposition screens are wired and persisted, but the context builder for existing codebases and the per-node coding/verification flow are not implemented yet. The wizard cannot use web, ACP or MiMo serve providers as its planner; it reports that clearly. Live click-through of project creation is still pending because the macOS session was locked; creation and persistence paths are covered by tests.
 
 ---
 
