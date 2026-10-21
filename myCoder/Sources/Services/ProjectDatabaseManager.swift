@@ -492,6 +492,8 @@ final class ProjectDatabaseManager {
             t.column(projectMetadataValue)
         })
 
+        try createSpecSchema()
+
         try db.run(sessions.createIndex(sessionUpdatedAt, ifNotExists: true))
         try db.run(sessions.createIndex(sessionIsArchived, ifNotExists: true))
         try db.run(messages.createIndex(messageSessionId, ifNotExists: true))
@@ -503,6 +505,156 @@ final class ProjectDatabaseManager {
         try db.run(requestHistory.createIndex([requestHistorySessionId, requestHistoryCreatedAt], ifNotExists: true))
 
         try createFTS5Index()
+    }
+
+    /// Specification wizard storage. Every table is scoped by `project_id`
+    /// even though the database file already belongs to one project: the
+    /// wizard keeps immutable TZ revisions and node history forever, and an
+    /// explicit scope keeps future exports/merges unambiguous.
+    ///
+    /// No foreign keys here on purpose. Revisions, history and node sessions
+    /// are an append-only audit trail; cascading deletes would silently erase
+    /// exactly the data the wizard promises to preserve.
+    private func createSpecSchema() throws {
+        let settings = Table("project_spec_settings")
+        try db.run(settings.create(ifNotExists: true) { t in
+            t.column(Expression<String>("project_id"), primaryKey: true)
+            t.column(Expression<String?>("planner_provider_id"))
+            t.column(Expression<String?>("planner_model_id"))
+            t.column(Expression<String?>("coder_provider_id"))
+            t.column(Expression<String?>("coder_model_id"))
+            t.column(Expression<String>("status"), defaultValue: "draft")
+            t.column(Expression<String>("current_step"), defaultValue: "models")
+            t.column(Expression<String?>("brief_goal"))
+            t.column(Expression<String?>("brief_stack"))
+            t.column(Expression<String?>("brief_constraints"))
+            t.column(Expression<Int64>("created_at"))
+            t.column(Expression<Int64>("updated_at"))
+            t.column(Expression<Int64?>("completed_at"))
+        })
+
+        let checklist = Table("spec_checklist_items")
+        try db.run(checklist.create(ifNotExists: true) { t in
+            t.column(Expression<String>("id"), primaryKey: true)
+            t.column(Expression<String>("project_id"))
+            t.column(Expression<String>("item_key"))
+            t.column(Expression<String>("title"))
+            t.column(Expression<String>("state"))
+            t.column(Expression<String?>("detail"))
+            t.column(Expression<Int64>("sort_order"))
+            t.column(Expression<Int64>("updated_at"))
+            t.unique(Expression<String>("project_id"), Expression<String>("item_key"))
+        })
+
+        let turns = Table("spec_wizard_turns")
+        try db.run(turns.create(ifNotExists: true) { t in
+            t.column(Expression<String>("id"), primaryKey: true)
+            t.column(Expression<String>("project_id"))
+            t.column(Expression<String>("role"))
+            t.column(Expression<String>("content"))
+            t.column(Expression<String?>("suggested_answers"))
+            t.column(Expression<Int64>("sequence"))
+            t.column(Expression<Int64>("created_at"))
+        })
+
+        let revisions = Table("spec_tz_revisions")
+        try db.run(revisions.create(ifNotExists: true) { t in
+            t.column(Expression<String>("id"), primaryKey: true)
+            t.column(Expression<String>("project_id"))
+            t.column(Expression<Int64>("version"))
+            t.column(Expression<String>("content_markdown"))
+            t.column(Expression<String?>("summary"))
+            t.column(Expression<String>("source"))
+            t.column(Expression<String?>("parent_revision_id"))
+            t.column(Expression<Int64>("created_at"))
+            t.unique(Expression<String>("project_id"), Expression<Int64>("version"))
+        })
+
+        let requirements = Table("spec_requirements")
+        try db.run(requirements.create(ifNotExists: true) { t in
+            t.column(Expression<String>("id"), primaryKey: true)
+            t.column(Expression<String>("project_id"))
+            t.column(Expression<String>("revision_id"))
+            t.column(Expression<String>("external_key"))
+            t.column(Expression<String>("title"))
+            t.column(Expression<String>("description"))
+            t.column(Expression<String>("priority"))
+            t.column(Expression<String>("status"))
+            t.column(Expression<String?>("acceptance_criteria"))
+            t.column(Expression<Int64>("created_at"))
+            t.column(Expression<Int64>("updated_at"))
+            t.unique(Expression<String>("revision_id"), Expression<String>("external_key"))
+        })
+
+        let nodes = Table("spec_nodes")
+        try db.run(nodes.create(ifNotExists: true) { t in
+            t.column(Expression<String>("id"), primaryKey: true)
+            t.column(Expression<String>("project_id"))
+            t.column(Expression<String>("revision_id"))
+            t.column(Expression<String>("external_key"))
+            t.column(Expression<String>("title"))
+            t.column(Expression<String>("description"))
+            t.column(Expression<String>("kind"))
+            t.column(Expression<String>("status"))
+            t.column(Expression<Int64>("sort_order"))
+            t.column(Expression<String?>("acceptance_criteria"))
+            t.column(Expression<Int64>("created_at"))
+            t.column(Expression<Int64>("updated_at"))
+            t.unique(Expression<String>("revision_id"), Expression<String>("external_key"))
+        })
+
+        let edges = Table("spec_edges")
+        try db.run(edges.create(ifNotExists: true) { t in
+            t.column(Expression<String>("id"), primaryKey: true)
+            t.column(Expression<String>("project_id"))
+            t.column(Expression<String>("from_node_id"))
+            t.column(Expression<String>("to_node_id"))
+            t.column(Expression<String>("kind"))
+            t.column(Expression<Int64>("created_at"))
+            t.unique(
+                Expression<String>("project_id"),
+                Expression<String>("from_node_id"),
+                Expression<String>("to_node_id"),
+                Expression<String>("kind")
+            )
+        })
+
+        let history = Table("spec_history")
+        try db.run(history.create(ifNotExists: true) { t in
+            t.column(Expression<String>("id"), primaryKey: true)
+            t.column(Expression<String>("project_id"))
+            t.column(Expression<String>("entity_type"))
+            t.column(Expression<String>("entity_id"))
+            t.column(Expression<String>("action"))
+            t.column(Expression<String?>("payload"))
+            t.column(Expression<String>("actor"))
+            t.column(Expression<Int64>("created_at"))
+        })
+
+        let nodeSessions = Table("spec_node_sessions")
+        try db.run(nodeSessions.create(ifNotExists: true) { t in
+            t.column(Expression<String>("id"), primaryKey: true)
+            t.column(Expression<String>("project_id"))
+            t.column(Expression<String>("node_id"))
+            t.column(Expression<String>("session_id"))
+            t.column(Expression<String>("state"))
+            t.column(Expression<Int64>("created_at"))
+            t.column(Expression<Int64>("updated_at"))
+            t.unique(Expression<String>("node_id"), Expression<String>("session_id"))
+        })
+
+        for sql in [
+            "CREATE INDEX IF NOT EXISTS idx_spec_checklist_project_order ON spec_checklist_items(project_id, sort_order)",
+            "CREATE INDEX IF NOT EXISTS idx_spec_turns_project_sequence ON spec_wizard_turns(project_id, sequence)",
+            "CREATE INDEX IF NOT EXISTS idx_spec_tz_project_version ON spec_tz_revisions(project_id, version)",
+            "CREATE INDEX IF NOT EXISTS idx_spec_requirements_revision ON spec_requirements(revision_id)",
+            "CREATE INDEX IF NOT EXISTS idx_spec_nodes_revision_order ON spec_nodes(revision_id, sort_order)",
+            "CREATE INDEX IF NOT EXISTS idx_spec_edges_project ON spec_edges(project_id)",
+            "CREATE INDEX IF NOT EXISTS idx_spec_history_project_created ON spec_history(project_id, created_at)",
+            "CREATE INDEX IF NOT EXISTS idx_spec_node_sessions_node ON spec_node_sessions(node_id)"
+        ] {
+            try db.execute(sql)
+        }
     }
 
     /// Validated SQL identifiers for `addColumnIfMissing`. SQL identifiers can
