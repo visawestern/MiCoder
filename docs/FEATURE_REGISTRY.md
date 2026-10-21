@@ -755,20 +755,49 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 1241 executed tests,
 
 ---
 
+## F62: Session Row Actions (Rename / Share / Export / Archive / Delete)
+**User Story:** As a user, I right-click a chat and rename, share, export, archive or delete it without losing messages.
+**Expected Behavior:**
+- Ellipsis menu on every session row: Rename…, Share, Export Transcript…, Show in Finder (real folders only), New Task, Archive, Delete…
+- Rename switches the row to an inline TextField with autofocus, Enter/save button, Esc/xmark cancel, and commit on focus loss
+- Rename/delete persist through the owning store (global DB or project DB); a stale id reports failure and surfaces an error notice instead of a fake success
+- Delete asks for confirmation and removes dependents explicitly (SQLite FKs are OFF by default)
+- Export writes a Markdown transcript through NSSavePanel
+**Status:** ⚠️ Partially Implemented
+**Tests:** SessionTranscriptLogicTests (4), ProjectDatabaseManagerTests.renameAndDeleteSession, DatabaseManagerMaintenanceTests.renameSessionUpdatesTitle, DatabaseBridgeSessionActionsTests (1); full suite 2616 GREEN
+**Gaps:** Server-backed (mimo serve) chats are removed locally only; there is no remote DELETE or tombstone yet. Live click-through of the rename commit was interrupted by the macOS lock screen; DB persistence is covered by tests.
+
+---
+
+## F63: Context Usage Meter and Compaction
+**User Story:** As a user, I see how much of the context window a chat consumes and can compact it before the provider truncates it.
+**Expected Behavior:**
+- Badge shows estimated usage against the catalog window with warning/critical states
+- `/compact` and auto-compaction summarize the conversation, persist a summary message, and truncate model history at the last summary while the visible chat stays complete
+- Only local providers are eligible; server routes receive an honest "not available" notice
+- Short conversations get "still short — nothing to compact yet" instead of a fake summary
+**Status:** ⚠️ Partially Implemented
+**Tests:** ContextUsageLogicTests, ConversationCompactionLogicTests, ConversationSummarizer tests
+**Gaps:** Live success path unverified in this install: the free tier is rejected upstream and no other provider is configured. The routing/notice path was verified live.
+
+---
+
 ## Summary
 
 | Status | Count |
 |--------|-------|
 | ✅ Fully Implemented | 61 |
-| ⚠️ Partially Implemented | 0 |
+| ⚠️ Partially Implemented | 2 |
 | ❌ Not Implemented | 0 |
-| **Total Features** | **61** |
+| **Total Features** | **63** |
 
 ---
 
 ## Priority Improvement Candidates
 
-61 fully implemented, 0 partially implemented. Remaining polish items are low-priority UI/UX enhancements:
+61 fully implemented, 2 partially implemented. Remaining polish items are low-priority UI/UX enhancements:
 - ACP streaming support (non-streaming sendChatCompletion integrated)
 - Localization of settings views (~75 strings in 8 tabs)
 - UndoRedoManager redo support (Cmd+Shift+Z)
+- Remote delete/tombstone for server-backed chats
+- Live compaction verification once a working provider is configured
