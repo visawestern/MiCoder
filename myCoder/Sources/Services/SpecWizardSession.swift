@@ -27,6 +27,7 @@ final class SpecWizardSession: ObservableObject {
     private let providerID: String?
     private let routeProvider: (String) -> SpecPlannerRoute?
     private let projectID: String
+    private lazy var repositoryContext: String = SpecContextBuilder.build(projectPath: projectPath)
 
     init(projectPath: String,
          projectName: String,
@@ -266,7 +267,8 @@ final class SpecWizardSession: ObservableObject {
                 projectName: projectName,
                 brief: draft,
                 turns: turns,
-                route: route
+                route: route,
+                repositoryContext: repositoryContext
             )
             let revision = try store.appendRevision(
                 projectID: projectID,
@@ -346,7 +348,8 @@ final class SpecWizardSession: ObservableObject {
                 projectName: projectName,
                 brief: draft,
                 specification: revision.contentMarkdown,
-                route: route
+                route: route,
+                repositoryContext: repositoryContext
             )
             let now = Int64(Date().timeIntervalSince1970)
             var nodeByKey: [String: ProjectSpecNode] = [:]

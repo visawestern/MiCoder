@@ -793,9 +793,10 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 1241 executed tests,
 - Decomposition validates unique keys, dependencies, acyclicity and acceptance criteria; execution selects exactly one ready node at a time
 - TZ revisions are append-only and versioned by the store; requirements, nodes, edges, history and node sessions persist in `spec_*` project tables
 - A new TZ revision starts with an empty decomposition; older revisions and their nodes remain readable
+- The planner receives a bounded, deterministic snapshot of the existing repository (tree + key manifests, secrets and dependency folders excluded)
 **Status:** ⚠️ Partially Implemented
-**Tests:** SpecWizardDraftTests (5), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7), SpecPlannerServiceTests (8), SpecWizardSessionTests (4); full suite 2653 GREEN
-**Gaps:** Interview, specification and decomposition screens are wired and persisted, but the context builder for existing codebases and the per-node coding/verification flow are not implemented yet. The wizard cannot use web, ACP or MiMo serve providers as its planner; it reports that clearly. Live click-through of project creation is still pending because the macOS session was locked; creation and persistence paths are covered by tests.
+**Tests:** SpecWizardDraftTests (5), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7), SpecPlannerServiceTests (8), SpecWizardSessionTests (6), SpecContextBuilderTests (4); full suite 2659 GREEN
+**Gaps:** Interview, specification, decomposition screens and repository context are wired and persisted, but the per-node coding/verification flow is not implemented yet. The wizard cannot use web, ACP or MiMo serve providers as its planner; it reports that clearly. Live click-through of project creation is still pending because the macOS session was locked; creation and persistence paths are covered by tests.
 
 ---
 

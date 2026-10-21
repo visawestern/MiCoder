@@ -133,13 +133,15 @@ struct SpecPlannerService {
     func generateSpecification(projectName: String,
                                brief: SpecWizardDraft,
                                turns: [SpecPlannerTurn],
-                               route: SpecPlannerRoute) async throws -> String {
+                               route: SpecPlannerRoute,
+                               repositoryContext: String = "") async throws -> String {
         let raw = try await complete(
             route: route,
             messages: SpecPlannerPrompts.specificationMessages(
                 projectName: projectName,
                 brief: brief,
-                turns: turns
+                turns: turns,
+                repositoryContext: repositoryContext
             )
         )
         let spec = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -152,13 +154,15 @@ struct SpecPlannerService {
     func generateDecomposition(projectName: String,
                                brief: SpecWizardDraft,
                                specification: String,
-                               route: SpecPlannerRoute) async throws -> SpecDecomposition {
+                               route: SpecPlannerRoute,
+                               repositoryContext: String = "") async throws -> SpecDecomposition {
         let raw = try await complete(
             route: route,
             messages: SpecPlannerPrompts.decompositionMessages(
                 projectName: projectName,
                 brief: brief,
-                specification: specification
+                specification: specification,
+                repositoryContext: repositoryContext
             )
         )
         return try SpecDecompositionLogic.decode(raw)
@@ -205,11 +209,14 @@ enum SpecPlannerPrompts {
 
     static func specificationMessages(projectName: String,
                                       brief: SpecWizardDraft,
-                                      turns: [SpecPlannerTurn]) -> [DirectChatMessage] {
+                                      turns: [SpecPlannerTurn],
+                                      repositoryContext: String = "") -> [DirectChatMessage] {
         let system = """
         You write a precise, testable technical specification in Markdown.
         Use only the brief and the interview answers. Include: goal, scope, non-goals,
         functional requirements, constraints and acceptance criteria.
+        When repository context is present, stay consistent with the existing stack and
+        structure, but never invent requirements from it.
         Do not write implementation code and do not add requirements that were not discussed.
         Return the Markdown document only.
         """
@@ -218,14 +225,16 @@ enum SpecPlannerPrompts {
             DirectChatMessage(role: "user", content: interviewUserText(
                 projectName: projectName,
                 brief: brief,
-                turns: turns
+                turns: turns,
+                repositoryContext: repositoryContext
             ))
         ]
     }
 
     static func decompositionMessages(projectName: String,
                                       brief: SpecWizardDraft,
-                                      specification: String) -> [DirectChatMessage] {
+                                      specification: String,
+                                      repositoryContext: String = "") -> [DirectChatMessage] {
         let system = """
         Split the specification into atomic implementation nodes. Every node must be
         independently verifiable and small enough for one focused coding session.
@@ -243,6 +252,7 @@ enum SpecPlannerPrompts {
 
         Specification:
         \(specification)
+        \(repositoryContext.isEmpty ? "" : "\n\(repositoryContext)")
         """
         return [
             DirectChatMessage(role: "system", content: system),
@@ -252,7 +262,8 @@ enum SpecPlannerPrompts {
 
     private static func interviewUserText(projectName: String,
                                           brief: SpecWizardDraft,
-                                          turns: [SpecPlannerTurn]) -> String {
+                                          turns: [SpecPlannerTurn],
+                                          repositoryContext: String = "") -> String {
         var lines = [
             "Project: \(projectName)",
             "Goal: \(brief.goal)",
@@ -265,6 +276,10 @@ enum SpecPlannerPrompts {
             for turn in turns {
                 lines.append("\(turn.role): \(turn.content)")
             }
+        }
+        if !repositoryContext.isEmpty {
+            lines.append("")
+            lines.append(repositoryContext)
         }
         return lines.joined(separator: "\n")
     }

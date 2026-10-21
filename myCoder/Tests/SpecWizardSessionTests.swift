@@ -23,11 +23,20 @@ struct SpecWizardSessionTests {
     @MainActor
     private func withSession(
         responses: [Result<String, Error>],
+        projectFiles: [String: String] = [:],
         body: (SpecWizardSession, ProjectSpecStore, SessionFakeProvider) async throws -> Void
     ) async throws {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("mycoder-spec-session-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        for (path, content) in projectFiles {
+            let url = dir.appendingPathComponent(path)
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try content.write(to: url, atomically: true, encoding: .utf8)
+        }
         defer {
             ProjectDatabaseManager.evictProject(projectPath: dir.path)
             try? FileManager.default.removeItem(at: dir)
@@ -162,6 +171,25 @@ struct SpecWizardSessionTests {
             let before = session.draft.updatedAt
             #expect(session.saveDraft())
             #expect(session.draft.updatedAt == before)
+        }
+    }
+
+    @Test("Existing project context reaches the specification prompt")
+    @MainActor
+    func repositoryContextReachesPlanner() async throws {
+        try await withSession(
+            responses: [.success("# Spec")],
+            projectFiles: ["README.md": "# Existing app\n\nPostgres storage."]
+        ) { session, _, provider in
+            prepare(session)
+            session.draft.interviewComplete = true
+            #expect(session.saveDraft())
+
+            await session.generateSpecification()
+            #expect(provider.requests.count == 1)
+            let prompt = provider.requests[0].messages.map(\.content).joined(separator: "\n")
+            #expect(prompt.contains("Postgres storage."))
+            #expect(prompt.contains("Repository context"))
         }
     }
 
