@@ -523,6 +523,139 @@ struct MessageResponseMergeLogicComprehensiveTests {
     }
 }
 
+// MARK: - Reasoning spoiler grouping
+
+@Suite("Reasoning spoiler grouping")
+struct ReasoningSpoilerGroupingTests {
+
+    @Test("Reasoning from every assistant message in one turn lands in one spoiler")
+    func combinesReasoningAcrossToolRounds() {
+        let messages = [
+            Message(role: .user, content: "go"),
+            Message(
+                role: .assistant,
+                content: "",
+                parts: [.reasoning("first"), .toolCall(name: "read", args: "{}", result: nil, callID: "1")],
+                reasoning: "first"
+            ),
+            Message(
+                role: .assistant,
+                content: "",
+                parts: [.reasoning("second"), .toolCall(name: "read", args: "{}", result: nil, callID: "2")],
+                reasoning: "second"
+            ),
+            Message(
+                role: .assistant,
+                content: "answer",
+                parts: [.reasoning("third"), .text("answer")],
+                reasoning: "third"
+            )
+        ]
+
+        let displayed = MessageDisplayLogic.messagesForDisplay(messages)
+
+        #expect(displayed.count == 4)
+        #expect(displayed[1].reasoning == "first\n\nsecond\n\nthird")
+        #expect(displayed[2].reasoning.isEmpty)
+        #expect(displayed[3].reasoning.isEmpty)
+        #expect(displayed[1].parts.contains { part in
+            if case .reasoning("first\n\nsecond\n\nthird") = part { return true }
+            return false
+        })
+    }
+
+    @Test("Reasoning stays separated when a user message starts a new turn")
+    func keepsTurnsSeparate() {
+        let messages = [
+            Message(role: .user, content: "one"),
+            Message(role: .assistant, content: "answer one", parts: [.text("answer one")], reasoning: "a"),
+            Message(role: .user, content: "two"),
+            Message(role: .assistant, content: "answer two", parts: [.text("answer two")], reasoning: "b")
+        ]
+
+        let displayed = MessageDisplayLogic.messagesForDisplay(messages)
+
+        #expect(displayed.count == 4)
+        #expect(displayed[1].reasoning == "a")
+        #expect(displayed[3].reasoning == "b")
+    }
+
+    @Test("A thinking-only preamble and later tool rounds share one spoiler")
+    func foldsPreambleWithToolRounds() {
+        let messages = [
+            Message(role: .user, content: "go"),
+            Message(role: .assistant, content: "", parts: [.reasoning("preamble")], reasoning: "preamble"),
+            Message(
+                role: .assistant,
+                content: "",
+                parts: [.reasoning("tool thought"), .toolCall(name: "read", args: "{}", result: nil, callID: "1")],
+                reasoning: "tool thought"
+            ),
+            Message(
+                role: .assistant,
+                content: "answer",
+                parts: [.reasoning("final thought"), .text("answer")],
+                reasoning: "final thought"
+            )
+        ]
+
+        let displayed = MessageDisplayLogic.messagesForDisplay(messages)
+
+        #expect(displayed.count == 4)
+        #expect(displayed[1].reasoning == "preamble\n\ntool thought\n\nfinal thought")
+        #expect(displayed[2].reasoning.isEmpty)
+        #expect(displayed[3].reasoning.isEmpty)
+    }
+
+    @Test("Live reasoning stays with the streaming bubble")
+    func keepsLiveReasoningInPlace() {
+        let messages = [
+            Message(role: .user, content: "go"),
+            Message(
+                role: .assistant,
+                content: "",
+                parts: [.reasoning("finished"), .toolCall(name: "read", args: "{}", result: nil, callID: "1")],
+                reasoning: "finished"
+            ),
+            Message(
+                role: .assistant,
+                content: "",
+                isStreaming: true,
+                parts: [.reasoning("live")],
+                reasoning: "live"
+            )
+        ]
+
+        let displayed = MessageDisplayLogic.messagesForDisplay(messages)
+
+        #expect(displayed[1].reasoning == "finished")
+        #expect(displayed[2].reasoning == "live")
+    }
+
+    @Test("Duplicate reasoning across the channel and a part is kept once")
+    func deduplicatesRepeatedChunks() {
+        let messages = [
+            Message(role: .user, content: "go"),
+            Message(
+                role: .assistant,
+                content: "",
+                parts: [.reasoning("same"), .toolCall(name: "read", args: "{}", result: nil, callID: "1")],
+                reasoning: "same"
+            ),
+            Message(
+                role: .assistant,
+                content: "answer",
+                parts: [.reasoning("next"), .text("answer")],
+                reasoning: "next"
+            )
+        ]
+
+        let displayed = MessageDisplayLogic.messagesForDisplay(messages)
+
+        #expect(displayed[1].reasoning == "same\n\nnext")
+    }
+}
+
 // MARK: - Stop Generation Notification Wiring (MSG-03)
 
 @Suite("Stop Generation Notification Wiring")

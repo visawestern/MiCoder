@@ -5,6 +5,14 @@ class MessageStore: ObservableObject {
     @Published var messages: [Message] = []
     @Published var isLoadingOlder = false
     @Published var hasMoreMessages = true
+    /// Session whose history load is in flight. A dedicated ID (instead of a
+    /// plain Bool) prevents a slow, superseded load from clearing the loader
+    /// of the session the user switched to afterwards.
+    @Published var loadingSessionID: String?
+
+    var isLoadingMessages: Bool {
+        loadingSessionID != nil
+    }
     
     private let maxVisible: Int
     private let pruneBuffer: Int
@@ -65,6 +73,7 @@ class MessageStore: ObservableObject {
     func clear() {
         messages = []
         hasMoreMessages = true
+        loadingSessionID = nil
         currentSessionID = nil
         currentHistoryLimit = MessageHistoryPaginationLogic.initialLimit
     }

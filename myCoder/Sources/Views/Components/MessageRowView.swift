@@ -500,7 +500,10 @@ struct ThinkingSpoilerView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     // Collapsed: clip to a short preview (no native `...`
                     // truncation). Expanded/streaming: full height.
-                    .frame(height: showsFull ? nil : SpoilerExpandLogic.collapsedPreviewHeight())
+                    .frame(
+                        height: showsFull ? nil : SpoilerExpandLogic.collapsedPreviewHeight(),
+                        alignment: .top
+                    )
                     .clipped()
             }
         }

@@ -5,7 +5,63 @@ enum MessageDisplayLogic {
     static func messagesForDisplay(_ messages: [Message]) -> [Message] {
         let merged = mergeConsecutiveThinkingOnly(messages)
         let folded = foldThinkingIntoFollowingReply(merged)
-        return folded.filter { shouldDisplay($0, in: folded) }
+        let consolidated = consolidateReasoningByTurn(folded)
+        return consolidated.filter { shouldDisplay($0, in: consolidated) }
+    }
+
+    /// A single answer can arrive as several assistant messages (one per tool
+    /// round). The user-facing reasoning spoiler must stay one block per turn,
+    /// so every chunk is moved to the first assistant message of the turn and
+    /// stripped from the later ones. User messages mark turn boundaries.
+    static func consolidateReasoningByTurn(_ messages: [Message]) -> [Message] {
+        var result = messages
+        var turnStart: Int?
+
+        func flushTurn(until end: Int) {
+            guard let start = turnStart else { return }
+            turnStart = nil
+
+            let assistantIndices = (start..<end).filter { result[$0].role == .assistant }
+            guard assistantIndices.count > 1 else { return }
+            // Keep live reasoning in the streaming bubble: moving it to an
+            // already-finished message would collapse the spoiler mid-turn.
+            guard !assistantIndices.contains(where: { result[$0].isStreaming }) else { return }
+
+            var chunks: [String] = []
+            var startedAt: Date?
+            var endedAt: Date?
+            for index in assistantIndices {
+                let message = result[index]
+                appendReasoning(message.reasoning, into: &chunks)
+                for part in message.parts {
+                    if case .reasoning(let text) = part {
+                        appendReasoning(text, into: &chunks)
+                    }
+                }
+                if startedAt == nil { startedAt = message.reasoningStartedAt }
+                if let messageEnd = message.reasoningEndedAt { endedAt = messageEnd }
+            }
+            guard !chunks.isEmpty else { return }
+
+            let combined = chunks.joined(separator: "\n\n")
+            let anchor = assistantIndices[0]
+            result[anchor] = attachingReasoning(
+                combined,
+                to: result[anchor],
+                startedAt: startedAt,
+                endedAt: endedAt
+            )
+            for index in assistantIndices.dropFirst() {
+                result[index] = removingReasoning(from: result[index])
+            }
+        }
+
+        for (index, message) in messages.enumerated() where message.role == .user {
+            flushTurn(until: index)
+            turnStart = index + 1
+        }
+        flushTurn(until: messages.count)
+        return result
     }
 
     static func hasVisibleAnswer(_ message: Message) -> Bool {
@@ -319,6 +375,35 @@ enum MessageDisplayLogic {
             if case .stepFinish = part { return true }
             return false
         }
+    }
+
+    private static func attachingReasoning(_ reasoning: String,
+                                           to message: Message,
+                                           startedAt: Date?,
+                                           endedAt: Date?) -> Message {
+        var copy = message
+        copy.reasoning = reasoning
+        var parts = message.parts.filter { part in
+            if case .reasoning = part { return false }
+            return true
+        }
+        parts.insert(.reasoning(reasoning), at: 0)
+        copy.parts = parts
+        copy.reasoningStartedAt = startedAt ?? message.reasoningStartedAt
+        copy.reasoningEndedAt = endedAt ?? message.reasoningEndedAt
+        return copy
+    }
+
+    private static func removingReasoning(from message: Message) -> Message {
+        var copy = message
+        copy.reasoning = ""
+        copy.parts = message.parts.filter { part in
+            if case .reasoning = part { return false }
+            return true
+        }
+        copy.reasoningStartedAt = nil
+        copy.reasoningEndedAt = nil
+        return copy
     }
 
     private static func appendReasoning(_ text: String, into chunks: inout [String]) {

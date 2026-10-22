@@ -137,21 +137,38 @@ enum SlashCommandRegistry {
 
     private static var history: [String] = []
     private static let historyLimit = 10
+    /// The registry is process-wide, and slash commands can be executed from
+    /// more than one task (and tests exercise it concurrently). Without this
+    /// lock simultaneous `removeAll` + `insert` corrupt the array's storage.
+    private static let historyLock = NSLock()
 
     static func recordUsage(name: String) {
+        historyLock.lock()
+        defer { historyLock.unlock() }
         history.removeAll { $0 == name }
         history.insert(name, at: 0)
         if history.count > historyLimit { history.removeLast(history.count - historyLimit) }
     }
 
-    static func usageHistory() -> [String] { history }
+    static func usageHistory() -> [String] {
+        historyLock.lock()
+        defer { historyLock.unlock() }
+        return history
+    }
 
     /// Order commands so recently-used ones come first (frecency-lite: by recency).
     static func orderedByUsage(_ commands: [SlashCommand]) -> [SlashCommand] {
-        let used = history.compactMap { name in commands.first { $0.name == name } }
-        let rest = commands.filter { c in !history.contains(c.name) }
+        historyLock.lock()
+        let snapshot = history
+        historyLock.unlock()
+        let used = snapshot.compactMap { name in commands.first { $0.name == name } }
+        let rest = commands.filter { c in !snapshot.contains(c.name) }
         return used + rest
     }
 
-    static func resetHistory() { history.removeAll() }
+    static func resetHistory() {
+        historyLock.lock()
+        defer { historyLock.unlock() }
+        history.removeAll()
+    }
 }

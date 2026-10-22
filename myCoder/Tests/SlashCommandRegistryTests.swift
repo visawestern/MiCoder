@@ -91,4 +91,18 @@ struct SlashCommandRegistryTests {
         #expect(ordered.count == cmds.count)
         SlashCommandRegistry.resetHistory()
     }
+
+    @Test func concurrentUsageRecordingDoesNotCorruptHistory() async {
+        await withTaskGroup(of: Void.self) { group in
+            for i in 0..<200 {
+                group.addTask {
+                    SlashCommandRegistry.recordUsage(name: "cmd\(i % 7)")
+                    _ = SlashCommandRegistry.usageHistory()
+                }
+            }
+        }
+        let history = SlashCommandRegistry.usageHistory()
+        #expect(history.count <= 10)
+        #expect(Set(history).count == history.count)
+    }
 }

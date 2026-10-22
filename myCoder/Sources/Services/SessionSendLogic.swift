@@ -105,6 +105,15 @@ enum SessionSendLogic {
         return serverID
     }
 
+    /// The local placeholder remains the UI/update key; the server-assigned
+    /// ID is stored on the message for reconciliation. Switching the live key
+    /// to the server ID made every following part update miss the local store,
+    /// leaving the bubble streaming forever and its reasoning spoiler open.
+    static func assistantUpdateID(localID: String?, serverID: String) -> String {
+        if let local = localID, !local.isEmpty { return local }
+        return serverID
+    }
+
     static func assistantResponse(from messages: [MimoMessageResponse]) -> MimoMessageResponse? {
         messages.last { $0.info?.role == "assistant" }
     }

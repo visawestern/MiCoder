@@ -1,7 +1,7 @@
 # myCoder — Canonical Feature Registry
 
-Generated: 2026-07-23 · Updated: 2026-07-23 (Round 6 fixes — 1241 tests, 178 suites)
-Source: Full codebase analysis (74 source files, 21.5K LOC, 1241 executed tests, 178 suites)
+Generated: 2026-07-23 · Updated: 2026-10-22 (F67 — 2683 tests, 413 suites)
+Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests, 413 suites)
 
 ---
 
@@ -797,8 +797,52 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 1241 executed tests,
 - Wizard labels and every planner-generated string follow the language selected in settings; internal jargon (planner/coder/atomic decomposition) stays out of user-facing copy
 - Planner calls use a long background timeout (600s transport, 660s action) so free local models can finish large specifications without losing a turn
 **Status:** ⚠️ Partially Implemented
-**Tests:** SpecWizardDraftTests (6), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7), SpecPlannerServiceTests (9), SpecWizardSessionTests (8), SpecContextBuilderTests (4), AppActionRouterTests (4); full suite 2666 GREEN
+**Tests:** SpecWizardDraftTests (6), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7), SpecPlannerServiceTests (9), SpecWizardSessionTests (8), SpecContextBuilderTests (4), AppActionRouterTests (4); full suite 2683 GREEN
 **Gaps:** Interview, specification, decomposition screens and repository context are wired and persisted, but the per-node coding/verification flow is not implemented yet. The wizard cannot use web, ACP or MiMo serve providers as its planner; it reports that clearly. Live E2E through the local action API is verified (Russian interview, 18.9k-char TZ, 14-node acyclic graph, node status/link, finish and restart persistence); live AX click-through still needs Accessibility permission.
+
+---
+
+## F65: Reasoning Spoiler Turn Grouping
+**User Story:** As a user, I want every reasoning chunk that belongs to one answer under a single Thinking spoiler instead of several detached spoilers.
+**Expected Behavior:**
+- Reasoning from all assistant messages in one user turn is merged into the first assistant message of that turn
+- Later tool-round messages lose their own spoilers; user messages still start a new turn and a new spoiler
+- Duplicate chunks (reasoning channel + `.reasoning` part) appear once
+- While a message is still streaming, its live reasoning stays in the streaming bubble so the spoiler cannot collapse mid-turn
+- The collapsed preview is clipped from the top, so it shows the first lines instead of a mid-text slice
+- The live assistant placeholder keeps its local ID; the server ID is stored only for reconciliation, so SSE updates and the final `finish` reach the same message
+**Status:** ✅ Implemented
+**Tests:** ReasoningSpoilerGroupingTests (5); SessionReuseTests (assistant update key, 1)
+**Gaps:** None.
+
+---
+
+## F66: User Message Navigator
+**User Story:** As a user with a long chat, I want a small fixed navigator on the right so I can jump straight to any of my own messages instead of scrolling.
+**Expected Behavior:**
+- Floating vertical rail pinned to the trailing edge, vertically centered like the scroll-to-bottom button and not blocking the chat
+- One small numbered button per user message, scrollable when the list is taller than 280 pt
+- Clicking a button scrolls that message to the top of the viewport
+- Hovering a button shows a tooltip with the first 100 characters of the message, whitespace-normalized
+- Attachment-only user messages remain navigable and preview their file names
+- Empty assistant/system messages never appear in the rail
+**Status:** ✅ Implemented
+**Tests:** UserMessageNavigatorLogicTests (7)
+**Gaps:** None.
+
+---
+
+## F67: Chat Loading Indicator
+**User Story:** As a user, I want to see that a chat is loading instead of an empty screen, so I know whether my history is on its way.
+**Expected Behavior:**
+- While a session's history is loading, a centered spinner and "Loading chat…" replace the empty-state logo/title in the chat body
+- A same-session refresh keeps the messages visible and shows a slim inline spinner above them
+- The loader is keyed to the session that started the load; a slow superseded load cannot clear the loader of the newly selected chat
+- The loader is localized for every supported language
+- Parallel test execution cannot corrupt process-wide slash-command usage history (NSLock around record/read/reset)
+**Status:** ✅ Implemented
+**Tests:** ChatLoadingIndicatorLogicTests (3); SlashCommandRegistryTests (concurrent usage, 1)
+**Gaps:** None.
 
 ---
 
@@ -806,16 +850,16 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 1241 executed tests,
 
 | Status | Count |
 |--------|-------|
-| ✅ Fully Implemented | 61 |
+| ✅ Fully Implemented | 64 |
 | ⚠️ Partially Implemented | 3 |
 | ❌ Not Implemented | 0 |
-| **Total Features** | **64** |
+| **Total Features** | **67** |
 
 ---
 
 ## Priority Improvement Candidates
 
-61 fully implemented, 2 partially implemented. Remaining polish items are low-priority UI/UX enhancements:
+64 fully implemented, 3 partially implemented. Remaining polish items are low-priority UI/UX enhancements:
 - ACP streaming support (non-streaming sendChatCompletion integrated)
 - Localization of settings views (~75 strings in 8 tabs)
 - UndoRedoManager redo support (Cmd+Shift+Z)

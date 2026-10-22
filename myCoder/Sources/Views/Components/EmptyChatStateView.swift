@@ -9,6 +9,7 @@ struct EmptyChatStateView: View {
     let onSend: () -> Void
     let onStop: () -> Void
     let isLoading: Bool
+    let isLoadingChat: Bool
 
     var body: some View {
         GeometryReader { geometry in
@@ -18,23 +19,33 @@ struct EmptyChatStateView: View {
                 Spacer(minLength: 0)
 
                 VStack(spacing: ChatPanelLayoutLogic.emptyStateStackSpacing) {
-                    MiMoLogoMark(size: 140)
-
-                    if let session = appState.selectedSession {
-                        Text(session.title)
-                            .interfaceFont(size: 22, weight: .medium)
-                            .foregroundColor(Color.mimo.textPrimary)
-                            .multilineTextAlignment(.center)
-                    } else if let workspace = appState.selectedWorkspace {
-                        Text(MiMoCopy.emptyStateTitle(workspaceName: workspace.name, language: appState.appLanguage))
-                            .interfaceFont(size: 22, weight: .medium)
-                            .foregroundColor(Color.mimo.textPrimary)
+                    if isLoadingChat {
+                        ProgressView()
+                            .controlSize(.regular)
+                            .scaleEffect(1.15)
+                        Text(L.t(AppLocalizationKey.locLoadingChat))
+                            .interfaceFont(size: 14, weight: .medium)
+                            .foregroundColor(Color.mimo.textMuted)
                             .multilineTextAlignment(.center)
                     } else {
-                        Text(MiMoCopy.emptyStateSelectWorkspace(language: appState.appLanguage))
-                            .interfaceFont(size: 22, weight: .medium)
-                            .foregroundColor(Color.mimo.textPrimary)
-                            .multilineTextAlignment(.center)
+                        MiMoLogoMark(size: 140)
+
+                        if let session = appState.selectedSession {
+                            Text(session.title)
+                                .interfaceFont(size: 22, weight: .medium)
+                                .foregroundColor(Color.mimo.textPrimary)
+                                .multilineTextAlignment(.center)
+                        } else if let workspace = appState.selectedWorkspace {
+                            Text(MiMoCopy.emptyStateTitle(workspaceName: workspace.name, language: appState.appLanguage))
+                                .interfaceFont(size: 22, weight: .medium)
+                                .foregroundColor(Color.mimo.textPrimary)
+                                .multilineTextAlignment(.center)
+                        } else {
+                            Text(MiMoCopy.emptyStateSelectWorkspace(language: appState.appLanguage))
+                                .interfaceFont(size: 22, weight: .medium)
+                                .foregroundColor(Color.mimo.textPrimary)
+                                .multilineTextAlignment(.center)
+                        }
                     }
 
                     CenteredInputCard(

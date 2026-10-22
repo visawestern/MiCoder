@@ -39,6 +39,13 @@ struct SessionReuseTests {
         #expect(SessionSendLogic.reconcileAssistantMessageID(localID: nil, serverID: "server") == "server")
     }
 
+    @Test("Keeps the local assistant placeholder as the live update key")
+    func assistantUpdateIDKeepsLocalPlaceholder() {
+        #expect(SessionSendLogic.assistantUpdateID(localID: "local", serverID: "server") == "local")
+        #expect(SessionSendLogic.assistantUpdateID(localID: "", serverID: "server") == "server")
+        #expect(SessionSendLogic.assistantUpdateID(localID: nil, serverID: "server") == "server")
+    }
+
     @Test("Selects assistant response instead of echoed user message")
     func selectsAssistantResponse() throws {
         let data = """

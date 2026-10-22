@@ -80,14 +80,30 @@ struct ChatPanelView: View {
                     messageQueue: messageQueue,
                     onSend: sendMessage,
                     onStop: stopGeneration,
-                    isLoading: appState.isLoading
+                    isLoading: appState.isLoading,
+                    isLoadingChat: ChatLoadingIndicatorLogic.presentation(
+                        isLoading: messageStore.isLoadingMessages,
+                        messageCount: messageStore.messages.count
+                    ) == .centered
                 )
             } else {
                 VStack(spacing: 0) {
                     ScrollViewReader { proxy in
                         ScrollView {
                             LazyVStack(spacing: 16) {
-                                if messageStore.isLoadingOlder {
+                                if ChatLoadingIndicatorLogic.presentation(
+                                    isLoading: messageStore.isLoadingMessages,
+                                    messageCount: messageStore.messages.count
+                                ) == .inline {
+                                    HStack(spacing: 8) {
+                                        Spacer()
+                                        ProgressView().scaleEffect(0.8)
+                                        Text(L.t(AppLocalizationKey.locLoadingChat))
+                                            .interfaceFont(size: 12)
+                                            .foregroundColor(Color.mimo.textMuted)
+                                        Spacer()
+                                    }.padding(.vertical, 8)
+                                } else if messageStore.isLoadingOlder {
                                     HStack {
                                         Spacer()
                                         ProgressView().scaleEffect(0.8)
@@ -190,6 +206,14 @@ struct ChatPanelView: View {
                                 .padding(.bottom, 12)
                                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
                             }
+                        }
+                        .overlay(alignment: .trailing) {
+                            UserMessageNavigator(messages: displayMessages) { messageID in
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    proxy.scrollTo(messageID, anchor: .top)
+                                }
+                            }
+                            .padding(.trailing, 12)
                         }
                         .animation(.easeOut(duration: 0.15), value: isChatBottomVisible)
                     }
@@ -395,8 +419,16 @@ struct ChatPanelView: View {
             messageStore.clear()
             messageStore.currentSessionID = sessionID
         }
+        messageStore.loadingSessionID = sessionID
 
         Task {
+            defer {
+                Task { @MainActor in
+                    if messageStore.loadingSessionID == sessionID {
+                        messageStore.loadingSessionID = nil
+                    }
+                }
+            }
             appState.scheduleGitRefresh(sessionID: sessionID)
             let initialLimit = MessageHistoryPaginationLogic.initialLimit
             var messages: [MimoMessageResponse] = []
@@ -2576,22 +2608,23 @@ struct ChatPanelView: View {
                    let role = info["role"] as? String,
                    role == "assistant",
                    let messageID = info["id"] as? String {
-                    let reconciledID = SessionSendLogic.reconcileAssistantMessageID(localID: currentAssistantMessageID, serverID: messageID)
-                    if currentAssistantMessageID != reconciledID {
-                        // Store the server-assigned ID as the current assistant message ID
-                        // and mark the local message for DB reconciliation
-                        if let localID = currentAssistantMessageID {
-                            messageStore.update(id: localID) { msg in
-                                msg.serverID = reconciledID
-                                if msg.content.isEmpty {
-                                    msg.content = streamingText
-                                }
+                    let updateID = SessionSendLogic.assistantUpdateID(
+                        localID: currentAssistantMessageID,
+                        serverID: messageID
+                    )
+                    if let localID = currentAssistantMessageID, localID != messageID {
+                        // Keep the local placeholder as the live update key and
+                        // remember the server ID for DB reconciliation.
+                        messageStore.update(id: localID) { msg in
+                            msg.serverID = messageID
+                            if msg.content.isEmpty {
+                                msg.content = streamingText
                             }
                         }
-                        currentAssistantMessageID = reconciledID
                     }
+                    currentAssistantMessageID = updateID
                     if let finish = info["finish"] as? String, finish == "stop" {
-                        messageStore.setFinished(id: messageID)
+                        messageStore.setFinished(id: updateID)
                     }
                 }
             
