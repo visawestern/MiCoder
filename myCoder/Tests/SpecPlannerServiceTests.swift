@@ -68,6 +68,24 @@ struct SpecPlannerServiceTests {
         #expect(userText.contains("macOS only"))
     }
 
+    @Test("Planner prompts follow the selected app language")
+    func promptLanguage() async throws {
+        let provider = FakeSpecCompletionProvider(responses: [
+            .success(#"{"id":"scope","question":"Какие платформы?","suggested_answers":["macOS"],"done":false}"#)
+        ])
+        let service = SpecPlannerService(provider: provider)
+        _ = try await service.nextInterviewQuestion(
+            projectName: "Notes",
+            brief: brief,
+            turns: [],
+            route: .autoFree(model: "free"),
+            language: .russian
+        )
+        let system = provider.requests[0].messages.first?.content ?? ""
+        #expect(system.contains("Russian"))
+        #expect(system.contains("JSON keys"))
+    }
+
     @Test("A done interview turn is passed through")
     func interviewDone() async throws {
         let provider = FakeSpecCompletionProvider(responses: [

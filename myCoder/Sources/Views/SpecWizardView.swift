@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// Full-window spec wizard shown instead of the chat for projects created via
-/// the sidebar's "Project with wizard" entry. The setup step captures the model
+/// the sidebar's "Project setup" entry. The setup step captures the model
 /// roles and the brief; the following steps run the planner interview, store
-/// each specification revision, and split the approved spec into atomic nodes.
+/// each specification revision, and split the approved spec into tasks.
 /// Chat stays blocked until the decomposition exists or the user force-finishes.
 struct SpecWizardView: View {
     @EnvironmentObject var appState: AppState
@@ -28,7 +28,7 @@ struct SpecWizardView: View {
                         .interfaceFont(size: 12)
                         .foregroundColor(Color.mimo.textSecondary)
                         .multilineTextAlignment(.center)
-                    Button(L.t("Finish wizard")) {
+                    Button(L.t("Finish setup")) {
                         appState.finishSpecWizard(for: projectPath)
                     }
                     .buttonStyle(.plain)
@@ -47,38 +47,18 @@ struct SpecWizardView: View {
 
     private func makeSession() {
         guard session == nil else { return }
-        guard let database = try? ProjectDatabaseManager.manager(forProjectPath: projectPath) else {
-            initError = L.t("Could not open the project database.")
-            return
-        }
-        let created = SpecWizardSession(
-            projectPath: projectPath,
-            projectName: projectName,
-            database: database,
-            providerID: appState.selectedProviderID,
-            routeProvider: { model in
-                let route = SendRouteResolver.route(
-                    selectedProviderID: appState.selectedProviderID,
-                    selectedModel: model,
-                    serverConnected: appState.serverConnected,
-                    isACP: appState.isSelectedACPProvider,
-                    customProviders: appState.customProviders,
-                    localProviders: LocalProviderLogic.load(),
-                    webProviderIDs: appState.webProviderIDs
-                )
-                return SpecPlannerRoute(sendRoute: route, model: model)
+        do {
+            let created = try SpecWizardSessionStore.shared.session(
+                projectPath: projectPath,
+                projectName: projectName,
+                appState: appState
+            )
+            session = created
+            if created.draft.status != .draft {
+                appState.finishSpecWizard(for: projectPath)
             }
-        )
-        if created.draft.plannerModel.isEmpty {
-            let current = appState.selectedModel.isEmpty
-                ? appState.effectiveSelectedModel()
-                : appState.selectedModel
-            created.draft.plannerModel = current
-            created.draft.coderModel = current
-        }
-        session = created
-        if created.draft.status != .draft {
-            appState.finishSpecWizard(for: projectPath)
+        } catch {
+            initError = L.t("Could not open the project database.")
         }
     }
 }
@@ -147,11 +127,11 @@ private struct SpecWizardContent: View {
         .task {
             await session.startInterviewIfNeeded()
         }
-        .alert(L.t("Finish the wizard and open chat?"), isPresented: $showFinishConfirmation) {
+        .alert(L.t("Finish setup and open chat?"), isPresented: $showFinishConfirmation) {
             Button(L.t("Cancel"), role: .cancel) {}
-            Button(L.t("Finish wizard"), role: .destructive) { forceFinish() }
+            Button(L.t("Finish setup"), role: .destructive) { forceFinish() }
         } message: {
-            Text(L.t("Unfinished steps stay saved as a draft. You can reopen the project spec later; chat will be available immediately."))
+            Text(L.t("Unfinished steps stay saved. You can come back later; chat will open now."))
         }
         .alert(L.t("No models configured"), isPresented: $showSettingsHint) {
             Button(L.t("Open settings")) {
@@ -160,7 +140,7 @@ private struct SpecWizardContent: View {
             }
             Button(L.t("Cancel"), role: .cancel) {}
         } message: {
-            Text(L.t("Add a provider or connect a local model before choosing planner and coder roles."))
+            Text(L.t("Add a provider or connect a local model before choosing the planning and coding models."))
         }
     }
 
@@ -192,7 +172,7 @@ private struct SpecWizardContent: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
-                        Text(L.t("Project with wizard"))
+                        Text(L.t("Project setup"))
                             .interfaceFont(size: 20, weight: .semibold)
                             .foregroundColor(Color.mimo.textPrimary)
                         Text(L.t(phaseTitle))
@@ -231,9 +211,9 @@ private struct SpecWizardContent: View {
     private var phaseTitle: String {
         switch visibleStep {
         case .setup: return "Setup"
-        case .interview: return "Interview"
+        case .interview: return "Questions"
         case .specification: return "Specification"
-        case .decomposition: return "Decomposition"
+        case .decomposition: return "Tasks"
         case .ready: return "Ready"
         }
     }
@@ -241,15 +221,15 @@ private struct SpecWizardContent: View {
     private var phaseSubtitle: String {
         switch visibleStep {
         case .setup:
-            return "Describe the project. The model-driven interview, checklist and atomic decomposition build on this setup."
+            return "Describe the project. The questions, checklist and task breakdown build on this setup."
         case .interview:
-            return "The planner asks one question at a time. Every answer and question is stored in this project."
+            return "The model asks one question at a time. Every question and answer is saved with the project."
         case .specification:
-            return "The planner turns the interview into a versioned technical specification. Edit it before decomposing if needed."
+            return "Your answers become a versioned specification. Edit it before breaking the work into tasks if needed."
         case .decomposition:
-            return "The specification is split into atomic nodes with explicit dependencies and acceptance criteria."
+            return "The specification is split into tasks with dependencies and clear completion criteria."
         case .ready:
-            return "The specification and its atomic decomposition are ready. Finish the wizard to open chat."
+            return "The specification and task breakdown are ready. Finish setup to open chat."
         }
     }
 
@@ -281,13 +261,13 @@ private struct SpecWizardContent: View {
             briefCard
             HStack {
                 Spacer()
-                primaryButton(L.t("Continue to interview"), icon: "arrow.right") {
+                primaryButton(L.t("Continue to questions"), icon: "arrow.right") {
                     guard draft.hasModels else {
-                        session.errorMessage = L.t("Choose both roles")
+                        session.errorMessage = L.t("Choose both models")
                         return
                     }
                     guard draft.hasBrief else {
-                        session.errorMessage = L.t("Goal and stack are required")
+                        session.errorMessage = L.t("Goal and technologies are required")
                         return
                     }
                     session.errorMessage = nil
@@ -301,17 +281,17 @@ private struct SpecWizardContent: View {
     }
 
     private var modelsCard: some View {
-        card(title: L.t("Model roles"), icon: "cpu") {
+        card(title: L.t("Project models"), icon: "cpu") {
             VStack(alignment: .leading, spacing: 12) {
                 modelRow(
-                    title: L.t("Planner model"),
-                    hint: L.t("Writes questions, the specification and the decomposition."),
+                    title: L.t("Planning model"),
+                    hint: L.t("Asks questions and writes the specification and task breakdown."),
                     selection: $session.draft.plannerModel
                 )
                 Divider().opacity(0.5)
                 modelRow(
-                    title: L.t("Coder model"),
-                    hint: L.t("Implements one atomic node at a time against its spec."),
+                    title: L.t("Coding model"),
+                    hint: L.t("Implements one task at a time using the specification."),
                     selection: $session.draft.coderModel
                 )
 
@@ -384,7 +364,7 @@ private struct SpecWizardContent: View {
     }
 
     private var briefCard: some View {
-        card(title: L.t("Project brief"), icon: "doc.text") {
+        card(title: L.t("Project description"), icon: "doc.text") {
             VStack(alignment: .leading, spacing: 14) {
                 briefField(
                     title: L.t("Goal"),
@@ -393,7 +373,7 @@ private struct SpecWizardContent: View {
                     height: 88
                 )
                 briefField(
-                    title: L.t("Stack"),
+                    title: L.t("Technologies"),
                     placeholder: L.t("Languages, frameworks, storage, target platform…"),
                     text: $session.draft.stack,
                     height: 64
@@ -438,11 +418,11 @@ private struct SpecWizardContent: View {
         }
     }
 
-    // MARK: Interview
+    // MARK: Questions
 
     private var interviewPhase: some View {
         VStack(alignment: .leading, spacing: 16) {
-            card(title: L.t("Planner interview"), icon: "bubble.left.and.bubble.right") {
+            card(title: L.t("Project questions"), icon: "bubble.left.and.bubble.right") {
                 VStack(alignment: .leading, spacing: 12) {
                     if session.turns.isEmpty {
                         HStack(spacing: 8) {
@@ -460,7 +440,7 @@ private struct SpecWizardContent: View {
                     if session.isLoading {
                         HStack(spacing: 8) {
                             ProgressView().controlSize(.small)
-                            Text(L.t("The planner is thinking…"))
+                            Text(L.t("The model is thinking…"))
                                 .interfaceFont(size: 12)
                                 .foregroundColor(Color.mimo.textMuted)
                         }
@@ -471,14 +451,14 @@ private struct SpecWizardContent: View {
             if let question = session.currentQuestion, !question.done {
                 questionCard(question)
             } else if let summary = session.completedSummary, draft.interviewComplete {
-                card(title: L.t("Interview complete"), icon: "checkmark.seal") {
+                card(title: L.t("Questions complete"), icon: "checkmark.seal") {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(summary)
                             .interfaceFont(size: 12)
                             .foregroundColor(Color.mimo.textPrimary)
                         HStack {
                             Spacer()
-                            primaryButton(L.t("Generate specification"), icon: "doc.badge.plus") {
+                            primaryButton(L.t("Create specification"), icon: "doc.badge.plus") {
                                 Task { await session.generateSpecification() }
                             }
                             .disabled(session.isLoading)
@@ -514,7 +494,7 @@ private struct SpecWizardContent: View {
             return raw
         }
         if question.done {
-            return question.summary ?? L.t("Interview complete")
+            return question.summary ?? L.t("Questions complete")
         }
         return question.question
     }
@@ -585,12 +565,12 @@ private struct SpecWizardContent: View {
     private var specificationPhase: some View {
         card(title: L.t("Technical specification"), icon: "doc.richtext") {
             VStack(alignment: .leading, spacing: 14) {
-                Text(L.t("The planner will write a versioned specification from the interview answers."))
+                Text(L.t("The model will write a versioned specification from your answers."))
                     .interfaceFont(size: 12)
                     .foregroundColor(Color.mimo.textSecondary)
                 HStack {
                     Spacer()
-                    primaryButton(L.t("Generate specification"), icon: "doc.badge.plus") {
+                    primaryButton(L.t("Create specification"), icon: "doc.badge.plus") {
                         Task { await session.generateSpecification() }
                     }
                     .disabled(session.isLoading)
@@ -660,21 +640,21 @@ private struct SpecWizardContent: View {
         }
     }
 
-    // MARK: Decomposition
+    // MARK: Tasks
 
     private var decompositionPhase: some View {
         VStack(alignment: .leading, spacing: 14) {
             specificationCard
 
             if session.nodes.isEmpty {
-                card(title: L.t("Atomic decomposition"), icon: "square.stack.3d.up") {
+                card(title: L.t("Task breakdown"), icon: "square.stack.3d.up") {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text(L.t("Split the approved specification into independently verifiable nodes. The planner will not write code here."))
+                        Text(L.t("Split the approved specification into tasks that can be checked independently. This step does not write code."))
                             .interfaceFont(size: 12)
                             .foregroundColor(Color.mimo.textSecondary)
                         HStack {
                             Spacer()
-                            primaryButton(L.t("Generate decomposition"), icon: "square.stack.3d.up") {
+                            primaryButton(L.t("Break into tasks"), icon: "square.stack.3d.up") {
                                 Task { await session.generateDecomposition() }
                             }
                             .disabled(session.isLoading)
@@ -710,7 +690,7 @@ private struct SpecWizardContent: View {
 
                 if !acceptance.isEmpty {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(L.t("Acceptance criteria"))
+                        Text(L.t("Completion criteria"))
                             .interfaceFont(size: 10, weight: .semibold)
                             .foregroundColor(Color.mimo.textMuted)
                         ForEach(acceptance, id: \.self) { item in
@@ -742,12 +722,12 @@ private struct SpecWizardContent: View {
     // MARK: Ready
 
     private var readyPhase: some View {
-        card(title: L.t("Spec ready"), icon: "checkmark.seal.fill") {
+        card(title: L.t("Plan ready"), icon: "checkmark.seal.fill") {
             VStack(alignment: .leading, spacing: 12) {
-                Text("\(draft.decompositionNodeCount) \(L.t("atomic nodes")) · v\(draft.specVersion)")
+                Text("\(draft.decompositionNodeCount) \(L.t("tasks")) · v\(draft.specVersion)")
                     .interfaceFont(size: 12)
                     .foregroundColor(Color.mimo.textSecondary)
-                Text(L.t("Chat opens after you finish the wizard. The specification and every revision stay available in this project."))
+                Text(L.t("Chat opens when setup is finished. The specification and all its versions stay in this project."))
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
                 HStack {
@@ -788,7 +768,7 @@ private struct SpecWizardContent: View {
             Button {
                 showFinishConfirmation = true
             } label: {
-                Text(L.t("Finish wizard"))
+                Text(L.t("Finish setup"))
                     .interfaceFont(size: 12, weight: .semibold)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
@@ -855,7 +835,7 @@ private struct SpecWizardContent: View {
 
     private var checklistPane: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(L.t("Wizard checklist"))
+            Text(L.t("Setup progress"))
                 .interfaceFont(size: 11, weight: .bold, design: .monospaced)
                 .tracking(0.8)
                 .foregroundColor(Color.mimo.textSecondary)
@@ -887,7 +867,7 @@ private struct SpecWizardContent: View {
 
             if draft.specVersion > 0 {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(L.t("Spec revision"))
+                    Text(L.t("Specification version"))
                         .interfaceFont(size: 10, weight: .semibold)
                         .foregroundColor(Color.mimo.textMuted)
                     Text("v\(draft.specVersion)")
@@ -896,7 +876,7 @@ private struct SpecWizardContent: View {
                 }
             }
 
-            Text(L.t("Chat is blocked for this project until the wizard is finished or force-finished."))
+            Text(L.t("Chat opens after you finish setup for this project."))
                 .interfaceFont(size: 10)
                 .foregroundColor(Color.mimo.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
@@ -929,28 +909,28 @@ private struct SpecWizardContent: View {
 
     private func title(for id: SpecWizardChecklistLogic.ItemID) -> String {
         switch id {
-        case .models: return L.t("Planner and coder models")
-        case .brief: return L.t("Project brief")
-        case .interview: return L.t("Spec interview")
+        case .models: return L.t("Planning and coding models")
+        case .brief: return L.t("Project description")
+        case .interview: return L.t("Project questions")
         case .specification: return L.t("Specification")
-        case .decomposition: return L.t("Atomic decomposition")
+        case .decomposition: return L.t("Task breakdown")
         }
     }
 
     private func detail(for id: SpecWizardChecklistLogic.ItemID, state: SpecWizardChecklistLogic.ItemState) -> String? {
         switch (id, state) {
         case (.interview, .upcoming), (.decomposition, .upcoming):
-            return L.t("Next wizard step")
+            return L.t("Next setup step")
         case (.models, .pending):
-            return L.t("Choose both roles")
+            return L.t("Choose both models")
         case (.brief, .pending):
-            return L.t("Goal and stack are required")
+            return L.t("Goal and technologies are required")
         case (.interview, .pending):
-            return L.t("Answer the planner's questions")
+            return L.t("Answer the project questions")
         case (.specification, .pending):
-            return L.t("Generate the spec from the interview")
+            return L.t("Create the specification from your answers")
         case (.decomposition, .pending):
-            return L.t("Split the spec into atomic nodes")
+            return L.t("Break the specification into tasks")
         default:
             return nil
         }

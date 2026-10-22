@@ -24,6 +24,7 @@ struct SpecWizardSessionTests {
     private func withSession(
         responses: [Result<String, Error>],
         projectFiles: [String: String] = [:],
+        languageProvider: @escaping () -> AppLanguage = { .english },
         body: (SpecWizardSession, ProjectSpecStore, SessionFakeProvider) async throws -> Void
     ) async throws {
         let dir = FileManager.default.temporaryDirectory
@@ -49,7 +50,8 @@ struct SpecWizardSessionTests {
             database: manager,
             providerID: "test-provider",
             planner: SpecPlannerService(provider: provider),
-            routeProvider: { .autoFree(model: $0) }
+            routeProvider: { .autoFree(model: $0) },
+            languageProvider: languageProvider
         )
         try await body(session, manager.makeSpecStore(), provider)
     }
@@ -95,6 +97,21 @@ struct SpecWizardSessionTests {
             #expect(second.draft.interviewComplete)
             #expect(second.turns.count == 3)
             #expect(second.completedSummary == "A macOS notes app")
+        }
+    }
+
+    @Test("Interview requests use the language from settings")
+    @MainActor
+    func interviewUsesSettingsLanguage() async throws {
+        let question = #"{"id":"q1","question":"Какая платформа?","suggested_answers":["macOS"],"done":false}"#
+        try await withSession(
+            responses: [.success(question)],
+            languageProvider: { .russian }
+        ) { session, _, provider in
+            prepare(session)
+            await session.submitAnswer("")
+            let system = provider.requests[0].messages.first?.content ?? ""
+            #expect(system.contains("Russian"))
         }
     }
 
@@ -190,6 +207,34 @@ struct SpecWizardSessionTests {
             let prompt = provider.requests[0].messages.map(\.content).joined(separator: "\n")
             #expect(prompt.contains("Postgres storage."))
             #expect(prompt.contains("Repository context"))
+        }
+    }
+
+    @Test("Node status changes persist and revision history keeps every version")
+    @MainActor
+    func nodeStatusAndRevisionHistory() async throws {
+        let first = "# Version one"
+        let second = "# Version two"
+        let decomposition = """
+        {"nodes":[{"key":"N1","title":"One","description":"Do it","kind":"task",
+        "acceptance_criteria":["Works"],"depends_on":[]}]}
+        """
+        try await withSession(responses: [.success(first), .success(decomposition), .success(second)]) { session, _, _ in
+            prepare(session)
+            session.draft.interviewComplete = true
+            #expect(session.saveDraft())
+
+            await session.generateSpecification()
+            await session.generateDecomposition()
+            let node = try #require(session.nodes.first)
+            #expect(session.updateNodeStatus(nodeID: node.id, status: "running"))
+            #expect(session.nodes.first?.status == "running")
+            #expect(!session.updateNodeStatus(nodeID: node.id, status: "not-a-status"))
+            #expect(session.nodes.first?.status == "running")
+
+            await session.generateSpecification()
+            let versions = session.revisionHistory().map(\.version)
+            #expect(versions == [1, 2])
         }
     }
 

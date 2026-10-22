@@ -161,6 +161,32 @@ if [ "$copied" -eq 0 ]; then
     echo "    (no SPM resource bundles found — catalogs may not load)"
 fi
 
+# ── Code signing ──────────────────────────────────────────────
+# A fresh unsigned bundle triggers Gatekeeper/XProtect on every launch.
+# Use an explicit identity via CODESIGN_IDENTITY, otherwise prefer a local
+# Apple Development identity, then fall back to ad-hoc signing.
+SIGN_IDENTITY="${CODESIGN_IDENTITY:-}"
+if [ -z "$SIGN_IDENTITY" ]; then
+    SIGN_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
+        | awk -F'"' '/Apple Development:/{print $2; exit}')
+fi
+if [ -z "$SIGN_IDENTITY" ]; then
+    SIGN_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
+        | awk -F'"' '/Developer ID Application:/{print $2; exit}')
+fi
+if [ -n "$SIGN_IDENTITY" ]; then
+    echo "━━━ Signing with: $SIGN_IDENTITY"
+    if ! codesign --force --deep --sign "$SIGN_IDENTITY" "$APP_BUNDLE"; then
+        echo "━━━ ⚠️  Signing failed — leaving the bundle unsigned"
+    elif codesign --verify --deep --strict "$APP_BUNDLE"; then
+        echo "━━━ ✅ Signature verified"
+    else
+        echo "━━━ ⚠️  Signature verification failed"
+    fi
+else
+    echo "━━━ ⚠️  No code-signing identity found; macOS may re-check the app on launch"
+fi
+
 BIN_SIZE=$(stat -f "%z" "$BUILD_DIR/$APP_NAME" 2>/dev/null || stat --format="%s" "$BUILD_DIR/$APP_NAME" 2>/dev/null || echo "0")
 echo "━━━ ✅ Built v$NEW_SHORT (build $NEW_BUILD) — $((BIN_SIZE / 1024)) KB"
 echo "━━━ App: $SCRIPT_DIR/$APP_BUNDLE"

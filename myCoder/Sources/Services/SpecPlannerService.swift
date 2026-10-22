@@ -42,6 +42,15 @@ protocol SpecCompletionProviding {
 }
 
 struct LiveSpecCompletionProvider: SpecCompletionProviding {
+    /// Local planner models regularly need more than the two-minute chat
+    /// default once the interview grows. The planner is a background call,
+    /// so a longer window is safe and avoids losing a turn to a timeout.
+    let timeout: TimeInterval
+
+    init(timeout: TimeInterval = 600) {
+        self.timeout = timeout
+    }
+
     func complete(_ request: SpecCompletionRequest) async throws -> String {
         switch request.route {
         case .openAICompatible(let baseURL, let apiKey, let model):
@@ -49,7 +58,8 @@ struct LiveSpecCompletionProvider: SpecCompletionProviding {
                 baseURL: baseURL,
                 apiKey: apiKey,
                 model: model,
-                messages: request.messages
+                messages: request.messages,
+                transport: URLSessionDirectChatTransport(timeout: timeout)
             )
             return result.content
 
@@ -61,7 +71,8 @@ struct LiveSpecCompletionProvider: SpecCompletionProviding {
                 baseURL: baseURL,
                 headers: headers,
                 modelID: model,
-                text: text
+                text: text,
+                transport: URLSessionDirectChatTransport(timeout: timeout)
             )
             return result.content
 
@@ -99,11 +110,11 @@ enum SpecPlannerServiceError: Error, Equatable, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .emptyResponse:
-            return "The planner returned an empty response"
+            return "The model returned an empty response"
         case .emptySpecification:
-            return "The planner returned an empty specification"
+            return "The model returned an empty specification"
         case .unsupportedRoute:
-            return "The selected provider cannot run the spec planner. Choose an OpenAI-compatible, local or free model."
+            return "The selected provider cannot create the plan. Choose an OpenAI-compatible, local or free model."
         }
     }
 }
@@ -118,13 +129,15 @@ struct SpecPlannerService {
     func nextInterviewQuestion(projectName: String,
                                brief: SpecWizardDraft,
                                turns: [SpecPlannerTurn],
-                               route: SpecPlannerRoute) async throws -> SpecInterviewQuestion {
+                               route: SpecPlannerRoute,
+                               language: AppLanguage = .english) async throws -> SpecInterviewQuestion {
         let raw = try await complete(
             route: route,
             messages: SpecPlannerPrompts.interviewMessages(
                 projectName: projectName,
                 brief: brief,
-                turns: turns
+                turns: turns,
+                language: language
             )
         )
         return try SpecInterviewLogic.decode(raw)
@@ -134,14 +147,16 @@ struct SpecPlannerService {
                                brief: SpecWizardDraft,
                                turns: [SpecPlannerTurn],
                                route: SpecPlannerRoute,
-                               repositoryContext: String = "") async throws -> String {
+                               repositoryContext: String = "",
+                               language: AppLanguage = .english) async throws -> String {
         let raw = try await complete(
             route: route,
             messages: SpecPlannerPrompts.specificationMessages(
                 projectName: projectName,
                 brief: brief,
                 turns: turns,
-                repositoryContext: repositoryContext
+                repositoryContext: repositoryContext,
+                language: language
             )
         )
         let spec = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -155,14 +170,16 @@ struct SpecPlannerService {
                                brief: SpecWizardDraft,
                                specification: String,
                                route: SpecPlannerRoute,
-                               repositoryContext: String = "") async throws -> SpecDecomposition {
+                               repositoryContext: String = "",
+                               language: AppLanguage = .english) async throws -> SpecDecomposition {
         let raw = try await complete(
             route: route,
             messages: SpecPlannerPrompts.decompositionMessages(
                 projectName: projectName,
                 brief: brief,
                 specification: specification,
-                repositoryContext: repositoryContext
+                repositoryContext: repositoryContext,
+                language: language
             )
         )
         return try SpecDecompositionLogic.decode(raw)
@@ -185,11 +202,13 @@ struct SpecPlannerService {
 enum SpecPlannerPrompts {
     static func interviewMessages(projectName: String,
                                   brief: SpecWizardDraft,
-                                  turns: [SpecPlannerTurn]) -> [DirectChatMessage] {
+                                  turns: [SpecPlannerTurn],
+                                  language: AppLanguage = .english) -> [DirectChatMessage] {
         let system = """
         You are the specification planner for a software project.
         Ask exactly ONE question at a time to remove ambiguity from the brief.
         Prefer concrete, answerable questions. Do not write code and do not invent requirements.
+        \(languageRule(language))
 
         Return ONLY a JSON object, with no prose around it:
         {"id":"short_stable_id","question":"...","suggested_answers":["..."],"done":false}
@@ -210,7 +229,8 @@ enum SpecPlannerPrompts {
     static func specificationMessages(projectName: String,
                                       brief: SpecWizardDraft,
                                       turns: [SpecPlannerTurn],
-                                      repositoryContext: String = "") -> [DirectChatMessage] {
+                                      repositoryContext: String = "",
+                                      language: AppLanguage = .english) -> [DirectChatMessage] {
         let system = """
         You write a precise, testable technical specification in Markdown.
         Use only the brief and the interview answers. Include: goal, scope, non-goals,
@@ -218,6 +238,7 @@ enum SpecPlannerPrompts {
         When repository context is present, stay consistent with the existing stack and
         structure, but never invent requirements from it.
         Do not write implementation code and do not add requirements that were not discussed.
+        \(languageRule(language))
         Return the Markdown document only.
         """
         return [
@@ -234,15 +255,18 @@ enum SpecPlannerPrompts {
     static func decompositionMessages(projectName: String,
                                       brief: SpecWizardDraft,
                                       specification: String,
-                                      repositoryContext: String = "") -> [DirectChatMessage] {
+                                      repositoryContext: String = "",
+                                      language: AppLanguage = .english) -> [DirectChatMessage] {
         let system = """
         Split the specification into atomic implementation nodes. Every node must be
         independently verifiable and small enough for one focused coding session.
         Use stable keys (N1, N2, ...), explicit dependencies and concrete acceptance criteria.
-        The dependency graph must be acyclic. Return ONLY JSON:
+        The dependency graph must be acyclic.
+        \(languageRule(language))
+        Return ONLY JSON:
         {"nodes":[{"key":"N1","title":"...","description":"...","kind":"task",
         "acceptance_criteria":["..."],"depends_on":[]}]}
-        Do not add prose or Markdown fences.
+        Do not add prose or Markdown fences. Keep keys and kind values in English.
         """
         let user = """
         Project: \(projectName)
@@ -258,6 +282,10 @@ enum SpecPlannerPrompts {
             DirectChatMessage(role: "system", content: system),
             DirectChatMessage(role: "user", content: user)
         ]
+    }
+
+    private static func languageRule(_ language: AppLanguage) -> String {
+        "Write every human-readable string (questions, suggested answers, summary, specification, node titles, descriptions and acceptance criteria) in \(language.rawValue). Keep JSON keys and kind values exactly as specified."
     }
 
     private static func interviewUserText(projectName: String,

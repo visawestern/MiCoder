@@ -16,12 +16,12 @@ struct NewProjectSheet: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(appState.projectCreationMode == .wizard
-                         ? L.t("Project with wizard")
+                         ? L.t("Project setup")
                          : L.t(AppLocalizationKey.locNewProject))
                         .interfaceFont(size: 18, weight: .semibold)
                         .foregroundColor(Color.mimo.textPrimary)
                     if appState.projectCreationMode == .wizard {
-                        Text(L.t("Next: model roles, the project brief and the spec interview. Chat opens after the wizard is finished or force-finished."))
+                        Text(L.t("Next: choose models, describe the project and answer questions. Chat opens when setup is finished."))
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)

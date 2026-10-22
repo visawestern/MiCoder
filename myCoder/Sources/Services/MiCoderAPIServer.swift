@@ -36,13 +36,20 @@ final class MiCoderAPIServer {
             let params = NWParameters.tcp
             params.allowLocalEndpointReuse = true
             let port = NWEndpoint.Port(rawValue: Self.fixedPort)!
-            listener = try NWListener(using: params, on: port)
+            // This API can mutate app state, so never expose it on the LAN.
+            params.requiredLocalEndpoint = .hostPort(host: .ipv4(.loopback), port: port)
+            listener = try NWListener(using: params)
             listener?.stateUpdateHandler = { [weak self] state in
-                if case .ready = state {
+                switch state {
+                case .ready:
                     self?.port = Int(Self.fixedPort)
                     let msg = "myCoder API server ready on http://127.0.0.1:\(Self.fixedPort)"
                     os_log("%{public}@", log: apiLog, type: .info, msg)
                     Self.appendLog(msg)
+                case .failed(let error):
+                    Self.appendLog("API server failed: \(error)")
+                default:
+                    break
                 }
             }
             listener?.newConnectionHandler = { [weak self] connection in
@@ -59,38 +66,89 @@ final class MiCoderAPIServer {
         receiveHTTPRequest(connection)
     }
     
-    private func receiveHTTPRequest(_ connection: NWConnection) {
+    private func receiveHTTPRequest(_ connection: NWConnection, accumulated: Data = Data()) {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, error in
-            guard let data = data, !data.isEmpty else {
+            guard let self else {
                 connection.cancel()
                 return
             }
-            
-            let request = String(data: data, encoding: .utf8) ?? ""
-            let lines = request.components(separatedBy: "\r\n")
+            var buffer = accumulated
+            if let data, !data.isEmpty {
+                buffer.append(data)
+            }
+            guard !buffer.isEmpty else {
+                connection.cancel()
+                return
+            }
+            guard buffer.count <= 4 * 1024 * 1024 else {
+                self.sendResponse(self.payloadTooLarge(), on: connection)
+                return
+            }
+
+            let separator = Data("\r\n\r\n".utf8)
+            guard let headerRange = buffer.range(of: separator) else {
+                if isComplete {
+                    connection.cancel()
+                } else {
+                    self.receiveHTTPRequest(connection, accumulated: buffer)
+                }
+                return
+            }
+
+            let header = String(decoding: buffer.prefix(upTo: headerRange.lowerBound), as: UTF8.self)
+            let contentLength = Self.contentLength(in: header)
+            let bodyStart = headerRange.upperBound
+            let available = buffer.count - bodyStart
+            guard available >= contentLength else {
+                if isComplete {
+                    connection.cancel()
+                } else {
+                    self.receiveHTTPRequest(connection, accumulated: buffer)
+                }
+                return
+            }
+
+            let body = String(decoding: buffer[bodyStart..<(bodyStart + contentLength)], as: UTF8.self)
+            let lines = header.components(separatedBy: "\r\n")
             let requestLine = lines.first ?? ""
             let parts = requestLine.components(separatedBy: " ")
             let method = parts.count > 0 ? parts[0] : "GET"
             let path = parts.count > 1 ? parts[1] : "/"
-            
-            var body = ""
-            if let bodyStart = request.range(of: "\r\n\r\n") {
-                body = String(request[bodyStart.upperBound...])
-            }
-            
-            let response = self?.routeRequest(method: method, path: path, body: body) ?? self?.notFound() ?? ""
-            connection.send(content: response.data(using: .utf8), completion: .contentProcessed { _ in
-                connection.cancel()
-            })
-            
-            if !isComplete {
-                self?.receiveHTTPRequest(connection)
-            }
+            let response = self.routeRequest(method: method, path: path, body: body)
+            self.sendResponse(response, on: connection)
         }
     }
-    
+
+    private static func contentLength(in header: String) -> Int {
+        for line in header.components(separatedBy: "\r\n") {
+            let parts = line.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2,
+                  parts[0].trimmingCharacters(in: .whitespaces).lowercased() == "content-length" else {
+                continue
+            }
+            return Int(parts[1].trimmingCharacters(in: .whitespaces)) ?? 0
+        }
+        return 0
+    }
+
+    private func sendResponse(_ response: String, on connection: NWConnection) {
+        connection.send(content: response.data(using: .utf8), completion: .contentProcessed { _ in
+            connection.cancel()
+        })
+    }
+
+    private func payloadTooLarge() -> String {
+        return "HTTP/1.1 413 Payload Too Large\r\nContent-Type: application/json\r\n\r\n{\"error\":\"request body exceeds 4 MB\"}"
+    }
+
     private func routeRequest(method: String, path: String, body: String) -> String {
         switch (method, path) {
+        case ("GET", "/api/actions"):
+            return handleActions()
+        case ("POST", "/api/action"):
+            return handleAction(body: body)
+        case ("GET", "/api/state"):
+            return handleState()
         case ("GET", "/api/providers"):
             return jsonResponse(providersInfo())
         case ("GET", "/api/chats"):
@@ -136,6 +194,60 @@ final class MiCoderAPIServer {
         }
     }
     
+    private func handleActions() -> String {
+        let semaphore = DispatchSemaphore(value: 0)
+        var actions: [[String: Any]] = []
+        Task { @MainActor in
+            actions = AppActionRouter.catalog
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 10)
+        return jsonResponse(["count": actions.count, "actions": actions])
+    }
+
+    private func handleState() -> String {
+        guard let appState = __miCoderAppState else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        let semaphore = DispatchSemaphore(value: 0)
+        var state: [String: Any] = ["error": "state timed out"]
+        Task { @MainActor in
+            state = AppActionRouter.shared.snapshot(appState: appState)
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 15)
+        return jsonResponse(state)
+    }
+
+    private func handleAction(body: String) -> String {
+        guard let appState = __miCoderAppState else {
+            return jsonResponse(["error": "app not ready"])
+        }
+        guard let data = body.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let action = json["action"] as? String, !action.isEmpty else {
+            return jsonResponse(["error": "action is required"])
+        }
+        let params = (json["params"] as? [String: Any]) ?? [:]
+        let semaphore = DispatchSemaphore(value: 0)
+        var response: [String: Any] = ["error": "action timed out"]
+        Task { @MainActor in
+            do {
+                let result = try await AppActionRouter.shared.perform(
+                    action: action,
+                    params: params,
+                    appState: appState
+                )
+                response = ["ok": true, "action": action, "result": result]
+            } catch {
+                response = ["ok": false, "action": action, "error": error.localizedDescription]
+            }
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 660)
+        return jsonResponse(response)
+    }
+
     private func providersInfo() -> [String: Any] {
         guard __miCoderAppState != nil else { return ["error": "app not ready"] }
         var providers: [[String: Any]] = []

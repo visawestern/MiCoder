@@ -32,9 +32,9 @@ struct NewProjectTypeMenu: View {
                 mode: .wizard,
                 icon: "wand.and.stars",
                 iconTint: Color.mimo.cyan,
-                title: L.t("Project with wizard"),
-                subtitle: L.t("Answer questions, get a spec and an atomic decomposition before coding."),
-                tooltip: L.t("The wizard picks a planner and a coder model, interviews you, and builds a versioned specification. Chat stays blocked until the spec is ready or force-finished.")
+                title: L.t("Project setup"),
+                subtitle: L.t("Answer a few questions and get a clear plan before coding."),
+                tooltip: L.t("Choose a planning model and a coding model, answer questions, and get a versioned specification. Chat opens when the plan is ready.")
             )
 
             Divider()
@@ -43,7 +43,7 @@ struct NewProjectTypeMenu: View {
             HStack(spacing: 6) {
                 Image(systemName: "info.circle")
                     .interfaceFont(size: 9)
-                Text(L.t("Wizard projects block chat until the spec is ready."))
+                Text(L.t("Finish project setup before chat opens."))
                     .interfaceFont(size: 10)
             }
             .foregroundColor(Color.mimo.textMuted)

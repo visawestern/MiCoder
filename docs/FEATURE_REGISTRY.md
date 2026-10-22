@@ -794,9 +794,11 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 1241 executed tests,
 - TZ revisions are append-only and versioned by the store; requirements, nodes, edges, history and node sessions persist in `spec_*` project tables
 - A new TZ revision starts with an empty decomposition; older revisions and their nodes remain readable
 - The planner receives a bounded, deterministic snapshot of the existing repository (tree + key manifests, secrets and dependency folders excluded)
+- Wizard labels and every planner-generated string follow the language selected in settings; internal jargon (planner/coder/atomic decomposition) stays out of user-facing copy
+- Planner calls use a long background timeout (600s transport, 660s action) so free local models can finish large specifications without losing a turn
 **Status:** ⚠️ Partially Implemented
-**Tests:** SpecWizardDraftTests (5), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7), SpecPlannerServiceTests (8), SpecWizardSessionTests (6), SpecContextBuilderTests (4); full suite 2659 GREEN
-**Gaps:** Interview, specification, decomposition screens and repository context are wired and persisted, but the per-node coding/verification flow is not implemented yet. The wizard cannot use web, ACP or MiMo serve providers as its planner; it reports that clearly. Live click-through of project creation is still pending because the macOS session was locked; creation and persistence paths are covered by tests.
+**Tests:** SpecWizardDraftTests (6), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7), SpecPlannerServiceTests (9), SpecWizardSessionTests (8), SpecContextBuilderTests (4), AppActionRouterTests (4); full suite 2666 GREEN
+**Gaps:** Interview, specification, decomposition screens and repository context are wired and persisted, but the per-node coding/verification flow is not implemented yet. The wizard cannot use web, ACP or MiMo serve providers as its planner; it reports that clearly. Live E2E through the local action API is verified (Russian interview, 18.9k-char TZ, 14-node acyclic graph, node status/link, finish and restart persistence); live AX click-through still needs Accessibility permission.
 
 ---
 

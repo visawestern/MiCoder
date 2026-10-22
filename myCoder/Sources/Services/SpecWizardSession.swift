@@ -26,6 +26,7 @@ final class SpecWizardSession: ObservableObject {
     private let planner: SpecPlannerService
     private let providerID: String?
     private let routeProvider: (String) -> SpecPlannerRoute?
+    private let languageProvider: () -> AppLanguage
     private let projectID: String
     private lazy var repositoryContext: String = SpecContextBuilder.build(projectPath: projectPath)
 
@@ -34,13 +35,15 @@ final class SpecWizardSession: ObservableObject {
          database: ProjectDatabaseManager,
          providerID: String?,
          planner: SpecPlannerService = SpecPlannerService(),
-         routeProvider: @escaping (String) -> SpecPlannerRoute?) {
+         routeProvider: @escaping (String) -> SpecPlannerRoute?,
+         languageProvider: @escaping () -> AppLanguage = { .english }) {
         self.projectPath = projectPath
         self.projectName = projectName
         self.database = database
         self.providerID = providerID
         self.planner = planner
         self.routeProvider = routeProvider
+        self.languageProvider = languageProvider
         self.projectID = ProjectIdentityLogic.projectID(for: projectPath)
         self.store = database.makeSpecStore()
         self.draft = Self.loadDraft(from: database) ?? SpecWizardDraft()
@@ -121,7 +124,7 @@ final class SpecWizardSession: ObservableObject {
 
             let data = try JSONEncoder().encode(storedDraft)
             guard let raw = String(data: data, encoding: .utf8) else {
-                errorMessage = "Could not encode the wizard draft"
+                errorMessage = "Could not save the setup draft"
                 return false
             }
             try database.setMetadataValue(raw, forKey: "spec_wizard_draft")
@@ -135,11 +138,11 @@ final class SpecWizardSession: ObservableObject {
 
     private func checklistItems(now: Int64) -> [ProjectSpecChecklistItem] {
         let titles: [SpecWizardChecklistLogic.ItemID: String] = [
-            .models: "Planner and coder models",
-            .brief: "Project brief",
-            .interview: "Planner interview",
+            .models: "Planning and coding models",
+            .brief: "Project description",
+            .interview: "Project questions",
             .specification: "Technical specification",
-            .decomposition: "Atomic decomposition"
+            .decomposition: "Task breakdown"
         ]
         return SpecWizardChecklistLogic.items(for: draft).enumerated().map { index, item in
             ProjectSpecChecklistItem(
@@ -180,7 +183,7 @@ final class SpecWizardSession: ObservableObject {
         try? store.appendHistory(entry)
     }
 
-    // MARK: - Interview
+    // MARK: - Questions
 
     /// Sends one answer (or an empty string to fetch the first question) and
     /// appends both turns. The planner's JSON turn is stored verbatim so the
@@ -210,7 +213,8 @@ final class SpecWizardSession: ObservableObject {
                 projectName: projectName,
                 brief: draft,
                 turns: turns,
-                route: route
+                route: route,
+                language: languageProvider()
             )
             let encoded = try JSONEncoder().encode(question)
             let raw = String(data: encoded, encoding: .utf8) ?? ""
@@ -253,7 +257,7 @@ final class SpecWizardSession: ObservableObject {
     func generateSpecification() async {
         guard !isLoading else { return }
         guard draft.interviewComplete else {
-            errorMessage = "Finish the planner interview first"
+            errorMessage = "Answer the project questions first"
             return
         }
         guard let route = route(for: draft.plannerModel) else { return }
@@ -268,7 +272,8 @@ final class SpecWizardSession: ObservableObject {
                 brief: draft,
                 turns: turns,
                 route: route,
-                repositoryContext: repositoryContext
+                repositoryContext: repositoryContext,
+                language: languageProvider()
             )
             let revision = try store.appendRevision(
                 projectID: projectID,
@@ -325,16 +330,16 @@ final class SpecWizardSession: ObservableObject {
         }
     }
 
-    // MARK: - Decomposition
+    // MARK: - Tasks
 
     func generateDecomposition() async {
         guard !isLoading else { return }
         guard let revision = latestRevision, draft.specVersion > 0 else {
-            errorMessage = "Generate the specification first"
+            errorMessage = "Create the specification first"
             return
         }
         guard nodes.isEmpty else {
-            errorMessage = "A decomposition already exists for this revision"
+            errorMessage = "Tasks already exist for this revision"
             return
         }
         guard let route = route(for: draft.plannerModel) else { return }
@@ -349,7 +354,8 @@ final class SpecWizardSession: ObservableObject {
                 brief: draft,
                 specification: revision.contentMarkdown,
                 route: route,
-                repositoryContext: repositoryContext
+                repositoryContext: repositoryContext,
+                language: languageProvider()
             )
             let now = Int64(Date().timeIntervalSince1970)
             var nodeByKey: [String: ProjectSpecNode] = [:]
@@ -411,7 +417,7 @@ final class SpecWizardSession: ObservableObject {
     func finishWizard(forced: Bool) -> Bool {
         if !forced {
             guard SpecWizardChecklistLogic.canFinish(draft) else {
-                errorMessage = "The specification and decomposition must be ready before chat opens"
+                errorMessage = "Finish the specification and task breakdown before opening chat"
                 return false
             }
         }
@@ -423,11 +429,89 @@ final class SpecWizardSession: ObservableObject {
         return true
     }
 
+    // MARK: - Node execution
+
+    static let allowedNodeStatuses: Set<String> = [
+        "pending", "running", "done", "failed", "blocked", "skipped"
+    ]
+
+    @discardableResult
+    func updateNodeStatus(nodeID: String, status: String) -> Bool {
+        guard Self.allowedNodeStatuses.contains(status) else {
+            errorMessage = "Unknown node status \(status)"
+            return false
+        }
+        guard let revision = latestRevision,
+              nodes.contains(where: { $0.id == nodeID }) else {
+            errorMessage = "Node not found in the latest revision"
+            return false
+        }
+        do {
+            let now = Int64(Date().timeIntervalSince1970)
+            guard try store.updateNodeStatus(nodeID: nodeID, status: status, updatedAt: now) else {
+                errorMessage = "Node not found"
+                return false
+            }
+            nodes = try store.nodes(revisionID: revision.id)
+            appendHistory(action: "node_status_changed",
+                          entityType: "node",
+                          entityID: nodeID,
+                          payloadJSON: "{\"status\":\"\(status)\",\"revision\":\(revision.version)}")
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func nextRunnableNode() -> ProjectSpecNode? {
+        guard let revision = latestRevision else { return nil }
+        return try? store.nextRunnableNode(revisionID: revision.id)
+    }
+
+    @discardableResult
+    func linkSession(_ sessionID: String, toNode nodeID: String, state: String = "active") -> Bool {
+        guard let revision = latestRevision,
+              nodes.contains(where: { $0.id == nodeID }) else {
+            errorMessage = "Node not found in the latest revision"
+            return false
+        }
+        let now = Int64(Date().timeIntervalSince1970)
+        let link = ProjectSpecNodeSession(
+            id: UUID().uuidString,
+            projectID: projectID,
+            nodeID: nodeID,
+            sessionID: sessionID,
+            state: state,
+            createdAt: now,
+            updatedAt: now
+        )
+        do {
+            try store.linkNodeSession(link)
+            appendHistory(action: "node_session_linked",
+                          entityType: "node",
+                          entityID: nodeID,
+                          payloadJSON: "{\"sessionId\":\"\(sessionID)\",\"revision\":\(revision.version)}")
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func nodeSessions(for nodeID: String) -> [ProjectSpecNodeSession] {
+        (try? store.nodeSessions(nodeID: nodeID)) ?? []
+    }
+
+    func revisionHistory() -> [ProjectSpecRevision] {
+        (try? store.revisions(projectID: projectID)) ?? []
+    }
+
     // MARK: - Routing
 
     private func route(for model: String) -> SpecPlannerRoute? {
         guard !model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            errorMessage = "Choose a planner model"
+            errorMessage = "Choose a planning model"
             return nil
         }
         guard let route = routeProvider(model) else {

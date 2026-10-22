@@ -125,7 +125,7 @@ struct SidebarView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(L.t("Create an empty project or start the spec wizard"))
+        .help(L.t("Create an empty project or set up a project plan"))
         .popover(isPresented: $showNewProjectMenu, arrowEdge: .bottom) {
             NewProjectTypeMenu { mode in
                 showNewProjectMenu = false
