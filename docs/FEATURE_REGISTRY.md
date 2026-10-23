@@ -1,6 +1,6 @@
 # myCoder — Canonical Feature Registry
 
-Generated: 2026-07-23 · Updated: 2026-10-22 (F64 per-node coding — 2701 tests, 415 suites)
+Generated: 2026-07-23 · Updated: 2026-10-23 (F64 per-node coding — 2703 tests, 415 suites)
 Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests, 413 suites)
 
 ---
@@ -801,7 +801,7 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests,
 - Verification is manual: the user marks the running task done/failed and can reopen its coding chat; the top-bar Tasks button reopens the board after setup
 - The task board is offered only for projects that actually have a wizard draft, so empty projects are never converted by a stray click
 **Status:** ✅ Implemented
-**Tests:** SpecWizardDraftTests (6), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7), SpecPlannerServiceTests (9), SpecWizardSessionTests (9), SpecContextBuilderTests (4), AppActionRouterTests (4), SpecNodeExecutionLogicTests (11), SpecNodePromptFlushLogicTests (6); full suite 2701 GREEN
+**Tests:** SpecWizardDraftTests (6), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7), SpecPlannerServiceTests (9), SpecWizardSessionTests (9), SpecContextBuilderTests (4), AppActionRouterTests (4), SpecNodeExecutionLogicTests (11), SpecNodePromptFlushLogicTests (8); full suite 2703 GREEN
 **Gaps:** Per-node verification is a deliberate manual done/failed decision, not an automated verifier. The wizard cannot use web, ACP or MiMo serve providers as its planner; it reports that clearly. Live E2E through the local action API is verified (Russian interview, 18.9k-char TZ, 14-node acyclic graph, node status/link, finish and restart persistence); live AX click-through still needs Accessibility permission.
 
 ---

@@ -20,6 +20,34 @@ struct SpecNodePromptFlushLogicTests {
         )
     }
 
+    private func needsLoad(
+        pending: String? = "chat-1",
+        selected: String? = "chat-1",
+        loaded: String? = nil,
+        loadingMessages: Bool = false
+    ) -> Bool {
+        SpecNodePromptFlushLogic.needsHistoryLoad(
+            pendingSessionID: pending,
+            selectedSessionID: selected,
+            loadedSessionID: loaded,
+            isLoadingMessages: loadingMessages
+        )
+    }
+
+    @Test("A selected pending chat with unloaded history requests its own load")
+    func loadsWhenSelectionDidNotTriggerIt() {
+        #expect(needsLoad())
+        #expect(needsLoad(loaded: "chat-0"))
+    }
+
+    @Test("No history load starts for an unselected or already loaded chat")
+    func doesNotReloadNeedlessly() {
+        #expect(!needsLoad(selected: "chat-2"))
+        #expect(!needsLoad(pending: nil))
+        #expect(!needsLoad(loaded: "chat-1"))
+        #expect(!needsLoad(loadingMessages: true))
+    }
+
     @Test("Prompt is sent only when every session marker matches and nothing is loading")
     func sendsWhenReady() {
         #expect(shouldFlush())

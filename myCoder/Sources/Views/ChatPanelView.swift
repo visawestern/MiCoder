@@ -309,6 +309,9 @@ struct ChatPanelView: View {
         .onChange(of: messageStore.loadedSessionID) { _ in
             flushPendingSpecNodePrompt()
         }
+        .onChange(of: messageStore.loadingSessionID) { _ in
+            flushPendingSpecNodePrompt()
+        }
         .onAppear {
             ChatPasteCoordinator.shared.register(store: attachmentStore) { text in
                 if messageText.isEmpty {
@@ -421,15 +424,24 @@ struct ChatPanelView: View {
     /// loaded and no other request is in flight.
     @MainActor
     private func flushPendingSpecNodePrompt() {
-        guard let pending = appState.pendingSpecNodePrompt,
-              SpecNodePromptFlushLogic.shouldFlush(
-                  pendingSessionID: pending.sessionID,
-                  selectedSessionID: appState.selectedSession?.id,
-                  currentSessionID: messageStore.currentSessionID,
-                  loadedSessionID: messageStore.loadedSessionID,
-                  isLoadingMessages: messageStore.isLoadingMessages,
-                  isBusy: appState.isLoading
-              ) else { return }
+        guard let pending = appState.pendingSpecNodePrompt else { return }
+        if SpecNodePromptFlushLogic.needsHistoryLoad(
+            pendingSessionID: pending.sessionID,
+            selectedSessionID: appState.selectedSession?.id,
+            loadedSessionID: messageStore.loadedSessionID,
+            isLoadingMessages: messageStore.isLoadingMessages
+        ) {
+            loadSessionMessages(sessionID: pending.sessionID)
+            return
+        }
+        guard SpecNodePromptFlushLogic.shouldFlush(
+            pendingSessionID: pending.sessionID,
+            selectedSessionID: appState.selectedSession?.id,
+            currentSessionID: messageStore.currentSessionID,
+            loadedSessionID: messageStore.loadedSessionID,
+            isLoadingMessages: messageStore.isLoadingMessages,
+            isBusy: appState.isLoading
+        ) else { return }
         appState.pendingSpecNodePrompt = nil
         messageText = pending.text
         sendMessage()
@@ -514,7 +526,13 @@ struct ChatPanelView: View {
                 if !isSameSessionRefresh {
                     messageStore.currentHistoryLimit = initialLimit
                 }
+                // Clear the loader before publishing the loaded marker: a
+                // pending spec-node prompt is flushed from both onChange
+                // hooks, and leaving the loader set here made the loaded
+                // callback see isLoadingMessages == true and drop the send.
+                messageStore.loadingSessionID = nil
                 messageStore.loadedSessionID = sessionID
+                flushPendingSpecNodePrompt()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                     guard messageStore.currentSessionID == sessionID else { return }
                     canLoadOlderMessages = true
