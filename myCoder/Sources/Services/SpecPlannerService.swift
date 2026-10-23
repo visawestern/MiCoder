@@ -7,7 +7,7 @@ import Foundation
 /// must not create visible chat sessions for its internal turns.
 enum SpecPlannerRoute: Equatable {
     case openAICompatible(baseURL: String, apiKey: String?, model: String)
-    case openCodeServe(baseURL: String, headers: [String: String], model: String)
+    case openCodeServe(baseURL: String, headers: [String: String], providerID: String, model: String)
     case autoFree(model: String)
 
     init?(sendRoute: SendRoute, model: String) {
@@ -18,10 +18,11 @@ enum SpecPlannerRoute: Equatable {
                 apiKey: apiKey,
                 model: model.isEmpty ? routeModel : model
             )
-        case .openCodeServe(let baseURL, let headers, let routeModel):
+        case .openCodeServe(let baseURL, let headers, let providerID, let routeModel):
             self = .openCodeServe(
                 baseURL: baseURL,
                 headers: headers,
+                providerID: providerID,
                 model: model.isEmpty ? routeModel : model
             )
         case .autoFree:
@@ -63,7 +64,7 @@ struct LiveSpecCompletionProvider: SpecCompletionProviding {
             )
             return result.content
 
-        case .openCodeServe(let baseURL, let headers, let model):
+        case .openCodeServe(let baseURL, let headers, let providerID, let model):
             let text = request.messages
                 .map { "\($0.role): \($0.content)" }
                 .joined(separator: "\n\n")
@@ -72,6 +73,7 @@ struct LiveSpecCompletionProvider: SpecCompletionProviding {
                 headers: headers,
                 modelID: model,
                 text: text,
+                providerID: providerID,
                 transport: URLSessionDirectChatTransport(timeout: timeout)
             )
             return result.content

@@ -223,11 +223,12 @@ struct E23E24AutoDetectConfirmationTests {
             selectedProviderID: openCode.id, selectedModel: "m",
             serverConnected: false, isACP: false,
             customProviders: [], localProviders: [openCode], webProviderIDs: [])
-        guard case .openCodeServe(let baseURL, _, let model) = route else {
+        guard case .openCodeServe(let baseURL, _, let providerID, let model) = route else {
             Issue.record("expected openCodeServe route, got \(route)")
             return
         }
         #expect(baseURL == "http://localhost:4096")
+        #expect(providerID == "opencode")
         #expect(model == "m")
         let ollama = LocalProviderConfig(kind: .ollama, host: "localhost", port: 11434)
         let oroute = SendRouteResolver.route(

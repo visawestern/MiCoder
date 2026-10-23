@@ -83,9 +83,26 @@ struct LocalProviderConfig: Identifiable, Codable, Equatable {
     /// Basic-auth username for servers that require it (opencode serve).
     /// Empty = no auth header is sent.
     var username: String
+    /// Provider id sent to an OpenCode server when creating a message.
+    /// `opencode serve` hosts several providers; the app default is the
+    /// built-in `opencode` provider, but a local server may expose an
+    /// OpenAI-compatible provider such as `ollama` under its own id.
+    var openCodeProviderID: String
 
     enum CodingKeys: String, CodingKey {
-        case id, kind, host, port, isEnabled, models, username
+        case id, kind, host, port, isEnabled, models, username, openCodeProviderID
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        kind = try c.decode(LocalProviderKind.self, forKey: .kind)
+        host = try c.decode(String.self, forKey: .host)
+        port = try c.decode(Int.self, forKey: .port)
+        isEnabled = try c.decode(Bool.self, forKey: .isEnabled)
+        models = try c.decode([String].self, forKey: .models)
+        username = try c.decodeIfPresent(String.self, forKey: .username) ?? ""
+        openCodeProviderID = try c.decodeIfPresent(String.self, forKey: .openCodeProviderID) ?? "opencode"
     }
 
     init(id: String = UUID().uuidString,
@@ -94,7 +111,8 @@ struct LocalProviderConfig: Identifiable, Codable, Equatable {
          port: Int? = nil,
          isEnabled: Bool = true,
          models: [String] = [],
-         username: String = "") {
+         username: String = "",
+         openCodeProviderID: String = "opencode") {
         self.id = id
         self.kind = kind
         self.host = host
@@ -102,6 +120,7 @@ struct LocalProviderConfig: Identifiable, Codable, Equatable {
         self.isEnabled = isEnabled
         self.models = models
         self.username = username
+        self.openCodeProviderID = openCodeProviderID
     }
 
     /// Base URL for the serve endpoint (used for health-check and model list).
@@ -207,7 +226,7 @@ enum LocalProviderLogic {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
             if config.kind == .openCode {
-                return ProviderAutoDetector.parseOpenCodeProviders(data)
+                return ProviderAutoDetector.parseOpenCodeProviders(data, providerID: config.openCodeProviderID)
             }
             return parseModels(from: data, kind: config.kind)
         } catch {

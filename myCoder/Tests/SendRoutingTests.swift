@@ -71,7 +71,7 @@ struct SendRoutingTests {
             serverConnected: false, isACP: false,
             customProviders: [], localProviders: [oc], webProviderIDs: []
         )
-        #expect(route == .openCodeServe(baseURL: "http://127.0.0.1:4096", headers: [:], model: "big-pickle"))
+        #expect(route == .openCodeServe(baseURL: "http://127.0.0.1:4096", headers: [:], providerID: "opencode", model: "big-pickle"))
     }
 
     @Test func mimoCLILocalUsesServeBaseNoV1() {

@@ -39,9 +39,9 @@ struct SpecPlannerServiceTests {
 
         #expect(SpecPlannerRoute(sendRoute: .autoFree, model: "free") == .autoFree(model: "free"))
         #expect(SpecPlannerRoute(sendRoute: .openCodeServe(
-            baseURL: "http://localhost:4096", headers: [:], model: "m"
+            baseURL: "http://localhost:4096", headers: [:], providerID: "ollama", model: "m"
         ), model: "") == .openCodeServe(
-            baseURL: "http://localhost:4096", headers: [:], model: "m"
+            baseURL: "http://localhost:4096", headers: [:], providerID: "ollama", model: "m"
         ))
         #expect(SpecPlannerRoute(sendRoute: .web(configID: "w"), model: "m") == nil)
         #expect(SpecPlannerRoute(sendRoute: .none, model: "m") == nil)

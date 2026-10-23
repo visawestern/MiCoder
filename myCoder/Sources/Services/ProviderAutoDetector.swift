@@ -99,10 +99,17 @@ enum ProviderAutoDetector {
     /// with id "opencode"; without it, unions every entry's model keys.
     /// Returns nil when nothing parses (caller falls through to the next
     /// probe branch instead of misclassifying).
-    static func parseOpenCodeProviders(_ data: Data) -> [String]? {
+    static func parseOpenCodeProviders(_ data: Data, providerID: String? = nil) -> [String]? {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let providers = json["providers"] as? [[String: Any]], !providers.isEmpty else {
             return nil
+        }
+        if let providerID, !providerID.isEmpty {
+            guard let match = providers.first(where: { ($0["id"] as? String) == providerID }),
+                  let models = match["models"] as? [String: Any], !models.isEmpty else {
+                return nil
+            }
+            return models.keys.sorted()
         }
         if let opencode = providers.first(where: { ($0["id"] as? String) == "opencode" }),
            let models = opencode["models"] as? [String: Any], !models.isEmpty {

@@ -69,9 +69,9 @@ enum OpenCodeServeClient {
         return "\(base)/session/\(sessionID)/message"
     }
 
-    static func messageBody(modelID: String, text: String) -> [String: Any] {
+    static func messageBody(modelID: String, text: String, providerID: String = "opencode") -> [String: Any] {
         [
-            "model": ["providerID": "opencode", "modelID": modelID],
+            "model": ["providerID": providerID, "modelID": modelID],
             "parts": [["type": "text", "text": text]],
         ]
     }
@@ -100,6 +100,7 @@ enum OpenCodeServeClient {
                      headers: [String: String],
                      modelID: String,
                      text: String,
+                     providerID: String = "opencode",
                      sessionID: String? = nil,
                      transport: DirectChatTransport = URLSessionDirectChatTransport()) async throws -> SendResult {
         // The serve API speaks JSON; transports leave Content-Type unset.
@@ -119,7 +120,7 @@ enum OpenCodeServeClient {
             }
             sid = id
         }
-        let msgBody = try JSONSerialization.data(withJSONObject: messageBody(modelID: modelID, text: text))
+        let msgBody = try JSONSerialization.data(withJSONObject: messageBody(modelID: modelID, text: text, providerID: providerID))
         guard let (status, data) = await transport.post(url: messageURL(baseURL: baseURL, sessionID: sid), headers: jsonHeaders, body: msgBody) else {
             throw OpenCodeServeError.transport("No response from \(baseURL)")
         }
@@ -208,6 +209,7 @@ enum OpenCodeServeClient {
                            headers: [String: String],
                            modelID: String,
                            text: String,
+                           providerID: String = "opencode",
                            sessionID: String? = nil,
                            transport: DirectChatTransport = URLSessionDirectChatTransport(),
                            events: OpenCodeEventSource = URLSessionEventSource()) async throws -> (String, AsyncThrowingStream<StreamEvent, Error>) {
@@ -227,7 +229,7 @@ enum OpenCodeServeClient {
             }
             sid = id
         }
-        let msgBody = try JSONSerialization.data(withJSONObject: messageBody(modelID: modelID, text: text))
+        let msgBody = try JSONSerialization.data(withJSONObject: messageBody(modelID: modelID, text: text, providerID: providerID))
         guard let (status, data) = await transport.post(url: promptAsyncURL(baseURL: baseURL, sessionID: sid), headers: jsonHeaders, body: msgBody) else {
             throw OpenCodeServeError.transport("No response from \(baseURL)")
         }

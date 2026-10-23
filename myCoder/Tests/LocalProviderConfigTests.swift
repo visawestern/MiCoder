@@ -52,10 +52,17 @@ struct LocalProviderConfigTests {
     }
 
     @Test func configRoundTripsThroughCodable() throws {
-        let cfg = LocalProviderConfig(kind: .openCode, port: 5000)
+        let cfg = LocalProviderConfig(kind: .openCode, port: 5000, openCodeProviderID: "ollama-gemma-cloud")
         let data = try JSONEncoder().encode(cfg)
         let decoded = try JSONDecoder().decode(LocalProviderConfig.self, from: data)
         #expect(decoded == cfg)
+        #expect(decoded.openCodeProviderID == "ollama-gemma-cloud")
+    }
+
+    @Test func legacyConfigDefaultsToBuiltInOpenCodeProvider() throws {
+        let json = #"{"id":"old","kind":"openCode","host":"127.0.0.1","port":4096,"isEnabled":true,"models":["m"],"username":""}"#
+        let decoded = try JSONDecoder().decode(LocalProviderConfig.self, from: json.data(using: .utf8)!)
+        #expect(decoded.openCodeProviderID == "opencode")
     }
 
     @Test func refreshReconcileKeepsValidSelection() {

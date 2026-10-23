@@ -1047,7 +1047,7 @@ struct ChatPanelView: View {
             // The user's own authenticated server: session REST API with
             // basic auth, NOT OpenAI /v1. Serve sessions persist server-side;
             // reuse ours per chat so follow-ups keep context.
-            if case .openCodeServe(let baseURL, let headers, let model) = route {
+            if case .openCodeServe(let baseURL, let headers, let providerID, let model) = route {
                 let chatKey = preparedSessionID ?? assistantID
                 await MainActor.run {
                     self.messageStore.update(id: assistantID) { msg in
@@ -1063,7 +1063,7 @@ struct ChatPanelView: View {
                     // (e.g. older serve without prompt_async).
                     let (streamSID, stream) = try await OpenCodeServeClient.streamSend(
                         baseURL: baseURL, headers: headers, modelID: model,
-                        text: modelText, sessionID: sid
+                        text: modelText, providerID: providerID, sessionID: sid
                     )
                     promptAcceptedSID = streamSID
                     OpenCodeServeSessionStore.shared.remember(sessionID: streamSID, for: chatKey)
@@ -1096,7 +1096,7 @@ struct ChatPanelView: View {
                     } else {
                         let result = try await OpenCodeServeClient.send(
                             baseURL: baseURL, headers: headers, modelID: model,
-                            text: modelText, sessionID: sid
+                            text: modelText, providerID: providerID, sessionID: sid
                         )
                         OpenCodeServeSessionStore.shared.remember(sessionID: result.sessionID, for: chatKey)
                         streamed = result.content

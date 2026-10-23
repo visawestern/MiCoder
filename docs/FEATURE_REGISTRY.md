@@ -1,6 +1,6 @@
 # myCoder — Canonical Feature Registry
 
-Generated: 2026-07-23 · Updated: 2026-10-23 (F64 per-node coding — 2703 tests, 415 suites)
+Generated: 2026-07-23 · Updated: 2026-10-23 (F68 OpenCode custom provider routing — 2705 tests, 415 suites)
 Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests, 413 suites)
 
 ---
@@ -801,8 +801,8 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests,
 - Verification is manual: the user marks the running task done/failed and can reopen its coding chat; the top-bar Tasks button reopens the board after setup
 - The task board is offered only for projects that actually have a wizard draft, so empty projects are never converted by a stray click
 **Status:** ✅ Implemented
-**Tests:** SpecWizardDraftTests (6), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7), SpecPlannerServiceTests (9), SpecWizardSessionTests (9), SpecContextBuilderTests (4), AppActionRouterTests (4), SpecNodeExecutionLogicTests (11), SpecNodePromptFlushLogicTests (8); full suite 2703 GREEN
-**Gaps:** Per-node verification is a deliberate manual done/failed decision, not an automated verifier. The wizard cannot use web, ACP or MiMo serve providers as its planner; it reports that clearly. Live E2E through the local action API is verified (Russian interview, 18.9k-char TZ, 14-node acyclic graph, node status/link, finish and restart persistence); live AX click-through still needs Accessibility permission.
+**Tests:** SpecWizardDraftTests (6), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7), SpecPlannerServiceTests (9), SpecWizardSessionTests (9), SpecContextBuilderTests (4), AppActionRouterTests (4), SpecNodeExecutionLogicTests (11), SpecNodePromptFlushLogicTests (8); full suite 2705 GREEN
+**Gaps:** Per-node verification is a deliberate manual done/failed decision, not an automated verifier. The wizard cannot use web, ACP or MiMo serve providers as its planner; it reports that clearly. Live E2E through the local action API is verified end-to-end (Russian interview, 18.9k-char TZ, 14-node acyclic graph, node status/link, finish and restart persistence). Per-node coding N1–N5 ran with gemma4:31b-cloud through a local OpenCode server: real file writes, `swift test` green (6 tests), acceptance verification completed. Live AX click-through still needs Accessibility permission.
 
 ---
 
@@ -850,20 +850,34 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests,
 
 ---
 
+## F68: OpenCode Custom Provider Routing
+**User Story:** As a user running an OpenCode server with a custom provider (for example Ollama/Gemma), I can select that server in the app and have the server execute tools with the selected model instead of always using the built-in `opencode` provider.
+**Expected Behavior:**
+- A local OpenCode provider persists an `openCodeProviderID` (default `opencode`; legacy configs decode safely)
+- Model refresh for that provider is scoped to its configured server provider, so a custom non-free provider is not replaced by the built-in free list
+- Chat sends (blocking and SSE) pass the configured provider id to `POST /session/:id/message`
+- The spec planner on the same route carries the provider id too, so interview/spec calls do not fall back to the built-in provider
+- Other local kinds (Ollama, generic OpenAI-compatible, local agent, ACP) are unchanged
+**Status:** ✅ Implemented
+**Tests:** OpenCodeServeClientTests (message body, send, stream), LocalProviderConfigTests (legacy default, custom round-trip), ProviderAutoDetectorTests (custom server provider scoping), SpecPlannerServiceTests (route carries provider id), SendRoutingTests (OpenCode route); full suite 2705 GREEN
+**Gaps:** Direct `.ollama` / `.openAICompatible` local routes remain text-only chat: they do not execute tool calls. Tool execution requires an OpenCode server (verified live with gemma4:31b-cloud) or ACP.
+
+---
+
 ## Summary
 
 | Status | Count |
 |--------|-------|
-| ✅ Fully Implemented | 65 |
+| ✅ Fully Implemented | 66 |
 | ⚠️ Partially Implemented | 2 |
 | ❌ Not Implemented | 0 |
-| **Total Features** | **67** |
+| **Total Features** | **68** |
 
 ---
 
 ## Priority Improvement Candidates
 
-65 fully implemented, 2 partially implemented. Remaining polish items are low-priority UI/UX enhancements:
+66 fully implemented, 2 partially implemented. Remaining polish items are low-priority UI/UX enhancements:
 - ACP streaming support (non-streaming sendChatCompletion integrated)
 - Localization of settings views (~75 strings in 8 tabs)
 - UndoRedoManager redo support (Cmd+Shift+Z)

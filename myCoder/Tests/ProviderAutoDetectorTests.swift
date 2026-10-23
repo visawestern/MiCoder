@@ -130,6 +130,12 @@ struct ProviderAutoDetectorTests {
         #expect(providers == ["big-pickle"])
     }
 
+    @Test func parseOpenCodeProvidersHonorsCustomServerProviderID() {
+        let payload = data(#"{"providers":[{"id":"opencode","models":{"big-pickle":{"id":"big-pickle"}}},{"id":"ollama-gemma-cloud","models":{"gemma4:31b-cloud":{"id":"gemma4:31b-cloud"}}}]}"#)
+        #expect(ProviderAutoDetector.parseOpenCodeProviders(payload, providerID: "ollama-gemma-cloud") == ["gemma4:31b-cloud"])
+        #expect(ProviderAutoDetector.parseOpenCodeProviders(payload, providerID: "missing") == nil)
+    }
+
     @Test func parseOpenCodeProvidersFallsBackToAllKeys() {
         let providers = ProviderAutoDetector.parseOpenCodeProviders(data(#"{"providers":[{"id":"google","models":{"gemini-flash-latest":{"id":"a"}}}]}"#))
         #expect(providers == ["gemini-flash-latest"])

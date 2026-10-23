@@ -29,11 +29,11 @@ struct OpenCodeServeClientTests {
     }
 
     @Test func messageBodyCarriesModelAndText() throws {
-        let body = OpenCodeServeClient.messageBody(modelID: "big-pickle", text: "hi")
+        let body = OpenCodeServeClient.messageBody(modelID: "big-pickle", text: "hi", providerID: "ollama-gemma-cloud")
         let data = try JSONSerialization.data(withJSONObject: body)
         let back = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let model = back?["model"] as? [String: Any]
-        #expect(model?["providerID"] as? String == "opencode")
+        #expect(model?["providerID"] as? String == "ollama-gemma-cloud")
         #expect(model?["modelID"] as? String == "big-pickle")
         let parts = back?["parts"] as? [[String: Any]]
         #expect(parts?.first?["text"] as? String == "hi")
