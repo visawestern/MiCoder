@@ -1,6 +1,6 @@
 # myCoder — Canonical Feature Registry
 
-Generated: 2026-07-23 · Updated: 2026-10-22 (F67 — 2683 tests, 413 suites)
+Generated: 2026-07-23 · Updated: 2026-10-22 (F64 per-node coding — 2701 tests, 415 suites)
 Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests, 413 suites)
 
 ---
@@ -796,9 +796,13 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests,
 - The planner receives a bounded, deterministic snapshot of the existing repository (tree + key manifests, secrets and dependency folders excluded)
 - Wizard labels and every planner-generated string follow the language selected in settings; internal jargon (planner/coder/atomic decomposition) stays out of user-facing copy
 - Planner calls use a long background timeout (600s transport, 660s action) so free local models can finish large specifications without losing a turn
-**Status:** ⚠️ Partially Implemented
-**Tests:** SpecWizardDraftTests (6), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7), SpecPlannerServiceTests (9), SpecWizardSessionTests (8), SpecContextBuilderTests (4), AppActionRouterTests (4); full suite 2683 GREEN
-**Gaps:** Interview, specification, decomposition screens and repository context are wired and persisted, but the per-node coding/verification flow is not implemented yet. The wizard cannot use web, ACP or MiMo serve providers as its planner; it reports that clearly. Live E2E through the local action API is verified (Russian interview, 18.9k-char TZ, 14-node acyclic graph, node status/link, finish and restart persistence); live AX click-through still needs Accessibility permission.
+- Per-node coding starts the next runnable task in a dedicated, linked chat and sends a spec-grounded prompt only after that chat's history has loaded
+- Exactly one task runs at a time; pending dependencies block, done/skipped unlock dependents, and failed/blocked tasks require an explicit Retry
+- Verification is manual: the user marks the running task done/failed and can reopen its coding chat; the top-bar Tasks button reopens the board after setup
+- The task board is offered only for projects that actually have a wizard draft, so empty projects are never converted by a stray click
+**Status:** ✅ Implemented
+**Tests:** SpecWizardDraftTests (6), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7), SpecPlannerServiceTests (9), SpecWizardSessionTests (9), SpecContextBuilderTests (4), AppActionRouterTests (4), SpecNodeExecutionLogicTests (11), SpecNodePromptFlushLogicTests (6); full suite 2701 GREEN
+**Gaps:** Per-node verification is a deliberate manual done/failed decision, not an automated verifier. The wizard cannot use web, ACP or MiMo serve providers as its planner; it reports that clearly. Live E2E through the local action API is verified (Russian interview, 18.9k-char TZ, 14-node acyclic graph, node status/link, finish and restart persistence); live AX click-through still needs Accessibility permission.
 
 ---
 
@@ -850,8 +854,8 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests,
 
 | Status | Count |
 |--------|-------|
-| ✅ Fully Implemented | 64 |
-| ⚠️ Partially Implemented | 3 |
+| ✅ Fully Implemented | 65 |
+| ⚠️ Partially Implemented | 2 |
 | ❌ Not Implemented | 0 |
 | **Total Features** | **67** |
 
@@ -859,7 +863,7 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests,
 
 ## Priority Improvement Candidates
 
-64 fully implemented, 3 partially implemented. Remaining polish items are low-priority UI/UX enhancements:
+65 fully implemented, 2 partially implemented. Remaining polish items are low-priority UI/UX enhancements:
 - ACP streaming support (non-streaming sendChatCompletion integrated)
 - Localization of settings views (~75 strings in 8 tabs)
 - UndoRedoManager redo support (Cmd+Shift+Z)

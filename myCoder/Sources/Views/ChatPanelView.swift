@@ -300,7 +300,14 @@ struct ChatPanelView: View {
         .onChange(of: appState.isLoading) { loading in
             if !loading {
                 messageQueue.processNext()
+                flushPendingSpecNodePrompt()
             }
+        }
+        .onChange(of: appState.pendingSpecNodePrompt?.id) { _ in
+            flushPendingSpecNodePrompt()
+        }
+        .onChange(of: messageStore.loadedSessionID) { _ in
+            flushPendingSpecNodePrompt()
         }
         .onAppear {
             ChatPasteCoordinator.shared.register(store: attachmentStore) { text in
@@ -324,6 +331,7 @@ struct ChatPanelView: View {
                 previousSessionID = sessionID
                 loadSessionMessages(sessionID: sessionID)
             }
+            flushPendingSpecNodePrompt()
         }
         .onReceive(NotificationCenter.default.publisher(for: .editMessage)) { notification in
             guard let messageID = notification.userInfo?["messageId"] as? String,
@@ -409,6 +417,24 @@ struct ChatPanelView: View {
         return SessionSendLogic.workedDurationLabel(since: previous.timestamp, until: current.timestamp)
     }
     
+    /// Sends a queued spec-node prompt exactly once, after the target chat has
+    /// loaded and no other request is in flight.
+    @MainActor
+    private func flushPendingSpecNodePrompt() {
+        guard let pending = appState.pendingSpecNodePrompt,
+              SpecNodePromptFlushLogic.shouldFlush(
+                  pendingSessionID: pending.sessionID,
+                  selectedSessionID: appState.selectedSession?.id,
+                  currentSessionID: messageStore.currentSessionID,
+                  loadedSessionID: messageStore.loadedSessionID,
+                  isLoadingMessages: messageStore.isLoadingMessages,
+                  isBusy: appState.isLoading
+              ) else { return }
+        appState.pendingSpecNodePrompt = nil
+        messageText = pending.text
+        sendMessage()
+    }
+
     func loadSessionMessages(sessionID: String) {
         canLoadOlderMessages = false
         // Clear only on a real session switch; refreshing the same session
@@ -488,6 +514,7 @@ struct ChatPanelView: View {
                 if !isSameSessionRefresh {
                     messageStore.currentHistoryLimit = initialLimit
                 }
+                messageStore.loadedSessionID = sessionID
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                     guard messageStore.currentSessionID == sessionID else { return }
                     canLoadOlderMessages = true

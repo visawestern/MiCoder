@@ -238,6 +238,50 @@ struct SpecWizardSessionTests {
         }
     }
 
+    @Test("Node coding starts one task, links the chat and unlocks dependents when done")
+    @MainActor
+    func nodeCodingLifecycle() async throws {
+        let spec = "# Approved spec"
+        let decomposition = """
+        {"nodes":[{"key":"N1","title":"One","description":"Do one","kind":"task",
+        "acceptance_criteria":["One works"],"depends_on":[]},
+        {"key":"N2","title":"Two","description":"Do two","kind":"task",
+        "acceptance_criteria":["Two works"],"depends_on":["N1"]}]}
+        """
+        try await withSession(responses: [.success(spec), .success(decomposition)]) { session, _, _ in
+            prepare(session)
+            session.draft.interviewComplete = true
+            #expect(session.saveDraft())
+            await session.generateSpecification()
+            await session.generateDecomposition()
+
+            let n1 = try #require(session.nodes.first(where: { $0.externalKey == "N1" }))
+            let n2 = try #require(session.nodes.first(where: { $0.externalKey == "N2" }))
+
+            #expect(session.canStartCoding(nodeID: n1.id))
+            #expect(!session.canStartCoding(nodeID: n2.id))
+            let prompt = try #require(session.startCoding(nodeID: n1.id, sessionID: "chat-1"))
+            #expect(prompt.contains("N1"))
+            #expect(prompt.contains("One works"))
+            #expect(session.nodes.first(where: { $0.id == n1.id })?.status == "running")
+            #expect(session.nodeSessions(for: n1.id).first?.state == "active")
+            #expect(!session.canStartCoding(nodeID: n2.id))
+            #expect(session.startCoding(nodeID: n2.id, sessionID: "chat-2") == nil)
+
+            #expect(session.finishNode(nodeID: n1.id, status: "done"))
+            #expect(session.nodeSessions(for: n1.id).first?.state == "done")
+            #expect(session.canStartCoding(nodeID: n2.id))
+            #expect(session.startCoding(nodeID: n2.id, sessionID: "chat-2") != nil)
+
+            #expect(session.finishNode(nodeID: n2.id, status: "failed"))
+            #expect(!session.retryNode(nodeID: n1.id))
+            #expect(session.retryNode(nodeID: n2.id))
+            #expect(session.nodes.first(where: { $0.id == n2.id })?.status == "pending")
+            #expect(session.canStartCoding(nodeID: n2.id))
+            #expect(!session.finishNode(nodeID: n2.id, status: "not-a-status"))
+        }
+    }
+
     @Test("Forced finish persists without faking a decomposition")
     @MainActor
     func forcedFinish() async throws {

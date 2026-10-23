@@ -197,6 +197,13 @@ struct ProjectSpecStoreTests {
             )
             try store.linkNodeSession(link)
             #expect(try store.nodeSessions(nodeID: "n1") == [link])
+            #expect(try store.updateNodeSessionState(
+                nodeID: "n1", sessionID: "chat-1", state: "done", updatedAt: now + 5
+            ))
+            #expect(try store.nodeSessions(nodeID: "n1").first?.state == "done")
+            #expect(try !store.updateNodeSessionState(
+                nodeID: "n1", sessionID: "missing", state: "done", updatedAt: now + 5
+            ))
         }
     }
 }

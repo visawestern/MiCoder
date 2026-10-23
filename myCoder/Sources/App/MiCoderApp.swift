@@ -8,6 +8,14 @@ import WebKit
 /// Global reference for local API server access. Set during app startup.
 var __miCoderAppState: AppState?
 
+/// One-shot coder prompt waiting for its chat history to finish loading.
+/// AppState owns it so the wizard can start a task from any view.
+struct PendingSpecNodePrompt: Equatable {
+    let id: String
+    let sessionID: String
+    let text: String
+}
+
 @main
 struct MiCoderApp: App {
     @StateObject private var appState = AppState()
@@ -116,6 +124,11 @@ class AppState: ObservableObject {
     @Published var projectCreationMode: ProjectCreationMode = .empty
     /// Project whose spec wizard is currently blocking the chat area.
     @Published var activeSpecWizardProjectPath: String?
+    /// Paths the user explicitly left this session. Restarting the app forgets
+    /// this, so an unfinished draft still gates chat after a relaunch.
+    private var dismissedSpecWizardPaths: Set<String> = []
+    /// Coder prompt that must be sent once the selected chat is loaded.
+    @Published var pendingSpecNodePrompt: PendingSpecNodePrompt?
     @Published var isStreaming = false
     @Published var isLoading = false
     @Published var selectedModel = ""
@@ -2603,6 +2616,14 @@ class AppState: ObservableObject {
         if let selectedID = selectedSession?.id {
             return selectedID
         }
+        return createLocalSessionForSend(title: title)
+    }
+
+    /// Always creates a fresh chat in the selected workspace (or a standalone
+    /// chat when none is selected). Used by spec-node coding, which must not
+    /// reuse whatever chat happened to be open.
+    @MainActor
+    func createLocalSessionForSend(title: String) -> String? {
         // Audit 2026-09-08: a chat started with NO workspace selected is a
         // standalone chat — it must persist and stay visible in the sidebar's
         // Chats group (user directive: standalone chats kept disappearing).
@@ -2736,6 +2757,7 @@ class AppState: ObservableObject {
         guard workspace.id != ChatSession.standaloneProjectKey else { return }
         let path = ChatSession.normalizedPath(workspace.path)
         Task { @MainActor in
+            guard !self.dismissedSpecWizardPaths.contains(path) else { return }
             guard let draft = DatabaseBridge.shared.loadSpecWizardDraft(projectPath: path) else { return }
             guard self.selectedWorkspace.map({ ChatSession.normalizedPath($0.path) }) == path else { return }
             if draft.status == .draft {
@@ -2752,11 +2774,81 @@ class AppState: ObservableObject {
     }
 
     func openSpecWizard(for projectPath: String) {
-        activeSpecWizardProjectPath = ChatSession.normalizedPath(projectPath)
+        let path = ChatSession.normalizedPath(projectPath)
+        dismissedSpecWizardPaths.remove(path)
+        activeSpecWizardProjectPath = path
+    }
+
+    /// Creates a dedicated chat for the next runnable task, links it to the
+    /// node, and queues the coder prompt. The prompt is sent by ChatPanelView
+    /// after the new chat's history has loaded, so it cannot race the load and
+    /// disappear. Returns nil (and leaves the node pending) on failure.
+    @MainActor
+    @discardableResult
+    func startSpecNodeCoding(wizard: SpecWizardSession, node: ProjectSpecNode) -> ChatSession? {
+        let path = ChatSession.normalizedPath(wizard.projectPath)
+        guard let workspace = workspaces.first(where: {
+            ChatSession.normalizedPath($0.path) == path
+        }) else {
+            wizard.errorMessage = "Project workspace not found"
+            return nil
+        }
+        if selectedWorkspace?.id != workspace.id {
+            selectWorkspace(workspace)
+        }
+        let title = "\(node.externalKey) · \(node.title)"
+        guard let sessionID = createLocalSessionForSend(title: title) else {
+            wizard.errorMessage = "Could not create a coding chat"
+            return nil
+        }
+        guard let prompt = wizard.startCoding(nodeID: node.id, sessionID: sessionID),
+              let chat = sessions.first(where: { $0.id == sessionID }) else {
+            _ = DatabaseBridge.shared.deleteSession(id: sessionID)
+            sessions.removeAll { $0.id == sessionID }
+            return nil
+        }
+        selectSession(chat)
+        if wizard.draft.status == .draft {
+            // Starting a task means the plan is accepted; keep the finished
+            // project from re-gating chat after a relaunch.
+            _ = wizard.finishWizard(forced: false)
+        }
+        pendingSpecNodePrompt = PendingSpecNodePrompt(
+            id: UUID().uuidString,
+            sessionID: sessionID,
+            text: prompt
+        )
+        finishSpecWizard(for: wizard.projectPath)
+        return chat
+    }
+
+    /// Reopens the chat linked to a task. Returns nil when the task was never
+    /// started or its chat no longer exists.
+    @MainActor
+    @discardableResult
+    func openSpecNodeChat(wizard: SpecWizardSession, nodeID: String) -> ChatSession? {
+        guard let link = wizard.nodeSessions(for: nodeID).last else {
+            wizard.errorMessage = "Coding chat not found"
+            return nil
+        }
+        let path = ChatSession.normalizedPath(wizard.projectPath)
+        let stored = DatabaseBridge.shared.loadSessions(projectId: path)
+            .first(where: { $0.id == link.sessionID })
+        guard let chat = sessions.first(where: { $0.id == link.sessionID })
+                ?? stored
+                ?? materializeSessionFromDatabase(id: link.sessionID) else {
+            wizard.errorMessage = "Coding chat not found"
+            return nil
+        }
+        selectSession(chat)
+        finishSpecWizard(for: wizard.projectPath)
+        return chat
     }
 
     func finishSpecWizard(for projectPath: String) {
-        if activeSpecWizardProjectPath == ChatSession.normalizedPath(projectPath) {
+        let path = ChatSession.normalizedPath(projectPath)
+        dismissedSpecWizardPaths.insert(path)
+        if activeSpecWizardProjectPath == path {
             activeSpecWizardProjectPath = nil
         }
     }

@@ -95,6 +95,11 @@ final class AppActionRouter {
             param("key", "string", false, nil),
             param("status", "string", true, "pending|running|done|failed|blocked|skipped")
         ]),
+        action("wizard.node.start", "Create a coding chat for the next runnable node and queue its prompt", [
+            param("path", "string", false, nil),
+            param("nodeId", "string", false, nil),
+            param("key", "string", false, nil)
+        ]),
         action("wizard.node.next", "Return the next runnable node", [param("path", "string", false, nil)]),
         action("wizard.node.linkSession", "Link a chat session to a decomposition node", [
             param("path", "string", false, nil),
@@ -313,6 +318,17 @@ final class AppActionRouter {
                 throw AppActionError.failed(session.errorMessage ?? "Could not update the node")
             }
             return wizardState(session: session, appState: appState)
+        case "wizard.node.start":
+            let session = try wizardSession(params: params, appState: appState)
+            let node = try resolveNode(params: params, session: session)
+            guard let chat = appState.startSpecNodeCoding(wizard: session, node: node) else {
+                throw AppActionError.failed(session.errorMessage ?? "Could not start the node")
+            }
+            let updated = session.nodes.first(where: { $0.id == node.id }) ?? node
+            return [
+                "chatId": chat.id,
+                "node": nodeRow(updated, session: session)
+            ]
         case "wizard.node.next":
             let session = try wizardSession(params: params, appState: appState)
             guard let node = session.nextRunnableNode() else {

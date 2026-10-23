@@ -582,14 +582,13 @@ final class ProjectSpecStore {
         return values
     }
 
-    /// One node at a time: the first pending node whose dependencies are done.
+    /// One node at a time: the first pending node whose dependencies are done
+    /// or deliberately skipped. A running node hides the rest.
     func nextRunnableNode(revisionID: String) throws -> ProjectSpecNode? {
         let nodes = try nodes(revisionID: revisionID)
         guard !nodes.isEmpty else { return nil }
-        let completed = Set(nodes.filter { $0.status == "done" }.map(\.externalKey))
-        let decomposition = try decomposition(revisionID: revisionID)
-        guard let candidate = decomposition.nextNode(completed: completed) else { return nil }
-        return nodes.first { $0.externalKey == candidate.key }
+        let edges = try edges(revisionID: revisionID)
+        return SpecNodeExecutionLogic.nextRunnableNode(nodes: nodes, edges: edges)
     }
 
     @discardableResult
@@ -655,6 +654,19 @@ final class ProjectSpecStore {
                 snsUpdatedAt <- link.updatedAt
             ))
         }
+    }
+
+    @discardableResult
+    func updateNodeSessionState(nodeID: String,
+                                sessionID: String,
+                                state: String,
+                                updatedAt: Int64) throws -> Bool {
+        let changes = try db.run(
+            specNodeSessions
+                .filter(snsNodeID == nodeID && snsSessionID == sessionID)
+                .update(snsState <- state, snsUpdatedAt <- updatedAt)
+        )
+        return changes > 0
     }
 
     func nodeSessions(nodeID: String) throws -> [ProjectSpecNodeSession] {

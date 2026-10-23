@@ -9,6 +9,9 @@ class MessageStore: ObservableObject {
     /// plain Bool) prevents a slow, superseded load from clearing the loader
     /// of the session the user switched to afterwards.
     @Published var loadingSessionID: String?
+    /// Session whose history is fully applied. A one-shot prompt for a new
+    /// spec-node chat waits for this instead of racing the async load.
+    @Published var loadedSessionID: String?
 
     var isLoadingMessages: Bool {
         loadingSessionID != nil
@@ -74,6 +77,7 @@ class MessageStore: ObservableObject {
         messages = []
         hasMoreMessages = true
         loadingSessionID = nil
+        loadedSessionID = nil
         currentSessionID = nil
         currentHistoryLimit = MessageHistoryPaginationLogic.initialLimit
     }

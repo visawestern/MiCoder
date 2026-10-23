@@ -68,6 +68,13 @@ struct TopBarView: View {
                     .tracking(0.5)
             }
 
+            // Task board for the selected project (spec-wizard projects keep
+            // their tasks after setup, so this must stay reachable).
+            if let workspace = appState.selectedWorkspace,
+               workspace.id != ChatSession.standaloneProjectKey {
+                ProjectTasksButton(workspace: workspace)
+            }
+
             // Session goal badge with live checklist progress (roadmap G).
             if HeaderGoalProgressLogic.shouldShow(
                 selectedSession: appState.selectedSession,
@@ -261,5 +268,43 @@ struct ChatPanelCompactHeader: View {
                 .frame(height: 1),
             alignment: .bottom
         )
+    }
+}
+
+
+/// Opens the spec task board only for projects that actually have a wizard
+/// draft; empty projects must not be turned into wizard projects by a click.
+private struct ProjectTasksButton: View {
+    @EnvironmentObject var appState: AppState
+    let workspace: Workspace
+    @State private var hasDraft = false
+
+    var body: some View {
+        Group {
+            if hasDraft {
+                Button {
+                    appState.openSpecWizard(for: workspace.path)
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checklist")
+                            .interfaceFont(size: 10)
+                        Text(L.t("Project tasks"))
+                            .interfaceFont(size: 11, weight: .medium)
+                    }
+                    .foregroundColor(Color.mimo.textSecondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.mimo.surfaceHover)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+                .help(L.t("Project tasks"))
+            }
+        }
+        .task(id: workspace.path) {
+            hasDraft = DatabaseBridge.shared.loadSpecWizardDraft(
+                projectPath: ChatSession.normalizedPath(workspace.path)
+            ) != nil
+        }
     }
 }
