@@ -1164,22 +1164,91 @@ struct ChatPanelView: View {
                         msg.content = SendStatusText.waitingForResponse(modelID: model, providerName: providerName)
                     }
                 }
-                let directResult = try await DirectChatClient.send(
-                    baseURL: baseURL, apiKey: apiKey, model: model,
-                    messages: msgs, parameters: params
+                // Direct local/OpenAI-compatible models do not execute tools
+                // server-side. Run the same text-protocol loop used by the
+                // Auto Free path: each tool block is executed locally against
+                // the selected project, and its result is fed back so the
+                // model can continue instead of stopping at a raw ```tool block.
+                let executor = ProjectWebToolExecutor(
+                    projectRoot: projectRoot,
+                    accessLevel: appState.accessLevel
                 )
-                let directUsage = directResult.usage
-                await MainActor.run {
-                    self.appState.isLoading = false
-                    self.appState.isStreaming = false
-                    self.streamingText = ""
-                    self.messageStore.update(id: assistantID) { msg in
-                        msg.content = directResult.content
-                        msg.usage = directUsage
-                        msg.isFinished = true
-                        msg.isStreaming = false
+                let maxIterations = 15
+                var conversation = msgs
+                var finalText = ""
+                var finalUsage: UsageCapture? = nil
+                var toolParts: [MessagePartContent] = []
+                do {
+                    for iteration in 0..<maxIterations {
+                        let result = try await DirectChatClient.send(
+                            baseURL: baseURL, apiKey: apiKey, model: model,
+                            messages: conversation, parameters: params
+                        )
+                        let response = result.content
+                        finalUsage = result.usage
+                        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+                        if calls.isEmpty || WebToolProtocolEmulator.shouldStopLoop(
+                            iteration: iteration, maxIterations: maxIterations, lastResponse: response
+                        ) {
+                            finalText = response
+                            break
+                        }
+                        var resultsBlock = ""
+                        for call in calls {
+                            if let validationError = WebToolProtocolEmulator.validate(
+                                call, projectRoot: projectRoot, accessLevel: appState.accessLevel
+                            ) {
+                                resultsBlock += WebToolProtocolEmulator.formatToolResult(
+                                    name: call.name, result: "validation error: \(validationError)"
+                                ) + "\n"
+                                continue
+                            }
+                            let toolResult = await executor.execute(call)
+                            resultsBlock += WebToolProtocolEmulator.formatToolResult(
+                                name: call.name, result: toolResult
+                            ) + "\n"
+                            toolParts.append(.toolCall(
+                                name: call.name,
+                                args: call.arguments.reduce(into: "") { $0 += "\($1.key)=\($1.value) " },
+                                result: toolResult,
+                                callID: UUID().uuidString
+                            ))
+                        }
+                        conversation.append(DirectChatMessage(role: "assistant", content: response))
+                        conversation.append(DirectChatMessage(role: "user", content: resultsBlock))
+                        finalText = response
+                        await MainActor.run {
+                            self.messageStore.update(id: assistantID) { msg in
+                                msg.content = response + "\n\n⏳ Running tools..."
+                                msg.parts = toolParts
+                                msg.isStreaming = true
+                            }
+                        }
                     }
-                    self.currentAssistantMessageID = nil
+                    await MainActor.run {
+                        self.appState.isLoading = false
+                        self.appState.isStreaming = false
+                        self.streamingText = ""
+                        self.messageStore.update(id: assistantID) { msg in
+                            msg.content = finalText
+                            msg.usage = finalUsage
+                            msg.parts = toolParts
+                            msg.isFinished = true
+                            msg.isStreaming = false
+                        }
+                        self.currentAssistantMessageID = nil
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.appState.isLoading = false
+                        self.appState.isStreaming = false
+                        self.messageStore.update(id: assistantID) { msg in
+                            msg.content = "Local model error: \(error.localizedDescription)"
+                            msg.isFinished = true
+                            msg.isStreaming = false
+                        }
+                        self.currentAssistantMessageID = nil
+                    }
                 }
                 return
             }

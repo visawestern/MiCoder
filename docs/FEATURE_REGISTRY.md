@@ -1,6 +1,6 @@
 # myCoder — Canonical Feature Registry
 
-Generated: 2026-07-23 · Updated: 2026-10-23 (F68 OpenCode custom provider routing — 2705 tests, 415 suites)
+Generated: 2026-07-23 · Updated: 2026-10-23 (F69 direct Ollama tool loop — 2705 tests, 415 suites)
 Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests, 413 suites)
 
 ---
@@ -802,7 +802,7 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests,
 - The task board is offered only for projects that actually have a wizard draft, so empty projects are never converted by a stray click
 **Status:** ✅ Implemented
 **Tests:** SpecWizardDraftTests (6), SpecPlannerLogicTests (12), SpecSchemaTests (3), ProjectSpecStoreTests (7), SpecPlannerServiceTests (9), SpecWizardSessionTests (9), SpecContextBuilderTests (4), AppActionRouterTests (4), SpecNodeExecutionLogicTests (11), SpecNodePromptFlushLogicTests (8); full suite 2705 GREEN
-**Gaps:** Per-node verification is a deliberate manual done/failed decision, not an automated verifier. The wizard cannot use web, ACP or MiMo serve providers as its planner; it reports that clearly. Live E2E through the local action API is verified end-to-end (Russian interview, 18.9k-char TZ, 14-node acyclic graph, node status/link, finish and restart persistence). Per-node coding N1–N5 ran with gemma4:31b-cloud through a local OpenCode server: real file writes, `swift test` green (6 tests), acceptance verification completed. Live AX click-through still needs Accessibility permission.
+**Gaps:** Per-node verification is a deliberate manual done/failed decision, not an automated verifier. The wizard cannot use web, ACP or MiMo serve providers as its planner; it reports that clearly. Live E2E through the local action API is verified end-to-end (Russian interview, 18.9k-char TZ, 14-node acyclic graph, node status/link, finish and restart persistence). Per-node coding N1–N5 ran with gemma4:31b-cloud; N4 was re-run directly through `ollama-local` after the direct tool loop landed, and `swift test` stayed green (6 tests). Earlier N1–N3/N5 runs used a temporary local OpenCode server before direct tool execution existed. Live AX click-through still needs Accessibility permission.
 
 ---
 
@@ -860,7 +860,21 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests,
 - Other local kinds (Ollama, generic OpenAI-compatible, local agent, ACP) are unchanged
 **Status:** ✅ Implemented
 **Tests:** OpenCodeServeClientTests (message body, send, stream), LocalProviderConfigTests (legacy default, custom round-trip), ProviderAutoDetectorTests (custom server provider scoping), SpecPlannerServiceTests (route carries provider id), SendRoutingTests (OpenCode route); full suite 2705 GREEN
-**Gaps:** Direct `.ollama` / `.openAICompatible` local routes remain text-only chat: they do not execute tool calls. Tool execution requires an OpenCode server (verified live with gemma4:31b-cloud) or ACP.
+**Gaps:** This routing is optional: direct Ollama/OpenAI-compatible providers now execute tools themselves (F69), so an OpenCode server is only needed when the user wants its provider/session features.
+
+---
+
+## F69: Direct Local Model Tool Loop
+**User Story:** As a user running Ollama locally, I want the selected model to actually edit files and run commands in my project, not just print tool-call text.
+**Expected Behavior:**
+- Direct `.ollama` / `.openAICompatible` sends attach the tool-protocol preamble and run an agentic loop (up to 15 iterations)
+- Tool blocks are parsed with the existing `WebToolProtocolEmulator`, validated against the project root, and executed by `ProjectWebToolExecutor`
+- Results are fed back to the model; tool call parts stay on the assistant message for the UI
+- Final text and usage persist on the assistant message; transport errors surface as an explicit local-model error
+- Access level is enforced by the executor: Full access runs commands, Ask returns an approval-required message
+**Status:** ✅ Implemented
+**Tests:** WebProviderTests (tool protocol parser/preamble, 10+); live E2E: `gemma4:31b-cloud` via `ollama-local` created `ollama-direct-ok.txt` with `write_file` and read it back; S7 N4 ran `swift test` directly and reported 6 passing tests
+**Gaps:** The direct route has no Allow/Deny approval card yet; at Ask level it returns an approval-required message instead of prompting. Full access is required for tool execution.
 
 ---
 
@@ -868,16 +882,16 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests,
 
 | Status | Count |
 |--------|-------|
-| ✅ Fully Implemented | 66 |
+| ✅ Fully Implemented | 67 |
 | ⚠️ Partially Implemented | 2 |
 | ❌ Not Implemented | 0 |
-| **Total Features** | **68** |
+| **Total Features** | **69** |
 
 ---
 
 ## Priority Improvement Candidates
 
-66 fully implemented, 2 partially implemented. Remaining polish items are low-priority UI/UX enhancements:
+67 fully implemented, 2 partially implemented. Remaining polish items are low-priority UI/UX enhancements:
 - ACP streaming support (non-streaming sendChatCompletion integrated)
 - Localization of settings views (~75 strings in 8 tabs)
 - UndoRedoManager redo support (Cmd+Shift+Z)
