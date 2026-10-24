@@ -85,8 +85,7 @@ struct LiveSpecCompletionProvider: SpecCompletionProviding {
             var text = ""
             for try await event in MiCoderAutoFreeClient.shared.chatCompletion(
                 model: model,
-                messages: messages,
-                stream: false
+                messages: messages
             ) {
                 if case .content(let chunk) = event {
                     text += chunk

@@ -394,7 +394,7 @@ struct ProviderConnectionTests {
         let expectedCases: [ProviderType] = [
             .openAI, .openRouter, .openModel, .openCodeZen, .ollama,
             .anthropic, .google, .mistral, .groq,
-            .deepseek, .omni, .acp
+            .deepseek, .omni, .nvidia, .acp
         ]
         #expect(ProviderType.allCases.count == expectedCases.count)
         for expected in expectedCases {

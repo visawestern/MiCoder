@@ -109,8 +109,7 @@ enum WebSessionSummarizer {
         do {
             for try await event in MiCoderAutoFreeClient.shared.chatCompletion(
                 model: MiCoderAutoFreeClient.defaultModelID,
-                messages: messages,
-                stream: true
+                messages: messages
             ) {
                 if case .content(let chunk) = event {
                     result += chunk

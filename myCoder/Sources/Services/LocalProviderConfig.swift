@@ -190,10 +190,49 @@ enum LocalProviderLogic {
         return providers
     }
 
+    /// Persist an edited local provider (host, port, credentials, models).
+    static func update(_ config: LocalProviderConfig, defaults: UserDefaults = .standard) {
+        var providers = load(defaults: defaults)
+        if let index = providers.firstIndex(where: { $0.id == config.id }) {
+            providers[index] = config
+        } else {
+            providers.append(config)
+        }
+        save(providers, defaults: defaults)
+    }
+
+    /// Delete a local provider and return the remaining list.
+    @discardableResult
+    static func remove(id: String, defaults: UserDefaults = .standard) -> [LocalProviderConfig] {
+        var providers = load(defaults: defaults)
+        providers.removeAll { $0.id == id }
+        save(providers, defaults: defaults)
+        return providers
+    }
+
+    /// Disable or re-enable a local provider without deleting it.
+    static func setEnabled(id: String, isEnabled: Bool, defaults: UserDefaults = .standard) {
+        var providers = load(defaults: defaults)
+        guard let index = providers.firstIndex(where: { $0.id == id }) else { return }
+        providers[index].isEnabled = isEnabled
+        save(providers, defaults: defaults)
+    }
+
+    /// Remove one model from a local provider's stored catalog.
+    static func removeModel(_ modelID: String, from providerID: String, defaults: UserDefaults = .standard) {
+        var providers = load(defaults: defaults)
+        guard let index = providers.firstIndex(where: { $0.id == providerID }) else { return }
+        providers[index].models.removeAll { $0 == modelID }
+        save(providers, defaults: defaults)
+    }
+
     /// Merge local providers into the unified provider option list alongside
     /// server + custom providers (plan Блок 4 п.39).
-    static func providerOptions(from locals: [LocalProviderConfig]) -> [ProviderOption] {
-        locals.filter { $0.isEnabled }.map {
+    static func providerOptions(
+        from locals: [LocalProviderConfig],
+        includeDisabled: Bool = false
+    ) -> [ProviderOption] {
+        locals.filter { includeDisabled || $0.isEnabled }.map {
             ProviderOption(id: $0.id, name: $0.displayName, isCustom: true, isConnected: $0.isEnabled)
         }
     }

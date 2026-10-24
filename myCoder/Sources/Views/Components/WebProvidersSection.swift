@@ -968,7 +968,11 @@ struct WebProviderLoginView: View {
                     ),
                     MiCoderAutoFreeClient.Message(role: "user", content: prompt)
                 ]
-                for try await event in MiCoderAutoFreeStore.shared.streamChat(messages: messages) {
+                for try await event in MiCoderAutoFreeStore.shared.streamChat(
+                    messages: messages,
+                    tools: MiCoderAutoFreeClient.gateToolDefinitions(),
+                    toolChoice: "none"
+                ) {
                     if case .content(let text) = event {
                         answer += text
                     }

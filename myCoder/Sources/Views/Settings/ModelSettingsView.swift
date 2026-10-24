@@ -73,9 +73,14 @@ struct ModelSettingsProviderColumns: View {
     @State private var modelSortOrder: ModelSortOrder = .name
     @State private var collapsedProviderCategories: Set<String> = []
     @State private var collapsedModelGroups: Set<String> = []
+    @State private var localHostDraft: String = ""
+    @State private var localPortDraft: String = ""
+    @State private var editingModelProviderID: String = ""
+    @State private var editingModelID: String = ""
+    @State private var editingModelDraft: String = ""
 
     private var options: [ProviderOption] {
-        appState.providerOptions
+        appState.manageableProviderOptions
     }
 
     private func webConfig(for providerID: String) -> WebProviderConfig? {
@@ -87,14 +92,62 @@ struct ModelSettingsProviderColumns: View {
         option.isCustom || webConfig(for: option.id) != nil
     }
 
+    private func localProvider(for providerID: String) -> LocalProviderConfig? {
+        LocalProviderLogic.load().first(where: { $0.id == providerID })
+    }
+
+    private func customProvider(for providerID: String) -> CustomProvider? {
+        appState.customProviders.first(where: { $0.id == providerID })
+    }
+
+    private func isProviderEnabled(_ option: ProviderOption) -> Bool {
+        if let custom = customProvider(for: option.id) { return custom.isEnabled }
+        if let local = localProvider(for: option.id) { return local.isEnabled }
+        return true
+    }
+
+    private func isToggleableProvider(_ option: ProviderOption) -> Bool {
+        customProvider(for: option.id) != nil || localProvider(for: option.id) != nil
+    }
+
+    private func toggleProviderEnabled(_ option: ProviderOption) {
+        let enabled = !isProviderEnabled(option)
+        if customProvider(for: option.id) != nil {
+            appState.setCustomProviderEnabled(option.id, isEnabled: enabled)
+            return
+        }
+        guard localProvider(for: option.id) != nil else { return }
+        LocalProviderLogic.setEnabled(id: option.id, isEnabled: enabled)
+        if !enabled, appState.selectedProviderID == option.id {
+            appState.selectProvider("")
+        }
+        appState.validateAndReconcileSelections()
+    }
+
+    private func providerKindLabel(_ option: ProviderOption) -> String {
+        if webConfig(for: option.id) != nil { return L.t(AppLocalizationKey.locWebSession) }
+        if localProvider(for: option.id) != nil { return L.t(AppLocalizationKey.locLocalProviders) }
+        if customProvider(for: option.id) != nil { return L.t(AppLocalizationKey.locCustomProvider) }
+        if option.id == MiCoderAutoFreeProvider.builtInID { return L.t("Free tier") }
+        return L.t(AppLocalizationKey.locLocalAgent)
+    }
+
     private func selectProvider(_ option: ProviderOption) {
         detailProviderID = option.id
+        guard isProviderEnabled(option) else { return }
         appState.selectProvider(option.id)
     }
 
     private func removeProvider(_ option: ProviderOption) {
-        if let custom = appState.customProviders.first(where: { $0.id == option.id }) {
+        if let custom = customProvider(for: option.id) {
             appState.removeCustomProvider(custom)
+            DisabledModelStore.clear(providerID: custom.id)
+            return
+        }
+        if let local = localProvider(for: option.id) {
+            LocalProviderLogic.remove(id: local.id)
+            DisabledModelStore.clear(providerID: local.id)
+            if appState.selectedProviderID == option.id { appState.selectProvider("") }
             return
         }
         if let web = webConfig(for: option.id) {
@@ -107,12 +160,87 @@ struct ModelSettingsProviderColumns: View {
         }
     }
 
+    private func saveLocalProvider(_ local: LocalProviderConfig) {
+        var updated = local
+        updated.host = localHostDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        updated.port = Int(localPortDraft.trimmingCharacters(in: .whitespacesAndNewlines)) ?? local.port
+        LocalProviderLogic.update(updated)
+    }
+
+    private func refreshLocalModels(_ local: LocalProviderConfig) {
+        Task {
+            guard let fetched = await LocalProviderLogic.fetchModels(for: local) else { return }
+            var updated = local
+            updated.models = fetched
+            LocalProviderLogic.update(updated)
+        }
+    }
+
+    private func canDeleteModels(providerID: String) -> Bool {
+        customProvider(for: providerID) != nil || localProvider(for: providerID) != nil
+    }
+
+    private func deleteModel(_ modelID: String, from providerID: String) {
+        if customProvider(for: providerID) != nil {
+            appState.removeModel(modelID, from: providerID)
+            return
+        }
+        guard localProvider(for: providerID) != nil else { return }
+        LocalProviderLogic.removeModel(modelID, from: providerID)
+    }
+
+    private func isModelDisabled(_ modelID: String, providerID: String) -> Bool {
+        DisabledModelStore.isDisabled(providerID: providerID, modelID: modelID)
+    }
+
+    private func toggleModelDisabled(_ modelID: String, providerID: String) {
+        let disabled = !isModelDisabled(modelID, providerID: providerID)
+        DisabledModelStore.setDisabled(disabled, providerID: providerID, modelID: modelID)
+        guard disabled,
+              appState.selectedProviderID == providerID,
+              appState.selectedModel == modelID else { return }
+        if let replacement = appState.modelsForSelectedProvider.first(where: { $0 != modelID }) {
+            appState.selectModel(replacement)
+        } else {
+            appState.selectModel("")
+        }
+    }
+
+    private func isEditingModel(modelID: String, providerID: String) -> Bool {
+        editingModelProviderID == providerID && editingModelID == modelID
+    }
+
+    private func beginRename(_ modelID: String, providerID: String) {
+        editingModelProviderID = providerID
+        editingModelID = modelID
+        editingModelDraft = modelID
+    }
+
+    private func cancelRename() {
+        editingModelProviderID = ""
+        editingModelID = ""
+        editingModelDraft = ""
+    }
+
+    private func commitRename(modelID: String, providerID: String) {
+        let renamed = editingModelDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        cancelRename()
+        guard !renamed.isEmpty, renamed != modelID else { return }
+        guard let index = appState.customProviders.firstIndex(where: { $0.id == providerID }) else { return }
+        var updated = appState.customProviders[index]
+        updated.models = updated.models.map { $0 == modelID ? renamed : $0 }
+        appState.updateCustomProvider(updated)
+    }
+
     private func models(for providerID: String) -> [String] {
         if let web = webConfig(for: providerID) {
             return WebProviderConnectivity.models(for: web)
         }
-        if let local = LocalProviderLogic.load().first(where: { $0.id == providerID }) {
+        if let local = localProvider(for: providerID) {
             return local.models
+        }
+        if let custom = customProvider(for: providerID) {
+            return custom.models.sorted()
         }
         return ProviderSettingsLogic.models(
             for: providerID,
@@ -128,13 +256,13 @@ struct ModelSettingsProviderColumns: View {
                     .interfaceFont(size: 16, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 Spacer()
-                Button(action: { appState.addOpenCodeZenProvider() }) {
-                    Label(L.t(AppLocalizationKey.locOpenCodeZen), systemImage: "sparkles")
+                Button(action: { appState.addNvidiaProvider() }) {
+                    Label(L.t("Add NVIDIA"), systemImage: "memorychip")
                         .interfaceFont(size: 13)
-                        .foregroundColor(Color.mimo.violet)
+                        .foregroundColor(Color.mimo.success)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(L.t(AppLocalizationKey.locAddOrSelectOpenCodeZen))
+                .accessibilityLabel(L.t("Add NVIDIA"))
 
                 Button(action: { showAddProvider = true }) {
                     HStack(spacing: 4) {
@@ -342,6 +470,20 @@ struct ModelSettingsProviderColumns: View {
             .buttonStyle(.plain)
 
             if isMutableProvider(option) {
+                if isToggleableProvider(option) {
+                    Button(action: { toggleProviderEnabled(option) }) {
+                        Image(systemName: isProviderEnabled(option) ? "pause.circle" : "play.circle")
+                            .interfaceFont(size: 11, weight: .semibold)
+                            .foregroundColor(isProviderEnabled(option) ? Color.mimo.warning : Color.mimo.success)
+                            .frame(width: 25, height: 25)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(isProviderEnabled(option)
+                          ? L.t(AppLocalizationKey.locDisable)
+                          : L.t(AppLocalizationKey.locEnable))
+                }
+
                 Button(action: { selectProvider(option) }) {
                     Image(systemName: "pencil")
                         .interfaceFont(size: 10, weight: .semibold)
@@ -388,7 +530,7 @@ struct ModelSettingsProviderColumns: View {
                     Circle()
                         .fill(option.isConnected ? Color.mimo.success : Color.mimo.warning)
                         .frame(width: 8, height: 8)
-                    Text(webConfig(for: option.id) != nil ? L.t(AppLocalizationKey.locWebSession) : (option.isCustom ? L.t(AppLocalizationKey.locCustomProvider) : L.t(AppLocalizationKey.locLocalAgent)))
+                    Text(providerKindLabel(option))
                         .interfaceFont(size: 12)
                         .foregroundColor(Color.mimo.textSecondary)
                 }
@@ -502,6 +644,52 @@ struct ModelSettingsProviderColumns: View {
                             .foregroundColor(message.hasPrefix("Loaded") ? Color.mimo.success : Color.mimo.warning)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                }
+                if let local = localProvider(for: option.id) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(L.t(AppLocalizationKey.locHost))
+                            .interfaceFont(size: 11, weight: .medium)
+                            .foregroundColor(Color.mimo.textSecondary)
+                        TextField("127.0.0.1", text: $localHostDraft)
+                            .zcodeTextFieldStyle()
+                            .interfaceFont(size: 11, design: .monospaced)
+                            .onAppear {
+                                localHostDraft = local.host
+                                localPortDraft = String(local.port)
+                            }
+                            .onChange(of: detailProviderID) { _ in
+                                localHostDraft = local.host
+                                localPortDraft = String(local.port)
+                            }
+                        Text(L.t(AppLocalizationKey.locPort))
+                            .interfaceFont(size: 11, weight: .medium)
+                            .foregroundColor(Color.mimo.textSecondary)
+                        TextField(String(local.port), text: $localPortDraft)
+                            .zcodeTextFieldStyle()
+                            .interfaceFont(size: 11, design: .monospaced)
+                        Button(L.t(AppLocalizationKey.locSaveConfiguration)) {
+                            saveLocalProvider(local)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(localHostDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                  || Int(localPortDraft.trimmingCharacters(in: .whitespacesAndNewlines)) == nil
+                                  || (localHostDraft == local.host
+                                      && Int(localPortDraft.trimmingCharacters(in: .whitespacesAndNewlines)) == local.port))
+                    }
+
+                    Button(role: .destructive) {
+                        removeProvider(option)
+                    } label: {
+                        Label(L.t(AppLocalizationKey.locRemoveProvider), systemImage: "trash")
+                            .interfaceFont(size: 12)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(Color.mimo.error)
+
+                    Button(L.t(AppLocalizationKey.locRefreshModels)) {
+                        refreshLocalModels(local)
+                    }
+                    .buttonStyle(.bordered)
                 }
                 if let web = webConfig(for: option.id) {
                     Text(web.chatURL)
@@ -1033,6 +1221,44 @@ struct ModelSettingsProviderColumns: View {
 
     @ViewBuilder
     private func compactModelCard(modelID: String, providerID: String, prefix: String?) -> some View {
+        if isEditingModel(modelID: modelID, providerID: providerID) {
+            modelEditRow(modelID: modelID, providerID: providerID)
+        } else {
+            modelDisplayRow(modelID: modelID, providerID: providerID, prefix: prefix)
+        }
+    }
+
+    private func modelEditRow(modelID: String, providerID: String) -> some View {
+        HStack(spacing: 6) {
+            TextField(L.t("Model ID"), text: $editingModelDraft)
+                .textFieldStyle(.plain)
+                .interfaceFont(size: 11, design: .monospaced)
+                .foregroundColor(Color.mimo.textPrimary)
+                .onSubmit { commitRename(modelID: modelID, providerID: providerID) }
+            Button(action: { commitRename(modelID: modelID, providerID: providerID) }) {
+                Image(systemName: "checkmark")
+                    .interfaceFont(size: 11, weight: .semibold)
+                    .foregroundColor(Color.mimo.success)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Button(action: { cancelRename() }) {
+                Image(systemName: "xmark")
+                    .interfaceFont(size: 11, weight: .semibold)
+                    .foregroundColor(Color.mimo.textMuted)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(Color.mimo.subtleFill)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func modelDisplayRow(modelID: String, providerID: String, prefix: String?) -> some View {
         let meta = ProviderSettingsLogic.model(
             for: modelID,
             in: appState.serverProviders,
@@ -1040,8 +1266,10 @@ struct ModelSettingsProviderColumns: View {
         )
         let isSelected = appState.selectedModel == modelID
         let shortName = Self.splitModelID(modelID).name
+        let isDisabled = isModelDisabled(modelID, providerID: providerID)
+        let isCustomModel = customProvider(for: providerID) != nil
 
-        HStack(spacing: 6) {
+        return HStack(spacing: 6) {
             // Selection indicator
             if isSelected {
                 Image(systemName: "checkmark.circle.fill")
@@ -1058,8 +1286,19 @@ struct ModelSettingsProviderColumns: View {
             // Model name
             Text(shortName)
                 .interfaceFont(size: 12, weight: isSelected ? .semibold : .regular, design: .monospaced)
-                .foregroundColor(isSelected ? Color.mimo.brand : Color.mimo.textPrimary)
+                .foregroundColor(isDisabled ? Color.mimo.textMuted : (isSelected ? Color.mimo.brand : Color.mimo.textPrimary))
+                .strikethrough(isDisabled)
                 .lineLimit(1)
+
+            if isDisabled {
+                Text(L.t(AppLocalizationKey.locDisabled))
+                    .interfaceFont(size: 9, weight: .medium)
+                    .foregroundColor(Color.mimo.warning)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(Color.mimo.warning.opacity(0.12))
+                    .clipShape(Capsule())
+            }
 
             // Compact capability chips
             if meta?.capabilities?.reasoning == true {
@@ -1099,9 +1338,23 @@ struct ModelSettingsProviderColumns: View {
 
             Spacer(minLength: 4)
 
-            if appState.customProviders.contains(where: { $0.id == providerID }) {
+            if isCustomModel {
                 Button {
-                    appState.removeModel(modelID, from: providerID)
+                    beginRename(modelID, providerID: providerID)
+                } label: {
+                    Image(systemName: "pencil")
+                        .interfaceFont(size: 11, weight: .semibold)
+                        .foregroundColor(Color.mimo.textSecondary)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L.t("Rename model"))
+            }
+
+            if canDeleteModels(providerID: providerID) {
+                Button {
+                    deleteModel(modelID, from: providerID)
                 } label: {
                     Image(systemName: "trash")
                         .interfaceFont(size: 11, weight: .semibold)
@@ -1121,6 +1374,25 @@ struct ModelSettingsProviderColumns: View {
                     openParameters(modelID: modelID, providerID: providerID)
                 }) {
                     Label(L.t(AppLocalizationKey.locParameters), systemImage: "slider.horizontal.3")
+                }
+
+                if isCustomModel {
+                    Button(action: {
+                        beginRename(modelID, providerID: providerID)
+                    }) {
+                        Label(L.t("Rename model"), systemImage: "pencil")
+                    }
+                }
+
+                if providerID != MiCoderAutoFreeProvider.builtInID {
+                    Button(action: {
+                        toggleModelDisabled(modelID, providerID: providerID)
+                    }) {
+                        Label(
+                            isDisabled ? L.t("Enable model") : L.t("Disable model"),
+                            systemImage: isDisabled ? "checkmark.circle" : "slash.circle"
+                        )
+                    }
                 }
 
                 if let meta = meta {
@@ -1176,7 +1448,7 @@ struct ModelSettingsProviderColumns: View {
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .contentShape(Rectangle())
         .onTapGesture {
-            guard !isSelected else { return }
+            guard !isSelected, !isDisabled else { return }
             if !providerID.isEmpty {
                 appState.selectProvider(providerID)
             }

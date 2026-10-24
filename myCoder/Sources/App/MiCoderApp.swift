@@ -30,7 +30,11 @@ struct MiCoderApp: App {
                     _ = MyCoderDefaults.migrateAllKnownKeys()
                     let home = FileManager.default.homeDirectoryForCurrentUser
                     let plan = MyCoderPaths.migrationPlan(homeDirectory: home)
-                    try? MyCoderPaths.performMigration(plan)
+                    do {
+                        _ = try MyCoderPaths.performMigration(plan)
+                    } catch {
+                        MiCoderAPIServer.appendLog("⚠️ [migration] failed: \(error.localizedDescription)")
+                    }
                     MiCoderAPIServer.shared.start()
                 }
                 .frame(minWidth: 900, idealWidth: 1200, maxWidth: .infinity,
@@ -144,7 +148,10 @@ class AppState: ObservableObject {
     var availableModels: [String] {
         ProviderSettingsLogic.mergeModelIDs(
             serverProviders: serverProviders,
-            customProviders: customProviders
+            customProviders: customProviders,
+            isDisabled: { providerID, modelID in
+                DisabledModelStore.isDisabled(providerID: providerID, modelID: modelID)
+            }
         )
     }
     @Published var serverProviders: [MimoProviderResponse] = []
@@ -291,12 +298,15 @@ class AppState: ObservableObject {
     @Published var workspaceFilterPreset: WorkspaceFilterPreset = .all
     @Published var showWorkspaceSearchField = false
     @Published var workspacesSectionExpanded = true
-    /// Sidebar "Chats" group (standalone chats) expansion (audit 2026-09-08).
-    @Published var standaloneChatsExpanded = true
-    /// Sidebar Group/Project pill mode (plan Раздел 11 Блок 2).
-    @Published var sidebarGroupingMode: SidebarGroupingMode = SidebarGroupingLogic.load() {
-        didSet { SidebarGroupingLogic.save(sidebarGroupingMode) }
-    }
+    /// Chats of every project, keyed by project id. Loaded per project so the
+    /// sidebar can show every project's children instead of only the selected
+    /// project's (F71).
+    @Published private(set) var sidebarProjectSessions: [String: [ChatSession]] = [:]
+    /// Chats that belong to no project. Each one becomes its own top-level
+    /// sidebar row (F71).
+    @Published private(set) var sidebarProjectlessSessions: [ChatSession] = []
+    /// Sidebar rows pinned to the top (project ids and project-less chat ids).
+    @Published private(set) var pinnedSidebarItemIDs: Set<String> = []
     /// Quick archive popover from the sidebar (plan Раздел 11 Блок 2 п.16).
     @Published var showArchivePopover = false
     @Published var showNotifications = false
@@ -317,9 +327,85 @@ class AppState: ObservableObject {
             registry: projectRegistryEntries,
             selectedPath: selectedWorkspace?.path
         )
+        let known = sidebarKnownSessions
         let nameFiltered = SidebarWorkspaceLogic.filtered(visible, query: workspaceFilterQuery)
-        let sessionFiltered = SidebarWorkspaceLogic.filteredBySessionCount(nameFiltered, sessions: sessions, preset: workspaceFilterPreset)
-        return SidebarWorkspaceLogic.sorted(sessionFiltered, order: workspaceSortOrder, sessions: sessions)
+        let sessionFiltered = SidebarWorkspaceLogic.filteredBySessionCount(nameFiltered, sessions: known, preset: workspaceFilterPreset)
+        return SidebarWorkspaceLogic.sorted(sessionFiltered, order: workspaceSortOrder, sessions: known)
+    }
+
+    /// Every chat the sidebar knows about: all projects' chats plus the
+    /// project-less ones. Used for the sidebar's filters and sorting, so a
+    /// non-selected project is not counted as empty (F71).
+    var sidebarKnownSessions: [ChatSession] {
+        var byID: [String: ChatSession] = [:]
+        for session in sessions { byID[session.id] = session }
+        for projectSessions in sidebarProjectSessions.values {
+            for session in projectSessions { byID[session.id] = session }
+        }
+        for session in sidebarProjectlessSessions { byID[session.id] = session }
+        return Array(byID.values)
+    }
+
+    /// The sidebar tree: projects (with their chats) plus one top-level row
+    /// per chat without a project. Built in a single pass so every chat has
+    /// exactly one parent (F71).
+    var sidebarTreeItems: [SidebarTreeItem] {
+        SidebarTreeBuilder.build(
+            workspaces: displayedWorkspaces,
+            sessionsByWorkspaceID: sidebarProjectSessions,
+            projectlessSessions: sidebarProjectlessSessions,
+            pinnedIDs: pinnedSidebarItemIDs
+        )
+    }
+
+    /// Chats of one project for the sidebar. The selected project answers
+    /// from the in-memory list, other projects from their own database.
+    func sidebarSessions(for workspace: Workspace) -> [ChatSession] {
+        if let cached = sidebarProjectSessions[workspace.id] {
+            return cached
+        }
+        return sessions.filter { $0.belongs(to: workspace) }
+    }
+
+    /// Load one project's chats for the sidebar (once per project).
+    @MainActor
+    func loadSidebarSessions(for workspace: Workspace) {
+        guard sidebarProjectSessions[workspace.id] == nil else { return }
+        let path = workspace.path
+        let id = workspace.id
+        Task { @MainActor in
+            let loaded = DatabaseBridge.shared.loadSessions(projectId: path)
+            sidebarProjectSessions[id] = loaded
+        }
+    }
+
+    /// Store one project's chats for the sidebar tree.
+    @MainActor
+    func updateSidebarSessions(projectID: String, sessions: [ChatSession]) {
+        sidebarProjectSessions[projectID] = sessions
+    }
+
+    /// Store the chats that belong to no project.
+    @MainActor
+    func updateSidebarProjectlessSessions(_ sessions: [ChatSession]) {
+        sidebarProjectlessSessions = sessions
+    }
+
+    /// Reload the chats that belong to no project.
+    @MainActor
+    func refreshSidebarProjectlessSessions() {
+        sidebarProjectlessSessions = DatabaseBridge.shared.loadStandaloneSessions()
+    }
+
+    /// Pin or unpin a sidebar row (project or project-less chat).
+    @MainActor
+    func toggleSidebarPin(id: String) {
+        if pinnedSidebarItemIDs.contains(id) {
+            pinnedSidebarItemIDs.remove(id)
+        } else {
+            pinnedSidebarItemIDs.insert(id)
+        }
+        SidebarPinStore.save(pinnedSidebarItemIDs, defaults: defaults)
     }
 
     /// Reload the global project registry after Storage/Archive mutations so
@@ -398,6 +484,7 @@ class AppState: ObservableObject {
             let raw = defaults.string(forKey: "com.mycoder.theme") ?? ""
             return AppTheme(rawValue: raw) ?? .dark
         }()
+        pinnedSidebarItemIDs = SidebarPinStore.load(defaults: defaults)
         // settings is already loaded by its own didSet-based persistence
         // Sync LocalizationRuntime with the loaded language
         LocalizationRuntime.currentLanguage = appLanguage
@@ -512,9 +599,21 @@ class AppState: ObservableObject {
     }
 
     var providerOptions: [ProviderOption] {
+        buildProviderOptions(includeDisabled: false)
+    }
+
+    /// Provider list for Settings: disabled custom/local providers stay
+    /// visible so they can be re-enabled. The send picker keeps using
+    /// `providerOptions`, which only exposes enabled providers.
+    var manageableProviderOptions: [ProviderOption] {
+        buildProviderOptions(includeDisabled: true)
+    }
+
+    private func buildProviderOptions(includeDisabled: Bool) -> [ProviderOption] {
         var options = ProviderSettingsLogic.allProviderOptions(
             serverProviders: serverProviders,
-            customProviders: customProviders
+            customProviders: customProviders,
+            includeDisabled: includeDisabled
         ).map { option in
             guard let custom = customProviders.first(where: { $0.id == option.id }),
                   custom.type == .openCodeZen else {
@@ -536,13 +635,16 @@ class AppState: ObservableObject {
             isConnected: autoFreeStore.provider.isReady
         ))
         // Local providers (Ollama/OpenCode/MiMo CLI) — plan Раздел 1.
-        options += LocalProviderLogic.providerOptions(from: LocalProviderLogic.load())
+        options += LocalProviderLogic.providerOptions(
+            from: LocalProviderLogic.load(),
+            includeDisabled: includeDisabled
+        )
         // Connected web providers (only after cookies captured) — plan Раздел 13 п.4.
         options += WebProviderConnectivity.providerOptions(
             WebProviderStore.load(),
             homeDirectory: FileManager.default.homeDirectoryForCurrentUser
         )
-        return options
+        return ProviderDuplicationLogic.deduplicatedOptions(options)
     }
 
     /// Effective selected model — for web providers resolve from their config
@@ -572,13 +674,17 @@ class AppState: ObservableObject {
         }
         // Local provider selected → its loaded models.
         if let local = LocalProviderLogic.load().first(where: { $0.id == selectedProviderID }) {
-            return local.models
+            return local.models.filter {
+                !DisabledModelStore.isDisabled(providerID: local.id, modelID: $0)
+            }
         }
         return ProviderSettingsLogic.models(
             for: selectedProviderID,
             in: serverProviders,
             customProviders: customProviders
-        )
+        ).filter {
+            !DisabledModelStore.isDisabled(providerID: selectedProviderID, modelID: $0)
+        }
     }
 
     var selectedWebProviderConfig: WebProviderConfig? {
@@ -796,6 +902,14 @@ class AppState: ObservableObject {
     }
 
     func selectModel(_ modelID: String, persistPreference: Bool = true) {
+        if modelID.isEmpty {
+            selectedModel = ""
+            defaults.set("", forKey: "com.mycoder.selectedModel")
+            if persistPreference {
+                defaults.set("", forKey: "com.mycoder.preferredModelID")
+            }
+            return
+        }
         guard modelsForSelectedProvider.contains(modelID) else { return }
         selectedModel = modelID
         defaults.set(modelID, forKey: "com.mycoder.selectedModel")
@@ -1069,24 +1183,34 @@ class AppState: ObservableObject {
         return navigationIndex < navigationHistory.count - 1 && navigationIndex >= 0 && navigationHistory.count > 0
     }
     
-    func addOpenCodeZenProvider() {
-        if let existing = customProviders.first(where: { $0.type == .openCodeZen }) {
+    func addNvidiaProvider() {
+        if let existing = customProviders.first(where: { $0.type == .nvidia }) {
             selectProvider(existing.id)
             return
         }
         let provider = CustomProvider(
-            id: "opencode-zen",
-            name: "OpenCode Zen",
-            type: .openCodeZen,
-            baseURL: OpenCodeZenCatalog.baseURL,
+            id: "nvidia",
+            name: "NVIDIA",
+            type: .nvidia,
+            baseURL: ProviderType.nvidia.defaultURL,
             apiKey: "",
             isEnabled: true,
             models: [],
             supportsTools: true,
-            requiresAPIKey: false
+            requiresAPIKey: true
         )
         addCustomProvider(provider)
         selectProvider(provider.id)
+    }
+
+    func setCustomProviderEnabled(_ providerID: String, isEnabled: Bool) {
+        guard let index = customProviders.firstIndex(where: { $0.id == providerID }) else { return }
+        customProviders[index].isEnabled = isEnabled
+        saveCustomProviders()
+        if isEnabled {
+            loadModelsFromCustomProvider(customProviders[index])
+        }
+        validateAndReconcileSelections()
     }
 
     func addCustomProvider(_ provider: CustomProvider) {
@@ -1409,7 +1533,6 @@ class AppState: ObservableObject {
             _ = webViewKeys.removeValue(forKey: evictKey)
         }
         let config = WKWebViewConfiguration()
-        config.processPool = WKProcessPool()
         config.websiteDataStore = WKWebsiteDataStore.default()
         // UX audit 2026-09-06: WebKit's default shows an I-beam text cursor
         // over vendor links/buttons that only contain text ("Войти" etc.) —
@@ -2048,6 +2171,14 @@ class AppState: ObservableObject {
                     }
                 }
             }
+            let deduplicated = ProviderDuplicationLogic.removingDuplicates(customProviders)
+            if deduplicated.count != customProviders.count {
+                for removed in customProviders where !deduplicated.contains(where: { $0.id == removed.id }) {
+                    DatabaseBridge.shared.deleteProviderAPIKey(providerId: removed.id)
+                }
+                customProviders = deduplicated
+                saveCustomProviders()
+            }
         }
         for provider in customProviders where provider.isEnabled {
             loadModelsFromCustomProvider(provider)
@@ -2077,7 +2208,7 @@ class AppState: ObservableObject {
                 await syncAccessLevelFromServer()
             }
         } catch {
-            print("Connection failed: \(error)")
+            MiCoderAPIServer.appendLog("Connection failed: \(error)")
             await MainActor.run {
                 self.serverConnected = false
                 self.notificationService.serverDisconnected()
@@ -2589,6 +2720,7 @@ class AppState: ObservableObject {
         let missing = stored.filter { !existing.contains($0.id) }
         guard !missing.isEmpty else { return }
         sessions.append(contentsOf: missing)
+        updateSidebarProjectlessSessions(stored)
         MiCoderAPIServer.appendLog("📝 loadStandaloneSessionsIntoState: +\(missing.count) standalone chats")
     }
 

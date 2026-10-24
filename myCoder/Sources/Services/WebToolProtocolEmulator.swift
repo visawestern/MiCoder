@@ -629,8 +629,8 @@ enum WebToolProtocolEmulator {
                               "target_file", "target", "dir", "directory", "folder", "location"]]
         case .editFile:
             table = ["path": ["path", "file_path", "filepath", "file", "filename", "target_file"],
-                     "old": ["old", "old_string", "old_str", "old_text", "search", "find"],
-                     "new": ["new", "new_string", "new_str", "new_text", "replace", "replacement", "replace_with"]]
+                     "old": ["old", "old_string", "oldstring", "old_str", "old_text", "search", "find"],
+                     "new": ["new", "new_string", "newstring", "new_str", "new_text", "replace", "replacement", "replace_with"]]
         case .grep:
             table = ["pattern": ["pattern", "regex", "regexp", "query", "search_pattern", "text"],
                      "path": ["path", "dir", "directory", "folder", "location", "file_path", "filepath", "file"]]

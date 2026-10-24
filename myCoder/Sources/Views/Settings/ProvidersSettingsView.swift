@@ -707,8 +707,15 @@ struct LocalProviderRow: View {
     @State private var refreshing = false
     @State private var models: [String] = []
     @State private var showModelPicker = false
+    @State private var showAllModels = false
     @State private var username: String = ""
     @State private var password: String = ""
+
+    private let collapsedModelLimit = 12
+
+    private var visibleModels: [String] {
+        showAllModels ? models : Array(models.prefix(collapsedModelLimit))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -750,22 +757,39 @@ struct LocalProviderRow: View {
                 .buttonStyle(.plain)
             }
             if !models.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(models, id: \.self) { model in
-                            Button(action: { selectModel(model) }) {
-                                Text(model)
-                                    .interfaceFont(size: 10)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(isSelected(model) ? Color.mimo.brand.opacity(0.2) : Color.mimo.surface)
-                                    .foregroundColor(isSelected(model) ? Color.mimo.brand : Color.mimo.textSecondary)
-                                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(isSelected(model) ? Color.mimo.brand : Color.mimo.border, lineWidth: 1))
-                                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                            }
-                            .buttonStyle(.plain)
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 130, maximum: 240), spacing: 6)],
+                    alignment: .leading,
+                    spacing: 6
+                ) {
+                    ForEach(visibleModels, id: \.self) { model in
+                        Button(action: { selectModel(model) }) {
+                            Text(model)
+                                .interfaceFont(size: 10)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(isSelected(model) ? Color.mimo.brand.opacity(0.2) : Color.mimo.surface)
+                                .foregroundColor(isSelected(model) ? Color.mimo.brand : Color.mimo.textSecondary)
+                                .overlay(RoundedRectangle(cornerRadius: 4).stroke(isSelected(model) ? Color.mimo.brand : Color.mimo.border, lineWidth: 1))
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
                         }
+                        .buttonStyle(.plain)
                     }
+                }
+                if models.count > collapsedModelLimit {
+                    Button {
+                        showAllModels.toggle()
+                    } label: {
+                        Text(showAllModels
+                             ? L.t("Show fewer models")
+                             : L.t("Show all models (%d)", models.count))
+                            .interfaceFont(size: 10, weight: .medium)
+                            .foregroundColor(Color.mimo.brand)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             // `opencode serve` locks every endpoint behind basic auth

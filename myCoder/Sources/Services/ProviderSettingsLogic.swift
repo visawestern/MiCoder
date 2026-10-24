@@ -55,12 +55,13 @@ enum ProviderSettingsLogic {
 
     static func allProviderOptions(
         serverProviders: [MimoProviderResponse],
-        customProviders: [CustomProvider]
+        customProviders: [CustomProvider],
+        includeDisabled: Bool = false
     ) -> [ProviderOption] {
         var options = serverProviders.map {
             ProviderOption(id: $0.id, name: $0.name, isCustom: false, isConnected: true)
         }
-        for custom in customProviders where custom.isEnabled {
+        for custom in customProviders where includeDisabled || custom.isEnabled {
             options.append(ProviderOption(
                 id: custom.id,
                 name: custom.name,
@@ -191,17 +192,22 @@ enum ProviderSettingsLogic {
 
     static func mergeModelIDs(
         serverProviders: [MimoProviderResponse],
-        customProviders: [CustomProvider]
+        customProviders: [CustomProvider],
+        isDisabled: ((String, String) -> Bool)? = nil
     ) -> [String] {
         var seen = Set<String>()
         var merged: [String] = []
         for provider in serverProviders {
-            for modelID in provider.models.keys.sorted() where seen.insert(modelID).inserted {
+            for modelID in provider.models.keys.sorted() {
+                if isDisabled?(provider.id, modelID) == true { continue }
+                guard seen.insert(modelID).inserted else { continue }
                 merged.append(modelID)
             }
         }
         for custom in customProviders where custom.isEnabled {
-            for modelID in custom.models.sorted() where seen.insert(modelID).inserted {
+            for modelID in custom.models.sorted() {
+                if isDisabled?(custom.id, modelID) == true { continue }
+                guard seen.insert(modelID).inserted else { continue }
                 merged.append(modelID)
             }
         }

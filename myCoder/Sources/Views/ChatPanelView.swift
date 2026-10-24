@@ -1,4 +1,43 @@
 import SwiftUI
+import AppKit
+
+private func localToolParts(
+    _ parts: [MessagePartContent],
+    settingResult result: String,
+    callID: String
+) -> [MessagePartContent] {
+    parts.map { part in
+        guard case .toolCall(let name, let args, _, let id) = part, id == callID else {
+            return part
+        }
+        return .toolCall(name: name, args: args, result: result, callID: id)
+    }
+}
+
+private struct PreparedLocalToolCall {
+    let call: WebToolCall
+    let callID: String
+    let validationError: WebToolValidationError?
+    let approval: PendingToolApproval?
+
+    var argsSummary: String {
+        call.arguments.map { "\($0.key)=\($0.value)" }.joined(separator: " ")
+    }
+}
+
+private struct AutoFreeNativeToolCall {
+    let id: String
+    let name: String
+    let arguments: String
+
+    var toolCall: MiCoderAutoFreeClient.Message.ToolCall {
+        MiCoderAutoFreeClient.Message.ToolCall(
+            id: id,
+            type: "function",
+            function: .init(name: name, arguments: arguments)
+        )
+    }
+}
 
 struct ChatPanelView: View {
     @EnvironmentObject var appState: AppState
@@ -12,6 +51,9 @@ struct ChatPanelView: View {
     @State private var currentTask: Task<Void, Never>?
     @State private var previousSessionID: String?
     @State private var isChatBottomVisible = true
+    @State private var userRowFrames: [String: CGRect] = [:]
+    @State private var chatViewportFrame: CGRect = .zero
+    @State private var currentUserMessageID: String?
     @State private var canLoadOlderMessages = false
     @State private var scrolledSessionID: String?
     @State private var draftSaveTask: Task<Void, Never>?
@@ -134,6 +176,7 @@ struct ChatPanelView: View {
                                     
                                     MessageRow(message: message)
                                         .id(message.id)
+                                        .chatRowFrameReporter(id: message.id, isUser: message.role == .user)
                                 }
 
                                 Color.clear
@@ -148,6 +191,18 @@ struct ChatPanelView: View {
                                         messageStore.isPinnedToBottom = false
                                     }
                             }.padding(.vertical, 16)
+                        }
+                        .chatScrollSpaceReporter()
+                        .onPreferenceChange(ChatRowFrameKey.self) { value in
+                            userRowFrames = value
+                        }
+                        .onPreferenceChange(ChatViewportFrameKey.self) { value in
+                            chatViewportFrame = value
+                        }
+                        .onChange(of: userRowFrames) { _ in updateCurrentVisibleUserMessage() }
+                        .onChange(of: chatViewportFrame) { _ in updateCurrentVisibleUserMessage() }
+                        .onChange(of: ChatScrollLogic.revision(messages: displayMessages)) { _ in
+                            updateCurrentVisibleUserMessage()
                         }
                         .onChange(of: ChatScrollLogic.revision(messages: displayMessages)) { _ in
                             guard ChatScrollLogic.shouldAutoScroll(wasAtBottom: isChatBottomVisible) else {
@@ -208,7 +263,10 @@ struct ChatPanelView: View {
                             }
                         }
                         .overlay(alignment: .trailing) {
-                            UserMessageNavigator(messages: displayMessages) { messageID in
+                            UserMessageNavigator(
+                                messages: displayMessages,
+                                currentMessageID: currentUserMessageID
+                            ) { messageID in
                                 withAnimation(.easeOut(duration: 0.2)) {
                                     proxy.scrollTo(messageID, anchor: .top)
                                 }
@@ -306,7 +364,10 @@ struct ChatPanelView: View {
         .onChange(of: appState.pendingSpecNodePrompt?.id) { _ in
             flushPendingSpecNodePrompt()
         }
-        .onChange(of: messageStore.loadedSessionID) { _ in
+        .onChange(of: messageStore.loadedSessionID) { sessionID in
+            if let sessionID {
+                reattachPendingApprovals(sessionID: sessionID)
+            }
             flushPendingSpecNodePrompt()
         }
         .onChange(of: messageStore.loadingSessionID) { _ in
@@ -364,6 +425,23 @@ struct ChatPanelView: View {
         .onReceive(NotificationCenter.default.publisher(for: .submitPlanQuestionAnswers)) { notification in
             guard let answers = notification.userInfo?["answers"] as? [[String]] else { return }
             submitQuestionAnswers(answers)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .localToolApprovalResolved)) { notification in
+            guard let approvalID = notification.userInfo?["approvalID"] as? String,
+                  let approved = notification.userInfo?["approved"] as? Bool else { return }
+            Task { @MainActor in
+                let assistantID = ToolApprovalCenter.shared.assistantID(for: approvalID)
+                ToolApprovalCenter.shared.resolve(id: approvalID, approved: approved)
+                appState.notificationService.remove(approvalID)
+                if let assistantID {
+                    messageStore.update(id: assistantID) { msg in
+                        msg.pendingApprovals.removeAll { $0.id == approvalID }
+                    }
+                }
+                MiCoderAPIServer.appendLog(
+                    "⏸ local tool approval tapped: id=\(approvalID) approved=\(approved)"
+                )
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .webToolApprovalResolved)) { notification in
             guard let approvalID = notification.userInfo?["approvalID"] as? String,
@@ -506,6 +584,20 @@ struct ChatPanelView: View {
             let loadedMessages = messages
             let canLoadMore = hasMoreMessages
             let fallbackToLocal = useLocalFallback
+            // Route the session to its project database BEFORE any read or
+            // write. The in-memory route map is rebuilt on every launch, so a
+            // chat opened outside its project's own sidebar (recent chats,
+            // grid view) used to look like a global session: its history was
+            // read from the global database and its new messages were written
+            // there, splitting the conversation across two stores.
+            let sessionDirectory = appState.sessions.first(where: { $0.id == sessionID })?.directory
+                ?? appState.selectedSession?.directory
+            if let sessionDirectory, !sessionDirectory.isEmpty {
+                DatabaseBridge.shared.registerSessionProjectIfKnown(
+                    sessionID: sessionID,
+                    projectPath: sessionDirectory
+                )
+            }
             await MainActor.run {
                 guard messageStore.currentSessionID == sessionID else { return }
 
@@ -526,6 +618,11 @@ struct ChatPanelView: View {
                 if !isSameSessionRefresh {
                     messageStore.currentHistoryLimit = initialLimit
                 }
+                // Attach still-pending approval cards to the messages that
+                // were just loaded. Doing it here (not only in the
+                // loadedSessionID observer) keeps the cards alive when the
+                // history is reloaded while a turn waits for a verdict.
+                reattachPendingApprovals(sessionID: sessionID)
                 // Clear the loader before publishing the loaded marker: a
                 // pending spec-node prompt is flushed from both onChange
                 // hooks, and leaving the loader set here made the loaded
@@ -835,9 +932,18 @@ struct ChatPanelView: View {
             return { prompt in
                 let store = MiCoderAutoFreeStore.shared
                 store.syncModel(self.appState.effectiveSelectedModel())
+                let context = OpenCodeRequestContext(
+                    sessionID: OpenCodeRequestContext.sessionID(
+                        from: self.messageStore.currentSessionID ?? self.appState.selectedSession?.id ?? ""
+                    ),
+                    projectID: OpenCodeRequestContext.projectID(fromPath: self.appState.selectedWorkspace?.path ?? "")
+                )
                 var content = ""
                 for try await event in store.streamChat(
-                    messages: [MiCoderAutoFreeClient.Message(role: "user", content: prompt)]
+                    messages: [MiCoderAutoFreeClient.Message(role: "user", content: prompt)],
+                    context: context,
+                    tools: MiCoderAutoFreeClient.gateToolDefinitions(),
+                    toolChoice: "none"
                 ) {
                     if case .content(let chunk) = event { content += chunk }
                 }
@@ -1193,26 +1299,67 @@ struct ChatPanelView: View {
                             finalText = response
                             break
                         }
+                        let prepared = prepareLocalToolCalls(
+                            calls,
+                            modelContext: response,
+                            projectRoot: projectRoot,
+                            accessLevel: appState.accessLevel
+                        )
+                        for item in prepared {
+                            toolParts.append(.toolCall(
+                                name: item.call.name,
+                                args: item.argsSummary,
+                                result: item.validationError.map { "validation error: \($0)" },
+                                callID: item.callID
+                            ))
+                        }
+                        publishToolParts(toolParts, assistantID: assistantID)
+                        enqueueLocalToolApprovals(
+                            prepared.compactMap(\.approval),
+                            assistantID: assistantID
+                        )
+
                         var resultsBlock = ""
-                        for call in calls {
-                            if let validationError = WebToolProtocolEmulator.validate(
-                                call, projectRoot: projectRoot, accessLevel: appState.accessLevel
-                            ) {
+                        for item in prepared {
+                            guard !Task.isCancelled else { break }
+                            if let validationError = item.validationError {
                                 resultsBlock += WebToolProtocolEmulator.formatToolResult(
-                                    name: call.name, result: "validation error: \(validationError)"
+                                    name: item.call.name,
+                                    result: "validation error: \(validationError)"
                                 ) + "\n"
                                 continue
                             }
-                            let toolResult = await executor.execute(call)
+                            if let approval = item.approval {
+                                let approved = await awaitLocalToolApproval(
+                                    approval,
+                                    assistantID: assistantID
+                                )
+                                guard !Task.isCancelled else { break }
+                                guard approved else {
+                                    let denial = "user denied permission: \(item.call.name) was not executed. Do not retry the same operation; ask the user how to proceed."
+                                    resultsBlock += WebToolProtocolEmulator.formatToolResult(
+                                        name: item.call.name, result: denial
+                                    ) + "\n"
+                                    toolParts = localToolParts(
+                                        toolParts,
+                                        settingResult: denial,
+                                        callID: item.callID
+                                    )
+                                    publishToolParts(toolParts, assistantID: assistantID)
+                                    continue
+                                }
+                            }
+                            let toolResult = await executor.execute(item.call, userApproved: true)
+                            guard !Task.isCancelled else { break }
                             resultsBlock += WebToolProtocolEmulator.formatToolResult(
-                                name: call.name, result: toolResult
+                                name: item.call.name, result: toolResult
                             ) + "\n"
-                            toolParts.append(.toolCall(
-                                name: call.name,
-                                args: call.arguments.reduce(into: "") { $0 += "\($1.key)=\($1.value) " },
-                                result: toolResult,
-                                callID: UUID().uuidString
-                            ))
+                            toolParts = localToolParts(
+                                toolParts,
+                                settingResult: toolResult,
+                                callID: item.callID
+                            )
+                            publishToolParts(toolParts, assistantID: assistantID)
                         }
                         conversation.append(DirectChatMessage(role: "assistant", content: response))
                         conversation.append(DirectChatMessage(role: "user", content: resultsBlock))
@@ -1282,6 +1429,12 @@ struct ChatPanelView: View {
                 ))
                 let attachmentNotice = autoFreePayload.warnings.joined(separator: "\n")
                 let projectRoot = appState.selectedWorkspace?.path ?? ""
+                let autoFreeContext = OpenCodeRequestContext(
+                    sessionID: OpenCodeRequestContext.sessionID(
+                        from: messageStore.currentSessionID ?? appState.selectedSession?.id ?? ""
+                    ),
+                    projectID: OpenCodeRequestContext.projectID(fromPath: projectRoot)
+                )
                 let executor = ProjectWebToolExecutor(
                     projectRoot: projectRoot,
                     accessLevel: appState.accessLevel
@@ -1294,10 +1447,12 @@ struct ChatPanelView: View {
                     for iteration in 0..<maxIterations {
                         var response = ""
                         var iterationReasoning = ""
+                        var nativeCalls: [AutoFreeNativeToolCall] = []
                         for try await event in store.streamChat(
                             messages: conversationMessages,
                             projectRoot: projectRoot,
-                            isGitRepo: (try? GitRepository.repositoryRoot(for: projectRoot)) != nil
+                            isGitRepo: (try? GitRepository.repositoryRoot(for: projectRoot)) != nil,
+                            context: autoFreeContext
                         ) {
                             let e: StreamEvent = event
                             switch e {
@@ -1305,6 +1460,8 @@ struct ChatPanelView: View {
                                 response += text
                             case .reasoning(let text):
                                 iterationReasoning += text
+                            case .toolCall(let id, let name, let arguments):
+                                nativeCalls.append(AutoFreeNativeToolCall(id: id, name: name, arguments: arguments))
                             }
                             let display = [attachmentNotice, response].filter { !$0.isEmpty }.joined(separator: "\n\n")
                             let currentReasoning = streamedReasoning + iterationReasoning
@@ -1318,30 +1475,116 @@ struct ChatPanelView: View {
                         }
                         // Accumulate reasoning across iterations
                         streamedReasoning += iterationReasoning
-                        let calls = WebToolProtocolEmulator.parseToolCalls(from: response)
+                        let nativeWebCalls: [(id: String, call: WebToolCall)] = nativeCalls.compactMap { native in
+                            guard let call = MiCoderAutoFreeClient.emulatedToolCall(
+                                name: native.name,
+                                arguments: native.arguments
+                            ) else { return nil }
+                            return (native.id, call)
+                        }
+                        let calls = nativeWebCalls.map(\.call)
+                            + WebToolProtocolEmulator.parseToolCalls(from: response)
                         if calls.isEmpty || WebToolProtocolEmulator.shouldStopLoop(iteration: iteration, maxIterations: maxIterations, lastResponse: response) {
                             streamedContent = response
                             break
                         }
-                        var resultsBlock = ""
-                        for call in calls {
-                            if let validationError = WebToolProtocolEmulator.validate(call, projectRoot: projectRoot, accessLevel: appState.accessLevel) {
-                                let msg = "validation error: \(validationError)"
-                                resultsBlock += WebToolProtocolEmulator.formatToolResult(name: call.name, result: msg) + "\n"
-                                continue
-                            }
-                            let result = await executor.execute(call)
-                            resultsBlock += WebToolProtocolEmulator.formatToolResult(name: call.name, result: result) + "\n"
-                            // Store tool call as part for UI spoiler
+                        let prepared = prepareLocalToolCalls(
+                            calls,
+                            modelContext: response,
+                            projectRoot: projectRoot,
+                            accessLevel: appState.accessLevel
+                        )
+                        for item in prepared {
                             allToolCallParts.append(.toolCall(
-                                name: call.name,
-                                args: call.arguments.reduce(into: "") { $0 += "\($1.key)=\($1.value) " },
-                                result: result,
-                                callID: UUID().uuidString
+                                name: item.call.name,
+                                args: item.argsSummary,
+                                result: item.validationError.map { "validation error: \($0)" },
+                                callID: item.callID
                             ))
                         }
-                        conversationMessages.append(MiCoderAutoFreeClient.Message(role: "assistant", content: response))
-                        conversationMessages.append(MiCoderAutoFreeClient.Message(role: "user", content: resultsBlock))
+                        publishToolParts(allToolCallParts, assistantID: assistantID)
+                        enqueueLocalToolApprovals(
+                            prepared.compactMap(\.approval),
+                            assistantID: assistantID
+                        )
+
+                        var resultsBlock = ""
+                        var nativeResults: [String: String] = [:]
+                        for (index, item) in prepared.enumerated() {
+                            guard !Task.isCancelled else { break }
+                            let nativeID = index < nativeWebCalls.count ? nativeWebCalls[index].id : nil
+                            if let validationError = item.validationError {
+                                let text = "validation error: \(validationError)"
+                                if let nativeID {
+                                    nativeResults[nativeID] = text
+                                } else {
+                                    resultsBlock += WebToolProtocolEmulator.formatToolResult(
+                                        name: item.call.name,
+                                        result: text
+                                    ) + "\n"
+                                }
+                                continue
+                            }
+                            if let approval = item.approval {
+                                let approved = await awaitLocalToolApproval(
+                                    approval,
+                                    assistantID: assistantID
+                                )
+                                guard !Task.isCancelled else { break }
+                                guard approved else {
+                                    let denial = "user denied permission: \(item.call.name) was not executed. Do not retry the same operation; ask the user how to proceed."
+                                    if let nativeID {
+                                        nativeResults[nativeID] = denial
+                                    } else {
+                                        resultsBlock += WebToolProtocolEmulator.formatToolResult(
+                                            name: item.call.name, result: denial
+                                        ) + "\n"
+                                    }
+                                    allToolCallParts = localToolParts(
+                                        allToolCallParts,
+                                        settingResult: denial,
+                                        callID: item.callID
+                                    )
+                                    publishToolParts(allToolCallParts, assistantID: assistantID)
+                                    continue
+                                }
+                            }
+                            let result = await executor.execute(item.call, userApproved: true)
+                            guard !Task.isCancelled else { break }
+                            if let nativeID {
+                                nativeResults[nativeID] = result
+                            } else {
+                                resultsBlock += WebToolProtocolEmulator.formatToolResult(
+                                    name: item.call.name, result: result
+                                ) + "\n"
+                            }
+                            allToolCallParts = localToolParts(
+                                allToolCallParts,
+                                settingResult: result,
+                                callID: item.callID
+                            )
+                            publishToolParts(allToolCallParts, assistantID: assistantID)
+                        }
+                        if nativeCalls.isEmpty {
+                            conversationMessages.append(MiCoderAutoFreeClient.Message(role: "assistant", content: response))
+                            conversationMessages.append(MiCoderAutoFreeClient.Message(role: "user", content: resultsBlock))
+                        } else {
+                            conversationMessages.append(MiCoderAutoFreeClient.Message(
+                                role: "assistant",
+                                content: response,
+                                toolCalls: nativeCalls.map { $0.toolCall }
+                            ))
+                            for native in nativeCalls {
+                                conversationMessages.append(MiCoderAutoFreeClient.Message(
+                                    role: "tool",
+                                    content: nativeResults[native.id] ?? "",
+                                    toolCallID: native.id
+                                ))
+                            }
+                            if !resultsBlock.isEmpty {
+                                conversationMessages.append(MiCoderAutoFreeClient.Message(role: "user", content: resultsBlock))
+                            }
+                        }
                         streamedContent = response
                         // Add tool call parts to message for UI spoilers
                         await MainActor.run {
@@ -1674,9 +1917,143 @@ struct ChatPanelView: View {
         appState.scheduleGitRefresh(sessionID: messageStore.currentSessionID)
     }
     
+    /// One assistant message can have several gated calls. They are all
+    /// registered and rendered before the loop starts awaiting them, so the
+    /// user sees the full queue instead of one modal at a time.
+    private func prepareLocalToolCalls(
+        _ calls: [WebToolCall],
+        modelContext: String,
+        projectRoot: String,
+        accessLevel: AccessLevel
+    ) -> [PreparedLocalToolCall] {
+        calls.map { call in
+            let callID = UUID().uuidString
+            let validationError = WebToolProtocolEmulator.validate(
+                call, projectRoot: projectRoot, accessLevel: accessLevel
+            )
+            var approval: PendingToolApproval?
+            if validationError == nil,
+               WebToolAccessGate.permission(for: call, accessLevel: accessLevel) == .requireApproval {
+                let details = WebToolApprovalDetails(
+                    call: call,
+                    projectRoot: projectRoot,
+                    modelContext: modelContext
+                )
+                approval = PendingToolApproval(
+                    callID: callID,
+                    tool: call.name,
+                    message: details.formattedMessage
+                )
+            }
+            return PreparedLocalToolCall(
+                call: call,
+                callID: callID,
+                validationError: validationError,
+                approval: approval
+            )
+        }
+    }
+
+    @MainActor
+    private func enqueueLocalToolApprovals(
+        _ approvals: [PendingToolApproval],
+        assistantID: String
+    ) {
+        guard !approvals.isEmpty else { return }
+        let sessionID = messageStore.currentSessionID
+            ?? appState.selectedSession?.id
+            ?? ""
+        let sessionTitle = appState.sessions.first(where: { $0.id == sessionID })?.title
+            ?? appState.selectedSession?.title
+            ?? "myCoder"
+        for approval in approvals {
+            ToolApprovalCenter.shared.register(
+                approval,
+                sessionID: sessionID,
+                assistantID: assistantID
+            )
+            appState.notificationService.add(AppNotification(
+                id: approval.id,
+                title: "Tool approval needed",
+                message: "\(approval.tool) is waiting in \(sessionTitle). Allow or deny it in the chat.",
+                type: .warning,
+                action: sessionID.isEmpty ? nil : .openSession(sessionID)
+            ))
+        }
+        messageStore.update(id: assistantID) { msg in
+            let existing = Set(msg.pendingApprovals.map(\.id))
+            msg.pendingApprovals.append(contentsOf: approvals.filter { !existing.contains($0.id) })
+            msg.isStreaming = true
+        }
+        MiCoderAPIServer.appendLog(
+            "⏸ queued local tool approvals: " + approvals.map { "\($0.tool) id=\($0.id)" }.joined(separator: ", ")
+        )
+        playLocalApprovalSound()
+    }
+
+    @MainActor
+    private func awaitLocalToolApproval(
+        _ approval: PendingToolApproval,
+        assistantID: String
+    ) async -> Bool {
+        let approved = await ToolApprovalCenter.shared.awaitVerdict(id: approval.id)
+        messageStore.update(id: assistantID) { msg in
+            msg.pendingApprovals.removeAll { $0.id == approval.id }
+            msg.isStreaming = true
+        }
+        appState.notificationService.remove(approval.id)
+        MiCoderAPIServer.appendLog(
+            "⏸ local tool approval resolved: \(approval.tool) approved=\(approved) id=\(approval.id)"
+        )
+        return approved
+    }
+
+    @MainActor
+    private func reattachPendingApprovals(sessionID: String) {
+        let assistantIDs = Set(
+            messageStore.messages
+                .filter { $0.role == .assistant }
+                .map(\.id)
+        )
+        let grouped = ToolApprovalCenter.shared.pendingApprovals(matchingAssistantIDs: assistantIDs)
+        guard !grouped.isEmpty else { return }
+        messageStore.setPendingApprovals(grouped)
+    }
+
+    @MainActor
+    private func publishToolParts(
+        _ parts: [MessagePartContent],
+        assistantID: String,
+        content: String? = nil
+    ) {
+        messageStore.update(id: assistantID) { msg in
+            msg.parts = parts
+            if let content { msg.content = content }
+            msg.isStreaming = true
+        }
+    }
+
+    private func playLocalApprovalSound() {
+        if let sound = NSSound(named: NSSound.Name("Glass")) {
+            sound.play()
+        } else {
+            NSSound.beep()
+        }
+    }
+
     func stopGeneration() {
         currentTask?.cancel()
         currentTask = nil
+        // A direct-model turn may be suspended on queued approvals. Deny
+        // only this chat's queue; approvals in other chats keep waiting.
+        if let sessionID = messageStore.currentSessionID ?? appState.selectedSession?.id {
+            let pendingIDs = ToolApprovalCenter.shared.pendingApprovals(in: sessionID).map(\.id)
+            ToolApprovalCenter.shared.cancelPending(in: sessionID)
+            for id in pendingIDs {
+                appState.notificationService.remove(id)
+            }
+            messageStore.setPendingApprovals([:])
+        }
         serveTimeoutTask?.cancel()
         serveTimeoutTask = nil
         sseClient.disconnect()
@@ -1726,6 +2103,16 @@ struct ChatPanelView: View {
         refreshGitForCurrentSession()
     }
     
+    /// The user message the navigator should mark as current: resolved from
+    /// the reported row frames against the visible viewport band.
+    private func updateCurrentVisibleUserMessage() {
+        currentUserMessageID = UserMessageNavigatorLogic.currentUserMessageID(
+            visibleRect: chatViewportFrame.height > 0 ? chatViewportFrame : nil,
+            frames: userRowFrames,
+            messages: displayMessages
+        )
+    }
+
     func loadOlderMessages() {
         guard let sessionID = messageStore.currentSessionID else { return }
         guard !messageStore.isLoadingOlder else { return }  // Prevent cascade
@@ -2919,5 +3306,56 @@ struct AutoFreeSwitchBanner: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Reports a chat message row's frame in the chat scroll space (used to
+/// resolve the currently visible user message for the navigator).
+struct ChatRowFrameReporter: ViewModifier {
+    let rowID: String
+    let isUser: Bool
+
+    func body(content: Content) -> some View {
+        if isUser {
+            content.background(
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: ChatRowFrameKey.self,
+                        value: [rowID: geo.frame(in: .named(ChatScrollSpace.name))]
+                    )
+                }
+            )
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    func chatRowFrameReporter(id: String, isUser: Bool) -> some View {
+        modifier(ChatRowFrameReporter(rowID: id, isUser: isUser))
+    }
+}
+
+/// Names the chat scroll coordinate space and reports the visible viewport
+/// frame inside it.
+struct ChatScrollSpaceReporter: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .coordinateSpace(name: ChatScrollSpace.name)
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: ChatViewportFrameKey.self,
+                        value: geo.frame(in: .named(ChatScrollSpace.name))
+                    )
+                }
+            )
+    }
+}
+
+extension View {
+    func chatScrollSpaceReporter() -> some View {
+        modifier(ChatScrollSpaceReporter())
     }
 }

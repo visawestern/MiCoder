@@ -117,6 +117,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
     case groq = "Groq"
     case deepseek = "DeepSeek"
     case omni = "OmniRouter"
+    case nvidia = "NVIDIA"
     case acp = "ACP (Agent Coder Protocol)"
     
     var id: String { rawValue }
@@ -134,6 +135,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         case .groq: return "bolt.fill"
         case .deepseek: return "waveform.path.ecg"
         case .omni: return "arrow.triangle.merge"
+        case .nvidia: return "memorychip"
         case .acp: return "terminal.fill"
         }
     }
@@ -151,6 +153,7 @@ enum ProviderType: String, Codable, CaseIterable, Identifiable {
         case .groq: return "https://api.groq.com/openai/v1"
         case .deepseek: return "https://api.deepseek.com/v1"
         case .omni: return "https://api.omnirouter.app/v1"
+        case .nvidia: return "https://integrate.api.nvidia.com/v1"
         case .acp: return "http://localhost:8080/acp/v1"
         }
     }

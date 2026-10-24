@@ -1,14 +1,17 @@
 import Foundation
 
-/// Distinguishes between content and reasoning chunks from the streaming response.
+/// Distinguishes between content, reasoning and native tool-call chunks from
+/// the streaming response.
 enum StreamEvent: Equatable {
     case content(String)
     case reasoning(String)
+    case toolCall(id: String, name: String, arguments: String)
 
     var text: String {
         switch self {
         case .content(let s): return s
         case .reasoning(let s): return s
+        case .toolCall: return ""
         }
     }
 }
@@ -39,7 +42,15 @@ final class MiCoderAutoFreeClient {
         "nemotron-3.5-lightning-free"
     ]
 
-    private let session = URLSession.shared
+    static let maximumErrorBodyBytes = 16_384
+
+    private let session: URLSession
+    private let baseURL: URL
+
+    init(session: URLSession = .shared, baseURL: URL = MiCoderAutoFreeClient.providerBaseURL) {
+        self.session = session
+        self.baseURL = baseURL
+    }
 
     struct ModelProfile: Identifiable, Hashable {
         let id: String
@@ -153,6 +164,25 @@ final class MiCoderAutoFreeClient {
     struct Message: Codable, Equatable {
         let role: String
         let content: Content
+        var toolCalls: [ToolCall]?
+        var toolCallID: String?
+
+        enum CodingKeys: String, CodingKey {
+            case role, content
+            case toolCalls = "tool_calls"
+            case toolCallID = "tool_call_id"
+        }
+
+        struct ToolCall: Codable, Equatable {
+            let id: String
+            let type: String
+            let function: Function
+
+            struct Function: Codable, Equatable {
+                let name: String
+                let arguments: String
+            }
+        }
 
         enum Content: Codable, Equatable {
             case text(String)
@@ -184,20 +214,32 @@ final class MiCoderAutoFreeClient {
         init(role: String, content: String) {
             self.role = role
             self.content = .text(content)
+            self.toolCalls = nil
+            self.toolCallID = nil
         }
 
         init(role: String, parts: [MiCoderAutoFreeContentPart]) {
             self.role = role
             self.content = .parts(parts)
+            self.toolCalls = nil
+            self.toolCallID = nil
+        }
+
+        init(role: String, content: String, toolCalls: [ToolCall]? = nil, toolCallID: String? = nil) {
+            self.role = role
+            self.content = .text(content)
+            self.toolCalls = toolCalls
+            self.toolCallID = toolCallID
         }
     }
 
     /// Fetch the anonymous live catalog and return eligible free models:
     /// trusted IDs first (preference order), then any other live `-free` route.
-    func listModels() async throws -> [Model] {
-        var request = URLRequest(url: Self.providerBaseURL.appendingPathComponent("models"))
+    func listModels(context: OpenCodeRequestContext = .generated()) async throws -> [Model] {
+        var request = URLRequest(url: baseURL.appendingPathComponent("models"))
         request.timeoutInterval = 20
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        context.applying(to: &request)
 
         let (data, response) = try await session.data(for: request)
         try validate(response, data: data, operation: "OpenCode free model list")
@@ -283,122 +325,218 @@ final class MiCoderAutoFreeClient {
         return lines.joined(separator: "\n")
     }
 
-    /// Build OpenAI-compatible tool definitions from the emulated tool set so
-    /// free models receive full tool descriptions in every prompt.
-    static func toolDefinitions() -> [[String: Any]] {
-        WebEmulatedTool.allCases.map { tool in
-            var parameters: [String: Any] = [:]
-            var properties: [String: Any] = [:]
-            var required: [String] = []
-            switch tool {
-            case .readFile:
-                properties["path"] = ["type": "string", "description": "Relative file path"]
-                required = ["path"]
-            case .writeFile:
-                properties["path"] = ["type": "string", "description": "Relative file path"]
-                properties["content"] = ["type": "string", "description": "File content"]
-                required = ["path", "content"]
-            case .editFile:
-                properties["path"] = ["type": "string", "description": "Relative file path"]
-                properties["old"] = ["type": "string", "description": "Exact text to replace"]
-                properties["new"] = ["type": "string", "description": "Replacement text"]
-                required = ["path", "old", "new"]
-            case .listDir:
-                properties["path"] = ["type": "string", "description": "Relative directory path"]
-                required = ["path"]
-            case .grep:
-                properties["pattern"] = ["type": "string", "description": "Regex pattern"]
-                properties["path"] = ["type": "string", "description": "Relative path to search in"]
-                required = ["pattern"]
-            case .runCommand:
-                properties["command"] = ["type": "string", "description": "Shell command to execute"]
-                required = ["command"]
-            case .gitStatus:
-                properties["path"] = ["type": "string", "description": "Repository path"]
-                required = []
-            case .gitDiff:
-                properties["path"] = ["type": "string", "description": "Repository path"]
-                properties["staged"] = ["type": "boolean", "description": "Show staged changes"]
-                required = []
-            case .gitLog:
-                properties["path"] = ["type": "string", "description": "Repository path"]
-                properties["limit"] = ["type": "integer", "description": "Max commits to show"]
-                required = []
-            case .gitBranch:
-                properties["branch"] = ["type": "string", "description": "Branch name"]
-                properties["create"] = ["type": "boolean", "description": "Create if missing"]
-                required = []
-            case .gitCheckout:
-                properties["branch"] = ["type": "string", "description": "Branch name to switch to"]
-                required = ["branch"]
-            case .gitCommit:
-                properties["message"] = ["type": "string", "description": "Commit message"]
-                properties["addAll"] = ["type": "boolean", "description": "Stage all changes"]
-                required = ["message"]
-            case .gitPush:
-                properties["remote"] = ["type": "string", "description": "Remote name"]
-                properties["branch"] = ["type": "string", "description": "Branch name"]
-                required = []
-            case .gitPull:
-                properties["remote"] = ["type": "string", "description": "Remote name"]
-                properties["branch"] = ["type": "string", "description": "Branch name"]
-                required = []
-            case .glob:
-                properties["pattern"] = ["type": "string", "description": "Glob pattern"]
-                properties["path"] = ["type": "string", "description": "Relative path"]
-                required = ["pattern"]
-            case .todoRead:
-                break
-            case .todoWrite:
-                properties["todos"] = [
-                    "type": "array",
-                    "items": [
-                        "type": "object",
-                        "properties": [
-                            "id": ["type": "string"],
-                            "content": ["type": "string"],
-                            "status": ["type": "string", "enum": ["pending", "in_progress", "completed"]]
-                        ]
-                    ]
-                ]
-                required = ["todos"]
-            case .task:
-                properties["description"] = ["type": "string", "description": "Task description"]
-                properties["prompt"] = ["type": "string", "description": "Detailed prompt"]
-                properties["subagentType"] = ["type": "string", "description": "Agent type"]
-                required = ["description", "prompt"]
-            case .webFetch:
-                properties["url"] = ["type": "string", "description": "http(s) URL to fetch as text"]
-                properties["limit"] = ["type": "integer", "description": "Max chars to return"]
-                required = ["url"]
-            case .skill:
-                properties["name"] = ["type": "string", "description": "Installed skill id (omit to list skills)"]
-                required = []
-            case .taskCreate:
-                properties["content"] = ["type": "string", "description": "Task text"]
-                properties["status"] = ["type": "string", "enum": ["pending", "in_progress", "completed"]]
-                required = ["content"]
-            case .taskList:
-                break
-            case .taskUpdate:
-                properties["id"] = ["type": "string", "description": "Todo id from task_list"]
-                properties["content"] = ["type": "string", "description": "New text (optional)"]
-                properties["status"] = ["type": "string", "enum": ["pending", "in_progress", "completed"]]
-                required = ["id"]
-            }
-            return [
-                "type": "function",
-                "function": [
-                    "name": tool.rawValue,
-                    "description": tool.description,
-                    "parameters": [
-                        "type": "object",
-                        "properties": properties,
-                        "required": required
-                    ]
-                ] as [String: Any]
-            ]
+    struct ToolDefinition: Codable, Equatable {
+        let type: String
+        let function: Function
+
+        struct Function: Codable, Equatable {
+            let name: String
+            let description: String
+            let parameters: Parameters
         }
+
+        struct Parameters: Codable, Equatable {
+            let type: String
+            let properties: [String: Property]
+            let required: [String]
+        }
+
+        struct Property: Codable, Equatable {
+            let type: String
+            var description: String? = nil
+            var properties: [String: Property]? = nil
+            var items: Item? = nil
+            var enumValues: [String]? = nil
+
+            enum CodingKeys: String, CodingKey {
+                case type, description, properties, items
+                case enumValues = "enum"
+            }
+        }
+
+        struct Item: Codable, Equatable {
+            let type: String
+            var description: String? = nil
+            var properties: [String: Property]? = nil
+            var enumValues: [String]? = nil
+
+            enum CodingKeys: String, CodingKey {
+                case type, description, properties
+                case enumValues = "enum"
+            }
+        }
+    }
+
+    static func nativeToolName(for tool: WebEmulatedTool) -> String {
+        switch tool {
+        case .readFile: return "read"
+        case .writeFile: return "write"
+        case .editFile: return "edit"
+        case .runCommand: return "bash"
+        case .webFetch: return "webfetch"
+        case .todoWrite: return "todowrite"
+        default: return tool.rawValue
+        }
+    }
+
+    static func gateToolDefinitions() -> [ToolDefinition] {
+        [toolDefinition(for: .readFile)]
+    }
+
+    static func agentToolDefinitions() -> [ToolDefinition] {
+        WebEmulatedTool.allCases.map { toolDefinition(for: $0) }
+    }
+
+    /// Build an OpenAI-compatible tool definition from the emulated tool set so
+    /// free models receive full tool descriptions in every prompt.
+    static func toolDefinition(for tool: WebEmulatedTool) -> ToolDefinition {
+        var properties: [String: ToolDefinition.Property] = [:]
+        var required: [String] = []
+        switch tool {
+        case .readFile:
+            properties["path"] = .init(type: "string", description: "Relative file path")
+            required = ["path"]
+        case .writeFile:
+            properties["path"] = .init(type: "string", description: "Relative file path")
+            properties["content"] = .init(type: "string", description: "File content")
+            required = ["path", "content"]
+        case .editFile:
+            properties["path"] = .init(type: "string", description: "Relative file path")
+            properties["old"] = .init(type: "string", description: "Exact text to replace")
+            properties["new"] = .init(type: "string", description: "Replacement text")
+            required = ["path", "old", "new"]
+        case .listDir:
+            properties["path"] = .init(type: "string", description: "Relative directory path")
+            required = ["path"]
+        case .grep:
+            properties["pattern"] = .init(type: "string", description: "Regex pattern")
+            properties["path"] = .init(type: "string", description: "Relative path to search in")
+            required = ["pattern"]
+        case .runCommand:
+            properties["command"] = .init(type: "string", description: "Shell command to execute")
+            required = ["command"]
+        case .gitStatus:
+            properties["path"] = .init(type: "string", description: "Repository path")
+            required = []
+        case .gitDiff:
+            properties["path"] = .init(type: "string", description: "Repository path")
+            properties["staged"] = .init(type: "boolean", description: "Show staged changes")
+            required = []
+        case .gitLog:
+            properties["path"] = .init(type: "string", description: "Repository path")
+            properties["limit"] = .init(type: "integer", description: "Max commits to show")
+            required = []
+        case .gitBranch:
+            properties["branch"] = .init(type: "string", description: "Branch name")
+            properties["create"] = .init(type: "boolean", description: "Create if missing")
+            required = []
+        case .gitCheckout:
+            properties["branch"] = .init(type: "string", description: "Branch to switch to")
+            required = ["branch"]
+        case .gitCommit:
+            properties["message"] = .init(type: "string", description: "Commit message")
+            properties["addAll"] = .init(type: "boolean", description: "Stage all changes")
+            required = ["message"]
+        case .gitPush:
+            properties["remote"] = .init(type: "string", description: "Remote name")
+            properties["branch"] = .init(type: "string", description: "Branch name")
+            required = []
+        case .gitPull:
+            properties["remote"] = .init(type: "string", description: "Remote name")
+            properties["branch"] = .init(type: "string", description: "Branch name")
+            required = []
+        case .glob:
+            properties["pattern"] = .init(type: "string", description: "Glob pattern")
+            properties["path"] = .init(type: "string", description: "Relative path")
+            required = ["pattern"]
+        case .todoRead:
+            break
+        case .todoWrite:
+            properties["todos"] = .init(
+                type: "array",
+                items: .init(
+                    type: "object",
+                    properties: [
+                        "id": .init(type: "string"),
+                        "content": .init(type: "string"),
+                        "status": .init(type: "string", enumValues: ["pending", "in_progress", "completed"])
+                    ]
+                )
+            )
+            required = ["todos"]
+        case .task:
+            properties["description"] = .init(type: "string", description: "Task description")
+            properties["prompt"] = .init(type: "string", description: "Detailed prompt")
+            properties["subagentType"] = .init(type: "string", description: "Agent type")
+            required = ["description", "prompt"]
+        case .webFetch:
+            properties["url"] = .init(type: "string", description: "http(s) URL to fetch as text")
+            properties["limit"] = .init(type: "integer", description: "Max chars to return")
+            required = ["url"]
+        case .skill:
+            properties["name"] = .init(type: "string", description: "Installed skill id (omit to list skills)")
+            required = []
+        case .taskCreate:
+            properties["content"] = .init(type: "string", description: "Task text")
+            properties["status"] = .init(type: "string", enumValues: ["pending", "in_progress", "completed"])
+            required = ["content"]
+        case .taskList:
+            break
+        case .taskUpdate:
+            properties["id"] = .init(type: "string", description: "Todo id from task_list")
+            properties["content"] = .init(type: "string", description: "New text (optional)")
+            properties["status"] = .init(type: "string", enumValues: ["pending", "in_progress", "completed"])
+            required = ["id"]
+        }
+        return ToolDefinition(
+            type: "function",
+            function: .init(
+                name: nativeToolName(for: tool),
+                description: tool.description,
+                parameters: .init(type: "object", properties: properties, required: required)
+            )
+        )
+    }
+
+    static func emulatedToolCall(name: String, arguments: String) -> WebToolCall? {
+        let flattened = flattenedArguments(arguments)
+        let canonical = WebToolProtocolEmulator.canonicalized(
+            WebToolCall(name: name, arguments: flattened)
+        )
+        guard let tool = WebEmulatedTool(rawValue: canonical.name) else { return canonical }
+        return WebToolCall(
+            name: canonical.name,
+            arguments: WebToolProtocolEmulator.normalizedArguments(for: tool, from: canonical.arguments)
+        )
+    }
+
+    static func flattenedArguments(_ json: String) -> [String: String] {
+        let trimmed = json.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let data = trimmed.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return [:]
+        }
+        var result: [String: String] = [:]
+        for (key, value) in object {
+            result[key] = argumentText(value)
+        }
+        return result
+    }
+
+    private static func argumentText(_ value: Any) -> String {
+        if let text = value as? String { return text }
+        if let number = value as? NSNumber {
+            if String(cString: number.objCType) == "c" {
+                return number.boolValue ? "true" : "false"
+            }
+            return number.stringValue
+        }
+        if let data = try? JSONSerialization.data(withJSONObject: value),
+           let text = String(data: data, encoding: .utf8) {
+            return text
+        }
+        return String(describing: value)
     }
 
     /// Stream a completion without an API key. The selected model must be in
@@ -407,7 +545,9 @@ final class MiCoderAutoFreeClient {
         model: String = MiCoderAutoFreeClient.defaultModelID,
         messages: [Message],
         parameters: ModelCallParameters = ModelCallParameters(),
-        stream: Bool = true
+        context: OpenCodeRequestContext = .generated(),
+        tools: [ToolDefinition] = MiCoderAutoFreeClient.gateToolDefinitions(),
+        toolChoice: String? = "none"
     ) -> AsyncThrowingStream<StreamEvent, Error> {
         AsyncThrowingStream { continuation in
             Task {
@@ -417,56 +557,62 @@ final class MiCoderAutoFreeClient {
                         throw MiCoderAutoFreeError.modelUnavailable(effectiveModel, "Model is not in the OpenCode temporary free catalog")
                     }
 
-                    var request = URLRequest(url: Self.providerBaseURL.appendingPathComponent("chat/completions"))
+                    var request = URLRequest(url: baseURL.appendingPathComponent("chat/completions"))
                     request.httpMethod = "POST"
                     request.timeoutInterval = 180
                     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                    request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                    request.setValue("*/*", forHTTPHeaderField: "Accept")
+                    let requestContext = context.requestID == nil
+                        ? context.withRequestID(OpenCodeRequestContext.requestID())
+                        : context
+                    requestContext.applying(to: &request)
                     let completionBody = CompletionRequest(
                         model: effectiveModel,
                         messages: messages,
                         parameters: parameters,
-                        stream: stream
+                        tools: tools,
+                        toolChoice: toolChoice
                     )
                     request.httpBody = try JSONEncoder().encode(completionBody)
 
-                    if stream {
-                        let (bytes, response) = try await session.bytes(for: request)
-                        try validate(response, data: Data(), operation: "Free model streaming")
-                        var emitted = false
-                        for try await line in bytes.lines {
-                            guard line.hasPrefix("data: ") else { continue }
-                            let json = String(line.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
-                            if json == "[DONE]" { break }
-                            // Upstream gate can arrive as an SSE error envelope
-                            // (HTTP 200 with an error event) — fail honestly
-                            // instead of ending as a misleading "empty response".
-                            if MiCoderAutoFreeError.gateMessage(in: json) != nil {
-                                throw MiCoderAutoFreeError.freeTierBlocked(json)
-                            }
-                            guard let data = json.data(using: .utf8) else { continue }
-                            if let chunk = try? JSONDecoder().decode(StreamChunk.self, from: data) {
-                                if let content = chunk.choices.first?.delta.content, !content.isEmpty {
-                                    emitted = true
-                                    continuation.yield(.content(content))
-                                }
-                                if let reasoning = chunk.choices.first?.delta.reasoningContent, !reasoning.isEmpty {
-                                    emitted = true
-                                    continuation.yield(.reasoning(reasoning))
-                                }
-                            }
-                        }
-                        guard emitted else { throw MiCoderAutoFreeError.emptyResponse }
+                    let (bytes, response) = try await session.bytes(for: request)
+                    let errorBody: Data
+                    if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                        errorBody = try await Self.readErrorBody(bytes)
                     } else {
-                        let (data, response) = try await session.data(for: request)
-                        try validate(response, data: data, operation: "Free model chat")
-                        let decoded = try JSONDecoder().decode(NonStreamResponse.self, from: data)
-                        guard let content = decoded.choices.first?.message.content,
-                              !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                            throw MiCoderAutoFreeError.emptyResponse
-                        }
-                        continuation.yield(.content(content))
+                        errorBody = Data()
                     }
+                    try validate(response, data: errorBody, operation: "Free model streaming")
+                    var emitted = false
+                    var nativeToolCalls = NativeToolCallAccumulator()
+                    for try await line in bytes.lines {
+                        guard line.hasPrefix("data: ") else { continue }
+                        let json = String(line.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
+                        if json == "[DONE]" { break }
+                        // Error envelopes can arrive inside a successful SSE response.
+                        if let error = MiCoderAutoFreeError.streamError(in: json) {
+                            throw error
+                        }
+                        guard let data = json.data(using: .utf8) else { continue }
+                        if let chunk = try? JSONDecoder().decode(StreamChunk.self, from: data) {
+                            if let content = chunk.choices.first?.delta.content, !content.isEmpty {
+                                emitted = true
+                                continuation.yield(.content(content))
+                            }
+                            if let reasoning = chunk.choices.first?.delta.reasoningContent, !reasoning.isEmpty {
+                                emitted = true
+                                continuation.yield(.reasoning(reasoning))
+                            }
+                            for delta in chunk.choices.first?.delta.toolCalls ?? [] {
+                                nativeToolCalls.append(delta)
+                            }
+                        }
+                    }
+                    for call in nativeToolCalls.completedCalls {
+                        emitted = true
+                        continuation.yield(.toolCall(id: call.id, name: call.name, arguments: call.arguments))
+                    }
+                    guard emitted else { throw MiCoderAutoFreeError.emptyResponse }
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)
@@ -507,12 +653,28 @@ final class MiCoderAutoFreeClient {
         return consecutiveFailures >= maxConsecutiveFailures || shouldSwitchImmediately(for: error)
     }
 
+    /// Error responses are not SSE streams; retain enough body for diagnosis
+    /// without buffering an unbounded response before validating its status.
+    static func readErrorBody<Bytes: AsyncSequence>(
+        _ bytes: Bytes,
+        maxBytes: Int = maximumErrorBodyBytes
+    ) async throws -> Data where Bytes.Element == UInt8 {
+        guard maxBytes > 0 else { return Data() }
+        var data = Data()
+        for try await byte in bytes {
+            data.append(byte)
+            if data.count == maxBytes { break }
+        }
+        return data
+    }
+
     private func validate(_ response: URLResponse, data: Data, operation: String) throws {
         guard let http = response as? HTTPURLResponse else {
             throw MiCoderAutoFreeError.apiError("Invalid response from free model server")
         }
         guard (200..<300).contains(http.statusCode) else {
-            let body = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let body = String(decoding: data.prefix(Self.maximumErrorBodyBytes), as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             throw MiCoderAutoFreeError.mapHttpError(statusCode: http.statusCode, body: body, operation: operation)
         }
     }
@@ -538,20 +700,26 @@ private struct CompletionRequest: Encodable {
     let model: String
     let messages: [MiCoderAutoFreeClient.Message]
     let parameters: ModelCallParameters
-    let stream: Bool
+    let tools: [MiCoderAutoFreeClient.ToolDefinition]
+    let toolChoice: String?
 
     enum CodingKeys: String, CodingKey {
-        case model, messages, stream, temperature, maxTokens = "max_tokens", topP = "top_p"
+        case model, messages, stream, temperature, maxTokens = "max_tokens", topP = "top_p", tools
+        case toolChoice = "tool_choice"
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(model, forKey: .model)
         try container.encode(messages, forKey: .messages)
-        try container.encode(stream, forKey: .stream)
+        try container.encode(true, forKey: .stream)
         try container.encodeIfPresent(parameters.temperature, forKey: .temperature)
         try container.encodeIfPresent(parameters.maxTokens, forKey: .maxTokens)
         try container.encodeIfPresent(parameters.topP, forKey: .topP)
+        if !tools.isEmpty {
+            try container.encode(tools, forKey: .tools)
+            try container.encodeIfPresent(toolChoice, forKey: .toolChoice)
+        }
     }
 }
 
@@ -564,23 +732,48 @@ private struct StreamChunk: Decodable {
         struct Delta: Decodable {
             let content: String?
             let reasoningContent: String?
+            let toolCalls: [ToolCallDelta]?
 
             enum CodingKeys: String, CodingKey {
                 case content
                 case reasoningContent = "reasoning_content"
+                case toolCalls = "tool_calls"
             }
         }
     }
 }
 
-private struct NonStreamResponse: Decodable {
-    let choices: [Choice]
+private struct ToolCallDelta: Decodable {
+    let index: Int?
+    let id: String?
+    let type: String?
+    let function: FunctionDelta?
 
-    struct Choice: Decodable {
-        let message: Message
+    struct FunctionDelta: Decodable {
+        let name: String?
+        let arguments: String?
+    }
+}
 
-        struct Message: Decodable {
-            let content: String?
+private struct NativeToolCallAccumulator {
+    private var order: [Int] = []
+    private var calls: [Int: (id: String, name: String, arguments: String)] = [:]
+
+    mutating func append(_ delta: ToolCallDelta) {
+        let index = delta.index ?? 0
+        var current = calls[index] ?? (id: "", name: "", arguments: "")
+        if let id = delta.id, !id.isEmpty { current.id = id }
+        if let name = delta.function?.name, !name.isEmpty { current.name = name }
+        if let arguments = delta.function?.arguments { current.arguments += arguments }
+        if calls[index] == nil { order.append(index) }
+        calls[index] = current
+    }
+
+    var completedCalls: [(id: String, name: String, arguments: String)] {
+        order.compactMap { index in
+            guard let call = calls[index], !call.name.isEmpty else { return nil }
+            let id = call.id.isEmpty ? "call_\(index)" : call.id
+            return (id, call.name, call.arguments)
         }
     }
 }
@@ -591,42 +784,89 @@ enum MiCoderAutoFreeError: LocalizedError {
     case modelUnavailable(String, String)
     case emptyResponse
     case apiError(String)
-    /// Upstream Zen free-tier gate (probed live 2026-10-13): anonymous and
-    /// third-party requests get 403 FreeTierError / 400 MissingSessionID —
-    /// "can only be used from within OpenCode". Model-hopping cannot fix a
-    /// client-identity gate, so this error halts failover instead of joining
-    /// the carousel. Impersonating the official client (fake session headers
-    /// / UA) is deliberately NOT attempted.
+    /// An explicit upstream free-tier rejection halts failover because trying
+    /// another model does not supply the required client context.
     case freeTierBlocked(String)
 
-    /// Pure gate detector over status + body (probed upstream shapes).
+    private static let maximumMessageCharacters = 400
+
+    private struct ServerError {
+        let type: String
+        let message: String
+
+        var isMissingSession: Bool {
+            type.lowercased() == "missingsessionid"
+                || MiCoderAutoFreeError.hasMissingSessionMessage(message)
+        }
+
+        var isFreeTierGate: Bool {
+            !isMissingSession && (type.lowercased() == "freetiererror" || MiCoderAutoFreeError.hasGateMessage(message))
+        }
+
+        var summary: String {
+            [type, message].filter { !$0.isEmpty }.joined(separator: ": ")
+        }
+    }
+
+    /// Only error fields are inspected: assistant content may quote these errors.
+    private static func serverError(in text: String) -> ServerError? {
+        guard let data = text.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        let detail: [String: Any]
+        if let error = object["error"] as? [String: Any] {
+            detail = error
+        } else if let type = object["type"] as? String,
+                  ["error", "freetiererror", "missingsessionid"].contains(type.lowercased()) {
+            detail = object
+        } else {
+            return nil
+        }
+        let type = (detail["type"] as? String) ?? (detail["code"] as? String) ?? ""
+        let message = (detail["message"] as? String) ?? ""
+        guard !type.isEmpty || !message.isEmpty else { return nil }
+        return ServerError(type: type == "error" ? "" : type, message: message)
+    }
+
+    private static func hasGateMessage(_ message: String) -> Bool {
+        let lower = message.lowercased()
+        return lower.contains("only be used from within opencode") || lower.contains("only be used in opencode")
+    }
+
+    private static func hasMissingSessionMessage(_ message: String) -> Bool {
+        let lower = message.lowercased()
+        return lower.contains("missingsessionid") || lower.contains("missing session id")
+    }
+
+    private static func boundedMessage(_ text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return String(trimmed.prefix(maximumMessageCharacters)) + (trimmed.count > maximumMessageCharacters ? "…" : "")
+    }
+
+    /// An HTTP status alone cannot establish why the upstream rejected a request.
     static func isFreeTierGate(statusCode: Int, body: String) -> Bool {
         guard statusCode == 400 || statusCode == 403 else { return false }
-        let lower = body.lowercased()
-        return lower.contains("freetiererror") || lower.contains("missingsessionid")
-            || lower.contains("only be used from within opencode")
-            || lower.contains("only be used in opencode")
+        if let error = serverError(in: body) { return error.isFreeTierGate }
+        // Plain-text HTTP errors are valid too, but JSON content is not an error envelope.
+        guard (try? JSONSerialization.jsonObject(with: Data(body.utf8))) == nil else { return false }
+        return hasGateMessage(body) && !hasMissingSessionMessage(body)
     }
 
     /// Pure HTTP→error mapping shared by validate() and tests.
-    /// Bare 400/403 on the anonymous free-chat operations maps to the gate:
-    /// the streaming path validates before any SSE line arrives, and the only
-    /// observed 400/403 shapes there are the gate itself (probed live).
-    /// The catalog operation keeps body-based mapping only.
     static func mapHttpError(statusCode: Int, body: String, operation: String) -> MiCoderAutoFreeError {
-        let isFreeChat = operation == "Free model streaming" || operation == "Free model chat"
+        let error = serverError(in: body)
+        let message = boundedMessage(error?.summary ?? body)
+        let suffix = message.isEmpty ? "" : ": \(message)"
+        if error?.isMissingSession == true || hasMissingSessionMessage(body) {
+            return .apiError("OpenCode request failed (HTTP \(statusCode))\(suffix)")
+        }
         if isFreeTierGate(statusCode: statusCode, body: body) {
-            return .freeTierBlocked(body)
+            return .freeTierBlocked(message)
         }
-        if isFreeChat, (statusCode == 400 || statusCode == 403), body.isEmpty {
-            return .freeTierBlocked("(empty body; HTTP \(statusCode) on anonymous free chat — gate per live probe)")
-        }
-        let suffix = body.isEmpty ? "" : ": \(String(body.prefix(400)))"
         if statusCode == 429 {
-            return .rateLimited("Free model rate limit reached. Try again later or switch model.")
+            return .rateLimited("Free model rate limit reached (HTTP 429)\(suffix)")
         }
         if statusCode == 503 {
-            return .rateLimited("Free model server is temporarily unavailable (503). Try again in a moment.")
+            return .rateLimited("Free model server is temporarily unavailable (HTTP 503)\(suffix)")
         }
         if [400, 403, 404, 410].contains(statusCode) {
             return .modelUnavailable("unknown", "Free model unavailable (HTTP \(statusCode))\(suffix)")
@@ -637,9 +877,14 @@ enum MiCoderAutoFreeError: LocalizedError {
     /// True when `text` is an error envelope carrying the gate (used for both
     /// the REST body and individual SSE data lines).
     static func gateMessage(in text: String) -> String? {
-        guard isFreeTierGate(statusCode: 403, body: text)
-            || isFreeTierGate(statusCode: 400, body: text) else { return nil }
-        return text
+        guard let error = serverError(in: text), error.isFreeTierGate else { return nil }
+        return boundedMessage(error.summary)
+    }
+
+    static func streamError(in text: String) -> MiCoderAutoFreeError? {
+        guard let error = serverError(in: text) else { return nil }
+        if error.isFreeTierGate { return .freeTierBlocked(boundedMessage(error.summary)) }
+        return .apiError("OpenCode streaming error: \(boundedMessage(error.summary))")
     }
 
     var errorDescription: String? {
@@ -652,8 +897,8 @@ enum MiCoderAutoFreeError: LocalizedError {
             return "OpenCode model \(model) is unavailable. \(message)"
         case .emptyResponse:
             return "OpenCode returned an empty response."
-        case .freeTierBlocked:
-            return "OpenCode's free tier now only works from within OpenCode (upstream gate, verified live). Add a Zen API key in Providers to use paid models, or pick another provider."
+        case .freeTierBlocked(let message):
+            return "OpenCode rejected the free-tier request. \(Self.boundedMessage(message)) Use OpenCode, select a configured Zen provider for paid models, or choose another provider."
         }
     }
 }

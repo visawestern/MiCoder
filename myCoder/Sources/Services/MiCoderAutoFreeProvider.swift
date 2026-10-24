@@ -140,7 +140,10 @@ final class MiCoderAutoFreeStore: ObservableObject {
     func streamChat(
         messages: [MiCoderAutoFreeClient.Message],
         projectRoot: String = "",
-        isGitRepo: Bool = false
+        isGitRepo: Bool = false,
+        context: OpenCodeRequestContext = .generated(),
+        tools: [MiCoderAutoFreeClient.ToolDefinition] = MiCoderAutoFreeClient.agentToolDefinitions(),
+        toolChoice: String? = "auto"
     ) -> AsyncThrowingStream<StreamEvent, Error> {
         return AsyncThrowingStream { continuation in
             Task {
@@ -193,7 +196,9 @@ final class MiCoderAutoFreeStore: ObservableObject {
                             model: currentModel,
                             messages: effectiveMessages,
                             parameters: modelParameters,
-                            stream: true
+                            context: context,
+                            tools: tools,
+                            toolChoice: toolChoice
                         ) {
                             continuation.yield(event)
                         }
