@@ -17,6 +17,8 @@ struct OpenCodeRequestContext: Equatable {
     static let anonymousAuthorization = "Bearer public"
 
     static let identifierBodyLength = 26
+    static let identifierTimeLength = 12
+    static let identifierRandomLength = 14
     static let projectIdentifierLength = 40
 
     private static let identifierAlphabet = Array(
@@ -44,25 +46,25 @@ struct OpenCodeRequestContext: Equatable {
     }
 
     static func generated() -> OpenCodeRequestContext {
-        OpenCodeRequestContext(sessionID: sessionID(from: UUID().uuidString))
+        OpenCodeRequestContext(sessionID: identifier(prefix: "ses", descending: true))
     }
 
     /// Stable per chat: the same raw session id always maps to the same
     /// upstream-shaped identifier, so session affinity survives restarts.
-    static func sessionID(from rawID: String) -> String {
+    static func sessionID(from rawID: String, defaults: UserDefaults = .standard) -> String {
         let normalized = rawID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else {
-            return identifier(prefix: "ses", seed: UUID().uuidString)
+            return identifier(prefix: "ses", descending: true)
         }
         if normalized.hasPrefix("ses_"), normalized.count == 4 + identifierBodyLength {
             return normalized
         }
-        return identifier(prefix: "ses", seed: normalized)
+        return OpenCodeSessionIdentifierStore.shared.identifier(for: normalized, defaults: defaults)
     }
 
     /// Upstream sends the user message id in `x-opencode-request`.
     static func requestID() -> String {
-        identifier(prefix: "msg", seed: UUID().uuidString)
+        identifier(prefix: "msg", descending: false)
     }
 
     /// Upstream sends an opaque 40 hex character project id, never a path.
@@ -73,11 +75,34 @@ struct OpenCodeRequestContext: Equatable {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    static func identifier(prefix: String, seed: String) -> String {
-        let digest = Array(SHA256.hash(data: Data(seed.utf8)))
-        var body = digest.prefix(6).map { String(format: "%02x", $0) }.joined()
-        body += digest.dropFirst(6).prefix(14).map { String(identifierAlphabet[Int($0) % identifierAlphabet.count]) }.joined()
-        return "\(prefix)_\(body)"
+    /// Upstream identifier format (`packages/schema/src/identifier.ts`, tag
+    /// v1.19.4): 12 hex characters that encode the creation timestamp — the
+    /// timestamp is bit-inverted for descending ids — followed by 14 random
+    /// base62 characters. Sessions are descending, messages ascending.
+    static func identifier(
+        prefix: String,
+        descending: Bool,
+        timestamp: Int64 = Int64(Date().timeIntervalSince1970 * 1000),
+        counter: UInt64 = 1
+    ) -> String {
+        let current = UInt64(timestamp) * 0x1000 + counter
+        let value = descending ? ~current : current
+        var time = ""
+        for index in 0..<(identifierTimeLength / 2) {
+            let byte = UInt8((value >> UInt64(40 - 8 * index)) & 0xff)
+            time += String(format: "%02x", byte)
+        }
+        return "\(prefix)_\(time)\(randomIdentifierSuffix())"
+    }
+
+    private static func randomIdentifierSuffix() -> String {
+        var generator = SystemRandomNumberGenerator()
+        var suffix = ""
+        for _ in 0..<identifierRandomLength {
+            let byte = UInt8.random(in: UInt8.min...UInt8.max, using: &generator)
+            suffix += String(identifierAlphabet[Int(byte) % identifierAlphabet.count])
+        }
+        return suffix
     }
 
     var affinity: String { sessionID }
@@ -116,5 +141,51 @@ struct OpenCodeRequestContext: Equatable {
         var copy = self
         copy.requestID = requestID
         return copy
+    }
+}
+
+/// Persisted mapping from a myCoder chat id to the upstream-shaped session id.
+/// The upstream reads the creation time out of the identifier itself, so one
+/// chat must always reuse the very same session id — a new id would start a
+/// new upstream session and lose the conversation context.
+final class OpenCodeSessionIdentifierStore: @unchecked Sendable {
+    struct Entry: Codable, Equatable {
+        var raw: String
+        var identifier: String
+    }
+
+    static let shared = OpenCodeSessionIdentifierStore()
+
+    private static let defaultsSuffix = "opencode.sessionIdentifiers"
+    private static let capacity = 256
+    private let lock = NSLock()
+
+    func identifier(for rawID: String, defaults: UserDefaults = .standard) -> String {
+        lock.lock()
+        defer { lock.unlock() }
+        var entries = load(defaults)
+        if let existing = entries.first(where: { $0.raw == rawID }) {
+            return existing.identifier
+        }
+        let created = OpenCodeRequestContext.identifier(prefix: "ses", descending: true)
+        entries.append(Entry(raw: rawID, identifier: created))
+        if entries.count > Self.capacity {
+            entries.removeFirst(entries.count - Self.capacity)
+        }
+        save(entries, defaults: defaults)
+        return created
+    }
+
+    private func load(_ defaults: UserDefaults) -> [Entry] {
+        guard let data = defaults.data(forKey: MyCoderDefaults.key(Self.defaultsSuffix)),
+              let entries = try? JSONDecoder().decode([Entry].self, from: data) else {
+            return []
+        }
+        return entries
+    }
+
+    private func save(_ entries: [Entry], defaults: UserDefaults) {
+        guard let data = try? JSONEncoder().encode(entries) else { return }
+        defaults.set(data, forKey: MyCoderDefaults.key(Self.defaultsSuffix))
     }
 }

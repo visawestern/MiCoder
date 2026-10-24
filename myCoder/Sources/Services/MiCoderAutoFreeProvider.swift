@@ -198,7 +198,9 @@ final class MiCoderAutoFreeStore: ObservableObject {
                             parameters: modelParameters,
                             context: context,
                             tools: tools,
-                            toolChoice: toolChoice
+                            toolChoice: toolChoice,
+                            projectRoot: projectRoot,
+                            isGitRepo: isGitRepo
                         ) {
                             continuation.yield(event)
                         }

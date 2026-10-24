@@ -162,6 +162,50 @@ struct AutoFreeGateTests {
         #expect(names.contains("run_command") == false)
     }
 
+    @Test func requestsCarryTheEnvironmentBlockTheFreeTierRequires() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [AutoFreeCaptureProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        let path = "/gate-environment"
+        AutoFreeCaptureProtocol.setResponse(
+            path: path,
+            body: "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\ndata: [DONE]\n\n"
+        )
+        let client = MiCoderAutoFreeClient(session: session, baseURL: URL(string: "https://auto-free.test" + path)!)
+        for try await _ in client.chatCompletion(
+            messages: [.init(role: "user", content: "test")],
+            projectRoot: "/tmp/project",
+            isGitRepo: true
+        ) {}
+
+        let body = try #require(AutoFreeCaptureProtocol.lastBody(path: path))
+        let json = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        let messages = try #require(json["messages"] as? [[String: Any]])
+        let systemText = messages
+            .filter { ($0["role"] as? String) == "system" }
+            .compactMap { $0["content"] as? String }
+            .joined(separator: "\n")
+        #expect(systemText.contains("<env>"))
+        #expect(systemText.contains("Working directory: /tmp/project"))
+        #expect(systemText.contains("Is directory a git repo: yes"))
+        #expect(json["stream"] as? Bool == true)
+    }
+
+    @Test func anExistingEnvironmentBlockIsNotDuplicated() {
+        let original = MiCoderAutoFreeClient.Message(
+            role: "system",
+            content: "<env>\n  Working directory: /own\n</env>"
+        )
+        let messages = MiCoderAutoFreeClient.messagesWithEnvironment(
+            [original],
+            projectRoot: "/tmp/other",
+            isGitRepo: false
+        )
+        #expect(messages.count == 1)
+        #expect(messages.first?.textContent.contains("Working directory: /own") == true)
+    }
+
     @Test func nativeToolCallDeltasBecomeToolCallEvents() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [AutoFreeCaptureProtocol.self]

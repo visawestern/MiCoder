@@ -52,6 +52,12 @@ scrape_models.js
 
 # MiCoder per-project runtime DB (local state, not source)
 .micoder/
+.mycoder/
+
+# Local tooling indexes and build artifacts (machine-local, never source)
+.codegraph/
+.build_status
+build_log.txt
 
 # Tooling / profiling artifacts
 *.profraw

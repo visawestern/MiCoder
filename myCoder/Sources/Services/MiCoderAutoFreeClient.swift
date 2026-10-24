@@ -231,6 +231,22 @@ final class MiCoderAutoFreeClient {
             self.toolCalls = toolCalls
             self.toolCallID = toolCallID
         }
+
+        var textContent: String {
+            switch content {
+            case .text(let text):
+                return text
+            case .parts(let parts):
+                return parts.compactMap { part -> String? in
+                    if case .text(let value) = part { return value }
+                    return nil
+                }.joined(separator: "\n")
+            }
+        }
+
+        var containsEnvironmentBlock: Bool {
+            textContent.contains("<env>") && textContent.contains("Working directory:")
+        }
     }
 
     /// Fetch the anonymous live catalog and return eligible free models:
@@ -547,7 +563,9 @@ final class MiCoderAutoFreeClient {
         parameters: ModelCallParameters = ModelCallParameters(),
         context: OpenCodeRequestContext = .generated(),
         tools: [ToolDefinition] = MiCoderAutoFreeClient.gateToolDefinitions(),
-        toolChoice: String? = "none"
+        toolChoice: String? = "none",
+        projectRoot: String = "",
+        isGitRepo: Bool = false
     ) -> AsyncThrowingStream<StreamEvent, Error> {
         AsyncThrowingStream { continuation in
             Task {
@@ -568,7 +586,11 @@ final class MiCoderAutoFreeClient {
                     requestContext.applying(to: &request)
                     let completionBody = CompletionRequest(
                         model: effectiveModel,
-                        messages: messages,
+                        messages: MiCoderAutoFreeClient.messagesWithEnvironment(
+                            messages,
+                            projectRoot: projectRoot,
+                            isGitRepo: isGitRepo
+                        ),
                         parameters: parameters,
                         tools: tools,
                         toolChoice: toolChoice
@@ -619,6 +641,58 @@ final class MiCoderAutoFreeClient {
                 }
             }
         }
+    }
+
+    /// The upstream free tier serves a request only when a system message
+    /// describes the environment in an `<env>` block; without it the request
+    /// is answered with a free-usage limit instead of a model response.
+    static func environmentBlock(projectRoot: String, isGitRepo: Bool) -> String {
+        let workingDirectory = projectRoot.isEmpty
+            ? FileManager.default.currentDirectoryPath
+            : projectRoot
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "EEE MMM d yyyy"
+        return """
+        Here is some useful information about the environment you are running in:
+        <env>
+          Working directory: \(workingDirectory)
+          Workspace root folder: \(workingDirectory)
+          Is directory a git repo: \(isGitRepo ? "yes" : "no")
+          Platform: \(platformName)
+          Today's date: \(formatter.string(from: Date()))
+        </env>
+        """
+    }
+
+    static var platformName: String {
+        #if os(macOS)
+        return "darwin"
+        #elseif os(Linux)
+        return "linux"
+        #elseif os(Windows)
+        return "win32"
+        #else
+        return "unknown"
+        #endif
+    }
+
+    /// Add the environment block to the conversation when no system message
+    /// carries one yet.
+    static func messagesWithEnvironment(
+        _ messages: [Message],
+        projectRoot: String,
+        isGitRepo: Bool
+    ) -> [Message] {
+        if messages.contains(where: { $0.role == "system" && $0.containsEnvironmentBlock }) {
+            return messages
+        }
+        var result = messages
+        result.insert(
+            Message(role: "system", content: environmentBlock(projectRoot: projectRoot, isGitRepo: isGitRepo)),
+            at: 0
+        )
+        return result
     }
 
     static func shouldSwitchImmediately(for error: Error) -> Bool {

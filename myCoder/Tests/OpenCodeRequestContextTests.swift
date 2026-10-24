@@ -26,6 +26,45 @@ struct OpenCodeRequestContextTests {
         #expect(requestID.dropFirst(4).allSatisfy { upstreamAlphabet.contains($0) })
     }
 
+    @Test("Identifier time parts match the official client capture")
+    func identifierTimePartMatchesCapture() {
+        // Captured from the official client (opencode 1.19.4): the session id
+        // is descending, the message id ascending, and both encode the
+        // creation timestamp in their first 12 hex characters.
+        let session = OpenCodeRequestContext.identifier(
+            prefix: "ses",
+            descending: true,
+            timestamp: 6_168_390_472
+        )
+        #expect(session.hasPrefix("ses_e9055d4b7ffe"))
+        let message = OpenCodeRequestContext.identifier(
+            prefix: "msg",
+            descending: false,
+            timestamp: 6_168_390_525
+        )
+        #expect(message.hasPrefix("msg_16faa2b7d001"))
+        #expect(session.count == 4 + OpenCodeRequestContext.identifierBodyLength)
+        #expect(message.count == 4 + OpenCodeRequestContext.identifierBodyLength)
+    }
+
+    @Test("Session identifiers stay stable per chat and survive a restart")
+    func sessionIdentifierPersistence() {
+        let suiteName = "com.mycoder.tests.opencode-session-identifiers"
+        guard let defaults = UserDefaults(suiteName: suiteName) else { return }
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let first = OpenCodeRequestContext.sessionID(from: "chat-persist", defaults: defaults)
+        let second = OpenCodeRequestContext.sessionID(from: "chat-persist", defaults: defaults)
+        #expect(first == second)
+        #expect(first.hasPrefix("ses_"))
+        #expect(OpenCodeRequestContext.sessionID(from: "chat-other", defaults: defaults) != first)
+
+        let reloaded = UserDefaults(suiteName: suiteName)
+        #expect(reloaded?.data(forKey: MyCoderDefaults.key("opencode.sessionIdentifiers")) != nil)
+        #expect(OpenCodeRequestContext.sessionID(from: "chat-persist", defaults: reloaded ?? defaults) == first)
+    }
+
     @Test("Project ids are opaque 40 hex characters")
     func projectIDShape() {
         let project = try? #require(OpenCodeRequestContext.projectID(fromPath: "/Users/apple/projects/demo"))
