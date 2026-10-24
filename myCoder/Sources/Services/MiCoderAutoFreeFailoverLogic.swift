@@ -3,7 +3,10 @@ import Foundation
 enum MiCoderAutoFreeFailoverLogic {
     static func reason(errorDescription: String, failureCount: Int) -> String {
         let lower = errorDescription.lowercased()
-        if lower.contains("freetiererror") || lower.contains("missingsessionid")
+        if lower.contains("missingsessionid") || lower.contains("missing session id") {
+            return "missing session context"
+        }
+        if lower.contains("freetiererror")
             || lower.contains("only be used from within opencode")
             || lower.contains("only be used in opencode") {
             return "free-tier gate"
