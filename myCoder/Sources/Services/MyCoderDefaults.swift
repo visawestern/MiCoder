@@ -41,9 +41,16 @@ enum MyCoderDefaults {
         "preferredModelID", "thinkingLevel", "customProviders",
         "lastWorkspaceID", "settings", "webProviders",
         "webRemoteChatMappings", "modelCallParameters",
-        "sidebarGroupingMode", "localProviders",
+        "localProviders",
         "autoFree.model", "autoFree.locked", "autoFree.systemPrompt",
         "webBrowserActionJournal", "disabledCommands",
+    ]
+
+    /// Settings that no longer exist. Their legacy and canonical keys are
+    /// dropped during migration so a removed feature leaves nothing behind
+    /// (the sidebar Group/Project mode was removed in F71).
+    static let retiredSuffixes: [String] = [
+        "sidebarGroupingMode",
     ]
 
     /// One-time migration: copy every present legacy value to its canonical
@@ -72,6 +79,11 @@ enum MyCoderDefaults {
             }
             defaults.removeObject(forKey: k)
             migrated += 1
+        }
+        // Removed settings: drop both the canonical and the legacy key.
+        for suffix in retiredSuffixes {
+            defaults.removeObject(forKey: key(suffix))
+            defaults.removeObject(forKey: legacyKey(suffix))
         }
         return migrated
     }

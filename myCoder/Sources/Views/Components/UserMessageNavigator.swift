@@ -5,6 +5,7 @@ import SwiftUI
 /// chat has many turns, and shows a 100-character preview on hover.
 struct UserMessageNavigator: View {
     let messages: [Message]
+    let currentMessageID: String?
     let onSelect: (String) -> Void
 
     @State private var hoveredID: String?
@@ -13,16 +14,34 @@ struct UserMessageNavigator: View {
         UserMessageNavigatorLogic.userMessages(messages)
     }
 
+    private var currentIndex: Int? {
+        userMessages.firstIndex { $0.id == currentMessageID }
+    }
+
     var body: some View {
         if !userMessages.isEmpty {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 5) {
-                    ForEach(Array(userMessages.enumerated()), id: \.element.id) { index, message in
-                        navigatorButton(index: index, message: message)
-                    }
+            VStack(spacing: 3) {
+                stepButton(icon: "chevron.up",
+                           enabled: currentIndex != nil && currentIndex != 0) {
+                    jump(direction: .up)
                 }
-                .padding(.vertical, 6)
-                .frame(maxWidth: .infinity)
+                .accessibilityLabel("Previous message")
+
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 5) {
+                        ForEach(Array(userMessages.enumerated()), id: \.element.id) { index, message in
+                            navigatorButton(index: index, message: message)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity)
+                }
+
+                stepButton(icon: "chevron.down",
+                           enabled: currentIndex != nil && currentIndex != userMessages.count - 1) {
+                    jump(direction: .down)
+                }
+                .accessibilityLabel("Next message")
             }
             .frame(width: 24)
             .frame(maxHeight: 280)
@@ -55,25 +74,52 @@ struct UserMessageNavigator: View {
         }
     }
 
+    private func jump(direction: UserMessageNavigatorLogic.NavigatorDirection) {
+        guard let currentIndex,
+              let next = UserMessageNavigatorLogic.steppedIndex(
+                from: currentIndex,
+                direction: direction,
+                messageCount: userMessages.count
+              ) else { return }
+        onSelect(userMessages[next].id)
+    }
+
+    private func stepButton(icon: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .interfaceFont(size: 8, weight: .semibold)
+                .foregroundColor(enabled ? Color.mimo.textSecondary : Color.mimo.textMuted.opacity(0.5))
+                .frame(width: 18, height: 14)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+    }
+
     private func navigatorButton(index: Int, message: Message) -> some View {
-        Button {
+        let isCurrent = message.id == currentMessageID
+        return Button {
             onSelect(message.id)
         } label: {
             Text(UserMessageNavigatorLogic.buttonTitle(index: index))
                 .font(.system(size: 9, weight: .semibold, design: .rounded))
                 .foregroundColor(
-                    hoveredID == message.id
-                        ? Color.mimo.textPrimary
-                        : Color.mimo.textSecondary
+                    isCurrent
+                        ? Color.white
+                        : (hoveredID == message.id
+                            ? Color.mimo.textPrimary
+                            : Color.mimo.textSecondary)
                 )
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .frame(width: 18, height: 18)
                 .background(
                     Circle().fill(
-                        hoveredID == message.id
-                            ? Color.mimo.brand.opacity(0.35)
-                            : Color.mimo.surface.opacity(0.9)
+                        isCurrent
+                            ? Color.mimo.brand
+                            : (hoveredID == message.id
+                                ? Color.mimo.brand.opacity(0.35)
+                                : Color.mimo.surface.opacity(0.9))
                     )
                 )
                 .overlay(

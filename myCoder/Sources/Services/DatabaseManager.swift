@@ -7,7 +7,7 @@ class DatabaseManager {
     static let shared = DatabaseManager()
     
     /// Current schema version — increment when tables change
-    private static let schemaVersion: Int = 3
+    private static let schemaVersion: Int = 4
     
     private var db: Connection?
     private let dbPath: String
@@ -58,6 +58,17 @@ class DatabaseManager {
     private let sessionMetadata = Expression<String?>("metadata")
     private let sessionGoal = Expression<String?>("session_goal")
     private let sessionDraftText = Expression<String?>("draft_text")
+
+    // Session routes table — durable mapping "session id -> owning project
+    // path". Session/message storage lives in the per-project database, but
+    // the in-memory routing map is rebuilt on every launch, so without this
+    // table a session opened outside the project's own sidebar (recent chats,
+    // grid view, deep link) resolves to no project at all and its history
+    // lands in the global database instead of the project one.
+    private let sessionRoutes = Table("session_routes")
+    private let sessionRouteSessionId = Expression<String>("session_id")
+    private let sessionRouteProjectPath = Expression<String>("project_path")
+    private let sessionRouteUpdatedAt = Expression<Int64>("updated_at")
     
     // Messages table
     private let messages = Table("messages")
@@ -235,6 +246,13 @@ class DatabaseManager {
             t.column(sessionGoal)
             t.column(sessionDraftText)
             t.foreignKey(sessionProjectId, references: projects, projectId)
+        })
+        
+        // Session routes table
+        try db.run(sessionRoutes.create(ifNotExists: true) { t in
+            t.column(sessionRouteSessionId, primaryKey: true)
+            t.column(sessionRouteProjectPath)
+            t.column(sessionRouteUpdatedAt)
         })
         
         // Messages table
@@ -683,6 +701,38 @@ class DatabaseManager {
         try db.run(session.update(sessionIsArchived <- true))
     }
     
+    // MARK: - Session Routes
+    
+    /// Persist the "session id -> owning project path" mapping so the route
+    /// survives app restarts (the in-memory map does not).
+    func setSessionRoute(sessionId: String, projectPath: String) throws {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        let now = Int64(Date().timeIntervalSince1970)
+        try db.run(sessionRoutes.insert(or: .replace,
+            sessionRouteSessionId <- sessionId,
+            sessionRouteProjectPath <- projectPath,
+            sessionRouteUpdatedAt <- now
+        ))
+    }
+    
+    /// Stored route for a session, or nil when the session was never routed
+    /// to a project database.
+    func sessionRoute(sessionId: String) throws -> String? {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        guard let row = try db.pluck(sessionRoutes.filter(sessionRouteSessionId == sessionId)) else {
+            return nil
+        }
+        let path: String = row[sessionRouteProjectPath]
+        return path.isEmpty ? nil : path
+    }
+
+    /// Drop the stored route of a session (the session was deleted or moved
+    /// to another project).
+    func deleteSessionRoute(sessionId: String) throws {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        try db.run(sessionRoutes.filter(sessionRouteSessionId == sessionId).delete())
+    }
+    
     // MARK: - Message Operations
     
     func insertMessage(
@@ -793,7 +843,12 @@ class DatabaseManager {
                 content: row[messageContent],
                 createdAt: Date(timeIntervalSince1970: TimeInterval(row[messageCreatedAt])),
                 reasoning: row[messageReasoning],
-                isFinished: row[messageIsFinished]
+                isFinished: row[messageIsFinished],
+                modelId: row[messageModelId],
+                providerId: row[messageProviderId],
+                promptTokens: row[messagePromptTokens].map { Int($0) },
+                completionTokens: row[messageCompletionTokens].map { Int($0) },
+                costUsd: row[messageCostUsd]
             ))
         }
         return results
@@ -836,6 +891,14 @@ class DatabaseManager {
     func deleteMessageParts(messageId: String) throws {
         guard let db = db else { throw DatabaseError.notInitialized }
         try db.run(messageParts.filter(partMessageId == messageId).delete())
+    }
+
+    /// Delete one message row and its parts from the global store. Used when
+    /// a message is moved into the owning project database.
+    func deleteMessage(id: String) throws {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        try db.run(messageParts.filter(partMessageId == id).delete())
+        try db.run(messages.filter(messageId == id).delete())
     }
 
     func getMessageParts(messageId: String) throws -> [MessagePartRecord] {
@@ -909,7 +972,7 @@ class DatabaseManager {
     }
     
     private func runMigration(_ version: Int) throws {
-        guard db != nil else { return }
+        guard let db = db else { return }
         switch version {
         case 1:
             // Initial schema — all tables created in createTables()
@@ -928,6 +991,14 @@ class DatabaseManager {
             // Draft text persistence for sessions (Feature 5: projects don't
             // disappear without messages; store drafts + sent messages).
             try addColumnIfMissing(table: "sessions", column: "draft_text", definition: "TEXT")
+        case 4:
+            // Durable session -> project routing so a session opened outside
+            // the project's own sidebar still resolves its per-project store.
+            try db.run(sessionRoutes.create(ifNotExists: true) { t in
+                t.column(sessionRouteSessionId, primaryKey: true)
+                t.column(sessionRouteProjectPath)
+                t.column(sessionRouteUpdatedAt)
+            })
         default:
             break
         }
@@ -1064,8 +1135,18 @@ class DatabaseManager {
     /// Unarchive a session
     func unarchiveSession(id: String) throws {
         guard let db = db else { throw DatabaseError.notInitialized }
-        let session = sessions.filter(sessionId == id)
-        try db.run(session.update(sessionIsArchived <- false, sessionUpdatedAt <- Int64(Date().timeIntervalSince1970)))
+        // Only an actually archived session changes state. Touching
+        // `updated_at` for an already active session made every chat click
+        // reorder the sidebar (the chat jumped to the top of the list).
+        //
+        // The condition lives in the UPDATE itself: a separate read would
+        // crash on a missing row or a NULL `is_archived` (SQLite.swift force
+        // unwraps the scalar binding) and would race with a concurrent write.
+        try db.run(
+            "UPDATE sessions SET is_archived = 0, updated_at = ? WHERE id = ? AND is_archived IS NOT 0",
+            Int64(Date().timeIntervalSince1970),
+            id
+        )
     }
     
     /// Hard delete all archived sessions and their messages
@@ -1223,6 +1304,13 @@ struct MessageRecord {
     let createdAt: Date
     let reasoning: String?
     let isFinished: Bool
+    /// Token/cost accounting — carried over when a message is moved from the
+    /// global store into a project database.
+    var modelId: String? = nil
+    var providerId: String? = nil
+    var promptTokens: Int? = nil
+    var completionTokens: Int? = nil
+    var costUsd: Double? = nil
 }
 
 struct MessagePartRecord {

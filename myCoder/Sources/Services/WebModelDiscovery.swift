@@ -265,31 +265,30 @@ enum WebModelDiscovery {
                     MiCoderAPIServer.appendLog("[discover] \(vendor.rawValue): login wall detected")
                     return []
                 }
-                // No model menu content at all — the 2026 ChatGPT fallback
-                // (single auto model) may still apply.
-                return await chatGPTModeFallback(using: bridge, vendor: vendor)
+
+                // Text fallback is still strict; it cannot bypass the vendor
+                // validator.
+                let text = try await bridge.readText(selector: dropdownSelector)
+                MiCoderAPIServer.appendLog("[discover] \(vendor.rawValue): DOM candidates empty; text fallback=\(text.prefix(80))")
+                let parsed = WebModelListParser.parse(dropdownText: text, vendor: vendor)
+                if !parsed.isEmpty {
+                    let limited = vendor == .chatgpt && !includeAllModels ? Array(parsed.prefix(1)) : parsed
+                    return limited.map { liveModel($0) }
+                }
+
+                let universalText = try await bridge.readText(selector: fallbackItemSelector)
+                let universalParsed = WebModelListParser.parse(dropdownText: universalText, vendor: vendor)
+                if universalParsed.isEmpty {
+                    // Last resort for the 2026 ChatGPT UI: there IS no model
+                    // dropdown anymore (single auto model + a Reasoning toggle).
+                    return await chatGPTModeFallback(using: bridge, vendor: vendor)
+                }
+                let capped = vendor == .chatgpt && !includeAllModels ? Array(universalParsed.prefix(1)) : universalParsed
+                return capped.map { WebProviderModel(name: $0) }
             }
+
             let limited = vendor == .chatgpt && !includeAllModels ? Array(validNames.prefix(1)) : validNames
             return limited.map { liveModel($0) }
-
-            // Text fallback is still strict; it cannot bypass the vendor validator.
-            let text = try await bridge.readText(selector: dropdownSelector)
-            MiCoderAPIServer.appendLog("[discover] \(vendor.rawValue): DOM candidates empty; text fallback=\(text.prefix(80))")
-            let parsed = WebModelListParser.parse(dropdownText: text, vendor: vendor)
-            if !parsed.isEmpty {
-                let limited = vendor == .chatgpt && !includeAllModels ? Array(parsed.prefix(1)) : parsed
-                return limited.map { liveModel($0) }
-            }
-
-            let universalText = try await bridge.readText(selector: fallbackItemSelector)
-            let universalParsed = WebModelListParser.parse(dropdownText: universalText, vendor: vendor)
-            if universalParsed.isEmpty {
-                // Last resort for the 2026 ChatGPT UI: there IS no model
-                // dropdown anymore (single auto model + a Reasoning toggle).
-                return await chatGPTModeFallback(using: bridge, vendor: vendor)
-            }
-            let capped = vendor == .chatgpt && !includeAllModels ? Array(universalParsed.prefix(1)) : universalParsed
-            return capped.map { WebProviderModel(name: $0) }
         } catch {
             return await chatGPTModeFallback(using: bridge, vendor: vendor)
         }

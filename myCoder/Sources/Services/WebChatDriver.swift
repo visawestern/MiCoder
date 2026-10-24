@@ -973,7 +973,7 @@ struct WebChatDriver {
         if config.allModels.contains(canonical) {
             var updated = config
             updated.selectedModel = canonical
-            _ = try? WebProviderStore.save(
+            WebProviderStore.save(
                 WebProviderStore.upsert(updated, in: WebProviderStore.load())
             )
         }
@@ -1091,7 +1091,11 @@ struct WebChatDriver {
     /// caller to fail with its normal timeout semantics.
     private func recoverRenderedAnswerAfterTimeout(baseline: ResponseBaseline) async throws -> String? {
         guard let url = try? await bridge.currentURL(), !url.isEmpty else { return nil }
-        try? await bridge.evaluateJS("location.reload(); true;")
+        do {
+            _ = try await bridge.evaluateJS("location.reload(); true;")
+        } catch {
+            MiCoderAPIServer.appendLog("🔁 [WebChatDriver] reload failed: \(error.localizedDescription)")
+        }
         for _ in 0..<40 { // up to 20 s for the reloaded conversation
             try Task.checkCancellation()
             await bridge.wait(ms: 500)

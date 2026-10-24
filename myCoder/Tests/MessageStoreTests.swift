@@ -90,6 +90,30 @@ struct MessageStoreTests {
         #expect(store.messages.count == 5)
     }
 
+    @Test("Dynamic unload keeps upward paging reachable and defers while reading older history")
+    func pruneUnloadsHeadKeepsEarlierPages() {
+        let store = MessageStore(maxVisible: 5, pruneBuffer: 0)
+        for i in 0..<10 {
+            store.append(Message(role: .user, content: "Msg \(i)"))
+        }
+
+        // F79: the dropped head must stay reachable through upward pagination.
+        #expect(store.hasMoreMessages == true)
+
+        // While the reader is scrolling older history the feed must not
+        // shift under the cursor.
+        store.isPinnedToBottom = false
+        store.append(Message(role: .user, content: "unpinned append"))
+        #expect(store.messages.count == 6)
+
+        // Back at the bottom the deferred prune trims the window again.
+        store.isPinnedToBottom = true
+        store.append(Message(role: .user, content: "pinned append"))
+        #expect(store.messages.count == 5)
+        #expect(store.messages[0].content == "Msg 7")
+        #expect(store.hasMoreMessages == true)
+    }
+
     @Test("Current session ID is tracked")
     func sessionTracking() {
         let store = MessageStore()

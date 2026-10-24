@@ -1,31 +1,25 @@
 import AppKit
 
 enum PasteboardAttachmentDetector {
-    static let applePNGType = NSPasteboard.PasteboardType("Apple PNG pasteboard type")
     static let heicType = NSPasteboard.PasteboardType("public.heic")
     static let heifType = NSPasteboard.PasteboardType("public.heif")
     static let jpegType = NSPasteboard.PasteboardType("public.jpeg")
-    static let nextTIFFType = NSPasteboard.PasteboardType("NeXT TIFF v4.0 pasteboard type")
     static let qtImagePNGType = NSPasteboard.PasteboardType("com.trolltech.anymime.image--png")
     static let publicImageType = NSPasteboard.PasteboardType("public.image")
 
     static let imagePasteboardTypes: [NSPasteboard.PasteboardType] = [
         .png,
         .tiff,
-        applePNGType,
         heicType,
         heifType,
         jpegType,
-        nextTIFFType,
         qtImagePNGType,
         publicImageType
     ]
 
     static let rawImageTypePairs: [(NSPasteboard.PasteboardType, String)] = [
         (.png, "image/png"),
-        (applePNGType, "image/png"),
         (.tiff, "image/tiff"),
-        (nextTIFFType, "image/tiff"),
         (heicType, "image/heic"),
         (heifType, "image/heif"),
         (jpegType, "image/jpeg"),

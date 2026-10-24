@@ -7,8 +7,6 @@ struct SidebarView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            sidebarNavigationRow
-            
             VStack(alignment: .leading, spacing: 2) {
                 SidebarActionRow(icon: SidebarLayout.newTaskIcon, label: L.t("New task"), shortcut: "⌘N") {
                     appState.startNewTask(in: appState.selectedWorkspace)
@@ -27,6 +25,7 @@ struct SidebarView: View {
                 }
             }
             .padding(.horizontal, 8)
+            .padding(.top, 10)
             .padding(.bottom, 8)
             
             Divider()
@@ -51,23 +50,40 @@ struct SidebarView: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    if appState.workspacesSectionExpanded {
-                        if appState.workspaceViewMode == .grid {
+                    if appState.workspaceViewMode == .grid {
+                        if appState.workspacesSectionExpanded {
                             WorkspaceGridView(workspaces: appState.displayedWorkspaces)
                                 .padding(.horizontal, 10)
                                 .padding(.top, 4)
-                        } else {
-                            ForEach(appState.displayedWorkspaces) { workspace in
-                                // Only the active project starts expanded; others
-                                // start collapsed (plan Раздел 13 п.6).
-                                WorkspaceSidebarSection(
-                                    workspace: workspace,
-                                    startsExpanded: appState.selectedWorkspace?.id == workspace.id
-                                )
+                        }
+                        // A chat without a project keeps its own top-level row
+                        // even in grid mode (F71), so it stays visible.
+                        ForEach(appState.sidebarTreeItems) { item in
+                            if case .projectlessChat(let node) = item {
+                                ProjectlessChatRow(node: node)
+                            }
+                        }
+                    } else {
+                        // One tree, one pass: projects with their chats and
+                        // every project-less chat as its own top-level row
+                        // (F71). A chat can never show up twice.
+                        ForEach(appState.sidebarTreeItems) { item in
+                            switch item {
+                            case .project(let node):
+                                if appState.workspacesSectionExpanded {
+                                    WorkspaceSidebarSection(
+                                        workspace: node.workspace,
+                                        sessions: node.sessions,
+                                        isPinned: node.isPinned,
+                                        startsExpanded: appState.selectedWorkspace?.id == node.id
+                                    )
+                                }
+                            case .projectlessChat(let node):
+                                ProjectlessChatRow(node: node)
                             }
                         }
 
-                        if appState.displayedWorkspaces.isEmpty {
+                        if appState.displayedWorkspaces.isEmpty && appState.sidebarProjectlessSessions.isEmpty {
                             Text(appState.workspaces.isEmpty ? L.t("No workspaces") : "No matching workspaces")
                                 .interfaceFont(size: 12)
                                 .foregroundColor(Color.mimo.textMuted)
@@ -75,11 +91,6 @@ struct SidebarView: View {
                                 .padding(.top, 8)
                         }
                     }
-
-                    // Standalone chats (audit 2026-09-08): conversations without
-                    // a project — API chats, quick questions — persist in the
-                    // global DB and stay visible here (user directive).
-                    StandaloneChatsSection()
                 }
             }
             
@@ -136,38 +147,6 @@ struct SidebarView: View {
             .environmentObject(appState)
         }
     }
-
-    private var sidebarNavigationRow: some View {
-        HStack(spacing: 8) {
-            Button(action: { appState.navigateBack() }) {
-                Image(systemName: "chevron.left")
-                    .interfaceFont(size: 12, weight: .medium)
-                    .foregroundColor(appState.canNavigateBack ? Color.mimo.textSecondary : Color.mimo.textMuted.opacity(0.4))
-            }
-            .buttonStyle(.plain)
-            .disabled(!appState.canNavigateBack)
-            
-            Button(action: { appState.navigateForward() }) {
-                Image(systemName: "chevron.right")
-                    .interfaceFont(size: 12, weight: .medium)
-                    .foregroundColor(appState.canNavigateForward ? Color.mimo.textSecondary : Color.mimo.textMuted.opacity(0.4))
-            }
-            .buttonStyle(.plain)
-            .disabled(!appState.canNavigateForward)
-            
-            Spacer()
-            
-            Button(action: { withAnimation { appState.sidebarVisible.toggle() } }) {
-                Image(systemName: "sidebar.left")
-                    .interfaceFont(size: 13)
-                    .foregroundColor(Color.mimo.textSecondary)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 14)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
-    }
 }
 
 struct WorkspacesSectionHeader: View {
@@ -183,8 +162,6 @@ struct WorkspacesSectionHeader: View {
 
     private var fullWorkspaceToolbar: some View {
         HStack(spacing: 6) {
-            SidebarGroupingPill(mode: $appState.sidebarGroupingMode)
-
             Button(action: { withAnimation { appState.workspacesSectionExpanded.toggle() } }) {
                 Image(systemName: appState.workspacesSectionExpanded ? "chevron.down" : "chevron.right")
                     .interfaceFont(size: 9)
@@ -212,7 +189,14 @@ struct WorkspacesSectionHeader: View {
 
     private var compactWorkspaceToolbar: some View {
         HStack(spacing: 6) {
-            SidebarGroupingPill(mode: $appState.sidebarGroupingMode)
+            Button(action: { withAnimation { appState.workspacesSectionExpanded.toggle() } }) {
+                Image(systemName: appState.workspacesSectionExpanded ? "chevron.down" : "chevron.right")
+                    .interfaceFont(size: 9)
+                    .foregroundColor(Color.mimo.textMuted)
+            }
+            .buttonStyle(.plain)
+            .help(appState.workspacesSectionExpanded ? L.t(AppLocalizationKey.locCollapseWorkspaces) : L.t(AppLocalizationKey.locExpandWorkspaces))
+
             Spacer(minLength: 4)
             Menu {
                 workspaceOverflowMenu
@@ -735,15 +719,28 @@ struct SidebarActionRow: View {
 
 struct WorkspaceSidebarSection: View {
     let workspace: Workspace
+    /// The project's chats, taken from the sidebar tree so every project can
+    /// show its own children (F71).
+    var sessions: [ChatSession] = []
+    /// Whether the project is pinned to the top of the sidebar.
+    var isPinned: Bool = false
     /// Whether this group should start expanded — only the active project is
     /// expanded by default; other groups start collapsed (plan Раздел 13 п.6).
     let startsExpanded: Bool
     @EnvironmentObject var appState: AppState
     @State private var isExpanded: Bool
     @State private var hoveredSessionID: String?
+    @State private var isHovered = false
 
-    init(workspace: Workspace, startsExpanded: Bool = false) {
+    init(
+        workspace: Workspace,
+        sessions: [ChatSession] = [],
+        isPinned: Bool = false,
+        startsExpanded: Bool = false
+    ) {
         self.workspace = workspace
+        self.sessions = sessions
+        self.isPinned = isPinned
         self.startsExpanded = startsExpanded
         _isExpanded = State(initialValue: startsExpanded)
     }
@@ -765,7 +762,7 @@ struct WorkspaceSidebarSection: View {
     }
     
     private var workspaceSessions: [ChatSession] {
-        appState.sessions(for: workspace)
+        sessions.isEmpty ? appState.sidebarSessions(for: workspace) : sessions
     }
     
     private var activeSession: ChatSession? {
@@ -816,6 +813,18 @@ struct WorkspaceSidebarSection: View {
                 Text("\(workspaceSessions.count)")
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
+
+                // Pin: keep this project at the top of the sidebar.
+                if isPinned || isHovered {
+                    Button(action: { appState.toggleSidebarPin(id: SidebarPinID.project(workspace.id)) }) {
+                        Image(systemName: isPinned ? "pin.fill" : "pin")
+                            .interfaceFont(size: 11)
+                            .foregroundColor(isPinned ? Color.mimo.brand : Color.mimo.textMuted)
+                    }
+                    .buttonStyle(.plain)
+                    .help(isPinned ? "Unpin project" : "Pin project to top")
+                    .accessibilityIdentifier("sidebar.pinProject")
+                }
                 
                 // Plus button
                 Button(action: { appState.startNewTask(in: workspace) }) {
@@ -828,6 +837,7 @@ struct WorkspaceSidebarSection: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 6)
+            .onHover { hovering in isHovered = hovering }
             
             // Nested Sessions
             if isExpanded {
@@ -839,7 +849,7 @@ struct WorkspaceSidebarSection: View {
                             .padding(.leading, 50)
                             .padding(.vertical, 4)
                     } else {
-                        ForEach(SidebarSessionLimitLogic.visible(workspaceSessions)) { session in
+                        ForEach(workspaceSessions) { session in
                             SessionTaskRow(
                                 session: session,
                                 workspace: workspace,
@@ -857,6 +867,9 @@ struct WorkspaceSidebarSection: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: isExpanded)
+        .task(id: workspace.id) {
+            appState.loadSidebarSessions(for: workspace)
+        }
         .onChange(of: appState.selectedWorkspace?.id) { newSelectionID in
             withAnimation(.easeInOut(duration: 0.2)) {
                 isExpanded = SidebarExpansionLogic.stateAfterSelection(
@@ -865,6 +878,70 @@ struct WorkspaceSidebarSection: View {
                 )
             }
         }
+    }
+}
+
+/// A chat without a project. It is rendered as a top-level row — like a
+/// project row, but with a chat icon — so project chats and project-less
+/// chats never mix (F71).
+struct ProjectlessChatRow: View {
+    let node: SidebarProjectlessChatNode
+    @EnvironmentObject var appState: AppState
+    @State private var isHovered = false
+
+    private var isSelected: Bool {
+        appState.selectedSession?.id == node.id
+    }
+
+    private var timeBadge: String {
+        let interval = Date().timeIntervalSince(node.session.updatedAt)
+        if interval < 60 { return "now" }
+        if interval < 3600 { return "\(Int(interval / 60))m" }
+        if interval < 86400 { return "\(Int(interval / 3600))h" }
+        return "\(Int(interval / 86400))d"
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(Color.mimo.cyan.opacity(0.2))
+                    .frame(width: 28, height: 28)
+                Image(systemName: "bubble.left")
+                    .interfaceFont(size: 12)
+                    .foregroundColor(Color.mimo.cyan)
+            }
+
+            Button(action: { appState.selectSession(node.session) }) {
+                HStack(spacing: 6) {
+                    Text(node.title)
+                        .interfaceFont(size: 12, weight: .medium)
+                        .foregroundColor(isSelected ? Color.mimo.textPrimary : Color.mimo.textSecondary)
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    Text(isSelected ? L.t(AppLocalizationKey.locNow) : timeBadge)
+                        .interfaceFont(size: 10)
+                        .foregroundColor(Color.mimo.textMuted)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("sidebar.projectlessChat")
+
+            if node.isPinned || isHovered {
+                Button(action: { appState.toggleSidebarPin(id: SidebarPinID.chat(node.id)) }) {
+                    Image(systemName: node.isPinned ? "pin.fill" : "pin")
+                        .interfaceFont(size: 11)
+                        .foregroundColor(node.isPinned ? Color.mimo.brand : Color.mimo.textMuted)
+                }
+                .buttonStyle(.plain)
+                .help(node.isPinned ? "Unpin chat" : "Pin chat to top")
+                .accessibilityIdentifier("sidebar.pinChat")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 5)
+        .onHover { hovering in isHovered = hovering }
     }
 }
 
@@ -1038,81 +1115,6 @@ struct SessionTaskRow: View {
 /// any project (audit 2026-09-08, user directive: such chats used to disappear
 /// because nothing listed them). Persisted in the global DB; synthetic
 /// workspace keeps SessionTaskRow happy.
-struct StandaloneChatsSection: View {
-    @EnvironmentObject var appState: AppState
-    @State private var hoveredSessionID: String?
-
-    private var standaloneWorkspace: Workspace { appState.standaloneWorkspace }
-
-    var body: some View {
-        let sessions = appState.standaloneSessions
-        if !sessions.isEmpty {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 8) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.mimo.cyan.opacity(0.2))
-                            .frame(width: 28, height: 28)
-                        Image(systemName: "bubble.left")
-                            .interfaceFont(size: 12)
-                            .foregroundColor(Color.mimo.cyan)
-                    }
-
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            appState.standaloneChatsExpanded.toggle()
-                        }
-                    }) {
-                        HStack(spacing: 4) {
-                            Text(L.t("Chats"))
-                                .interfaceFont(size: 12, weight: .medium)
-                                .foregroundColor(Color.mimo.textPrimary)
-                                .lineLimit(1)
-                            Image(systemName: appState.standaloneChatsExpanded ? "chevron.down" : "chevron.right")
-                                .interfaceFont(size: 9)
-                                .foregroundColor(Color.mimo.textMuted)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    Spacer(minLength: 0)
-
-                    Text("\(sessions.count)")
-                        .interfaceFont(size: 11)
-                        .foregroundColor(Color.mimo.textMuted)
-
-                    Button(action: { appState.startNewTask(in: nil) }) {
-                        Image(systemName: "plus.circle")
-                            .interfaceFont(size: 13)
-                            .foregroundColor(Color.mimo.textMuted)
-                    }
-                    .buttonStyle(.plain)
-                    .help(L.t(AppLocalizationKey.locNewTask))
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-
-                if appState.standaloneChatsExpanded {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(SidebarSessionLimitLogic.visible(sessions)) { session in
-                            SessionTaskRow(
-                                session: session,
-                                workspace: standaloneWorkspace,
-                                groupColor: Color.mimo.cyan,
-                                isHovered: hoveredSessionID == session.id
-                            )
-                            .onHover { hovering in
-                                hoveredSessionID = hovering ? session.id : nil
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 struct SearchPaletteView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.dismiss) private var dismiss
@@ -1209,37 +1211,6 @@ struct SearchPaletteView: View {
         .onExitCommand {
             dismiss()
         }
-    }
-}
-
-// MARK: - Group/Project pill (plan Раздел 11 Блок 2)
-
-struct SidebarGroupingPill: View {
-    @Binding var mode: SidebarGroupingMode
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(SidebarGroupingMode.allCases) { m in
-                Button(action: { withAnimation(.easeOut(duration: 0.15)) { mode = m } }) {
-                    HStack(spacing: 3) {
-                        Image(systemName: m.icon)
-                            .interfaceFont(size: 9)
-                        Text(m.label)
-                            .interfaceFont(size: 10, weight: .medium)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .foregroundColor(mode == m ? Color.mimo.textPrimary : Color.mimo.textMuted)
-                    .background(mode == m ? Color.mimo.surface : Color.clear)
-                    .clipShape(RoundedRectangle(cornerRadius: 5))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(2)
-        .background(Color.mimo.backgroundAlt.opacity(0.6))
-        .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.mimo.border, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 7))
     }
 }
 

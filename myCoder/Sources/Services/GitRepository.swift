@@ -132,7 +132,7 @@ struct GitRepository {
     }
 
     static func push(in repoPath: String) throws -> GitOperationResult {
-        let branch = try currentBranch(in: repoPath)
+        let branch = currentBranch(in: repoPath)
         let arguments = pushArguments(hasUpstream: hasUpstream(in: repoPath), branch: branch)
         let output = try run(arguments, in: repoPath)
         return GitOperationResult(success: true, output: output)

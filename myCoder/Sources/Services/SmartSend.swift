@@ -122,7 +122,7 @@ enum SmartSend {
             // Learn from failure
             if case .directAPI(let endpoint) = route,
                let lastAttempt = result.attempts.last,
-               let error = lastAttempt.error {
+               lastAttempt.error != nil {
                 if let update = learnFromFailure(
                     attempt: lastAttempt,
                     endpoint: endpoint

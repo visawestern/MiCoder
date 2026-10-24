@@ -608,6 +608,14 @@ struct BottomInputBar: View {
                 focusRequest: appState.inputFocusRequest
             )
             .padding(.vertical, 4)
+            // Context ring lives in the top-right corner of the input card and
+            // never occupies its own line (user directive 2026-10-24).
+            .overlay(alignment: .topTrailing) {
+                if let contextUsage {
+                    ContextUsageIndicator(usage: contextUsage)
+                        .padding(.trailing, 10)
+                }
+            }
             .overlay(alignment: .bottomLeading) {
                 if appState.inputDropdownEnabled {
                     InputCommandDropdownView(
@@ -639,15 +647,6 @@ struct BottomInputBar: View {
             }
 
             Divider()
-
-            if let contextUsage {
-                HStack(spacing: 8) {
-                    ContextUsageBadge(usage: contextUsage)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 12)
-                .padding(.top, 4)
-            }
 
             MessageInputToolbar(
                 messageText: $messageText,

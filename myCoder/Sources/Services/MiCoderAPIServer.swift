@@ -592,26 +592,21 @@ final class MiCoderAPIServer {
         var cookies: [BrowserCookie] = []
         var errorRef: Error? = nil
         Task { @MainActor in
+            let webView = appState.webView(for: config, projectID: "global", chatID: "provider-default")
+            let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)
+            let selectors = WebVendorSelectors(
+                input: catalogEntry?.input ?? "textarea, div[contenteditable='true']",
+                sendButton: catalogEntry?.sendButton ?? "button[type='submit'], button[aria-label*='send']",
+                responseContainer: catalogEntry?.responseContainer ?? "div[class*='markdown']",
+                stopButton: catalogEntry?.stopButton ?? "button[aria-label*='stop']"
+            )
+            let bridge = WKWebViewBrowserBridge(webView: webView, selectors: selectors)
             do {
-                let webView = appState.webView(for: config, projectID: "global", chatID: "provider-default")
-                let catalogEntry = try? WebProviderCatalog.loadBundled().selectors(for: config.vendor.id)
-                let selectors = WebVendorSelectors(
-                    input: catalogEntry?.input ?? "textarea, div[contenteditable='true']",
-                    sendButton: catalogEntry?.sendButton ?? "button[type='submit'], button[aria-label*='send']",
-                    responseContainer: catalogEntry?.responseContainer ?? "div[class*='markdown']",
-                    stopButton: catalogEntry?.stopButton ?? "button[aria-label*='stop']"
-                )
-                let bridge = WKWebViewBrowserBridge(webView: webView, selectors: selectors)
-                do {
-                    cookies = try await bridge.cookies()
-                } catch {
-                    errorRef = error
-                }
-                semaphore.signal()
+                cookies = try await bridge.cookies()
             } catch {
                 errorRef = error
-                semaphore.signal()
             }
+            semaphore.signal()
         }
         _ = semaphore.wait(timeout: .now() + 30)
         if let error = errorRef {
@@ -799,7 +794,7 @@ final class MiCoderAPIServer {
     }
 
     private func handleAddAccount(body: String) -> String {
-        guard let appState = __miCoderAppState else {
+        guard __miCoderAppState != nil else {
             return jsonResponse(["error": "app not ready"])
         }
         guard let data = body.data(using: .utf8),

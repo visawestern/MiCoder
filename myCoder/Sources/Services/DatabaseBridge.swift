@@ -16,6 +16,10 @@ class DatabaseBridge: ObservableObject {
     /// session while requests are in flight.
     private let activeProjectLock = NSLock()
     private var sessionProjectPaths: [String: String] = [:]
+    /// Sessions that are known NOT to belong to any project (standalone chats
+    /// and legacy local sessions). Negative cache so the discovery scan does
+    /// not run again for every message of such a session.
+    private var sessionsWithoutProject: Set<String> = []
 
     private func projectPath(forSessionID sessionID: String) -> String? {
         activeProjectLock.lock()
@@ -26,12 +30,108 @@ class DatabaseBridge: ObservableObject {
     private func rememberProject(_ path: String, forSessionID sessionID: String) {
         activeProjectLock.lock()
         sessionProjectPaths[sessionID] = path
+        sessionsWithoutProject.remove(sessionID)
         activeProjectLock.unlock()
     }
 
+    private func markSessionWithoutProject(_ sessionID: String) {
+        activeProjectLock.lock()
+        sessionsWithoutProject.insert(sessionID)
+        activeProjectLock.unlock()
+    }
+
+    private func isKnownWithoutProject(_ sessionID: String) -> Bool {
+        activeProjectLock.lock()
+        defer { activeProjectLock.unlock() }
+        return sessionsWithoutProject.contains(sessionID)
+    }
+
+    /// Bind `sessionID` to `path` so project-scoped session/message routing
+    /// resolves for flows that never call `loadSessions(projectId:)` (e.g. a
+    /// chat opened straight from a recent-chats or grid view). Idempotent.
+    func registerSessionProject(sessionID: String, projectPath path: String) {
+        let normalized = ChatSession.normalizedPath(path)
+        guard !normalized.isEmpty else { return }
+        rememberProject(normalized, forSessionID: sessionID)
+        persistRoute(sessionID: sessionID, projectPath: normalized)
+    }
+
+    /// Same as `registerSessionProject`, but only for paths that are
+    /// registered projects. A session's `directory` may point anywhere (a
+    /// subdirectory, a removed folder), and routing it to a non-project path
+    /// would create a bogus project database.
+    func registerSessionProjectIfKnown(sessionID: String, projectPath path: String) {
+        let normalized = ChatSession.normalizedPath(path)
+        guard normalized.hasPrefix("/"), normalized != ChatSession.standaloneProjectKey else { return }
+        let known = ((try? db.getAllProjects()) ?? []).contains {
+            ChatSession.normalizedPath($0.path) == normalized
+        }
+        guard known else { return }
+        registerSessionProject(sessionID: sessionID, projectPath: normalized)
+    }
+
+    private func persistRoute(sessionID: String, projectPath path: String) {
+        do {
+            try db.setSessionRoute(sessionId: sessionID, projectPath: path)
+        } catch {
+            print("❌ Failed to persist session route: \(sessionID)")
+        }
+    }
+
+    /// Drop the routing of a session (the session was deleted or moved to a
+    /// different project).
+    func forgetSessionProject(sessionID: String) {
+        activeProjectLock.lock()
+        sessionProjectPaths.removeValue(forKey: sessionID)
+        activeProjectLock.unlock()
+        try? db.deleteSessionRoute(sessionId: sessionID)
+    }
+
+    /// Resolves the project database that owns `sessionID`.
+    ///
+    /// The in-memory map is rebuilt on every launch, so it cannot be the only
+    /// source of truth: a session opened without its project's sidebar (recent
+    /// chats, grid view) used to resolve to nothing and its history was read
+    /// from — and written to — the global database instead of the project one.
+    /// Resolution order: in-memory map → durable route row → discovery across
+    /// registered projects (self-heals sessions created before routes were
+    /// persisted).
     private func resolveProjectDatabase(forSessionID sessionID: String) -> ProjectDatabaseManager? {
-        guard let path = projectPath(forSessionID: sessionID) else { return nil }
-        return resolveProjectDatabase(for: path)
+        if let path = projectPath(forSessionID: sessionID),
+           let projectDB = resolveProjectDatabase(for: path) {
+            return projectDB
+        }
+        if let path = (try? db.sessionRoute(sessionId: sessionID)) ?? nil,
+           let projectDB = resolveProjectDatabase(for: path) {
+            rememberProject(path, forSessionID: sessionID)
+            return projectDB
+        }
+        if isKnownWithoutProject(sessionID) { return nil }
+        if let path = discoverProjectPath(forSessionID: sessionID),
+           let projectDB = resolveProjectDatabase(for: path) {
+            rememberProject(path, forSessionID: sessionID)
+            persistRoute(sessionID: sessionID, projectPath: path)
+            return projectDB
+        }
+        markSessionWithoutProject(sessionID)
+        return nil
+    }
+
+    /// Finds the registered project that owns `sessionID` by asking each
+    /// project's database directly. Only projects that already have a database
+    /// file are inspected — discovery must not create stores as a side effect.
+    private func discoverProjectPath(forSessionID sessionID: String) -> String? {
+        let projects = (try? db.getAllProjects()) ?? []
+        for project in projects {
+            let path = ChatSession.normalizedPath(project.path)
+            guard path.hasPrefix("/") else { continue }
+            guard ProjectDatabaseManager.hasExistingDatabase(projectPath: path) else { continue }
+            guard let projectDB = try? ProjectDatabaseManager.manager(forProjectPath: path) else { continue }
+            if (try? projectDB.hasSession(id: sessionID)) == true {
+                return path
+            }
+        }
+        return nil
     }
 
     /// Resolves `candidatePath` to its per-project database, or `nil` if the
@@ -145,7 +245,9 @@ class DatabaseBridge: ObservableObject {
             do {
                 let records = try projectDB.getAllSessions(includeArchived: false)
                 return records.map { record in
-                    rememberProject(ChatSession.normalizedPath(projectId), forSessionID: record.id)
+                    let normalizedProjectPath = ChatSession.normalizedPath(projectId)
+                    rememberProject(normalizedProjectPath, forSessionID: record.id)
+                    persistRoute(sessionID: record.id, projectPath: normalizedProjectPath)
                     return ChatSession(
                         id: record.id,
                         title: record.title,
@@ -251,6 +353,7 @@ class DatabaseBridge: ObservableObject {
             return
         }
         rememberProject(ChatSession.normalizedPath(projectId), forSessionID: id)
+        persistRoute(sessionID: id, projectPath: ChatSession.normalizedPath(projectId))
         do {
             try projectDB.insertSession(
                 id: id,
@@ -409,14 +512,19 @@ class DatabaseBridge: ObservableObject {
     }
     
     private func isTemporarySession(_ sessionId: String) -> Bool {
-        guard let path = projectPath(forSessionID: sessionId) else {
-            // Sessions created without a valid project registration use the
-            // legacy/global database (for example disposable send failures).
-            return true
+        if let path = projectPath(forSessionID: sessionId) {
+            // A real project can live under /tmp. The registered project
+            // database, not the filesystem prefix, is the source of truth for
+            // routing.
+            return resolveProjectDatabase(for: path) == nil
         }
-        // A real project can live under /tmp. The registered project database,
-        // not the filesystem prefix, is the source of truth for routing.
-        return resolveProjectDatabase(for: path) == nil
+        // A project session can ALSO have a row in the global sessions table
+        // (sessions created before the project was resolved are written there
+        // first). That row must not win over the project store — otherwise the
+        // history is read from the global database, which holds none of it,
+        // and the chat comes up empty. So the project stores are asked first.
+        if resolveProjectDatabase(forSessionID: sessionId) != nil { return false }
+        return true
     }
     
     /// Сохранить часть сообщения через переданный project database inserter.
@@ -476,6 +584,71 @@ class DatabaseBridge: ObservableObject {
         }
     }
     
+    /// Messages of a session that still live in the GLOBAL database although
+    /// the session belongs to a project. That split happened while the route
+    /// of the session was unknown (the in-memory route map is per-launch), so
+    /// the newest part of such a conversation was written to the global store
+    /// and never showed up in the project store.
+    ///
+    /// The recovery moves those rows into the owning project database and
+    /// returns them, so the conversation reads as one stream again.
+    @discardableResult
+    func recoverGlobalMessages(sessionId: String) -> [Message] {
+        guard let projectDB = resolveProjectDatabase(forSessionID: sessionId) else { return [] }
+        let records = (try? db.getMessagesBySession(sessionId: sessionId, limit: nil, offset: 0)) ?? []
+        guard !records.isEmpty else { return [] }
+
+        var recovered: [Message] = []
+        for record in records {
+            let parts = (try? db.getMessageParts(messageId: record.id)) ?? []
+            let usage = UsageCapture(
+                promptTokens: record.promptTokens ?? 0,
+                completionTokens: record.completionTokens ?? 0,
+                costUSD: record.costUsd,
+                modelID: record.modelId ?? "",
+                providerID: record.providerId ?? ""
+            )
+            let hasUsage = record.promptTokens != nil || record.completionTokens != nil
+            do {
+                try projectDB.insertMessage(
+                    id: record.id,
+                    sessionId: sessionId,
+                    role: record.role,
+                    content: record.content,
+                    modelId: record.modelId,
+                    providerId: record.providerId,
+                    reasoning: record.reasoning,
+                    isFinished: record.isFinished,
+                    usage: hasUsage ? usage : nil,
+                    createdAt: record.createdAt
+                )
+                try projectDB.deleteMessageParts(messageId: record.id)
+                for (index, part) in parts.enumerated() {
+                    try saveMessagePart(
+                        convertPartRecord(part),
+                        messageId: record.id,
+                        sequenceOrder: index,
+                        insert: projectDB.insertMessagePart
+                    )
+                }
+                // The project store owns the row now — drop the global copy so
+                // the next load does not see the same message twice.
+                try db.deleteMessage(id: record.id)
+                recovered.append(Message(
+                    id: record.id,
+                    role: stringToRole(record.role),
+                    content: record.content,
+                    parts: parts.map { convertPartRecord($0) },
+                    reasoning: record.reasoning ?? "",
+                    isFinished: record.isFinished
+                ))
+            } catch {
+                print("❌ Failed to recover global message \(record.id) into project database")
+            }
+        }
+        return recovered
+    }
+
     /// Загрузить сообщения только из базы проекта, зарегистрированной для сессии.
     /// `offset` отсчитывается от начала (ASC). Для начальной загрузки истории
     /// используйте `loadMessageTail` — oldest-first + limit прячет новые
@@ -650,10 +823,11 @@ class DatabaseBridge: ObservableObject {
     
     /// Получить API key провайдера из Keychain
     func getProviderAPIKey(providerId: String) -> String? {
+        guard keychain.hasAPIKey(for: providerId) else { return nil }
         do {
             return try keychain.getAPIKey(for: providerId)
         } catch {
-            print("⚠️ No API key for provider \(providerId): \(error)")
+            print("⚠️ Failed to read API key for provider \(providerId): \(error)")
             return nil
         }
     }

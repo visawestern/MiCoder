@@ -239,4 +239,38 @@ struct DatabaseBridgeProjectRoutingTests {
         #expect(parts.last?.toolName == "run_command")
         #expect(parts.last?.toolCallId == "call-\(unique)")
     }
+
+    @Test("registerSessionProject binds a session to its project store")
+    func registeringSessionProjectBindsStore() throws {
+        let projectPath = try makeTempProjectDir("registered")
+        defer { try? FileManager.default.removeItem(atPath: projectPath) }
+        ProjectDatabaseManager.evictProject(projectPath: projectPath)
+
+        let sessionID = "reg-\(UUID().uuidString)"
+        let projectDB = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
+        try projectDB.insertSession(
+            id: sessionID,
+            title: "Late chat",
+            directory: projectPath,
+            branch: nil,
+            agentMode: "build",
+            modelId: nil,
+            providerId: nil
+        )
+        for index in 0..<10 {
+            try projectDB.insertMessage(
+                id: "\(sessionID)-m\(index)",
+                sessionId: sessionID,
+                role: "user",
+                content: "message \(index)"
+            )
+        }
+
+        DatabaseBridge.shared.registerSessionProject(sessionID: sessionID, projectPath: projectPath)
+
+        let tail = DatabaseBridge.shared.loadMessageTail(sessionId: sessionID, take: 4)
+        #expect(tail.map(\.content) == (6...9).map { "message \($0)" },
+                "the newest 4 messages load, oldest-first")
+        #expect(DatabaseBridge.shared.messageCount(sessionId: sessionID) == 10)
+    }
 }

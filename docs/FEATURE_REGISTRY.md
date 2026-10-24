@@ -1,7 +1,7 @@
 # myCoder — Canonical Feature Registry
 
-Generated: 2026-07-23 · Updated: 2026-10-23 (F69 direct Ollama tool loop — 2705 tests, 415 suites)
-Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests, 413 suites)
+Generated: 2026-07-23 · Updated: 2026-10-23 (F69 direct tool loop + queued inline approvals; plan extended with F71–F75 — 2717 tests, 418 suites)
+Source: Full codebase analysis; 2717 executed tests, 418 suites
 
 ---
 
@@ -873,8 +873,93 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests,
 - Final text and usage persist on the assistant message; transport errors surface as an explicit local-model error
 - Access level is enforced by the executor: Full access runs commands, Ask returns an approval-required message
 **Status:** ✅ Implemented
-**Tests:** WebProviderTests (tool protocol parser/preamble, 10+); live E2E: `gemma4:31b-cloud` via `ollama-local` created `ollama-direct-ok.txt` with `write_file` and read it back; S7 N4 ran `swift test` directly and reported 6 passing tests
-**Gaps:** The direct route has no Allow/Deny approval card yet; at Ask level it returns an approval-required message instead of prompting. Full access is required for tool execution.
+**Tests:** WebProviderTests (tool protocol parser/preamble, 10+); WebToolApprovalDetailsTests (7); ToolApprovalCenterTests (5); full suite 2717 GREEN (418 suites); live E2E: `gemma4:31b-cloud` via `ollama-local` created `ollama-direct-ok.txt` with `write_file` and read it back; S7 N4 ran `swift test` directly and reported 6 passing tests
+**Gaps:** Pending approvals are process-memory by design: the suspended turn cannot survive an app restart. Notifications are in-app with a sound; no macOS Notification Center delivery yet.
+
+---
+
+## F70: Image Response Collage + Searchable Metadata
+**User Story:** As a user, when a model answer contains one or more images, I want to see them as a compact collage and later find them by their content, instead of scrolling a raw list of links.
+**Expected Behavior:**
+- Detect every image in a model response (markdown images, direct URLs, attachments/base64) without dropping or rewriting the text around it
+- Render one primary image with a thumbnail strip beneath it; clicking/tapping a thumbnail switches the primary image
+- Keep the collage responsive, keyboard-accessible and honest on load failure (broken-image state, no fake placeholder)
+- Persist each image with its message and metadata: title, description, type/format, dimensions, source URL, model/provider and timestamps
+- Make that metadata searchable locally and restore the collage after session reload
+- Optionally caption/tag images with a local vision model when metadata is missing; a failed caption run leaves the image usable and records the failure
+**Status:** ❌ Not Implemented (planned)
+**Tests:** None yet
+**Gaps:** Needs an image storage schema/cache, URL downloader with limits, collage UI, metadata search, and a local vision-model adapter.
+
+---
+
+## F71: Sidebar Tree — Stable Ordering, Pinning, Project-less Chats
+**User Story:** As a user, I want the sidebar to be one deterministic tree where every chat has exactly one parent, project-less chats sit as their own rows with a distinct icon, and opening a chat does not reshuffle the list.
+**Expected Behavior:**
+- A single tree builder classifies every session once: standalone chats → project-less top-level rows (chat icon), project sessions → that project's children; no session appears twice or jumps between sections
+- Project children load from that project's own database, not from the currently loaded project only
+- Opening a chat must not bump its `updated_at` — only real activity (new/edited messages) moves a chat to the top
+- Projects can be pinned with a pin affordance and pinned projects always sort first
+- The Group/Project toggle and the duplicated sidebar-collapse button are removed; the remaining toolbar controls move up into the freed space
+- Explicit "show all" instead of silently truncating children to twelve
+**Status:** ❌ Not Implemented (planned)
+**Tests:** None yet
+**Gaps:** Needs `SidebarTreeBuilder`, a pinned-projects store, an `unarchiveSession` fix that stops touching `updated_at` for non-archived rows, and removal of `SidebarGroupingMode`/`SidebarGroupingPill`.
+
+---
+
+## F72: Chat Scroll Position & Auto-scroll Gate
+**User Story:** As a user reading chat history, I want the view to stay where I left it — auto-scrolling only when the chat is exactly at the bottom, and my position restored when I come back to a chat.
+**Expected Behavior:**
+- Bottom detection uses the real scroll offset (`bottomGap`), not "is the 1pt sentinel visible"
+- Auto-scroll runs only when `bottomGap <= 0.5pt`; scrolling up by even 1pt disables it immediately
+- The gate is re-checked inside the deferred scroll closure (no scroll-through race)
+- Each chat remembers its last scroll position; switching to a chat restores it, or scrolls to the end when no position was stored
+- Scroll-to-bottom button and history pruning follow the same bottom state
+**Status:** ❌ Not Implemented (planned)
+**Tests:** None yet
+**Gaps:** Needs `NSScrollView` introspection, an offset-based `ChatScrollLogic` predicate and a per-session scroll-position store.
+
+---
+
+## F73: Status Panel (replaces the mislabelled "Goal" panel)
+**User Story:** As a user, I want the right panel to be a status overview — git, plan, running processes and terminals — that never opens by itself.
+**Expected Behavior:**
+- The panel opens only from its own button; switching chats, `todowrite`, `step-start` and step syncing never open it
+- The tab is labelled "Status" instead of "Goal" (the panel never contained a goal)
+- Sections: git status/branch/commit, plan & running steps, running processes, terminals
+- The terminal's running-command state moves out of the view into shared app state so the status is visible without opening the bottom panel
+- API action renamed to `app.status.toggle` (old `app.goal.toggle` kept as an alias)
+**Status:** ❌ Not Implemented (planned)
+**Tests:** None yet
+**Gaps:** Needs the `showGoal` → `showStatusPanel` rename, removal of `SessionContextLoader.shouldOpenRightPanel`, new localization key and shared running-command state.
+
+---
+
+## F74: Reasoning & Tool-call Spoiler Adjacency
+**User Story:** As a user, I want reasoning and tool calls grouped only when nothing sits between them, so the order of decisions stays visible.
+**Expected Behavior:**
+- Every assistant turn keeps one ordered timeline (`Message.parts` is the source of truth) in all paths: direct local, Auto Free, web driver, remote Serve
+- Consecutive reasoning runs merge into one spoiler; text, a tool call or an image between them splits them into separate spoilers
+- Consecutive tool calls merge into one spoiler (already the case) and keep their arrival order
+- The answer bubble no longer renders before earlier tool spoilers
+- Turn-level reasoning consolidation that reorders content is removed
+**Status:** ❌ Not Implemented (planned)
+**Tests:** None yet
+**Gaps:** Needs a `.reasoning` segment case, reasoning parts appended in every path, and removal of the turn-based consolidation/hoisting.
+
+---
+
+## F75: Tool Inspector — Resizable List, Wrapped Output, Terminal Colors
+**User Story:** As a user inspecting tool calls, I want to resize the command list, read long arguments and results with wrapping and a font size I choose, and see terminal colors.
+**Expected Behavior:**
+- The step list column is resizable by dragging its divider (clamped, persisted)
+- Arguments and results wrap by line instead of scrolling horizontally, with an optional wrap toggle
+- Font size for arguments/results is adjustable (buttons and ⌘±) and persisted
+- ANSI SGR sequences in command output are rendered with terminal colors and bold/reset handling
+**Status:** ❌ Not Implemented (planned)
+**Tests:** None yet
+**Gaps:** Needs `ToolInspectorLayoutLogic`, an `AnsiSGRParser` and a terminal-styled text view; no ANSI helper exists in the codebase today.
 
 ---
 
@@ -884,16 +969,26 @@ Source: Full codebase analysis (74 source files, 21.5K LOC, 2683 executed tests,
 |--------|-------|
 | ✅ Fully Implemented | 67 |
 | ⚠️ Partially Implemented | 2 |
-| ❌ Not Implemented | 0 |
-| **Total Features** | **69** |
+| ❌ Not Implemented | 6 |
+| **Total Features** | **75** |
 
 ---
 
 ## Priority Improvement Candidates
 
-67 fully implemented, 2 partially implemented. Remaining polish items are low-priority UI/UX enhancements:
+67 fully implemented, 2 partially implemented, 6 planned. Remaining polish items:
 - ACP streaming support (non-streaming sendChatCompletion integrated)
 - Localization of settings views (~75 strings in 8 tabs)
 - UndoRedoManager redo support (Cmd+Shift+Z)
 - Remote delete/tombstone for server-backed chats
 - Live compaction verification once a working provider is configured
+- F70 image-response collage, searchable image metadata and optional local vision captions
+- F71 sidebar tree, stable ordering and pinned projects
+- F72 chat scroll position memory and strict auto-scroll gate
+- F73 status panel replacing the mislabelled "Goal" panel
+- F74 reasoning/tool-call spoiler adjacency with a preserved decision order
+- F75 resizable tool list, wrapped output and ANSI terminal colors
+- F76 chat navigator up/down buttons and current-message highlight (done 2026-10-24)
+- F77 LaTeX math markdown rendering for gemma-style $..$/$$..$$ output (done 2026-10-24)
+- F78 fix the missing tail chunk of the last dialog on open (done 2026-10-24: durable session→project route, discovery across registered projects, recovery of a tail stranded in the global store)
+- F79 sliding chat window: unload oldest rows as new messages arrive, reload upward on scroll

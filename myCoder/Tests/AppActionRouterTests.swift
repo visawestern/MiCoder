@@ -14,7 +14,7 @@ struct AppActionRouterTests {
             "app.state", "project.create", "project.open", "project.select",
             "wizard.state", "wizard.save", "wizard.answer", "wizard.spec.generate",
             "wizard.decompose", "wizard.node.status", "wizard.node.start", "session.rename", "session.delete",
-            "chat.send", "chat.stop", "provider.select", "model.select", "ui.tree", "ui.click"
+            "chat.send", "chat.stop", "toolApproval.resolve", "provider.select", "model.select", "ui.tree", "ui.click"
         ]
         for name in required {
             #expect(names.contains(name), "missing action \(name)")

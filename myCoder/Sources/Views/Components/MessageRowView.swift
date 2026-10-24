@@ -3,6 +3,7 @@ import SwiftUI
 private enum MessageContentSegment: Identifiable {
     case part(MessagePartContent)
     case toolCalls([ToolCallInspectorStep])
+    case approval(PendingToolApproval)
 
     var id: String {
         switch self {
@@ -10,12 +11,18 @@ private enum MessageContentSegment: Identifiable {
             return "part-\(part.id)"
         case .toolCalls(let calls):
             return "tools-\(calls.first?.id ?? "empty")"
+        case .approval(let approval):
+            return "approval-\(approval.id)"
         }
     }
 
-    static func build(from parts: [MessagePartContent]) -> [MessageContentSegment] {
+    static func build(
+        from parts: [MessagePartContent],
+        approvals: [PendingToolApproval] = []
+    ) -> [MessageContentSegment] {
         var segments: [MessageContentSegment] = []
         var calls: [ToolCallInspectorStep] = []
+        var remainingApprovals = approvals
 
         func flushCalls() {
             guard !calls.isEmpty else { return }
@@ -28,21 +35,32 @@ private enum MessageContentSegment: Identifiable {
                 // Route chips render in the header, not in the content flow.
                 continue
             }
-            if case .toolCall(let name, let args, let result, _) = part {
-                calls.append(
-                    ToolCallInspectorStep(
-                        id: part.id,
-                        name: name,
-                        args: args,
-                        result: result
-                    )
+            if case .toolCall(let name, let args, let result, let callID) = part {
+                let step = ToolCallInspectorStep(
+                    id: part.id,
+                    name: name,
+                    args: args,
+                    result: result
                 )
+                if let callID,
+                   let approvalIndex = remainingApprovals.firstIndex(where: { $0.callID == callID }) {
+                    // Keep the card directly after its own call instead of
+                    // after the whole grouped tool spoiler.
+                    flushCalls()
+                    segments.append(.toolCalls([step]))
+                    segments.append(.approval(remainingApprovals.remove(at: approvalIndex)))
+                } else {
+                    calls.append(step)
+                }
             } else {
                 flushCalls()
                 segments.append(.part(part))
             }
         }
         flushCalls()
+        for approval in remainingApprovals {
+            segments.append(.approval(approval))
+        }
         return segments
     }
 }
@@ -172,7 +190,12 @@ struct MessageRow: View {
         // Raw mode: one contiguous selectable bubble — formatted bubbles are
         // heterogeneous views, so whole-answer selection only works here.
         if showRawText, !messageText.isEmpty {
-            rawTextBubble
+            VStack(alignment: .leading, spacing: 8) {
+                rawTextBubble
+                ForEach(message.pendingApprovals) { approval in
+                    approvalCard(approval)
+                }
+            }
         } else {
             formattedContent
         }
@@ -205,6 +228,8 @@ struct MessageRow: View {
                         isMessageStreaming: message.isStreaming
                     )
                 }
+            case .approval(let approval):
+                approvalCard(approval)
             }
         }
 
@@ -232,6 +257,15 @@ struct MessageRow: View {
                 .padding(.horizontal, 4)
             }
         }
+    }
+
+    private func approvalCard(_ approval: PendingToolApproval) -> some View {
+        WebToolApprovalCardView(
+            approvalID: approval.id,
+            tool: approval.tool,
+            message: approval.message,
+            notificationName: .localToolApprovalResolved
+        )
     }
 
     /// Raw unformatted answer: single selectable Text so the whole reply can
@@ -365,7 +399,8 @@ struct MessageRow: View {
 
     private var contentSegments: [MessageContentSegment] {
         MessageContentSegment.build(
-            from: MessageDisplayLogic.chatDisplayParts(message.parts)
+            from: MessageDisplayLogic.chatDisplayParts(message.parts),
+            approvals: message.pendingApprovals
         )
     }
 
@@ -390,9 +425,10 @@ struct MessageRow: View {
 
     @ViewBuilder
     private func markdownBubble(_ text: String) -> some View {
-        MarkdownText(text: text)
-            .interfaceFont(size: 14)
-            .foregroundColor(Color.mimo.textPrimary)
+        // One selectable surface for the whole message: the per-block SwiftUI
+        // renderer made each line its own selection island, so a drag could
+        // never span a heading, a bullet and the next paragraph.
+        SelectableMarkdownTextView(text: text, fontSize: 14, textColor: Color.mimo.textPrimary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(
@@ -834,6 +870,7 @@ struct WebToolApprovalCardView: View {
     let approvalID: String
     let tool: String
     let message: String
+    var notificationName: Notification.Name = .webToolApprovalResolved
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -849,6 +886,8 @@ struct WebToolApprovalCardView: View {
             Text(message)
                 .interfaceFont(size: 12)
                 .foregroundColor(Color.mimo.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
             HStack(spacing: 10) {
                 Button {
                     resolve(approved: true)
@@ -866,6 +905,7 @@ struct WebToolApprovalCardView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("toolApproval.allow")
                 Button {
                     resolve(approved: false)
                 } label: {
@@ -886,6 +926,7 @@ struct WebToolApprovalCardView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("toolApproval.deny")
                 Spacer()
             }
         }
@@ -899,14 +940,22 @@ struct WebToolApprovalCardView: View {
     }
 
     private func resolve(approved: Bool) {
-        NotificationCenter.default.post(
-            name: .webToolApprovalResolved,
-            object: nil,
-            userInfo: [
-                "approvalID": approvalID,
-                "tool": tool,
-                "approved": approved
-            ]
-        )
+        // Resolve on the next run-loop turn: the Combine receiver resumes
+        // the waiting turn and mutates MessageStore. Doing that inline from
+        // the button action can re-enter SwiftUI's update and spin.
+        let name = notificationName
+        let id = approvalID
+        let toolName = tool
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(
+                name: name,
+                object: nil,
+                userInfo: [
+                    "approvalID": id,
+                    "tool": toolName,
+                    "approved": approved
+                ]
+            )
+        }
     }
 }

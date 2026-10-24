@@ -70,4 +70,59 @@ struct UserMessageNavigatorLogicTests {
         #expect(UserMessageNavigatorLogic.buttonTitle(index: 0) == "1")
         #expect(UserMessageNavigatorLogic.buttonTitle(index: 11) == "12")
     }
+
+    @Test("Stepping moves toward the middle of the list")
+    func stepping() {
+        #expect(UserMessageNavigatorLogic.steppedIndex(from: 0, direction: .down, messageCount: 3) == 1)
+        #expect(UserMessageNavigatorLogic.steppedIndex(from: 2, direction: .up, messageCount: 3) == 1)
+    }
+
+    @Test("Stepping returns nil at the edges or on an empty list")
+    func steppingEdges() {
+        #expect(UserMessageNavigatorLogic.steppedIndex(from: 0, direction: .up, messageCount: 3) == nil)
+        #expect(UserMessageNavigatorLogic.steppedIndex(from: 2, direction: .down, messageCount: 3) == nil)
+        #expect(UserMessageNavigatorLogic.steppedIndex(from: 0, direction: .down, messageCount: 0) == nil)
+    }
+
+    @Test("Current message is the one covering the viewport middle line")
+    func resolvesCurrentInsideBand() {
+        let a = Message(role: .user, content: "a")
+        let b = Message(role: .user, content: "b")
+        let frames = [a.id: CGRect(x: 0, y: 0, width: 100, height: 50),
+                      b.id: CGRect(x: 0, y: 50, width: 100, height: 50)]
+
+        let current = UserMessageNavigatorLogic.currentUserMessageID(
+            visibleRect: CGRect(x: 0, y: 20, width: 100, height: 60),
+            frames: frames,
+            messages: [a, b]
+        )
+
+        #expect(current == b.id)
+    }
+
+    @Test("Current message falls back to the last message above the viewport")
+    func resolvesCurrentAbove() {
+        let a = Message(role: .user, content: "a")
+        let frames = [a.id: CGRect(x: 0, y: 0, width: 100, height: 50)]
+
+        let current = UserMessageNavigatorLogic.currentUserMessageID(
+            visibleRect: CGRect(x: 0, y: 100, width: 100, height: 200),
+            frames: frames,
+            messages: [a]
+        )
+
+        #expect(current == a.id)
+    }
+
+    @Test("Current resolution needs frames and a viewport")
+    func resolutionGuards() {
+        let a = Message(role: .user, content: "a")
+        let frames = [a.id: CGRect(x: 0, y: 0, width: 100, height: 50)]
+
+        #expect(UserMessageNavigatorLogic.currentUserMessageID(
+            visibleRect: .zero, frames: frames, messages: [a]) == nil)
+        #expect(UserMessageNavigatorLogic.currentUserMessageID(
+            visibleRect: CGRect(x: 0, y: 0, width: 100, height: 50),
+            frames: [:], messages: [a]) == nil)
+    }
 }

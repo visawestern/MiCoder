@@ -72,10 +72,12 @@ extension AppState {
         // early-merge above — whichever path runs, chats stay visible.
         guard projectId != ChatSession.standaloneProjectKey else {
             self.sessions = db.loadStandaloneSessions()
+            self.updateSidebarProjectlessSessions(self.sessions)
             return
         }
         guard let targetWorkspace = workspaces.first(where: { $0.id == projectId || $0.path == projectId }) else {
             self.sessions = db.loadStandaloneSessions()
+            self.updateSidebarProjectlessSessions(self.sessions)
             return
         }
         let projectPath = targetWorkspace.path
@@ -102,6 +104,11 @@ extension AppState {
             !loadedSessions.contains(where: { loaded in loaded.id == stored.id })
         }
         self.sessions = loadedSessions + standalone
+        // Keep the sidebar tree cache in sync: the selected project's chats
+        // are already loaded, and the project-less chats live in the global
+        // store (F71).
+        self.updateSidebarSessions(projectID: targetWorkspace.id, sessions: loadedSessions)
+        self.updateSidebarProjectlessSessions(standalone)
 
         // Convert sessions to workspace tasks
         if let index = workspaces.firstIndex(where: { $0.id == targetWorkspace.id }) {

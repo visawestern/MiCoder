@@ -4,6 +4,7 @@ extension Notification.Name {
     static let miCoderAutoFreeModelSwitched = Notification.Name("MiCoderAutoFreeModelSwitched")
     static let apiSendRequested = Notification.Name("apiSendRequested")
     static let webToolApprovalResolved = Notification.Name("webToolApprovalResolved")
+    static let localToolApprovalResolved = Notification.Name("localToolApprovalResolved")
 }
 
 // MARK: - Notification Model

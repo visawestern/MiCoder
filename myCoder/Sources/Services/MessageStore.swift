@@ -66,6 +66,15 @@ class MessageStore: ObservableObject {
         }
     }
     
+    /// Reattaches in-memory approval cards after a session switch. Pending
+    /// approvals live in `ToolApprovalCenter`, not the database, so a history
+    /// reload must merge them back into the matching assistant message.
+    func setPendingApprovals(_ approvalsByAssistant: [String: [PendingToolApproval]]) {
+        for index in messages.indices {
+            messages[index].pendingApprovals = approvalsByAssistant[messages[index].id] ?? []
+        }
+    }
+
     func setFinished(id: String) {
         update(id: id) { msg in
             msg.isFinished = true
@@ -88,6 +97,11 @@ class MessageStore: ObservableObject {
     @MainActor
     func loadFromDatabase(sessionId: String, limit: Int? = nil) {
         self.currentSessionID = sessionId
+        // Heal conversations whose newest part was written to the global store
+        // while the session's project route was unknown — those rows are moved
+        // into the project database before the tail is read, so the tail
+        // includes them.
+        dbBridge.recoverGlobalMessages(sessionId: sessionId)
         let loadedMessages = dbBridge.loadMessageTail(sessionId: sessionId, take: limit)
 
         if !loadedMessages.isEmpty {

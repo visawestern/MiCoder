@@ -129,6 +129,10 @@ final class AppActionRouter {
             param("modelId", "string", false, nil)
         ]),
         action("chat.stop", "Stop the current generation", []),
+        action("toolApproval.resolve", "Allow or deny a pending local tool approval", [
+            param("id", "string", true, "Approval id from the app log"),
+            param("approved", "bool", true, "true = Allow once, false = Deny")
+        ]),
 
         action("provider.list", "List configured providers and models", []),
         action("provider.select", "Select a provider", [param("id", "string", true, nil)]),
@@ -366,7 +370,10 @@ final class AppActionRouter {
         case "session.new":
             let title = (params["title"] as? String) ?? "New chat"
             let session = appState.createStandaloneSession(title: title)
-            appState.selectedSession = session
+            // Select through the app so the chat panel reloads the message
+            // store; assigning `selectedSession` directly left the previous
+            // chat on screen.
+            appState.selectSession(session)
             return sessionRow(session)
         case "session.rename":
             let id = try requireString("id", params)
@@ -450,6 +457,15 @@ final class AppActionRouter {
             await appState.checkoutGitBranch(branch)
             return ["branch": branch, "message": appState.gitStatusMessage ?? ""]
 
+        case "toolApproval.resolve":
+            let approvalID = try requireString("id", params)
+            let approved = try requireBool("approved", params)
+            NotificationCenter.default.post(
+                name: .localToolApprovalResolved,
+                object: nil,
+                userInfo: ["approvalID": approvalID, "approved": approved]
+            )
+            return ["status": "resolved", "approvalID": approvalID, "approved": approved]
         case "ui.tree":
             let depth = int(params["depth"]) ?? 8
             let limit = int(params["limit"]) ?? 1200

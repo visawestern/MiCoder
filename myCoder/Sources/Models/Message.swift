@@ -85,6 +85,33 @@ enum PlusMenuItem: String, CaseIterable {
     }
 }
 
+/// One tool call waiting for the user's verdict. Unlike the legacy single
+/// web-agent approval fields on `Message`, this list keeps every call in a
+/// multi-call response visible and independently resolvable. `callID` links
+/// the card to the exact tool-call part so the card can be rendered directly
+/// after that call in the chat.
+struct PendingToolApproval: Identifiable, Equatable {
+    let id: String
+    let callID: String
+    let tool: String
+    let message: String
+    let createdAt: Date
+
+    init(
+        id: String = UUID().uuidString,
+        callID: String,
+        tool: String,
+        message: String,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.callID = callID
+        self.tool = tool
+        self.message = message
+        self.createdAt = createdAt
+    }
+}
+
 struct Message: Identifiable {
     let id: String
     var serverID: String?  // Server-assigned ID for DB reconciliation
@@ -111,6 +138,9 @@ struct Message: Identifiable {
     var pendingApprovalID: String?
     var pendingApprovalTool: String?
     var pendingApprovalMessage: String?
+    /// Queued inline approvals for direct local-model tool loops. Multiple
+    /// calls can wait at once, across multiple chats.
+    var pendingApprovals: [PendingToolApproval]
 
     /// Elapsed reasoning time. While reasoning is in progress (no end
     /// timestamp yet) this measures from start to now so a live UI can show
@@ -122,7 +152,7 @@ struct Message: Identifiable {
         return end.timeIntervalSince(startedAt)
     }
 
-    init(id: String = UUID().uuidString, serverID: String? = nil, role: MessageRole, content: String, agentName: String? = nil, toolCalls: [ToolCall]? = nil, isStreaming: Bool = false, action: MessageAction? = nil, files: [FileInfo]? = nil, command: String? = nil, tokensAdded: Int? = nil, tokensRemoved: Int? = nil, parts: [MessagePartContent] = [], reasoning: String = "", isFinished: Bool = false, reasoningStartedAt: Date? = nil, reasoningEndedAt: Date? = nil, attachedImages: [ClipboardImage]? = nil, usage: UsageCapture? = nil, pendingApprovalID: String? = nil, pendingApprovalTool: String? = nil, pendingApprovalMessage: String? = nil) {
+    init(id: String = UUID().uuidString, serverID: String? = nil, role: MessageRole, content: String, agentName: String? = nil, toolCalls: [ToolCall]? = nil, isStreaming: Bool = false, action: MessageAction? = nil, files: [FileInfo]? = nil, command: String? = nil, tokensAdded: Int? = nil, tokensRemoved: Int? = nil, parts: [MessagePartContent] = [], reasoning: String = "", isFinished: Bool = false, reasoningStartedAt: Date? = nil, reasoningEndedAt: Date? = nil, attachedImages: [ClipboardImage]? = nil, usage: UsageCapture? = nil, pendingApprovalID: String? = nil, pendingApprovalTool: String? = nil, pendingApprovalMessage: String? = nil, pendingApprovals: [PendingToolApproval] = []) {
         self.id = id
         self.serverID = serverID
         self.role = role
@@ -146,6 +176,7 @@ struct Message: Identifiable {
         self.pendingApprovalID = pendingApprovalID
         self.pendingApprovalTool = pendingApprovalTool
         self.pendingApprovalMessage = pendingApprovalMessage
+        self.pendingApprovals = pendingApprovals
     }
 }
 

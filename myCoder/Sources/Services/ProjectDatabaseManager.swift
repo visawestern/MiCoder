@@ -268,6 +268,24 @@ final class ProjectDatabaseManager {
         return String(digest.map { String(format: "%02x", $0) }.joined().prefix(16))
     }
 
+    /// True when a per-project database file already exists for `projectPath`.
+    /// Discovery uses it to avoid opening (and thereby creating) databases for
+    /// registered projects the user never actually used.
+    static func hasExistingDatabase(
+        projectPath: String,
+        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
+    ) -> Bool {
+        let normalized = ChatSession.normalizedPath(projectPath)
+        let inProject = MyCoderPaths.projectDataDir(projectPath: normalized)
+            .appendingPathComponent("project.db")
+        if FileManager.default.fileExists(atPath: inProject.path) { return true }
+        let fallback = MyCoderPaths.appDir(homeDirectory: homeDirectory)
+            .appendingPathComponent("projects", isDirectory: true)
+            .appendingPathComponent(stableHash(normalized), isDirectory: true)
+            .appendingPathComponent("project.db")
+        return FileManager.default.fileExists(atPath: fallback.path)
+    }
+
     /// `open(projectPath:)` with an injectable home directory. The home
     /// parameter keeps E13's read-only fallback testable without touching the
     /// real user home: a project on a read-only/system-protected path must
@@ -832,10 +850,17 @@ final class ProjectDatabaseManager {
         return try SQLiteSafeQuery.rows(db.prepareRowIterator(query)).map(rowToSessionRecord)
     }
 
+    /// True when this project store owns the given session id. Used to
+    /// discover the owning project of a session whose in-memory route was
+    /// lost (app restart) and no durable route row exists yet.
+    func hasSession(id: String) throws -> Bool {
+        touch()
+        return try db.scalar(sessions.filter(sessionId == id).count) > 0
+    }
+
     /// Persists the /goal value inside this project's database.
     /// nil clears the goal without touching unrelated session metadata.
-    func setSessionGoal(id: String, goal: String?) throws {
-        touch()
+    func setSessionGoal(id: String, goal: String?) throws {        touch()
         let row = sessions.filter(sessionId == id)
         try db.run(row.update(sessionGoal <- goal))
     }
@@ -893,8 +918,17 @@ final class ProjectDatabaseManager {
 
     func unarchiveSession(id: String) throws {
         touch()
-        let row = sessions.filter(sessionId == id)
-        try db.run(row.update(sessionIsArchived <- false, sessionUpdatedAt <- Int64(Date().timeIntervalSince1970)))
+        // Only an actually archived session changes state; otherwise every
+        // chat click would bump `updated_at` and reorder the sidebar.
+        //
+        // The condition lives in the UPDATE itself: a separate read would
+        // crash on a missing row or a NULL `is_archived` (SQLite.swift force
+        // unwraps the scalar binding) and would race with a concurrent write.
+        try db.run(
+            "UPDATE sessions SET is_archived = 0, updated_at = ? WHERE id = ? AND is_archived IS NOT 0",
+            Int64(Date().timeIntervalSince1970),
+            id
+        )
     }
 
     /// Archives active sessions older than the supplied age in this project DB.
@@ -948,10 +982,11 @@ final class ProjectDatabaseManager {
         providerId: String? = nil,
         reasoning: String? = nil,
         isFinished: Bool = true,
-        usage: UsageCapture? = nil
+        usage: UsageCapture? = nil,
+        createdAt: Date? = nil
     ) throws {
         touch()
-        let now = Int64(Date().timeIntervalSince1970)
+        let now = Int64(createdAt?.timeIntervalSince1970 ?? Date().timeIntervalSince1970)
         try db.run(messages.insert(
             or: .replace,
             messageId <- id,
