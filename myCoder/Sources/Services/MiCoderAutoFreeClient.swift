@@ -46,10 +46,16 @@ final class MiCoderAutoFreeClient {
 
     private let session: URLSession
     private let baseURL: URL
+    private let sessionDefaults: UserDefaults
 
-    init(session: URLSession = .shared, baseURL: URL = MiCoderAutoFreeClient.providerBaseURL) {
+    init(
+        session: URLSession = .shared,
+        baseURL: URL = MiCoderAutoFreeClient.providerBaseURL,
+        sessionDefaults: UserDefaults = .standard
+    ) {
         self.session = session
         self.baseURL = baseURL
+        self.sessionDefaults = sessionDefaults
     }
 
     struct ModelProfile: Identifiable, Hashable {
@@ -575,15 +581,6 @@ final class MiCoderAutoFreeClient {
                         throw MiCoderAutoFreeError.modelUnavailable(effectiveModel, "Model is not in the OpenCode temporary free catalog")
                     }
 
-                    var request = URLRequest(url: baseURL.appendingPathComponent("chat/completions"))
-                    request.httpMethod = "POST"
-                    request.timeoutInterval = 180
-                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                    request.setValue("*/*", forHTTPHeaderField: "Accept")
-                    let requestContext = context.requestID == nil
-                        ? context.withRequestID(OpenCodeRequestContext.requestID())
-                        : context
-                    requestContext.applying(to: &request)
                     let completionBody = CompletionRequest(
                         model: effectiveModel,
                         messages: MiCoderAutoFreeClient.messagesWithEnvironment(
@@ -595,52 +592,108 @@ final class MiCoderAutoFreeClient {
                         tools: tools,
                         toolChoice: toolChoice
                     )
-                    request.httpBody = try JSONEncoder().encode(completionBody)
-
-                    let (bytes, response) = try await session.bytes(for: request)
-                    let errorBody: Data
-                    if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-                        errorBody = try await Self.readErrorBody(bytes)
-                    } else {
-                        errorBody = Data()
-                    }
-                    try validate(response, data: errorBody, operation: "Free model streaming")
-                    var emitted = false
-                    var nativeToolCalls = NativeToolCallAccumulator()
-                    for try await line in bytes.lines {
-                        guard line.hasPrefix("data: ") else { continue }
-                        let json = String(line.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
-                        if json == "[DONE]" { break }
-                        // Error envelopes can arrive inside a successful SSE response.
-                        if let error = MiCoderAutoFreeError.streamError(in: json) {
-                            throw error
-                        }
-                        guard let data = json.data(using: .utf8) else { continue }
-                        if let chunk = try? JSONDecoder().decode(StreamChunk.self, from: data) {
-                            if let content = chunk.choices.first?.delta.content, !content.isEmpty {
-                                emitted = true
-                                continuation.yield(.content(content))
-                            }
-                            if let reasoning = chunk.choices.first?.delta.reasoningContent, !reasoning.isEmpty {
-                                emitted = true
-                                continuation.yield(.reasoning(reasoning))
-                            }
-                            for delta in chunk.choices.first?.delta.toolCalls ?? [] {
-                                nativeToolCalls.append(delta)
-                            }
-                        }
-                    }
-                    for call in nativeToolCalls.completedCalls {
-                        emitted = true
-                        continuation.yield(.toolCall(id: call.id, name: call.name, arguments: call.arguments))
-                    }
-                    guard emitted else { throw MiCoderAutoFreeError.emptyResponse }
-                    continuation.finish()
+                    let body = try JSONEncoder().encode(completionBody)
+                    let requestContext = context.requestID == nil
+                        ? context.withRequestID(OpenCodeRequestContext.requestID())
+                        : context
+                    try await self.streamCompletion(
+                        requestContext: requestContext,
+                        body: body,
+                        continuation: continuation
+                    )
                 } catch {
                     continuation.finish(throwing: error)
                 }
             }
         }
+    }
+
+    private func streamCompletion(
+        requestContext: OpenCodeRequestContext,
+        body: Data,
+        continuation: AsyncThrowingStream<StreamEvent, Error>.Continuation
+    ) async throws {
+        var context = requestContext
+        var rotated = false
+        while true {
+            do {
+                try await self.performStream(requestContext: context, body: body, continuation: continuation)
+                return
+            } catch let limit as StreamRateLimit {
+                guard !rotated,
+                      let replacement = OpenCodeSessionIdentifierStore.shared.rotate(
+                        identifier: context.sessionID,
+                        defaults: sessionDefaults
+                      ) else {
+                    throw limit.underlying
+                }
+                rotated = true
+                context = context
+                    .withSessionID(replacement)
+                    .withRequestID(OpenCodeRequestContext.requestID())
+            }
+        }
+    }
+
+    private func performStream(
+        requestContext: OpenCodeRequestContext,
+        body: Data,
+        continuation: AsyncThrowingStream<StreamEvent, Error>.Continuation
+    ) async throws {
+        var request = URLRequest(url: baseURL.appendingPathComponent("chat/completions"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 180
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("*/*", forHTTPHeaderField: "Accept")
+        requestContext.applying(to: &request)
+        request.httpBody = body
+
+        let (bytes, response) = try await session.bytes(for: request)
+        let errorBody: Data
+        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+            errorBody = try await Self.readErrorBody(bytes)
+        } else {
+            errorBody = Data()
+        }
+        do {
+            try validate(response, data: errorBody, operation: "Free model streaming")
+        } catch let error as MiCoderAutoFreeError {
+            if case .rateLimited = error {
+                throw StreamRateLimit(underlying: error)
+            }
+            throw error
+        }
+        var emitted = false
+        var nativeToolCalls = NativeToolCallAccumulator()
+        for try await line in bytes.lines {
+            guard line.hasPrefix("data: ") else { continue }
+            let json = String(line.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
+            if json == "[DONE]" { break }
+            // Error envelopes can arrive inside a successful SSE response.
+            if let error = MiCoderAutoFreeError.streamError(in: json) {
+                throw error
+            }
+            guard let data = json.data(using: .utf8) else { continue }
+            if let chunk = try? JSONDecoder().decode(StreamChunk.self, from: data) {
+                if let content = chunk.choices.first?.delta.content, !content.isEmpty {
+                    emitted = true
+                    continuation.yield(.content(content))
+                }
+                if let reasoning = chunk.choices.first?.delta.reasoningContent, !reasoning.isEmpty {
+                    emitted = true
+                    continuation.yield(.reasoning(reasoning))
+                }
+                for delta in chunk.choices.first?.delta.toolCalls ?? [] {
+                    nativeToolCalls.append(delta)
+                }
+            }
+        }
+        for call in nativeToolCalls.completedCalls {
+            emitted = true
+            continuation.yield(.toolCall(id: call.id, name: call.name, arguments: call.arguments))
+        }
+        guard emitted else { throw MiCoderAutoFreeError.emptyResponse }
+        continuation.finish()
     }
 
     /// The upstream free tier serves a request only when a system message
@@ -752,6 +805,10 @@ final class MiCoderAutoFreeClient {
             throw MiCoderAutoFreeError.mapHttpError(statusCode: http.statusCode, body: body, operation: operation)
         }
     }
+}
+
+private struct StreamRateLimit: Error {
+    let underlying: MiCoderAutoFreeError
 }
 
 private struct ModelListResponse: Decodable {

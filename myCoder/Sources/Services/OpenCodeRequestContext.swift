@@ -142,6 +142,12 @@ struct OpenCodeRequestContext: Equatable {
         copy.requestID = requestID
         return copy
     }
+
+    func withSessionID(_ sessionID: String) -> OpenCodeRequestContext {
+        var copy = self
+        copy.sessionID = sessionID
+        return copy
+    }
 }
 
 /// Persisted mapping from a myCoder chat id to the upstream-shaped session id.
@@ -172,6 +178,22 @@ final class OpenCodeSessionIdentifierStore: @unchecked Sendable {
         if entries.count > Self.capacity {
             entries.removeFirst(entries.count - Self.capacity)
         }
+        save(entries, defaults: defaults)
+        return created
+    }
+
+    /// Replace a session identifier the upstream refused with a fresh one.
+    /// The upstream keeps a rate-limited session id blocked for the rest of
+    /// the UTC day, so the chat would stay broken until the id changes.
+    func rotate(identifier: String, defaults: UserDefaults = .standard) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        var entries = load(defaults)
+        guard let index = entries.firstIndex(where: { $0.identifier == identifier }) else {
+            return nil
+        }
+        let created = OpenCodeRequestContext.identifier(prefix: "ses", descending: true)
+        entries[index].identifier = created
         save(entries, defaults: defaults)
         return created
     }

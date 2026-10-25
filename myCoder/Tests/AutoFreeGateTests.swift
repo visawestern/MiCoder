@@ -152,6 +152,39 @@ struct AutoFreeGateTests {
         #expect(json["tool_choice"] as? String == "none")
     }
 
+    @Test func rateLimitedSessionIsReplacedAndTheTurnIsRetried() async throws {
+        let suiteName = "com.mycoder.tests.auto-free-session-rotation"
+        guard let defaults = UserDefaults(suiteName: suiteName) else { return }
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [AutoFreeRateLimitThenSuccessProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        AutoFreeRateLimitThenSuccessProtocol.reset()
+
+        let sessionID = OpenCodeRequestContext.sessionID(from: "chat-rotation", defaults: defaults)
+        let client = MiCoderAutoFreeClient(session: session, sessionDefaults: defaults)
+        var text = ""
+        for try await event in client.chatCompletion(
+            messages: [.init(role: "user", content: "test")],
+            context: OpenCodeRequestContext(sessionID: sessionID)
+        ) {
+            if case .content(let chunk) = event { text += chunk }
+        }
+        #expect(text == "ok")
+
+        let requests = AutoFreeRateLimitThenSuccessProtocol.captured
+        #expect(requests.count == 2)
+        let first = requests.first?.value(forHTTPHeaderField: "x-opencode-session")
+        let second = requests.last?.value(forHTTPHeaderField: "x-opencode-session")
+        #expect(first == sessionID)
+        #expect(second != nil)
+        #expect(second != first)
+        #expect(OpenCodeRequestContext.sessionID(from: "chat-rotation", defaults: defaults) == second)
+    }
+
     @Test func agentToolSetUsesTheUpstreamToolNames() {
         let names = Set(MiCoderAutoFreeClient.agentToolDefinitions().map(\.function.name))
         #expect(names.contains("read"))
@@ -298,6 +331,57 @@ private final class AutoFreeMissingSessionProtocol: URLProtocol {
         let response = HTTPURLResponse(url: request.url!, statusCode: 400, httpVersion: nil,
                                        headerFields: ["Content-Type": "application/json"])!
         let body = #"{"error":{"type":"MissingSessionID","message":"x-opencode-session-id is required"}}"#
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+}
+
+private final class AutoFreeRateLimitThenSuccessProtocol: URLProtocol {
+    private static let lock = NSLock()
+    private static var requests: [URLRequest] = []
+
+    static func reset() {
+        lock.lock()
+        defer { lock.unlock() }
+        requests.removeAll()
+    }
+
+    static var captured: [URLRequest] {
+        lock.lock()
+        defer { lock.unlock() }
+        return requests
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        Self.lock.lock()
+        Self.requests.append(request)
+        let attempt = Self.requests.count
+        Self.lock.unlock()
+
+        let status: Int
+        let body: String
+        let contentType: String
+        if attempt == 1 {
+            status = 429
+            body = #"{"error":{"type":"FreeUsageLimitError","message":"Free usage limit reached"}}"#
+            contentType = "application/json"
+        } else {
+            status = 200
+            body = "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\ndata: [DONE]\n\n"
+            contentType = "text/event-stream"
+        }
+        let response = HTTPURLResponse(
+            url: request.url!,
+            statusCode: status,
+            httpVersion: nil,
+            headerFields: ["Content-Type": contentType]
+        )!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(body.utf8))
         client?.urlProtocolDidFinishLoading(self)

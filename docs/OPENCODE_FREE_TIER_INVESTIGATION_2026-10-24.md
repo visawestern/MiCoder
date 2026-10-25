@@ -211,6 +211,24 @@ accept: */*
 - 403 `FreeTierError` — ворота client-identity/формы запроса.
 - 429 `FreeUsageLimitError` — либо отсутствует блок `<env>`, либо неприемлема форма/свежесть идентификаторов, либо исчерпана анонимная квота по IP и модели. Docker на этой машине использует тот же egress IP и отвечает тем же 429.
 
+### 5. Транспортный уровень: кому достаётся анонимная квота
+
+Один и тот же запрос (одинаковые URL, метод, набор и значения заголовков, тело побайтово) отправлен разными HTTP-клиентами в пределах одной минуты:
+
+| Клиент | TLS-стек | Результат |
+| --- | --- | --- |
+| `bun` fetch (официальный стек opencode) | BoringSSL | **200**, поток ответа модели |
+| `curl` | OpenSSL | 429 `FreeUsageLimitError`, `retry-after` = секунды до 00:00 UTC |
+| `python urllib` | OpenSSL | 429 `FreeUsageLimitError` |
+| `node fetch` | OpenSSL | 429 `FreeUsageLimitError` |
+| Swift `URLSession` (myCoder) | SecureTransport | 429 `FreeUsageLimitError` |
+
+Проверено, что дело не в заголовках и не в теле: `bun` с любым из вариантов заголовков (нижний регистр, `Connection: keep-alive`, `Accept-Encoding: gzip, deflate, br, zstd`) отвечает 200, `curl` с теми же заголовками — 429; перевод тела в 707 или 708 байт (с завершающим переводом строки) результата не меняет; egress IP у всех клиентов одинаковый (`49.237.66.63`); HTTP/1.1 и HTTP/2 результата не меняют.
+
+Отличается только краевой маршрут Cloudflare: у `bun` `cf-ray` оканчивается на `SEA`, у `curl` — на `DEN`. С подменой User-Agent на браузерный `curl` получает 403 `FreeTierError`: «OpenCode's free tier can only be used from within OpenCode».
+
+Вывод: анонимный free tier отдаётся только клиенту с официальным HTTP/TLS-стеком, остальные попадают в путь с суточной квотой на IP. Для нативного Swift-клиента прямой Zen-вызов закрыт на стороне upstream, поэтому рабочим путём для myCoder остаётся `opencode serve` (официальный клиент на localhost).
+
 ### Что делает myCoder
 
 `MiCoderAutoFreeClient` шлёт официальный контракт (`OpenCodeRequestContext`: `authorization: Bearer public`, `user-agent: opencode/1.19.4 ai-sdk/provider-utils/4.0.23 runtime/bun/1.4.4`, `x-opencode-client: desktop`, `x-opencode-project`, `x-opencode-session`, `x-opencode-session-id`, `x-opencode-request`, `accept: */*`) и всегда `stream: true`.
@@ -219,4 +237,4 @@ accept: */*
 - `OpenCodeRequestContext` генерирует идентификаторы в upstream-формате: `ses_` — инвертированное время, `msg_` — прямое; идентификатор сессии один на чат и сохраняется между запусками (иначе каждая реплика начинала бы новую сессию), идентификатор запроса — свежий на каждый HTTP-запрос.
 - Минимальные запросы (каталог моделей, суммаризация, проба провайдера) несут один инструмент `read` с `tool_choice: none`; агентный цикл — полный набор инструментов с официальными именами (`read`, `write`, `edit`, `bash`, `webfetch`, `todowrite`) и `tool_choice: auto`, а ответы с `tool_calls` исполняются локальным исполнителем инструментов.
 
-Живая проверка 25 октября: прямой Zen-запрос myCoder с корректным `<env>` и upstream-идентификаторами возвращает 429 `FreeUsageLimitError` — ворота (403) пройдены, отказ вызван исчерпанием анонимной квоты на регистрацию новой сессии с этого IP (официальный клиент на том же IP отказывается так же).
+Живая проверка 25 октября: прямой Zen-запрос myCoder с корректным `<env>` и upstream-идентификаторами возвращает 429 `FreeUsageLimitError` — ворота (403) пройдены; отказ вызван тем, что upstream отдаёт анонимную квоту только официальному HTTP/TLS-стеку (раздел 5), а не формой запроса myCoder. Ротация идентификатора сессии после 429 и повтор запроса реализованы в `MiCoderAutoFreeClient` (один ретрай на свежем `ses_`), но на этой машине ретрай не помогает — квота выдаётся по IP и клиентскому стеку.

@@ -9,10 +9,6 @@ import Foundation
 )
 struct LiveAutoFreeModelTests {
 
-    /// Direct Zen request from myCoder's own client. The upstream free tier
-    /// admits requests that carry the official client contract AND a native
-    /// `read` tool, so the request must reach the model itself — a
-    /// free-tier gate rejection is a failure, not an expected verdict.
     @Test("Direct Zen request carries the official contract and reaches the free model")
     func directZenRequestVerdict() async throws {
         let context = OpenCodeRequestContext(
@@ -50,9 +46,6 @@ struct LiveAutoFreeModelTests {
         }
     }
 
-    /// The agent-shaped request: the full native tool set with `tool_choice:
-    /// auto`. This is the shape myCoder's Auto Free chat loop sends, so it
-    /// must clear the upstream free-tier gate as well.
     @Test("Agent request with the native tool set reaches the free model")
     func agentRequestWithNativeTools() async throws {
         let context = OpenCodeRequestContext(
@@ -87,8 +80,7 @@ struct LiveAutoFreeModelTests {
         }
     }
 
-    /// The supported path: myCoder talks to the user's own `opencode serve`,
-    /// which performs the upstream request as the official client.    @Test("big-pickle answers through a local opencode serve")
+    @Test("big-pickle answers through a local opencode serve")
     func bigPickleThroughLocalOpenCode() async throws {
         let password = ProcessInfo.processInfo.environment["MICODER_OPENCODE_PASSWORD"] ?? "micoder-live"
         let authHeader = try #require(LocalProviderConfig.basicAuthHeader(username: "opencode", password: password))
