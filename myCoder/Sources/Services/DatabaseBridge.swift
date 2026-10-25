@@ -256,7 +256,9 @@ class DatabaseBridge: ObservableObject {
                         directory: record.directory,
                         branch: record.branch,
                         gitSummary: nil,
-                        sessionGoal: record.sessionGoal
+                        sessionGoal: record.sessionGoal,
+                        modelID: record.modelId,
+                        providerID: record.providerId
                     )
                 }
             } catch {
@@ -284,7 +286,9 @@ class DatabaseBridge: ObservableObject {
                     directory: ChatSession.standaloneProjectKey,
                     branch: record.branch,
                     gitSummary: nil,
-                    sessionGoal: nil
+                    sessionGoal: nil,
+                    modelID: record.modelId,
+                    providerID: record.providerId
                 )
             }
     }
@@ -384,6 +388,26 @@ class DatabaseBridge: ObservableObject {
             try db.setSessionGoal(sessionId: id, goal: goal)
         } catch {
             print("❌ Failed to persist legacy session goal: \(error)")
+        }
+    }
+
+    /// Persist the model and provider a chat uses in the store that owns it.
+    /// Returns true only when a row actually changed.
+    @discardableResult
+    func setSessionModel(sessionId id: String, modelID: String?, providerID: String?) -> Bool {
+        if let projectDB = resolveProjectDatabase(forSessionID: id) {
+            do {
+                return try projectDB.updateSessionModel(id: id, modelId: modelID, providerId: providerID) > 0
+            } catch {
+                print("❌ Failed to persist project session model: \(error)")
+                return false
+            }
+        }
+        do {
+            return try db.updateSessionModel(sessionId: id, modelId: modelID, providerId: providerID) > 0
+        } catch {
+            print("❌ Failed to persist legacy session model: \(error)")
+            return false
         }
     }
 

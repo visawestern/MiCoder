@@ -36,6 +36,8 @@ struct ProjectSessionRecord {
     let tokensUsed: Int
     let costUsd: Double
     let sessionGoal: String?
+    let modelId: String?
+    let providerId: String?
 }
 
 /// A record describing a single message stored inside a per-project database.
@@ -871,6 +873,18 @@ final class ProjectDatabaseManager {
         try db.run(row.update(sessionUpdatedAt <- Int64(Date().timeIntervalSince1970)))
     }
 
+    /// Persist the model and provider a chat uses, so reopening the chat
+    /// restores the same selection.
+    @discardableResult
+    func updateSessionModel(id: String, modelId: String?, providerId: String?) throws -> Int {
+        touch()
+        let row = sessions.filter(sessionId == id)
+        return try db.run(row.update(
+            sessionModelId <- modelId,
+            sessionProviderId <- providerId
+        ))
+    }
+
     /// Rename a session in this project store (sidebar context menu).
     /// Returns the number of rows updated so callers can detect a stale id
     /// instead of reporting success for a silent no-op.
@@ -967,7 +981,9 @@ final class ProjectDatabaseManager {
             isArchived: row[sessionIsArchived],
             tokensUsed: Int(row[sessionTokensUsed]),
             costUsd: row[sessionCostUsd],
-            sessionGoal: row[sessionGoal]
+            sessionGoal: row[sessionGoal],
+            modelId: row[sessionModelId],
+            providerId: row[sessionProviderId]
         )
     }
 

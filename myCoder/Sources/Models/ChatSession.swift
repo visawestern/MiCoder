@@ -19,7 +19,11 @@ struct ChatSession: Identifiable {
     var gitSummary: MimoSessionSummary?
     /// Current session goal set via /goal, shown in the TopBar (plan Раздел 5 Блок 1 п.8).
     var sessionGoal: String?
-    
+    /// Model the chat used last, restored when the chat is reopened.
+    var modelID: String?
+    /// Provider the chat used last, restored when the chat is reopened.
+    var providerID: String?
+
     init(
         id: String = UUID().uuidString,
         title: String = "New Chat",
@@ -30,7 +34,9 @@ struct ChatSession: Identifiable {
         directory: String = "",
         branch: String? = nil,
         gitSummary: MimoSessionSummary? = nil,
-        sessionGoal: String? = nil
+        sessionGoal: String? = nil,
+        modelID: String? = nil,
+        providerID: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -42,6 +48,8 @@ struct ChatSession: Identifiable {
         self.branch = branch
         self.gitSummary = gitSummary
         self.sessionGoal = sessionGoal
+        self.modelID = modelID
+        self.providerID = providerID
     }
     
     var durationLabel: String {

@@ -772,6 +772,7 @@ class AppState: ObservableObject {
     }
 
     func selectProvider(_ providerID: String, persistPreference: Bool = true) {
+        defer { persistSelectionToSelectedSession() }
         selectedProviderID = providerID
         providerConnectivity[providerID] = false
         Task { await refreshProviderConnectivity(providerID) }
@@ -907,6 +908,7 @@ class AppState: ObservableObject {
     }
 
     func selectModel(_ modelID: String, persistPreference: Bool = true) {
+        defer { persistSelectionToSelectedSession() }
         if modelID.isEmpty {
             selectedModel = ""
             defaults.set("", forKey: "com.mycoder.selectedModel")
@@ -959,6 +961,43 @@ class AppState: ObservableObject {
             providerID: selectedProviderID.isEmpty ? nil : selectedProviderID,
             customProviders: customProviders
         ) ?? ""
+    }
+
+    /// Store the current provider/model on the open chat so reopening it
+    /// restores the same selection.
+    private func persistSelectionToSelectedSession() {
+        guard let sessionID = selectedSession?.id else { return }
+        if let index = sessions.firstIndex(where: { $0.id == sessionID }) {
+            sessions[index].modelID = selectedModel
+            sessions[index].providerID = selectedProviderID
+        }
+        DatabaseBridge.shared.setSessionModel(
+            sessionId: sessionID,
+            modelID: selectedModel,
+            providerID: selectedProviderID
+        )
+    }
+
+    /// Restore the provider/model a chat used last. Chats without their own
+    /// selection fall back to the last selection made outside any chat.
+    private func restoreSelection(for session: ChatSession) {
+        let selection = SessionModelSelectionLogic.resolve(
+            sessionProviderID: session.providerID,
+            sessionModelID: session.modelID,
+            preferredProviderID: defaults.string(forKey: "com.mycoder.preferredProviderID"),
+            preferredModelID: defaults.string(forKey: "com.mycoder.preferredModelID")
+        )
+        guard !selection.providerID.isEmpty else { return }
+        if selection.providerID != selectedProviderID {
+            selectProvider(selection.providerID, persistPreference: false)
+        }
+        guard let modelID = SessionModelSelectionLogic.applyableModel(
+            selection.modelID,
+            availableModels: modelsForSelectedProvider
+        ) else { return }
+        if modelID != selectedModel {
+            selectModel(modelID, persistPreference: false)
+        }
     }
 
     func validateAndReconcileSelections() {
@@ -2302,6 +2341,7 @@ class AppState: ObservableObject {
             selectWorkspace(workspace)
         }
         selectedSession = session
+        restoreSelection(for: session)
         currentSteps = []
         vcsChanges = []
         sessionGitTotals = SessionGitTotals(additions: 0, deletions: 0)
@@ -2703,7 +2743,9 @@ class AppState: ObservableObject {
         let session = ChatSession(
             id: sessionID,
             title: sessionTitle,
-            directory: ChatSession.standaloneProjectKey
+            directory: ChatSession.standaloneProjectKey,
+            modelID: selectedModel.isEmpty ? nil : selectedModel,
+            providerID: selectedProviderID.isEmpty ? nil : selectedProviderID
         )
         if !sessions.contains(where: { $0.id == sessionID }) {
             sessions.insert(session, at: 0)
@@ -2781,7 +2823,9 @@ class AppState: ObservableObject {
             id: sessionID,
             title: sessionTitle,
             directory: workspace.path,
-            branch: workspace.branch
+            branch: workspace.branch,
+            modelID: selectedModel.isEmpty ? nil : selectedModel,
+            providerID: selectedProviderID.isEmpty ? nil : selectedProviderID
         )
         if !sessions.contains(where: { $0.id == sessionID }) {
             sessions.insert(session, at: 0)

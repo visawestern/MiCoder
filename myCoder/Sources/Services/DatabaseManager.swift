@@ -585,6 +585,16 @@ class DatabaseManager {
         try db.run(sessions.filter(sessionId == id).update(sessionGoal <- goal))
     }
 
+    /// Persist the model and provider a standalone chat uses.
+    @discardableResult
+    func updateSessionModel(sessionId id: String, modelId: String?, providerId: String?) throws -> Int {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        return try db.run(sessions.filter(sessionId == id).update(
+            sessionModelId <- modelId,
+            sessionProviderId <- providerId
+        ))
+    }
+
     /// Rename a session in the global (standalone) store.
     /// Rename a session. Returns the number of rows updated so the caller can
     /// detect a stale id instead of reporting success for a silent no-op.
@@ -656,7 +666,9 @@ class DatabaseManager {
                 isArchived: row[sessionIsArchived],
                 tokensUsed: Int(row[sessionTokensUsed]),
                 costUsd: row[sessionCostUsd],
-                draftText: row[sessionDraftText]
+                draftText: row[sessionDraftText],
+                modelId: row[sessionModelId],
+                providerId: row[sessionProviderId]
             ))
         }
         return results
@@ -680,7 +692,9 @@ class DatabaseManager {
                 isArchived: row[sessionIsArchived],
                 tokensUsed: Int(row[sessionTokensUsed]),
                 costUsd: row[sessionCostUsd],
-                draftText: row[sessionDraftText]
+                draftText: row[sessionDraftText],
+                modelId: row[sessionModelId],
+                providerId: row[sessionProviderId]
             ))
         }
         return results
@@ -1294,6 +1308,8 @@ struct SessionRecord {
     let tokensUsed: Int
     let costUsd: Double
     let draftText: String?
+    let modelId: String?
+    let providerId: String?
 }
 
 struct MessageRecord {
