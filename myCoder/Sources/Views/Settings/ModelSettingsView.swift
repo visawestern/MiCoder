@@ -76,6 +76,11 @@ struct ModelSettingsProviderColumns: View {
     @State private var localHostDraft: String = ""
     @State private var localPortDraft: String = ""
     @State private var editingModelProviderID: String = ""
+    @State private var cloneModelProviderID: String = ""
+    @State private var cloneSourceModelID: String = ""
+    @State private var cloneModelDraft: String = ""
+    @State private var newModelProviderID: String = ""
+    @State private var newModelDraft: String = ""
     @State private var editingModelID: String = ""
     @State private var editingModelDraft: String = ""
 
@@ -216,6 +221,12 @@ struct ModelSettingsProviderColumns: View {
         editingModelDraft = modelID
     }
 
+    private func beginClone(_ modelID: String, providerID: String) {
+        cloneModelProviderID = providerID
+        cloneSourceModelID = modelID
+        cloneModelDraft = modelID + "-copy"
+    }
+
     private func cancelRename() {
         editingModelProviderID = ""
         editingModelID = ""
@@ -226,10 +237,28 @@ struct ModelSettingsProviderColumns: View {
         let renamed = editingModelDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         cancelRename()
         guard !renamed.isEmpty, renamed != modelID else { return }
-        guard let index = appState.customProviders.firstIndex(where: { $0.id == providerID }) else { return }
-        var updated = appState.customProviders[index]
-        updated.models = updated.models.map { $0 == modelID ? renamed : $0 }
-        appState.updateCustomProvider(updated)
+        appState.renameCustomModel(providerID: providerID, modelID: modelID, to: renamed)
+    }
+
+    private func commitClone(sourceModelID: String, providerID: String) {
+        let name = cloneModelDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        cloneSourceModelID = ""
+        cloneModelProviderID = ""
+        cloneModelDraft = ""
+        guard !name.isEmpty, name != sourceModelID else { return }
+        appState.cloneCustomModel(providerID: providerID, modelID: sourceModelID, newName: name)
+    }
+
+    private func commitAddModel(providerID: String) {
+        let id = newModelDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        newModelDraft = ""
+        newModelProviderID = ""
+        guard !id.isEmpty else { return }
+        appState.addCustomModel(providerID: providerID, modelID: id)
+    }
+
+    private func isEditingClone(modelID: String, providerID: String) -> Bool {
+        cloneModelProviderID == providerID && cloneSourceModelID == modelID
     }
 
     private func models(for providerID: String) -> [String] {
@@ -256,14 +285,6 @@ struct ModelSettingsProviderColumns: View {
                     .interfaceFont(size: 16, weight: .semibold)
                     .foregroundColor(Color.mimo.textPrimary)
                 Spacer()
-                Button(action: { appState.addNvidiaProvider() }) {
-                    Label(L.t("Add NVIDIA"), systemImage: "memorychip")
-                        .interfaceFont(size: 13)
-                        .foregroundColor(Color.mimo.success)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(L.t("Add NVIDIA"))
-
                 Button(action: { showAddProvider = true }) {
                     HStack(spacing: 4) {
                         Image(systemName: "plus")
@@ -1133,6 +1154,53 @@ struct ModelSettingsProviderColumns: View {
                     }
                 }
             }
+
+            if customProvider(for: providerID) != nil {
+                HStack(spacing: 6) {
+                    if newModelProviderID == providerID {
+                        TextField(L.t("Model ID"), text: $newModelDraft)
+                            .textFieldStyle(.plain)
+                            .interfaceFont(size: 11, design: .monospaced)
+                            .foregroundColor(Color.mimo.textPrimary)
+                            .onSubmit { commitAddModel(providerID: providerID) }
+                        Button(action: { commitAddModel(providerID: providerID) }) {
+                            Image(systemName: "checkmark")
+                                .interfaceFont(size: 11, weight: .semibold)
+                                .foregroundColor(Color.mimo.success)
+                                .frame(width: 24, height: 24)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        Button(action: {
+                            newModelProviderID = ""
+                            newModelDraft = ""
+                        }) {
+                            Image(systemName: "xmark")
+                                .interfaceFont(size: 11, weight: .semibold)
+                                .foregroundColor(Color.mimo.textMuted)
+                                .frame(width: 24, height: 24)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button {
+                            newModelProviderID = providerID
+                            newModelDraft = ""
+                        } label: {
+                            Label(L.t("Add custom model"), systemImage: "plus")
+                                .interfaceFont(size: 11, weight: .medium)
+                                .foregroundColor(Color.mimo.brand)
+                        }
+                        .buttonStyle(.plain)
+                        Spacer()
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background(Color.mimo.background)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
         }
         .settingsCardFrame()
         .padding(12)
@@ -1202,9 +1270,45 @@ struct ModelSettingsProviderColumns: View {
     private func compactModelCard(modelID: String, providerID: String, prefix: String?) -> some View {
         if isEditingModel(modelID: modelID, providerID: providerID) {
             modelEditRow(modelID: modelID, providerID: providerID)
+        } else if isEditingClone(modelID: modelID, providerID: providerID) {
+            modelCloneRow(sourceModelID: modelID, providerID: providerID)
         } else {
             modelDisplayRow(modelID: modelID, providerID: providerID, prefix: prefix)
         }
+    }
+
+    private func modelCloneRow(sourceModelID: String, providerID: String) -> some View {
+        HStack(spacing: 6) {
+            TextField(L.t("Model ID"), text: $cloneModelDraft)
+                .textFieldStyle(.plain)
+                .interfaceFont(size: 11, design: .monospaced)
+                .foregroundColor(Color.mimo.textPrimary)
+                .onSubmit { commitClone(sourceModelID: sourceModelID, providerID: providerID) }
+            Button(action: { commitClone(sourceModelID: sourceModelID, providerID: providerID) }) {
+                Image(systemName: "checkmark")
+                    .interfaceFont(size: 11, weight: .semibold)
+                    .foregroundColor(Color.mimo.success)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Button(action: {
+                cloneSourceModelID = ""
+                cloneModelProviderID = ""
+                cloneModelDraft = ""
+            }) {
+                Image(systemName: "xmark")
+                    .interfaceFont(size: 11, weight: .semibold)
+                    .foregroundColor(Color.mimo.textMuted)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(Color.mimo.subtleFill)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 
     private func modelEditRow(modelID: String, providerID: String) -> some View {
@@ -1360,6 +1464,11 @@ struct ModelSettingsProviderColumns: View {
                         beginRename(modelID, providerID: providerID)
                     }) {
                         Label(L.t("Rename model"), systemImage: "pencil")
+                    }
+                    Button(action: {
+                        beginClone(modelID, providerID: providerID)
+                    }) {
+                        Label(L.t("Clone model"), systemImage: "plus.square.on.square")
                     }
                 }
 

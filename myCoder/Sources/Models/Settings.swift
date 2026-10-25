@@ -90,8 +90,27 @@ struct CustomProvider: Identifiable, Codable {
     var supportsTools: Bool
     var acpEnabled: Bool
     var requiresAPIKey: Bool
-    
-    init(id: String = UUID().uuidString, name: String, type: ProviderType, baseURL: String, apiKey: String = "", isEnabled: Bool = true, models: [String] = [], supportsTools: Bool = true, acpEnabled: Bool = false, requiresAPIKey: Bool = true) {
+    /// Model ids added by hand (added, cloned, or rename targets). They
+    /// survive a catalog refresh: the fetched list is merged with these.
+    var customModels: [String]
+    /// Discovered ids the user removed or renamed away; a refresh must not
+    /// resurrect them.
+    var hiddenModels: [String]
+
+    init(
+        id: String = UUID().uuidString,
+        name: String,
+        type: ProviderType,
+        baseURL: String,
+        apiKey: String = "",
+        isEnabled: Bool = true,
+        models: [String] = [],
+        supportsTools: Bool = true,
+        acpEnabled: Bool = false,
+        requiresAPIKey: Bool = true,
+        customModels: [String] = [],
+        hiddenModels: [String] = []
+    ) {
         self.id = id
         self.name = name
         self.type = type
@@ -102,6 +121,41 @@ struct CustomProvider: Identifiable, Codable {
         self.supportsTools = supportsTools
         self.acpEnabled = acpEnabled
         self.requiresAPIKey = requiresAPIKey
+        self.customModels = customModels
+        self.hiddenModels = hiddenModels
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        type = try container.decode(ProviderType.self, forKey: .type)
+        baseURL = try container.decode(String.self, forKey: .baseURL)
+        apiKey = try container.decodeIfPresent(String.self, forKey: .apiKey) ?? ""
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+        models = try container.decodeIfPresent([String].self, forKey: .models) ?? []
+        supportsTools = try container.decodeIfPresent(Bool.self, forKey: .supportsTools) ?? true
+        acpEnabled = try container.decodeIfPresent(Bool.self, forKey: .acpEnabled) ?? false
+        requiresAPIKey = try container.decodeIfPresent(Bool.self, forKey: .requiresAPIKey) ?? true
+        customModels = try container.decodeIfPresent([String].self, forKey: .customModels) ?? []
+        hiddenModels = try container.decodeIfPresent([String].self, forKey: .hiddenModels) ?? []
+    }
+}
+
+/// Merge rule for a custom provider's model list: the catalog fetched from
+/// the server and the user's manual entries (customModels) are unioned, then
+/// everything the user removed or renamed away (hiddenModels) is dropped.
+/// Renames therefore survive a refresh instead of being reverted by it.
+enum CustomModelListLogic {
+    static func mergedModels(provider: CustomProvider, discovered: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for entry in discovered + provider.customModels {
+            guard !entry.isEmpty, !seen.contains(entry), !provider.hiddenModels.contains(entry) else { continue }
+            seen.insert(entry)
+            result.append(entry)
+        }
+        return result.sorted()
     }
 }
 

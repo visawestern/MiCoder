@@ -1320,9 +1320,65 @@ class AppState: ObservableObject {
             : updated.apiKey
         customProviders[index] = cleanProvider
         saveCustomProviders()
-        if updated.isEnabled {
-            loadModelsFromCustomProvider(updated)
+        validateAndReconcileSelections()
+    }
+
+    /// Rename a custom provider's model in place. The new id becomes a manual
+    /// entry and the old one is hidden, so a catalog refresh merges cleanly
+    /// instead of reverting the rename to the server-side list.
+    func renameCustomModel(providerID: String, modelID: String, to newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != modelID else { return }
+        guard let index = customProviders.firstIndex(where: { $0.id == providerID }) else { return }
+        var provider = customProviders[index]
+        provider.customModels.removeAll { $0 == modelID }
+        if !provider.hiddenModels.contains(modelID) {
+            provider.hiddenModels.append(modelID)
         }
+        if !provider.customModels.contains(trimmed) {
+            provider.customModels.append(trimmed)
+        }
+        provider.models = provider.models.map { $0 == modelID ? trimmed : $0 }
+        if !provider.models.contains(trimmed) {
+            provider.models.append(trimmed)
+        }
+        customProviders[index] = provider
+        saveCustomProviders()
+        if selectedProviderID == providerID && selectedModel == modelID {
+            selectedModel = trimmed
+            defaults.set(trimmed, forKey: "com.mycoder.selectedModel")
+            defaults.set(trimmed, forKey: "com.mycoder.preferredModelID")
+        }
+        validateAndReconcileSelections()
+    }
+
+    /// Clone a model entry under a new id (manual entry, survives refresh).
+    func cloneCustomModel(providerID: String, modelID: String, newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != modelID else { return }
+        guard let index = customProviders.firstIndex(where: { $0.id == providerID }) else { return }
+        var provider = customProviders[index]
+        guard !provider.models.contains(trimmed) else { return }
+        provider.customModels.append(trimmed)
+        provider.hiddenModels.removeAll { $0 == trimmed }
+        provider.models.append(trimmed)
+        customProviders[index] = provider
+        saveCustomProviders()
+        validateAndReconcileSelections()
+    }
+
+    /// Add a fully custom model id that the provider's catalog may not list.
+    func addCustomModel(providerID: String, modelID: String) {
+        let trimmed = modelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard let index = customProviders.firstIndex(where: { $0.id == providerID }) else { return }
+        var provider = customProviders[index]
+        guard !provider.models.contains(trimmed) else { return }
+        provider.customModels.append(trimmed)
+        provider.hiddenModels.removeAll { $0 == trimmed }
+        provider.models.append(trimmed)
+        customProviders[index] = provider
+        saveCustomProviders()
         validateAndReconcileSelections()
     }
 
@@ -1389,6 +1445,10 @@ class AppState: ObservableObject {
     func removeModel(_ modelID: String, from providerID: String) {
         guard let index = customProviders.firstIndex(where: { $0.id == providerID }) else { return }
         customProviders[index].models.removeAll { $0 == modelID }
+        customProviders[index].customModels.removeAll { $0 == modelID }
+        if !customProviders[index].hiddenModels.contains(modelID) {
+            customProviders[index].hiddenModels.append(modelID)
+        }
         saveCustomProviders()
         if selectedProviderID == providerID && selectedModel == modelID {
             selectedModel = customProviders[index].models.first ?? ""
@@ -1464,7 +1524,10 @@ class AppState: ObservableObject {
                     : "Loaded \(modelCount) model\(modelCount == 1 ? "" : "s")."
                 await MainActor.run { [providerID, loadedModels, modelLoadMessage] in
                     if let index = customProviders.firstIndex(where: { $0.id == providerID }) {
-                        customProviders[index].models = loadedModels
+                        customProviders[index].models = CustomModelListLogic.mergedModels(
+                            provider: customProviders[index],
+                            discovered: loadedModels
+                        )
                         saveCustomProviders()
                     }
                     providerModelLoadMessages[providerID] = modelLoadMessage

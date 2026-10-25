@@ -281,6 +281,8 @@ enum LocalizationRuntime {
         "Default application": "Приложение по умолчанию",
         "Reveal in Finder": "Показать в Finder",
         "Subagent": "Субагент",
+        "Clone model": "Клонировать модель",
+        "Add custom model": "Добавить модель",
     ]
 
     static func t(_ key: String) -> String {
