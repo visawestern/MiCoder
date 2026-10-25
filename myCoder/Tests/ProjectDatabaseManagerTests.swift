@@ -200,7 +200,7 @@ struct ProjectDatabaseManagerTests {
         defer { try? FileManager.default.removeItem(atPath: projectPath) }
         ProjectDatabaseManager.evictProject(projectPath: projectPath)
 
-        let manager = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
+        _ = try ProjectDatabaseManager.manager(forProjectPath: projectPath)
         let normalized = ChatSession.normalizedPath(projectPath)
 
         #expect(ProjectDatabaseManager.isPooled(projectPath: normalized),

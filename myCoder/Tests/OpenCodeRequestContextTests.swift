@@ -67,7 +67,7 @@ struct OpenCodeRequestContextTests {
 
     @Test("Project ids are opaque 40 hex characters")
     func projectIDShape() {
-        let project = try? #require(OpenCodeRequestContext.projectID(fromPath: "/Users/apple/projects/demo"))
+        let project = OpenCodeRequestContext.projectID(fromPath: "/Users/apple/projects/demo")
         #expect(project?.count == OpenCodeRequestContext.projectIdentifierLength)
         #expect(project?.allSatisfy { $0.isHexDigit } == true)
         #expect(project != "/Users/apple/projects/demo")

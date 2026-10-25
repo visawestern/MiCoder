@@ -32,7 +32,7 @@ struct GitRepositoryTests {
     @Test("Current branch returns main after init")
     func currentBranch() throws {
         let path = try makeTempRepo()
-        let branch = try GitRepository.currentBranch(in: path)
+        let branch = GitRepository.currentBranch(in: path)
         #expect(branch == "main")
     }
 

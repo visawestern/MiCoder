@@ -10,22 +10,22 @@ struct AppConfigurationTransferLogicTests {
     }
 
     @Test("failed export produces a visible failure notice")
-    func failedExportIsNotSilent() throws {
-        let notice = try #require(AppConfigurationTransferLogic.notice(
+    func failedExportIsNotSilent() {
+        let notice = AppConfigurationTransferLogic.notice(
             operation: .export,
             succeeded: false
-        ))
+        )
         #expect(notice.outcome == .failure)
         #expect(!notice.title.isEmpty)
         #expect(!notice.message.isEmpty)
     }
 
     @Test("failed import produces a visible failure notice")
-    func failedImportIsNotSilent() throws {
-        let notice = try #require(AppConfigurationTransferLogic.notice(
+    func failedImportIsNotSilent() {
+        let notice = AppConfigurationTransferLogic.notice(
             operation: .import,
             succeeded: false
-        ))
+        )
         #expect(notice.outcome == .failure)
         #expect(!notice.title.isEmpty)
         #expect(!notice.message.isEmpty)

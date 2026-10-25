@@ -25,9 +25,9 @@ struct ClaudeWebVendorTests {
         #expect((entry.responseContainer ?? "").isEmpty == false)
         #expect(entry.modelDropdown.isEmpty == false)
         #expect(catalog.loginURL(for: "claude") == "https://claude.ai/login")
-        #expect(try catalog.loginURL(for: "kimi") == "https://www.kimi.ai/")
-        #expect(try catalog.loginURL(for: "qwen") == "https://chat.qwen.ai/auth")
-        #expect(try catalog.loginURL(for: "chatgpt") == "https://chatgpt.com/auth/login")
+        #expect(catalog.loginURL(for: "kimi") == "https://www.kimi.ai/")
+        #expect(catalog.loginURL(for: "qwen") == "https://chat.qwen.ai/auth")
+        #expect(catalog.loginURL(for: "chatgpt") == "https://chatgpt.com/auth/login")
     }
 
     @Test func configDefaultURLFollowsVendor() {
@@ -59,7 +59,7 @@ struct ClaudeWebVendorTests {
 
     @Test func addAccountAcceptsClaudeVendorAfterExistingConfig() {
         // The clone path requires an existing config; simulate one.
-        var defaults = UserDefaults(suiteName: "claude-vendor-test")!
+        let defaults = UserDefaults(suiteName: "claude-vendor-test")!
         defaults.removePersistentDomain(forName: "claude-vendor-test")
         WebProviderStore.save([WebProviderConfig(vendor: .claude)], defaults: defaults)
         let loaded = WebProviderStore.load(defaults: defaults)
