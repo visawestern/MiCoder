@@ -18,7 +18,7 @@ struct AttachedFilesStrip: View {
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.brand)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                 }
                 .padding(.top, 8)
                 .padding(.bottom, 4)
@@ -42,7 +42,7 @@ struct AttachedFilesStrip: View {
                                             .interfaceFont(size: 10)
                                             .foregroundColor(Color.mimo.textMuted)
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(HandCursorButtonStyle())
                                     .help(L.t(AppLocalizationKey.locShowInFinder))
                                 }
 
@@ -55,7 +55,7 @@ struct AttachedFilesStrip: View {
                                         .interfaceFont(size: 12)
                                         .foregroundColor(Color.mimo.textMuted)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(HandCursorButtonStyle())
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
@@ -123,7 +123,7 @@ struct ImagePreviewStrip: View {
                             .interfaceFont(size: 11)
                             .foregroundColor(Color.mimo.brand)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                 }
                 .padding(.top, 8)
                 .padding(.bottom, 4)
@@ -162,7 +162,7 @@ struct ImagePreviewStrip: View {
                                             .foregroundColor(.white)
                                             .shadow(color: .black.opacity(0.5), radius: 2)
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(HandCursorButtonStyle())
                                     .offset(x: 6, y: -6)
                                     .opacity(hoveredImageID == img.id ? 1 : 0.7)
                                 }
@@ -203,7 +203,7 @@ struct ImagePreviewSheet: View {
                             .interfaceFont(size: 18)
                             .foregroundColor(Color.mimo.textMuted)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -233,7 +233,7 @@ struct ImagePreviewSheet: View {
                         .background(Color.red.opacity(0.1))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     
                     Button(action: onDismiss) {
                         Text(L.t(AppLocalizationKey.locKeep))
@@ -244,7 +244,7 @@ struct ImagePreviewSheet: View {
                             .background(Color.mimo.brand)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                 }
                 .padding(.bottom, 16)
             }
@@ -255,7 +255,7 @@ struct ImagePreviewSheet: View {
                 Text(L.t(AppLocalizationKey.locCannotPreviewImage))
                     .foregroundColor(Color.mimo.textMuted)
                 Button(L.t(AppLocalizationKey.locClose)) { onDismiss() }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .foregroundColor(Color.mimo.brand)
             }
             .frame(width: 300, height: 200)
@@ -459,7 +459,7 @@ struct CenteredInputCard: View {
                 }
                 .foregroundColor(Color.mimo.textSecondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .popover(isPresented: $showWorkspaceDropdown) {
                 WorkspaceDropdown(isPresented: $showWorkspaceDropdown).environmentObject(appState)
             }
@@ -707,7 +707,7 @@ struct WorkspaceDropdown: View {
                                     Image(systemName: "checkmark").interfaceFont(size: 12).foregroundColor(Color.mimo.brand)
                                 }
                             }.padding(.horizontal, 8).padding(.vertical, 6).contentShape(Rectangle())
-                        }.buttonStyle(.plain)
+                        }.buttonStyle(HandCursorButtonStyle())
                     }
                     Divider().padding(.vertical, 4)
                     Button(action: { openFolder() }) {
@@ -715,13 +715,13 @@ struct WorkspaceDropdown: View {
                             Image(systemName: "folder.badge.plus").interfaceFont(size: 12).foregroundColor(Color.mimo.textMuted)
                             Text(L.t(AppLocalizationKey.locOpenFolder)).interfaceFont(size: 13).foregroundColor(Color.mimo.textPrimary)
                         }.padding(.horizontal, 8).padding(.vertical, 6).contentShape(Rectangle())
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(HandCursorButtonStyle())
                     Button(action: { isPresented = false; appState.showRemoteConnection = true }) {
                         HStack(spacing: 8) {
                             Image(systemName: "cloud").interfaceFont(size: 12).foregroundColor(Color.mimo.textMuted)
                             Text(L.t(AppLocalizationKey.locRemoteConnection)).interfaceFont(size: 13).foregroundColor(Color.mimo.textPrimary)
                         }.padding(.horizontal, 8).padding(.vertical, 6).contentShape(Rectangle())
-                    }.buttonStyle(.plain)
+                    }.buttonStyle(HandCursorButtonStyle())
                 }
             }
         }.frame(width: 280, height: 320)
@@ -818,7 +818,7 @@ struct PendingMessageCard: View {
                     .interfaceFont(size: 12)
                     .foregroundColor(Color.mimo.textMuted)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)

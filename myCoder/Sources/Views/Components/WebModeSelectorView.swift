@@ -155,7 +155,7 @@ struct ModelPill: View {
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(isSelected ? Color.mimo.brand : Color.mimo.border, lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .foregroundColor(isSelected ? Color.mimo.brand : Color.mimo.textPrimary)
     }
 }
@@ -183,7 +183,7 @@ struct FeatureModeToggle: View {
             .foregroundColor(isSelected ? .white : Color.mimo.textPrimary)
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .disabled(!mode.isEnabled)
         .opacity(mode.isEnabled ? 1.0 : 0.5)
     }

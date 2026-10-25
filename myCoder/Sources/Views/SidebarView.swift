@@ -144,7 +144,7 @@ struct SidebarView: View {
             )
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .help(L.t("Create an empty project or set up a project plan"))
         .popover(isPresented: $showNewProjectMenu, arrowEdge: .bottom) {
             NewProjectTypeMenu { mode in
@@ -176,7 +176,7 @@ struct WorkspacesSectionHeader: View {
                     .interfaceFont(size: 9)
                     .foregroundColor(Color.mimo.textMuted)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help(appState.workspacesSectionExpanded ? L.t(AppLocalizationKey.locCollapseWorkspaces) : L.t(AppLocalizationKey.locExpandWorkspaces))
 
             Button(action: { appState.showWorkspacesOverview = true }) {
@@ -184,7 +184,7 @@ struct WorkspacesSectionHeader: View {
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help(L.t(AppLocalizationKey.locAllWorkspaces))
 
             Spacer(minLength: 4)
@@ -203,7 +203,7 @@ struct WorkspacesSectionHeader: View {
                     .interfaceFont(size: 9)
                     .foregroundColor(Color.mimo.textMuted)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help(appState.workspacesSectionExpanded ? L.t(AppLocalizationKey.locCollapseWorkspaces) : L.t(AppLocalizationKey.locExpandWorkspaces))
 
             Spacer(minLength: 4)
@@ -279,7 +279,7 @@ struct WorkspacesSectionHeader: View {
                 .interfaceFont(size: 11)
                 .foregroundColor(Color.mimo.textMuted)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .help(L.t(AppLocalizationKey.locArchivedProjects))
         .popover(isPresented: $appState.showArchivePopover) {
             ArchivedProjectsPopover().environmentObject(appState)
@@ -337,7 +337,7 @@ struct WorkspacesSectionHeader: View {
                 .interfaceFont(size: 11)
                 .foregroundColor(appState.showWorkspaceSearchField ? Color.mimo.brand : Color.mimo.textMuted)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .help(L.t(AppLocalizationKey.locFilterWorkspaces))
     }
 
@@ -351,7 +351,7 @@ struct WorkspacesSectionHeader: View {
                 .interfaceFont(size: 11)
                 .foregroundColor(Color.mimo.textMuted)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .help("Toggle list/grid view")
     }
 }
@@ -381,7 +381,7 @@ struct WorkspaceGridView: View {
                     .background(appState.selectedWorkspace?.id == workspace.id ? Color.mimo.surfaceHover : Color.mimo.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
             }
         }
     }
@@ -432,7 +432,7 @@ struct SidebarFooterView: View {
                     }
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help("Notifications (\(appState.notificationService.unreadCount) unread)")
             
             Button(action: { appState.openSettings() }) {
@@ -440,7 +440,7 @@ struct SidebarFooterView: View {
                     .interfaceFont(size: 14)
                     .foregroundColor(Color.mimo.textSecondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help("Settings")
         }
         .padding(.horizontal, 14)
@@ -471,7 +471,7 @@ struct NotificationsSheet: View {
                     Button(L.t(AppLocalizationKey.locMarkAllRead)) {
                         appState.notificationService.markAllAsRead()
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .interfaceFont(size: 12)
                     .foregroundColor(Color.mimo.brand)
                 }
@@ -479,7 +479,7 @@ struct NotificationsSheet: View {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(Color.mimo.textMuted)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
             }
             .padding(20)
             
@@ -557,7 +557,7 @@ struct NotificationRow: View {
                         Text(actionLabel(action))
                             .interfaceFont(size: 11, weight: .medium)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .foregroundColor(Color.mimo.brand)
                     .padding(.top, 2)
                 }
@@ -654,7 +654,7 @@ struct WorkspacesOverviewSheet: View {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(Color.mimo.textMuted)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
             }
             
             HStack(spacing: 6) {
@@ -684,7 +684,7 @@ struct WorkspacesOverviewSheet: View {
                         }
                         .padding(.vertical, 6)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
 
                     Divider()
                         .padding(.vertical, 4)
@@ -707,7 +707,7 @@ struct WorkspacesOverviewSheet: View {
                             }
                             .padding(.vertical, 6)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HandCursorButtonStyle())
                     }
                 }
             }
@@ -745,7 +745,7 @@ struct SidebarActionRow: View {
             .padding(.vertical, 6)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
     }
 }
 
@@ -837,7 +837,7 @@ struct WorkspaceSidebarSection: View {
                     }
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 
                 Spacer(minLength: 0)
                 
@@ -853,7 +853,7 @@ struct WorkspaceSidebarSection: View {
                             .interfaceFont(size: 11)
                             .foregroundColor(isPinned ? Color.mimo.brand : Color.mimo.textMuted)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .help(isPinned ? "Unpin project" : "Pin project to top")
                     .accessibilityIdentifier("sidebar.pinProject")
                 }
@@ -864,7 +864,7 @@ struct WorkspaceSidebarSection: View {
                         .interfaceFont(size: 13)
                         .foregroundColor(Color.mimo.textMuted)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .help(L.t(AppLocalizationKey.locNewTask))
             }
             .padding(.horizontal, 14)
@@ -962,7 +962,7 @@ struct NoProjectRow: View {
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .onHover { isHovered = $0 }
         .help(L.t("Chats that are not tied to a project folder"))
         .accessibilityIdentifier("sidebar.noProject")
@@ -1010,7 +1010,7 @@ struct ProjectlessChatRow: View {
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .accessibilityIdentifier("sidebar.projectlessChat")
 
             if node.isPinned || isHovered {
@@ -1019,7 +1019,7 @@ struct ProjectlessChatRow: View {
                         .interfaceFont(size: 11)
                         .foregroundColor(node.isPinned ? Color.mimo.brand : Color.mimo.textMuted)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .help(node.isPinned ? "Unpin chat" : "Pin chat to top")
                 .accessibilityIdentifier("sidebar.pinChat")
             }
@@ -1090,7 +1090,7 @@ struct SessionTaskRow: View {
                             .interfaceFont(size: 10, weight: .semibold)
                             .foregroundColor(Color.mimo.cyan)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .help("Save title")
 
                     Button(action: { isRenaming = false }) {
@@ -1098,7 +1098,7 @@ struct SessionTaskRow: View {
                             .interfaceFont(size: 10)
                             .foregroundColor(Color.mimo.textMuted)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .help("Cancel rename")
                 }
             } else {
@@ -1127,7 +1127,7 @@ struct SessionTaskRow: View {
                         }
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
             }
             
             if isHovered {
@@ -1137,7 +1137,7 @@ struct SessionTaskRow: View {
                             .interfaceFont(size: 10)
                             .foregroundColor(Color.mimo.textMuted)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     
                     Menu {
                         Button("Rename…") {
@@ -1224,7 +1224,7 @@ struct SearchPaletteView: View {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(Color.mimo.textMuted)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .help("Close (Esc)")
             }
 
@@ -1250,7 +1250,7 @@ struct SearchPaletteView: View {
                             .padding(.vertical, 6)
                             .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HandCursorButtonStyle())
                     }
 
                     if !matchingFiles.isEmpty {
@@ -1280,7 +1280,7 @@ struct SearchPaletteView: View {
                                 .padding(.vertical, 6)
                                 .contentShape(Rectangle())
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(HandCursorButtonStyle())
                         }
                     }
                 }
@@ -1335,7 +1335,7 @@ struct ArchivedProjectsPopover: View {
                         Spacer()
                         Button(L.t(AppLocalizationKey.locRestore)) { restore(entry) }
                             .interfaceFont(size: 11)
-                            .buttonStyle(.plain)
+                            .buttonStyle(HandCursorButtonStyle())
                             .foregroundColor(Color.mimo.brand)
                     }
                 }
@@ -1351,7 +1351,7 @@ struct ArchivedProjectsPopover: View {
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.brand)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
         }
         .padding(14)
         .frame(width: 320)

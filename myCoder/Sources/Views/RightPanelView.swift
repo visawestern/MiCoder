@@ -62,7 +62,7 @@ struct GitToolsSection: View {
                         .rotationEffect(appState.isGitBusy ? .degrees(360) : .degrees(0))
                         .animation(appState.isGitBusy ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: appState.isGitBusy)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .disabled(appState.isGitBusy)
             }
             
@@ -433,7 +433,7 @@ struct SubagentRow: View {
             .background(hovering ? Color.mimo.brand.opacity(0.08) : Color.clear)
             .cornerRadius(6)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .onHover { hovering = $0 }
     }
 }

@@ -42,7 +42,7 @@ struct PluginsSettingsView: View {
                             plugins = AgentResourcesLoader.loadPlugins()
                         }
                         .interfaceFont(size: 11)
-                        .buttonStyle(.plain)
+                        .buttonStyle(HandCursorButtonStyle())
                         .foregroundColor(plugin.isEnabled ? Color.mimo.textSecondary : Color.mimo.success)
                         .help(plugin.isEnabled ? "Disable plugin" : "Enable plugin")
                     }

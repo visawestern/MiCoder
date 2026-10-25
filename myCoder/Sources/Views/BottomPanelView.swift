@@ -47,7 +47,7 @@ struct BottomTabBar: View {
                     .interfaceFont(size: 14)
                     .foregroundColor(Color.mimo.textMuted)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
@@ -89,7 +89,7 @@ struct BottomTabButton: View {
                     .stroke(isActive ? Color.mimo.brand.opacity(0.4) : Color.clear, lineWidth: 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
     }
 }
 
@@ -128,7 +128,7 @@ struct TerminalView: View {
                             .interfaceFont(size: 10)
                             .foregroundColor(Color.mimo.error)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .help("Stop (⌃C)")
                 }
             }
@@ -781,7 +781,7 @@ struct GitActionButton: View {
                     .stroke(disabled ? color.opacity(0.1) : color.opacity(0.3), lineWidth: 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .disabled(disabled)
     }
 }

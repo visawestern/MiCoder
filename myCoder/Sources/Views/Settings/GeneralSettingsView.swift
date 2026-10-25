@@ -94,7 +94,7 @@ struct GeneralSettingsView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 8))
                                     .contentShape(Rectangle())
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(HandCursorButtonStyle())
                         }
                     }
                     .padding(4)

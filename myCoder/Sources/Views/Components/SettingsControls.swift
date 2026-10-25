@@ -88,7 +88,7 @@ struct SettingsCardEmptyState: View {
                         .background(Color.mimo.brand)
                         .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .padding(.top, 2)
             }
         }
@@ -124,6 +124,6 @@ struct SettingsSegmentButton: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 6))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
     }
 }

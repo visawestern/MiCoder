@@ -75,7 +75,7 @@ struct SciFiPrimaryButton: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .shadow(color: enabled ? theme.glowColor : .clear, radius: 8)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .disabled(!enabled)
     }
 }

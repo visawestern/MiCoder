@@ -36,7 +36,7 @@ struct PlusMenuView: View {
                     .padding(.vertical, 8)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
             }
             if !canUseTools {
                 Text(L.t(AppLocalizationKey.locToolsUnavailableForThisModel))

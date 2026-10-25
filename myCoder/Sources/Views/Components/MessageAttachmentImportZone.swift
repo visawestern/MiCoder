@@ -80,7 +80,7 @@ struct AttachmentImportErrorBanner: View {
                             .interfaceFont(size: 10)
                             .foregroundColor(Color.mimo.textMuted)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                 }
                 .padding(.vertical, 6)
                 .background(Color.mimo.subtleFill)

@@ -166,7 +166,7 @@ struct PlanQuestionCardView: View {
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
             }
 
             if PlanQuestionWizardLogic.isLastStep(step: currentStep, total: questions.count) {

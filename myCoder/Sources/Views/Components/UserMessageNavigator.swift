@@ -95,7 +95,7 @@ struct UserMessageNavigator: View {
                 .frame(width: 18, height: 14)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .disabled(!enabled)
     }
 
@@ -130,7 +130,7 @@ struct UserMessageNavigator: View {
                 )
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .onHover { hovering in
             if hovering {
                 hoveredID = message.id

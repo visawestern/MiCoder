@@ -158,7 +158,7 @@ struct ChatPanelView: View {
                                     Button(L.t(AppLocalizationKey.locLoadingOlderMessages)) {
                                         loadOlderMessages()
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(HandCursorButtonStyle())
                                     .interfaceFont(size: 12, weight: .medium)
                                     .foregroundColor(Color.mimo.cyan)
                                     .frame(maxWidth: .infinity)
@@ -3408,7 +3408,7 @@ struct ScrollToBottomButton: View {
                 )
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .onHover { isHovering = $0 }
         .accessibilityLabel("Scroll to latest message")
     }
@@ -3445,7 +3445,7 @@ struct AutoFreeSwitchBanner: View {
                     .frame(width: 22, height: 22)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .accessibilityLabel("Dismiss notification")
         }
         .padding(.horizontal, 12)

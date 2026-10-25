@@ -106,7 +106,7 @@ struct InputCommandDropdownView: View {
             .background(isHighlighted ? Color.mimo.brand.opacity(0.12) : Color.clear)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .accessibilityLabel("\(item.title). \(item.subtitle)")
     }
 

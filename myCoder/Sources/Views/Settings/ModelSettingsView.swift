@@ -293,7 +293,7 @@ struct ModelSettingsProviderColumns: View {
                     .interfaceFont(size: 13)
                     .foregroundColor(Color.mimo.brand)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
             }
 
             if layoutMode == .wide {
@@ -444,7 +444,7 @@ struct ModelSettingsProviderColumns: View {
                                     .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.mimo.border, lineWidth: 1))
                                     .clipShape(RoundedRectangle(cornerRadius: 7))
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(HandCursorButtonStyle())
                                 .help(isCollapsed ? L.t(AppLocalizationKey.locShow) : L.t(AppLocalizationKey.locHide))
 
                                 if !isCollapsed {
@@ -488,7 +488,7 @@ struct ModelSettingsProviderColumns: View {
                 }
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
 
             if isMutableProvider(option) {
                 if isToggleableProvider(option) {
@@ -499,7 +499,7 @@ struct ModelSettingsProviderColumns: View {
                             .frame(width: 25, height: 25)
                             .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .help(isProviderEnabled(option)
                           ? L.t(AppLocalizationKey.locDisable)
                           : L.t(AppLocalizationKey.locEnable))
@@ -512,7 +512,7 @@ struct ModelSettingsProviderColumns: View {
                         .frame(width: 25, height: 25)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .help("Edit \(option.name)")
 
                 Button(role: .destructive, action: { removeProvider(option) }) {
@@ -522,7 +522,7 @@ struct ModelSettingsProviderColumns: View {
                         .frame(width: 25, height: 25)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .help("Delete \(option.name)")
             }
         }
@@ -651,7 +651,7 @@ struct ModelSettingsProviderColumns: View {
                         Label(L.t(AppLocalizationKey.locRemoveProvider), systemImage: "trash")
                             .interfaceFont(size: 12)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .foregroundColor(Color.mimo.error)
 
                     Button(L.t(AppLocalizationKey.locRefreshModels)) {
@@ -704,7 +704,7 @@ struct ModelSettingsProviderColumns: View {
                         Label(L.t(AppLocalizationKey.locRemoveProvider), systemImage: "trash")
                             .interfaceFont(size: 12)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .foregroundColor(Color.mimo.error)
 
                     Button(L.t(AppLocalizationKey.locRefreshModels)) {
@@ -782,7 +782,7 @@ struct ModelSettingsProviderColumns: View {
                         .interfaceFont(size: 15)
                         .foregroundColor(Color.mimo.textMuted)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .accessibilityLabel(L.t(AppLocalizationKey.locCloseModelParameters))
             }
 
@@ -841,7 +841,7 @@ struct ModelSettingsProviderColumns: View {
                     .foregroundColor(Color.mimo.textMuted)
                 Spacer()
                 Button(L.t(AppLocalizationKey.locResetParameters)) { resetParameters() }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textSecondary)
                 Button(L.t(AppLocalizationKey.locSaveParameters)) { saveParameters() }
@@ -1070,7 +1070,7 @@ struct ModelSettingsProviderColumns: View {
                             .interfaceFont(size: 10)
                             .foregroundColor(Color.mimo.textMuted)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                 }
             }
             .padding(.horizontal, 8)
@@ -1139,7 +1139,7 @@ struct ModelSettingsProviderColumns: View {
                                     .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.mimo.border, lineWidth: 1))
                                     .clipShape(RoundedRectangle(cornerRadius: 7))
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(HandCursorButtonStyle())
                                 .help(isCollapsed ? "Show models" : "Hide models")
 
                                 if !isCollapsed {
@@ -1170,7 +1170,7 @@ struct ModelSettingsProviderColumns: View {
                                 .frame(width: 24, height: 24)
                                 .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HandCursorButtonStyle())
                         Button(action: {
                             newModelProviderID = ""
                             newModelDraft = ""
@@ -1181,7 +1181,7 @@ struct ModelSettingsProviderColumns: View {
                                 .frame(width: 24, height: 24)
                                 .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HandCursorButtonStyle())
                     } else {
                         Button {
                             newModelProviderID = providerID
@@ -1191,7 +1191,7 @@ struct ModelSettingsProviderColumns: View {
                                 .interfaceFont(size: 11, weight: .medium)
                                 .foregroundColor(Color.mimo.brand)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HandCursorButtonStyle())
                         Spacer()
                     }
                 }
@@ -1291,7 +1291,7 @@ struct ModelSettingsProviderColumns: View {
                     .frame(width: 24, height: 24)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             Button(action: {
                 cloneSourceModelID = ""
                 cloneModelProviderID = ""
@@ -1303,7 +1303,7 @@ struct ModelSettingsProviderColumns: View {
                     .frame(width: 24, height: 24)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
@@ -1325,7 +1325,7 @@ struct ModelSettingsProviderColumns: View {
                     .frame(width: 24, height: 24)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             Button(action: { cancelRename() }) {
                 Image(systemName: "xmark")
                     .interfaceFont(size: 11, weight: .semibold)
@@ -1333,7 +1333,7 @@ struct ModelSettingsProviderColumns: View {
                     .frame(width: 24, height: 24)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
@@ -1431,7 +1431,7 @@ struct ModelSettingsProviderColumns: View {
                         .frame(width: 24, height: 24)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .accessibilityLabel(L.t("Rename model"))
             }
 
@@ -1445,7 +1445,7 @@ struct ModelSettingsProviderColumns: View {
                         .frame(width: 24, height: 24)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .accessibilityLabel("Remove model \(modelID)")
             }
 
@@ -1610,7 +1610,7 @@ struct CustomProviderCard: View {
                         .interfaceFont(size: 12)
                         .foregroundColor(Color.mimo.error)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
             }
             
             Divider()
@@ -1668,7 +1668,7 @@ struct AddProviderSheet: View {
                         .interfaceFont(size: 16)
                         .foregroundColor(Color.mimo.textMuted)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
             }
             .padding(16)
             
@@ -1804,7 +1804,7 @@ struct AddProviderSheet: View {
                 Button(L.t(AppLocalizationKey.locCancel)) {
                     isPresented = false
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .foregroundColor(Color.mimo.textSecondary)
                 
                 Button(action: {
@@ -1838,7 +1838,7 @@ struct AddProviderSheet: View {
                              ? Color.mimo.textMuted : Color.mimo.brand)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                           ProviderEndpointLogic.normalizedBaseURL(url) == nil)
             }

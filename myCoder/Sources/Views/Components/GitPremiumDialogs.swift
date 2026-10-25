@@ -96,7 +96,7 @@ struct PremiumPrimaryButton: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .disabled(!isEnabled || isBusy)
     }
 }
@@ -119,7 +119,7 @@ struct PremiumSecondaryButton: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .keyboardShortcut(.cancelAction)
     }
 }

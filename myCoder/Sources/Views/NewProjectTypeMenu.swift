@@ -94,7 +94,7 @@ struct NewProjectTypeMenu: View {
             )
             .contentShape(RoundedRectangle(cornerRadius: 8))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .onHover { hovering in
             hovered = hovering ? mode : (hovered == mode ? nil : hovered)
         }

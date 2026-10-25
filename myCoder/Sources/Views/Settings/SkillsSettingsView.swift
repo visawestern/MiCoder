@@ -114,13 +114,13 @@ struct InstalledSkillRow: View {
                     }
                 }
                 .interfaceFont(size: 11)
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .foregroundColor(r.isEnabled ? Color.mimo.textSecondary : Color.mimo.success)
             }
             Button(action: { showRemoveConfirmation = true }) {
                 Image(systemName: "trash").interfaceFont(size: 12).foregroundColor(Color.mimo.error)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
         }
         .padding(12)
         .background(Color.mimo.surface)

@@ -32,7 +32,7 @@ struct NewProjectSheet: View {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(Color.mimo.textMuted)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
             }
             
             // Project name
@@ -61,7 +61,7 @@ struct NewProjectSheet: View {
                             .interfaceFont(size: 14)
                             .foregroundColor(Color.mimo.textSecondary)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .help(L.t(AppLocalizationKey.locChooseFolder))
                 }
                 if let validationError {

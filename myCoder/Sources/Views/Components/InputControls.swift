@@ -189,7 +189,7 @@ struct ModelParametersButton: View {
                 .interfaceFont(size: 11)
                 .foregroundColor(params.isCustomized ? Color.mimo.brand : Color.mimo.textMuted)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .help(L.t(AppLocalizationKey.locModelParameters))
         .popover(isPresented: $isOpen) {
             VStack(alignment: .leading, spacing: 10) {
@@ -211,13 +211,13 @@ struct ModelParametersButton: View {
                 }
                 HStack {
                     Button(L.t(AppLocalizationKey.locResetButton)) { resetAll() }
-                        .buttonStyle(.plain).foregroundColor(Color.mimo.error).interfaceFont(size: 11)
+                        .buttonStyle(HandCursorButtonStyle()).foregroundColor(Color.mimo.error).interfaceFont(size: 11)
                     Spacer()
                     Button(L.t(AppLocalizationKey.locSave)) {
                         guard save() else { return }
                         isOpen = false
                     }
-                        .buttonStyle(.plain).foregroundColor(Color.mimo.brand).interfaceFont(size: 12, weight: .medium)
+                        .buttonStyle(HandCursorButtonStyle()).foregroundColor(Color.mimo.brand).interfaceFont(size: 12, weight: .medium)
                 }
             }
             .padding(14).frame(width: 260)
@@ -372,7 +372,7 @@ struct MessageInputToolbar: View {
                     .interfaceFont(size: 16, weight: .medium)
                     .foregroundColor(Color.mimo.brand)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .popover(isPresented: $showPlusMenu) {
                 PlusMenuView(
                     messageText: $messageText,
@@ -442,7 +442,7 @@ struct SendStopButton: View {
                     .interfaceFont(size: 24)
                     .foregroundColor(Color.mimo.error)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help(L.t(AppLocalizationKey.locStopGeneration))
         } else {
             Button(action: onSend) {
@@ -453,7 +453,7 @@ struct SendStopButton: View {
                         : (disabledReason != nil ? Color.mimo.error : Color.mimo.textMuted)
                     )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .disabled(!canSend)
             .help(disabledReason ?? L.t(AppLocalizationKey.locSendMessage))
         }
@@ -508,7 +508,7 @@ struct RemoteConnectionSheet: View {
             HStack {
                 Spacer()
                 Button(L.t(AppLocalizationKey.locCancel)) { dismiss() }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .foregroundColor(Color.mimo.textSecondary)
                 Button(isConnecting ? L.t(AppLocalizationKey.locConnecting) : L.t(AppLocalizationKey.locConnect)) {
                     guard let portInt = Int(port), !host.isEmpty else { return }
@@ -521,7 +521,7 @@ struct RemoteConnectionSheet: View {
                         }
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .foregroundColor(Color.mimo.brand)
                 .disabled(host.isEmpty || port.isEmpty || isConnecting)
             }

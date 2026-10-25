@@ -36,7 +36,7 @@ struct ModelPickerDropdown: View {
             }
             .foregroundColor(displayName == nil ? Color.mimo.textMuted : Color.mimo.textSecondary)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .fixedSize()
         .popover(isPresented: $isOpen, arrowEdge: .bottom) {
             dropdownContent
@@ -83,7 +83,7 @@ struct ModelPickerDropdown: View {
                     .padding(.vertical, 8)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
             }
         }
         .frame(width: 330)
@@ -125,7 +125,7 @@ struct ModelPickerDropdown: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
 
             if !isCollapsed {
                 VStack(spacing: 2) {
@@ -194,7 +194,7 @@ struct ModelPickerDropdown: View {
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
     }
 
     private func badgeView(_ badge: ModelCapabilityBadge) -> some View {

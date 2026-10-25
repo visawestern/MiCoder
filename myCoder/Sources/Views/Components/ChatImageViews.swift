@@ -32,7 +32,7 @@ struct TappableChatImage: View {
                                 .stroke(Color.mimo.border.opacity(0.6), lineWidth: 1)
                         )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .help(L.t(AppLocalizationKey.locViewImage))
             }
         }
@@ -61,7 +61,7 @@ struct SentImagePreviewSheet: View {
                             .interfaceFont(size: 18)
                             .foregroundColor(Color.mimo.textMuted)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -84,7 +84,7 @@ struct SentImagePreviewSheet: View {
                         .background(Color.mimo.brand)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .padding(.bottom, 16)
             }
             .frame(width: 760, height: 620)
@@ -94,7 +94,7 @@ struct SentImagePreviewSheet: View {
                 Text(L.t(AppLocalizationKey.locCannotPreviewImage))
                     .foregroundColor(Color.mimo.textMuted)
                 Button(L.t(AppLocalizationKey.locClose)) { dismiss() }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .foregroundColor(Color.mimo.brand)
             }
             .frame(width: 300, height: 200)

@@ -31,7 +31,7 @@ struct SpecWizardView: View {
                     Button(L.t("Finish setup")) {
                         appState.finishSpecWizard(for: projectPath)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .foregroundColor(Color.mimo.cyan)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -302,7 +302,7 @@ private struct SpecWizardContent: View {
 
                 if models.isEmpty {
                     Button(L.t("Configure models…")) { showSettingsHint = true }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HandCursorButtonStyle())
                         .interfaceFont(size: 11, weight: .medium)
                         .foregroundColor(Color.mimo.cyan)
                 }
@@ -530,7 +530,7 @@ private struct SpecWizardContent: View {
                                     )
                                     .clipShape(RoundedRectangle(cornerRadius: 7))
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(HandCursorButtonStyle())
                             .foregroundColor(Color.mimo.textPrimary)
                         }
                     }
@@ -596,7 +596,7 @@ private struct SpecWizardContent: View {
                         specEditorText = session.specification
                         isEditingSpec = true
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.cyan)
                 }
@@ -614,7 +614,7 @@ private struct SpecWizardContent: View {
                         Button(L.t("Cancel")) {
                             isEditingSpec = false
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HandCursorButtonStyle())
                         .interfaceFont(size: 11)
                         .foregroundColor(Color.mimo.textMuted)
                         Spacer()
@@ -635,7 +635,7 @@ private struct SpecWizardContent: View {
                     Button(L.t("Regenerate")) {
                         Task { await session.generateSpecification() }
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.textMuted)
                     .disabled(session.isLoading)
@@ -824,7 +824,7 @@ private struct SpecWizardContent: View {
             )
             .clipShape(RoundedRectangle(cornerRadius: 7))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .foregroundColor(Color.mimo.textPrimary)
     }
 
@@ -877,7 +877,7 @@ private struct SpecWizardContent: View {
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 7))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .foregroundColor(Color.mimo.textPrimary)
 
             Button {
@@ -890,7 +890,7 @@ private struct SpecWizardContent: View {
                     .background(Color.mimo.brand)
                     .clipShape(RoundedRectangle(cornerRadius: 7))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .foregroundColor(.white)
         }
         .padding(.top, 4)
@@ -934,7 +934,7 @@ private struct SpecWizardContent: View {
                 Image(systemName: "xmark")
                     .interfaceFont(size: 9)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .foregroundColor(Color.mimo.textMuted)
         }
         .padding(10)
@@ -1104,7 +1104,7 @@ private struct SpecWizardContent: View {
             .background(Color.mimo.brand)
             .clipShape(RoundedRectangle(cornerRadius: 7))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .foregroundColor(.white)
         .opacity(session.isLoading ? 0.55 : 1)
     }

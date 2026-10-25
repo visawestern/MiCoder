@@ -18,7 +18,7 @@ struct TopBarView: View {
                     .interfaceFont(size: 14)
                     .foregroundColor(appState.sidebarVisible ? Color.mimo.brand : Color.mimo.textSecondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help("Workspaces")
 
             // Session title — only when session is selected
@@ -127,7 +127,7 @@ struct TopBarView: View {
                         .interfaceFont(size: 14)
                         .foregroundColor(chatCopied ? Color.mimo.success : Color.mimo.textSecondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .help(chatCopied ? L.t(AppLocalizationKey.locCopied) : L.t(AppLocalizationKey.locCopyChat))
             }
 
@@ -189,7 +189,7 @@ struct TopBarButton: View {
                     .stroke(isActive ? Color.mimo.brand.opacity(0.5) : Color.mimo.border, lineWidth: 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
     }
 }
 
@@ -218,7 +218,7 @@ struct HeaderGoalChecklistBadge: View {
             .background(Color.mimo.brand.opacity(0.12))
             .clipShape(RoundedRectangle(cornerRadius: 4))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .help(goal ?? badge)
         .popover(isPresented: $showSteps, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 6) {
@@ -250,7 +250,7 @@ struct ChatPanelCompactHeader: View {
                     .interfaceFont(size: 14)
                     .foregroundColor(appState.sidebarVisible ? Color.mimo.brand : Color.mimo.textSecondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help("Workspaces")
 
             Spacer()
@@ -260,7 +260,7 @@ struct ChatPanelCompactHeader: View {
                     .interfaceFont(size: 14)
                     .foregroundColor(appState.showGoal ? Color.mimo.brand : Color.mimo.textSecondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help("Git tools & progress")
         }
         .padding(.horizontal, 16)
@@ -301,7 +301,7 @@ private struct ProjectTasksButton: View {
                     .background(Color.mimo.surfaceHover)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .help(L.t("Project tasks"))
             }
         }

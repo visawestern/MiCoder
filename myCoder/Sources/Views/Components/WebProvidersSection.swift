@@ -45,7 +45,7 @@ struct WebProvidersSection: View {
                         .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.mimo.border, lineWidth: 1))
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                 }
             }
 
@@ -311,7 +311,7 @@ Follow any repository instructions in AGENTS.md or miagents.md. If it instructs 
                 Spacer()
                 if !isConnected {
                     Button(L.t(AppLocalizationKey.locLogin)) { onLogin() }
-                        .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+                        .interfaceFont(size: 12).buttonStyle(HandCursorButtonStyle()).foregroundColor(Color.mimo.brand)
                 } else {
                     HStack(spacing: 8) {
                         if !storedSessions.isEmpty {
@@ -340,7 +340,7 @@ Follow any repository instructions in AGENTS.md or miagents.md. If it instructs 
                             Image(systemName: "person.crop.circle.badge.arrow.forward")
                                 .interfaceFont(size: 12)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HandCursorButtonStyle())
                         .foregroundColor(Color.mimo.brand)
                         .help(L.t(AppLocalizationKey.locChangeLoginSession))
 
@@ -381,7 +381,7 @@ Follow any repository instructions in AGENTS.md or miagents.md. If it instructs 
                                     .interfaceFont(size: 12)
                             }
                         }
-                        .interfaceFont(size: 12).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+                        .interfaceFont(size: 12).buttonStyle(HandCursorButtonStyle()).foregroundColor(Color.mimo.brand)
                         .disabled(isRefreshing)
                         .help(isRefreshing ? L.t(AppLocalizationKey.locDetecting) : L.t(AppLocalizationKey.locDetectModelsHelp))
 
@@ -401,7 +401,7 @@ Follow any repository instructions in AGENTS.md or miagents.md. If it instructs 
                 Button(action: { showRemoveConfirmation = true }) {
                     Image(systemName: "trash").interfaceFont(size: 12).foregroundColor(Color.mimo.error)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .help(L.t(AppLocalizationKey.locRemoveWebProvider))
                 .alert(L.t(AppLocalizationKey.locRemoveWebProviderConfirm, config.displayName), isPresented: $showRemoveConfirmation) {
                     Button(L.t(AppLocalizationKey.locRemove), role: .destructive, action: onRemove)
@@ -439,7 +439,7 @@ Follow any repository instructions in AGENTS.md or miagents.md. If it instructs 
                     .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.mimo.border, lineWidth: 1))
                     .clipShape(RoundedRectangle(cornerRadius: 7))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .help(showDiscoveredModels ? L.t(AppLocalizationKey.locHideDetectedModels) : L.t(AppLocalizationKey.locShowDetectedModels))
 
                 if showDiscoveredModels {
@@ -480,7 +480,7 @@ Follow any repository instructions in AGENTS.md or miagents.md. If it instructs 
                                             .interfaceFont(size: 10, weight: .semibold)
                                             .foregroundColor(Color.mimo.error)
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(HandCursorButtonStyle())
                                     .help(L.t(AppLocalizationKey.locRemoveUnavailableDetection))
                                 }
                             }
@@ -532,7 +532,7 @@ Follow any repository instructions in AGENTS.md or miagents.md. If it instructs 
                         Text(L.t(AppLocalizationKey.locSystemPrompt)).interfaceFont(size: 11, weight: .medium).foregroundColor(Color.mimo.textMuted)
                         Spacer()
                         Button(L.t(AppLocalizationKey.locClear)) { config.systemPrompt = "" }
-                            .interfaceFont(size: 10).buttonStyle(.plain).foregroundColor(Color.mimo.error)
+                            .interfaceFont(size: 10).buttonStyle(HandCursorButtonStyle()).foregroundColor(Color.mimo.error)
                     }
                     TextEditor(text: $config.systemPrompt)
                         .font(.system(size: 12))
@@ -652,7 +652,7 @@ struct CustomModelEditor: View {
                                 .interfaceFont(size: 12)
                                 .foregroundColor(Color.mimo.textMuted)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HandCursorButtonStyle())
                     }
                 }
             }
@@ -669,7 +669,7 @@ struct CustomModelEditor: View {
                     addModel()
                 }
                 .interfaceFont(size: 11)
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .foregroundColor(Color.mimo.brand)
                 .disabled(newModelName.trimmingCharacters(in: .whitespaces).isEmpty)
             }
@@ -758,7 +758,7 @@ struct WebProviderLoginView: View {
                     }
                     .foregroundColor(Color.mimo.brand)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .disabled({
                     if case .detecting = detectResult { return true }
                     return false
@@ -773,7 +773,7 @@ struct WebProviderLoginView: View {
                     }
                     .foregroundColor(Color.mimo.brand)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .disabled({
                     if case .detecting = detectResult { return true }
                     return !MiCoderAutoFreeStore.shared.provider.isReady
@@ -786,7 +786,7 @@ struct WebProviderLoginView: View {
                         .interfaceFont(size: 11)
                         .foregroundColor(canCapture ? Color.mimo.success : Color.mimo.textMuted)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .disabled(!canCapture)
                 .help(canCapture ? L.t(AppLocalizationKey.locSaveSessionModels) : L.t(AppLocalizationKey.locDetectModelsFirst))
 
@@ -796,7 +796,7 @@ struct WebProviderLoginView: View {
                         .interfaceFont(size: 12)
                         .foregroundColor(Color.mimo.textSecondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .help(L.t(AppLocalizationKey.locClose))
             }
             .padding(.horizontal, 10)

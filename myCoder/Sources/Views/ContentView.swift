@@ -147,7 +147,7 @@ struct ContentView: View {
                 // matching the old sheet behavior.
                 Button("") { appState.showSettings = false }
                     .keyboardShortcut(.cancelAction)
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .frame(width: 0, height: 0)
                     .opacity(0)
                     .accessibilityHidden(true)

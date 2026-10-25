@@ -26,7 +26,7 @@ struct LanguagePickerDropdown: View {
             .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: 6))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .popover(isPresented: $isOpen) {
             dropdownContent
         }
@@ -64,7 +64,7 @@ struct LanguagePickerDropdown: View {
                             .clipShape(RoundedRectangle(cornerRadius: 5))
                             .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HandCursorButtonStyle())
                         .accessibilityLabel(row.accessibilityLabel)
                     }
                 }

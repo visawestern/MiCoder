@@ -99,7 +99,7 @@ struct MiCoderAutoFreeSection: View {
                 .interfaceFont(size: 11, weight: .medium)
                 .foregroundColor(Color.mimo.brand)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .disabled(isRefreshing)
         }
         .padding(10)
@@ -211,7 +211,7 @@ struct MiCoderAutoFreeSection: View {
                             .frame(width: 30, height: 30)
                             .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .help(store.provider.isModelLocked ? L.t(AppLocalizationKey.locUnlockSelectedModel) : L.t(AppLocalizationKey.locLockSelectedModel))
                 }
             }
@@ -265,7 +265,7 @@ struct MiCoderAutoFreeSection: View {
                     .foregroundColor(Color.mimo.textMuted)
                 Spacer()
                 Button(L.t(AppLocalizationKey.locSavePrompt)) { store.setSystemPrompt(systemPromptInput) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.brand)
             }
@@ -358,7 +358,7 @@ struct AutoFreeCompactModelRow: View {
                         .frame(width: 24, height: 22)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .help(isLocked ? L.t(AppLocalizationKey.locUnlockSelectedModel) : L.t(AppLocalizationKey.locLockSelectedModel))
             }
         }
@@ -433,7 +433,7 @@ struct AutoFreeModelCard: View {
                     Image(systemName: isLocked ? "lock.open" : "lock")
                     Text(isLocked ? L.t(AppLocalizationKey.locUnlock) : L.t(AppLocalizationKey.locLock))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .interfaceFont(size: 10, weight: .medium)
                 .foregroundColor(isSelected ? Color.mimo.brand : Color.mimo.textMuted)
                 .disabled(!isSelected)
@@ -490,7 +490,7 @@ struct LocalProvidersSection: View {
                     .interfaceFont(size: 13)
                     .foregroundColor(Color.mimo.brand)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .disabled(detecting)
             }
             // Optional basic-auth for locked servers (`opencode serve`
@@ -688,7 +688,7 @@ struct LocalProviderCard: View {
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.mimo.border, lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .disabled(isAdded)
     }
 }
@@ -741,20 +741,20 @@ struct LocalProviderRow: View {
                     .interfaceFont(size: 11)
                     .foregroundColor(Color.mimo.brand)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .disabled(refreshing)
                 Button(action: onToggle) {
                     Text(config.isEnabled ? L.t(AppLocalizationKey.locEnabled) : L.t(AppLocalizationKey.locDisabled))
                         .interfaceFont(size: 11, weight: .medium)
                         .foregroundColor(config.isEnabled ? Color.mimo.success : Color.mimo.textMuted)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 Button(action: onRemove) {
                     Image(systemName: "trash")
                         .interfaceFont(size: 12)
                         .foregroundColor(Color.mimo.error)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
             }
             if !models.isEmpty {
                 LazyVGrid(
@@ -776,7 +776,7 @@ struct LocalProviderRow: View {
                                 .overlay(RoundedRectangle(cornerRadius: 4).stroke(isSelected(model) ? Color.mimo.brand : Color.mimo.border, lineWidth: 1))
                                 .clipShape(RoundedRectangle(cornerRadius: 4))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(HandCursorButtonStyle())
                     }
                 }
                 if models.count > collapsedModelLimit {
@@ -789,7 +789,7 @@ struct LocalProviderRow: View {
                             .interfaceFont(size: 10, weight: .medium)
                             .foregroundColor(Color.mimo.brand)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                 }
             }
             // `opencode serve` locks every endpoint behind basic auth
@@ -932,7 +932,7 @@ struct ProvidersSettingsView: View {
                 .interfaceFont(size: 13)
                 .foregroundColor(Color.mimo.brand)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
         }
     }
     
@@ -1021,7 +1021,7 @@ struct ProviderRowView: View {
                         .interfaceFont(size: 14)
                         .foregroundColor(Color.mimo.error.opacity(0.7))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .help(L.t(AppLocalizationKey.locRemoveProvider))
                 .opacity(option.isCustom ? 1 : 0)
             }
@@ -1141,7 +1141,7 @@ struct ModelDetailSpoiler: View {
                         .foregroundColor(Color.mimo.textMuted)
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             
             if isExpanded, let meta = meta {
                 VStack(alignment: .leading, spacing: 8) {

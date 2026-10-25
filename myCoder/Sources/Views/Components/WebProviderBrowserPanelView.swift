@@ -53,7 +53,7 @@ struct WebProviderBrowserPanel<Content: View>: View {
                     Image(systemName: "arrow.up.left.and.arrow.down.right")
                         .interfaceFont(size: 10, weight: .medium)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .foregroundColor(Color.mimo.textMuted)
                 .help("Expand the browser panel")
             }
@@ -100,14 +100,14 @@ struct WebProviderBrowserPanel<Content: View>: View {
                     Image(systemName: "chevron.down")
                         .interfaceFont(size: 11, weight: .medium)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .foregroundColor(Color.mimo.textMuted)
                 .help("Collapse to minimap (the page stays alive)")
                 Button(action: onHide) {
                     Image(systemName: "xmark")
                         .interfaceFont(size: 11, weight: .medium)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .foregroundColor(Color.mimo.textMuted)
                 .help("Hide the browser panel (the page stays alive)")
             }

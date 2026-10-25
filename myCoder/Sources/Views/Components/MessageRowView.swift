@@ -525,7 +525,7 @@ struct ThinkingSpoilerView: View {
                 .padding(.vertical, 8)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .disabled(!canExpand && !isThinking)
 
             if canExpand {
@@ -589,7 +589,7 @@ struct SplitToolInspectorView: View {
                     .foregroundColor(Color.mimo.cyan)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
 
                 Spacer(minLength: 4)
 
@@ -655,7 +655,7 @@ struct SplitToolInspectorView: View {
                                     isSelected: step.id == selectedStep.id
                                 )
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(HandCursorButtonStyle())
                         }
                         Spacer(minLength: 0)
                     }
@@ -695,7 +695,7 @@ struct SplitToolInspectorView: View {
                         Label(L.t(AppLocalizationKey.locCollapse), systemImage: "chevron.up")
                             .interfaceFont(size: 11, weight: .medium)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .foregroundColor(Color.mimo.textSecondary)
 
                     Spacer(minLength: 0)
@@ -807,7 +807,7 @@ struct SplitToolInspectorView: View {
                 .interfaceFont(size: 11, weight: .medium)
                 .foregroundColor(Color.mimo.textSecondary)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
     }
 }
 
@@ -828,7 +828,7 @@ struct MessageActionButton: View {
                 .background(isHovering ? Color.mimo.surfaceHover : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .onHover { isHovering = $0 }
         .help(tooltip)
     }
@@ -905,7 +905,7 @@ struct WebToolApprovalCardView: View {
                     .background(Color.mimo.success)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .accessibilityIdentifier("toolApproval.allow")
                 Button {
                     resolve(approved: false)
@@ -926,7 +926,7 @@ struct WebToolApprovalCardView: View {
                             .stroke(Color.mimo.error, lineWidth: 1)
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HandCursorButtonStyle())
                 .accessibilityIdentifier("toolApproval.deny")
                 Spacer()
             }

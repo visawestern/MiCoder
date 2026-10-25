@@ -347,7 +347,7 @@ struct CodeBlockHeader: View {
                     .frame(width: 22, height: 22)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help(copied ? L.t(AppLocalizationKey.locCopied) : L.t(AppLocalizationKey.locCopyAll))
         }
         .padding(.horizontal, 10)

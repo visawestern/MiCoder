@@ -160,7 +160,7 @@ struct StorageSettingsView: View {
                     Button(L.t(AppLocalizationKey.deleteAllArchivedChats)) {
                         showDeleteArchivedConfirmation = true
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .foregroundColor(Color.mimo.error)
                     .interfaceFont(size: 12)
 
@@ -170,7 +170,7 @@ struct StorageSettingsView: View {
                         appState.vacuumDatabase()
                         refreshStats()
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(HandCursorButtonStyle())
                     .foregroundColor(Color.mimo.brand)
                     .interfaceFont(size: 12)
                     
@@ -187,7 +187,7 @@ struct StorageSettingsView: View {
                     Button(AppLocalization.string(.resetAppCache, language: appState.appLanguage)) {
                         pendingResetScope = .appCacheOnly; showResetConfirmation = true
                     }
-                    .buttonStyle(.plain).foregroundColor(Color.mimo.error).interfaceFont(size: 12)
+                    .buttonStyle(HandCursorButtonStyle()).foregroundColor(Color.mimo.error).interfaceFont(size: 12)
                 }
             }
                 }
@@ -316,15 +316,15 @@ struct StorageSettingsView: View {
                 Button(L.t(AppLocalizationKey.locStorageExportConfiguration)) {
                     exportAppConfiguration()
                 }
-                .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+                .interfaceFont(size: 11).buttonStyle(HandCursorButtonStyle()).foregroundColor(Color.mimo.brand)
                 Button(L.t(AppLocalizationKey.locStorageImportConfiguration)) {
                     importAppConfiguration()
                 }
-                .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+                .interfaceFont(size: 11).buttonStyle(HandCursorButtonStyle()).foregroundColor(Color.mimo.brand)
                 Button(L.t(AppLocalizationKey.locArchiveInactiveDays).replacingOccurrences(of: "{0}", with: "\(Int(archiveDays))")) {
                     mutateProjects { ProjectStorageAdmin.archiveAllInactive(days: Int(archiveDays), in: $0) }
                 }
-                .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+                .interfaceFont(size: 11).buttonStyle(HandCursorButtonStyle()).foregroundColor(Color.mimo.brand)
                 .help(L.t(AppLocalizationKey.locBulkArchiveHelp))
             }
             // Quota warning (plan Раздел 8 п.50): inform, never block.
@@ -419,7 +419,7 @@ struct StorageSettingsView: View {
             }
             Spacer()
             Button(L.t(AppLocalizationKey.locFindNewPath2)) { relinkProject(entry) }
-                .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+                .interfaceFont(size: 11).buttonStyle(HandCursorButtonStyle()).foregroundColor(Color.mimo.brand)
             Button(action: {
                 deleteConfirmName = ""
                 pendingDeleteEntry = entry
@@ -427,7 +427,7 @@ struct StorageSettingsView: View {
                 Image(systemName: "trash").interfaceFont(size: 11).foregroundColor(Color.mimo.error)
             }
             .disabled(deletionInProgress)
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help(L.t(AppLocalizationKey.locDeleteRecord))
         }
         .padding(.horizontal, 10).padding(.vertical, 6)
@@ -459,10 +459,10 @@ struct StorageSettingsView: View {
             Spacer()
             if archived {
                 Button(L.t(AppLocalizationKey.locRestore)) { mutateProjects { ProjectRegistryLogic.restore(id: entry.id, in: $0) } }
-                    .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.brand)
+                    .interfaceFont(size: 11).buttonStyle(HandCursorButtonStyle()).foregroundColor(Color.mimo.brand)
             } else {
                 Button(L.t(AppLocalizationKey.locArchive)) { mutateProjects { ProjectRegistryLogic.archive(id: entry.id, at: Date(), in: $0) } }
-                    .interfaceFont(size: 11).buttonStyle(.plain).foregroundColor(Color.mimo.textSecondary)
+                    .interfaceFont(size: 11).buttonStyle(HandCursorButtonStyle()).foregroundColor(Color.mimo.textSecondary)
             }
             Button(action: {
                 deleteConfirmName = ""
@@ -471,7 +471,7 @@ struct StorageSettingsView: View {
                 Image(systemName: "trash").interfaceFont(size: 11).foregroundColor(Color.mimo.error)
             }
             .disabled(deletionInProgress)
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help(L.t(AppLocalizationKey.locDeleteProjectHelp2))
 
             Button(action: {
@@ -480,21 +480,21 @@ struct StorageSettingsView: View {
                 Image(systemName: "arrow.down.right.and.arrow.up.left")
                     .interfaceFont(size: 11).foregroundColor(Color.mimo.brand)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help(L.t(AppLocalizationKey.locCompressProjectHelp))
 
             Button(action: { exportProjectBackup(entry) }) {
                 Image(systemName: "square.and.arrow.up")
                     .interfaceFont(size: 11).foregroundColor(Color.mimo.brand)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help(L.t(AppLocalizationKey.locExportBackupHelp))
 
             Button(action: { importProjectBackup(entry) }) {
                 Image(systemName: "square.and.arrow.down")
                     .interfaceFont(size: 11).foregroundColor(Color.mimo.brand)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .help(L.t(AppLocalizationKey.locRestoreBackupHelp))
         }
         .padding(.horizontal, 10).padding(.vertical, 6)

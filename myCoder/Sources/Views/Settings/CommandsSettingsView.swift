@@ -145,7 +145,7 @@ struct CommandsSettingsView: View {
                 reload()
             }
             .interfaceFont(size: 11)
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             .foregroundColor(command.isEnabled ? Color.mimo.textSecondary : Color.mimo.success)
 
             Button(action: {
@@ -153,12 +153,12 @@ struct CommandsSettingsView: View {
             }) {
                 Image(systemName: "pencil").interfaceFont(size: 12).foregroundColor(Color.mimo.textSecondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
 
             Button(action: { commandToDelete = command }) {
                 Image(systemName: "trash").interfaceFont(size: 12).foregroundColor(Color.mimo.error)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
         }
         .padding(12)
         .background(Color.mimo.surface)

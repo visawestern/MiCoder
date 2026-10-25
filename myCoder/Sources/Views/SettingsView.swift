@@ -33,7 +33,7 @@ struct SettingsSidebar: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(HandCursorButtonStyle())
             
             Divider()
             
@@ -79,7 +79,7 @@ struct SettingsTabRow: View {
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HandCursorButtonStyle())
         .padding(.horizontal, 8)
     }
 }
