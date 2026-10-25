@@ -13,6 +13,11 @@ enum RightPanelLayout {
     static let stepWaitingIcon = "circle"
     static let completedHeaderIcon = "chevron.up"
     static let waitingHeaderIcon = "chevron.down"
+
+    static let subagentsIcon = "person.2"
+    static let subagentRunningIcon = "arrow.right"
+    static let subagentDoneIcon = "checkmark"
+    static let subagentFailedIcon = "xmark"
 }
 
 enum RightPanelProgressDisplay {

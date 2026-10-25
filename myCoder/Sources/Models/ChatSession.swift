@@ -23,6 +23,11 @@ struct ChatSession: Identifiable {
     var modelID: String?
     /// Provider the chat used last, restored when the chat is reopened.
     var providerID: String?
+    /// Set for sub-agent chats: the id of the chat that spawned this one.
+    /// Sub-agent chats are listed in the right panel, never in the sidebar.
+    var parentSessionID: String?
+    /// Sub-agent lifecycle: "running" | "done" | "failed". nil for normal chats.
+    var subagentStatus: String?
 
     init(
         id: String = UUID().uuidString,
@@ -36,7 +41,9 @@ struct ChatSession: Identifiable {
         gitSummary: MimoSessionSummary? = nil,
         sessionGoal: String? = nil,
         modelID: String? = nil,
-        providerID: String? = nil
+        providerID: String? = nil,
+        parentSessionID: String? = nil,
+        subagentStatus: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -50,6 +57,8 @@ struct ChatSession: Identifiable {
         self.sessionGoal = sessionGoal
         self.modelID = modelID
         self.providerID = providerID
+        self.parentSessionID = parentSessionID
+        self.subagentStatus = subagentStatus
     }
     
     var durationLabel: String {

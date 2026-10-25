@@ -280,6 +280,7 @@ enum LocalizationRuntime {
         "Open with": "Открыть в",
         "Default application": "Приложение по умолчанию",
         "Reveal in Finder": "Показать в Finder",
+        "Subagent": "Субагент",
     ]
 
     static func t(_ key: String) -> String {

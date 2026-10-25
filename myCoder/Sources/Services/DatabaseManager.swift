@@ -7,7 +7,7 @@ class DatabaseManager {
     static let shared = DatabaseManager()
     
     /// Current schema version — increment when tables change
-    private static let schemaVersion: Int = 4
+    private static let schemaVersion: Int = 5
     
     private var db: Connection?
     private let dbPath: String
@@ -58,6 +58,7 @@ class DatabaseManager {
     private let sessionMetadata = Expression<String?>("metadata")
     private let sessionGoal = Expression<String?>("session_goal")
     private let sessionDraftText = Expression<String?>("draft_text")
+    private let sessionSubagentStatus = Expression<String?>("subagent_status")
 
     // Session routes table — durable mapping "session id -> owning project
     // path". Session/message storage lives in the per-project database, but
@@ -556,7 +557,9 @@ class DatabaseManager {
         branch: String? = nil,
         agentMode: String = "build",
         modelId: String? = nil,
-        providerId: String? = nil
+        providerId: String? = nil,
+        parentSessionId: String? = nil,
+        subagentStatus: String? = nil
     ) throws {
         guard let db = db else { throw DatabaseError.notInitialized }
         
@@ -572,7 +575,9 @@ class DatabaseManager {
                 sessionBranch <- branch,
                 sessionAgentMode <- agentMode,
                 sessionModelId <- modelId,
-                sessionProviderId <- providerId
+                sessionProviderId <- providerId,
+                sessionParentId <- parentSessionId,
+                sessionSubagentStatus <- subagentStatus
             ))
         } catch let Result.error(_, code, _) where code == 19 {
             throw DatabaseError.duplicateEntry
@@ -694,10 +699,46 @@ class DatabaseManager {
                 costUsd: row[sessionCostUsd],
                 draftText: row[sessionDraftText],
                 modelId: row[sessionModelId],
-                providerId: row[sessionProviderId]
+                providerId: row[sessionProviderId],
+                parentSessionId: row[sessionParentId],
+                subagentStatus: row[sessionSubagentStatus]
             ))
         }
         return results
+    }
+
+    /// Sub-agent chats spawned by `parentId` inside the global store,
+    /// ordered oldest-first so the panel reads like a transcript.
+    func childSessions(parentId: String) throws -> [SessionRecord] {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        return try SQLiteSafeQuery.rows(
+            db.prepareRowIterator(sessions.filter(sessionParentId == parentId).order(sessionCreatedAt.asc))
+        ).map { row in
+            SessionRecord(
+                id: row[sessionId],
+                projectId: row[sessionProjectId],
+                title: row[sessionTitle],
+                createdAt: Date(timeIntervalSince1970: TimeInterval(row[sessionCreatedAt])),
+                updatedAt: Date(timeIntervalSince1970: TimeInterval(row[sessionUpdatedAt])),
+                directory: row[sessionDirectory],
+                branch: row[sessionBranch],
+                agentMode: row[sessionAgentMode],
+                isArchived: row[sessionIsArchived],
+                tokensUsed: Int(row[sessionTokensUsed]),
+                costUsd: row[sessionCostUsd],
+                draftText: row[sessionDraftText],
+                modelId: row[sessionModelId],
+                providerId: row[sessionProviderId],
+                parentSessionId: row[sessionParentId],
+                subagentStatus: row[sessionSubagentStatus]
+            )
+        }
+    }
+
+    /// Persist a sub-agent lifecycle status ("running" | "done" | "failed").
+    func setSubagentStatus(sessionId id: String, status: String?) throws {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        try db.run(sessions.filter(sessionId == id).update(sessionSubagentStatus <- status))
     }
 
     func updateSessionTimestamp(id: String) throws {
@@ -1013,6 +1054,10 @@ class DatabaseManager {
                 t.column(sessionRouteProjectPath)
                 t.column(sessionRouteUpdatedAt)
             })
+        case 5:
+            // Sub-agent chats: parent link (column exists since v1) and the
+            // lifecycle status shown in the right panel.
+            try addColumnIfMissing(table: "sessions", column: "subagent_status", definition: "TEXT")
         default:
             break
         }
@@ -1322,6 +1367,8 @@ struct SessionRecord {
     let draftText: String?
     let modelId: String?
     let providerId: String?
+    var parentSessionId: String? = nil
+    var subagentStatus: String? = nil
 }
 
 struct MessageRecord {

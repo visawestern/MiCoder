@@ -1276,9 +1276,13 @@ struct ChatPanelView: View {
                 // Auto Free path: each tool block is executed locally against
                 // the selected project, and its result is fed back so the
                 // model can continue instead of stopping at a raw ```tool block.
-                let executor = ProjectWebToolExecutor(
+                var executor = ProjectWebToolExecutor(
                     projectRoot: projectRoot,
                     accessLevel: appState.accessLevel
+                )
+                executor.subagentLauncher = subagentLauncher(
+                    projectRoot: projectRoot,
+                    transport: .openAICompatible(baseURL: URL(string: baseURL) ?? URL(fileURLWithPath: "/"), apiKey: apiKey ?? "", model: model)
                 )
                 let maxIterations = 15
                 var conversation = msgs
@@ -1468,9 +1472,13 @@ struct ChatPanelView: View {
                     ),
                     projectID: OpenCodeRequestContext.projectID(fromPath: projectRoot)
                 )
-                let executor = ProjectWebToolExecutor(
+                var executor = ProjectWebToolExecutor(
                     projectRoot: projectRoot,
                     accessLevel: appState.accessLevel
+                )
+                executor.subagentLauncher = subagentLauncher(
+                    projectRoot: projectRoot,
+                    transport: .autoFree
                 )
                 let maxIterations = 15
                 var streamedContent = ""
@@ -1994,6 +2002,26 @@ struct ChatPanelView: View {
     /// One assistant message can have several gated calls. They are all
     /// registered and rendered before the loop starts awaiting them, so the
     /// user sees the full queue instead of one modal at a time.
+
+    private func subagentLauncher(
+        projectRoot: String,
+        transport: SubagentRunner.Transport
+    ) -> (String, String) async -> String {
+        let parentSessionID = messageStore.currentSessionID ?? appState.selectedSession?.id ?? ""
+        let projectKey = appState.selectedWorkspace?.id ?? ChatSession.standaloneProjectKey
+        let directory = appState.selectedWorkspace?.path ?? ChatSession.standaloneProjectKey
+        let context = SubagentRunner.Context(
+            parentSessionID: parentSessionID,
+            projectKey: projectKey,
+            directory: directory,
+            projectRoot: projectRoot,
+            transport: transport
+        )
+        return { description, prompt in
+            await SubagentRunner.launch(description: description, prompt: prompt, context: context)
+        }
+    }
+
     private func prepareLocalToolCalls(
         _ calls: [WebToolCall],
         modelContext: String,

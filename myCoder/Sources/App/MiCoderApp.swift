@@ -99,6 +99,9 @@ enum ProjectCreationMode: String, CaseIterable {
 class AppState: ObservableObject {
     let instanceID = UUID().uuidString.prefix(8)
     deinit {
+        if let observer = subagentObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
         if let observer = autoFreeSwitchObserver {
             NotificationCenter.default.removeObserver(observer)
         }
@@ -283,6 +286,10 @@ class AppState: ObservableObject {
     @Published var pendingQuestionRequest: PendingQuestionRequest?
     @Published var vcsChanges: [MimoVcsFileDiff] = []
     @Published var sessionGitTotals = SessionGitTotals(additions: 0, deletions: 0)
+    /// Sub-agent chats of the selected session, shown in the right panel
+    /// between the GitHub tools and the plan. Clicking a row navigates into
+    /// the child chat transcript.
+    @Published var subagentSessions: [ChatSession] = []
     @Published var gitBranch = "main"
     @Published var gitBranches: [String] = []
     @Published var gitStatusMessage: String?
@@ -324,6 +331,7 @@ class AppState: ObservableObject {
     @Published var shellActionNotice: String?
     @Published var shellActionNoticeTone: UndoActionFeedbackTone = .success
     private var autoFreeSwitchObserver: NSObjectProtocol? = nil
+    private var subagentObserver: NSObjectProtocol? = nil
     
     var displayedWorkspaces: [Workspace] {
         let visible = WorkspaceArchiveVisibilityLogic.visible(
@@ -506,6 +514,14 @@ class AppState: ObservableObject {
             )
             self.notificationService.add(appNotification)
             self.transientProviderNotification = appNotification
+        }
+
+        subagentObserver = NotificationCenter.default.addObserver(
+            forName: .subagentSessionChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.refreshSubagentSessions()
         }
 
         guard !Self.isRunningTests else { return }
@@ -2345,12 +2361,26 @@ class AppState: ObservableObject {
         currentSteps = []
         vcsChanges = []
         sessionGitTotals = SessionGitTotals(additions: 0, deletions: 0)
+        refreshSubagentSessions()
         scheduleGitRefresh(sessionID: session.id)
         
         // Unarchive session if it was archived (so user can resume chatting)
         Task {
             try? DatabaseManager.shared.unarchiveSession(id: session.id)
         }
+    }
+
+    /// Reload the sub-agent list for the selected chat from its own store.
+    func refreshSubagentSessions() {
+        guard let session = selectedSession else {
+            subagentSessions = []
+            return
+        }
+        let projectKey = selectedWorkspace?.id ?? ChatSession.standaloneProjectKey
+        subagentSessions = DatabaseBridge.shared.loadChildSessions(
+            parentID: session.id,
+            projectKey: projectKey
+        )
     }
 
     func scheduleGitRefresh(sessionID explicitSessionID: String? = nil) {

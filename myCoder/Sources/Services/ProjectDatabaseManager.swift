@@ -38,6 +38,8 @@ struct ProjectSessionRecord {
     let sessionGoal: String?
     let modelId: String?
     let providerId: String?
+    var parentSessionId: String? = nil
+    var subagentStatus: String? = nil
 }
 
 /// A record describing a single message stored inside a per-project database.
@@ -140,6 +142,7 @@ final class ProjectDatabaseManager {
     private let sessionModelId = Expression<String?>("model_id")
     private let sessionProviderId = Expression<String?>("provider_id")
     private let sessionParentId = Expression<String?>("parent_session_id")
+    private let sessionSubagentStatus = Expression<String?>("subagent_status")
     private let sessionIsArchived = Expression<Bool>("is_archived")
     private let sessionTokensUsed = Expression<Int64>("tokens_used")
     private let sessionCostUsd = Expression<Double>("cost_usd")
@@ -423,6 +426,7 @@ final class ProjectDatabaseManager {
         // CREATE TABLE IF NOT EXISTS does not upgrade them, so add the column
         // explicitly while preserving all existing session rows.
         try addColumnIfMissing(table: "sessions", column: "session_goal", definition: "TEXT")
+        try addColumnIfMissing(table: "sessions", column: "subagent_status", definition: "TEXT")
 
         try db.run(messages.create(ifNotExists: true) { t in
             t.column(messageId, primaryKey: true)
@@ -691,7 +695,7 @@ final class ProjectDatabaseManager {
             "id", "session_id", "title", "created_at", "updated_at", "directory",
             "branch", "agent_mode", "model_id", "provider_id",
             "parent_session_id", "is_archived", "tokens_used", "cost_usd",
-            "active_time_seconds", "metadata", "session_goal",
+            "active_time_seconds", "metadata", "session_goal", "subagent_status",
             "message_id", "role", "content", "prompt_tokens", "completion_tokens",
             "reasoning", "is_streaming", "is_finished", "parent_message_id",
             "edit_of_message_id", "type", "tool_name", "tool_args", "tool_result",
@@ -821,9 +825,11 @@ final class ProjectDatabaseManager {
         modelId: String? = nil,
         providerId: String? = nil,
         parentSessionId: String? = nil,
+        subagentStatus: String? = nil,
         sessionGoal: String? = nil
     ) throws {
         let sessionGoalValue = sessionGoal
+        let subagentStatusValue = subagentStatus
         touch()
         let now = Int64(Date().timeIntervalSince1970)
         try db.run(sessions.insert(
@@ -838,9 +844,24 @@ final class ProjectDatabaseManager {
             sessionModelId <- modelId,
             sessionProviderId <- providerId,
             sessionParentId <- parentSessionId,
+            sessionSubagentStatus <- subagentStatusValue,
             sessionIsArchived <- false,
             self.sessionGoal <- sessionGoalValue
         ))
+    }
+
+    /// Sub-agent chats spawned by `parentId`, newest first.
+    func childSessions(parentId: String) throws -> [ProjectSessionRecord] {
+        touch()
+        return try SQLiteSafeQuery.rows(
+            db.prepareRowIterator(sessions.filter(sessionParentId == parentId).order(sessionCreatedAt.asc))
+        ).map(rowToSessionRecord)
+    }
+
+    /// Persist a sub-agent lifecycle status ("running" | "done" | "failed").
+    func setSubagentStatus(id: String, status: String?) throws {
+        touch()
+        try db.run(sessions.filter(sessionId == id).update(sessionSubagentStatus <- status))
     }
 
     func getAllSessions(includeArchived: Bool = true) throws -> [ProjectSessionRecord] {
@@ -983,7 +1004,9 @@ final class ProjectDatabaseManager {
             costUsd: row[sessionCostUsd],
             sessionGoal: row[sessionGoal],
             modelId: row[sessionModelId],
-            providerId: row[sessionProviderId]
+            providerId: row[sessionProviderId],
+            parentSessionId: row[sessionParentId],
+            subagentStatus: row[sessionSubagentStatus]
         )
     }
 

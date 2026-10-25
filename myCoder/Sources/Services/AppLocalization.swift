@@ -207,6 +207,7 @@ enum AppLocalizationKey: String, CaseIterable {
     case terminalHelpOutput
     case terminalCommandNotFound
     case gitToolsTitle
+    case subagentsTitle
     case gitChanges
     case gitNoChanges
     case gitBranch
@@ -1262,6 +1263,7 @@ enum AppLocalization {
         "terminalHelpHint": ["en": "Type /help for a list of available commands", "ru": "Введите /help для списка доступных команд", "es": "Escriba /help para ver la lista de comandos disponibles", "fr": "Saisissez /help pour la liste des commandes disponibles", "de": "Geben Sie /help ein, um die verfügbaren Befehle anzuzeigen", "zh": "输入 /help 查看可用命令列表", "ja": "利用可能なコマンドの一覧を表示するには /help と入力してください", "ko": "사용 가능한 명령 목록을 보려면 /help를 입력하세요", "pt": "Digite /help para ver a lista de comandos disponíveis", "ar": "اكتب /help لعرض قائمة الأوامر المتاحة"],
         "terminalCommandNotFound": ["en": "Command not found: %@", "ru": "Команда не найдена: %@", "es": "Comando no encontrado: %@", "fr": "Commande introuvable : %@", "de": "Befehl nicht gefunden: %@", "zh": "找不到命令：%@", "ja": "コマンドが見つかりません: %@", "ko": "명령을 찾을 수 없습니다: %@", "pt": "Comando não encontrado: %@", "ar": "الأمر غير موجود: %@"],
         "gitToolsTitle": ["en": "Git tools", "ru": "Инструменты Git", "es": "Herramientas de Git", "fr": "Outils Git", "de": "Git-Werkzeuge", "zh": "Git 工具", "ja": "Git ツール", "ko": "Git 도구", "pt": "Ferramentas Git", "ar": "أدوات Git"],
+        "subagentsTitle": ["en": "Subagents", "ru": "Субагенты", "es": "Subagentes", "fr": "Sous-agents", "de": "Subagenten", "zh": "子代理", "ja": "サブエージェント", "ko": "서브에이전트", "pt": "Subagentes", "ar": "الوكلاء الفرعيون"],
         "gitChanges": ["en": "Changes", "ru": "Изменения", "es": "Cambios", "fr": "Modifications", "de": "Änderungen", "zh": "更改", "ja": "変更", "ko": "변경 사항", "pt": "Alterações", "ar": "التغييرات"],
         "gitNoChanges": ["en": "No changes", "ru": "Нет изменений", "es": "Sin cambios", "fr": "Aucune modification", "de": "Keine Änderungen", "zh": "无更改", "ja": "変更なし", "ko": "변경 사항 없음", "pt": "Sem alterações", "ar": "لا توجد تغييرات"],
         "gitBranch": ["en": "Branch", "ru": "Ветка", "es": "Rama", "fr": "Branche", "de": "Zweig", "zh": "分支", "ja": "ブランチ", "ko": "브랜치", "pt": "Ramo", "ar": "الفرع"],

@@ -765,10 +765,18 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         return out + "$"
     }
 
+    /// Injected by the chat panel for API-backed routes: launches the task as
+    /// a real sub-agent chat (child session in the database, listed in the
+    /// right panel). nil keeps the legacy browser-session path.
+    var subagentLauncher: ((String, String) async -> String)?
+
     private func executeTask(call: WebToolCall) async -> String {
         guard let description = call.arguments["description"],
               let prompt = call.arguments["prompt"] else {
             return "error: missing description or prompt"
+        }
+        if let subagentLauncher {
+            return await subagentLauncher(description, prompt)
         }
         // Bridge is injected by the chat panel; without it we cannot drive a
         // browser. Surface the limitation as a catchable error rather than

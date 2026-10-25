@@ -244,7 +244,7 @@ class DatabaseBridge: ObservableObject {
         if let projectDB = resolveProjectDatabase(for: projectId) {
             do {
                 let records = try projectDB.getAllSessions(includeArchived: false)
-                return records.map { record in
+                return records.filter { $0.parentSessionId == nil }.map { record in
                     let normalizedProjectPath = ChatSession.normalizedPath(projectId)
                     rememberProject(normalizedProjectPath, forSessionID: record.id)
                     persistRoute(sessionID: record.id, projectPath: normalizedProjectPath)
@@ -258,7 +258,9 @@ class DatabaseBridge: ObservableObject {
                         gitSummary: nil,
                         sessionGoal: record.sessionGoal,
                         modelID: record.modelId,
-                        providerID: record.providerId
+                        providerID: record.providerId,
+                        parentSessionID: record.parentSessionId,
+                        subagentStatus: record.subagentStatus
                     )
                 }
             } catch {
@@ -269,6 +271,111 @@ class DatabaseBridge: ObservableObject {
         return []
     }
 
+    /// Create a sub-agent chat owned by `parentID` in the same store the
+    /// parent uses (per-project database, or the global store for standalone
+    /// chats). The child is marked "running" and is excluded from the sidebar
+    /// by the parent filter — it surfaces in the right panel instead.
+    func createSubagentSession(
+        parentSessionID: String,
+        projectKey: String,
+        directory: String,
+        title: String
+    ) -> ChatSession {
+        let child = ChatSession(
+            title: title,
+            directory: projectKey == ChatSession.standaloneProjectKey ? ChatSession.standaloneProjectKey : directory,
+            parentSessionID: parentSessionID,
+            subagentStatus: SubagentRunner.statusRunning
+        )
+        if projectKey == ChatSession.standaloneProjectKey {
+            do {
+                try db.insertSession(
+                    id: child.id,
+                    projectId: ChatSession.standaloneProjectKey,
+                    title: child.title,
+                    directory: child.directory,
+                    parentSessionId: parentSessionID,
+                    subagentStatus: SubagentRunner.statusRunning
+                )
+            } catch {
+                print("❌ Failed to create sub-agent session: \(error)")
+            }
+            return child
+        }
+        guard let projectDB = resolveProjectDatabase(for: projectKey) else {
+            print("❌ Cannot create sub-agent session without a project database: \(projectKey)")
+            return child
+        }
+        let normalizedProjectPath = ChatSession.normalizedPath(projectKey)
+        rememberProject(normalizedProjectPath, forSessionID: child.id)
+        persistRoute(sessionID: child.id, projectPath: normalizedProjectPath)
+        do {
+            try projectDB.insertSession(
+                id: child.id,
+                title: child.title,
+                directory: directory,
+                parentSessionId: parentSessionID,
+                subagentStatus: SubagentRunner.statusRunning
+            )
+        } catch {
+            print("❌ Failed to create sub-agent session in project database: \(error)")
+        }
+        return child
+    }
+
+    /// Lifecycle status update routed to the store that owns `sessionID`.
+    func setSubagentStatus(sessionID: String, status: String?) {
+        if let projectDB = resolveProjectDatabase(forSessionID: sessionID) {
+            try? projectDB.setSubagentStatus(id: sessionID, status: status)
+            return
+        }
+        try? db.setSubagentStatus(sessionId: sessionID, status: status)
+    }
+
+    /// Sub-agent chats of `parentID`, loaded from the parent's own store.
+    func loadChildSessions(parentID: String, projectKey: String) -> [ChatSession] {
+        if projectKey == ChatSession.standaloneProjectKey {
+            let records = (try? db.childSessions(parentId: parentID)) ?? []
+            return records.map { record in
+                ChatSession(
+                    id: record.id,
+                    title: record.title,
+                    createdAt: record.createdAt,
+                    updatedAt: record.updatedAt,
+                    directory: ChatSession.standaloneProjectKey,
+                    branch: record.branch,
+                    gitSummary: nil,
+                    sessionGoal: nil,
+                    modelID: record.modelId,
+                    providerID: record.providerId,
+                    parentSessionID: record.parentSessionId,
+                    subagentStatus: record.subagentStatus
+                )
+            }
+        }
+        guard let projectDB = resolveProjectDatabase(for: projectKey) else { return [] }
+        let records = (try? projectDB.childSessions(parentId: parentID)) ?? []
+        let normalizedProjectPath = ChatSession.normalizedPath(projectKey)
+        return records.map { record in
+            rememberProject(normalizedProjectPath, forSessionID: record.id)
+            persistRoute(sessionID: record.id, projectPath: normalizedProjectPath)
+            return ChatSession(
+                id: record.id,
+                title: record.title,
+                createdAt: record.createdAt,
+                updatedAt: record.updatedAt,
+                directory: record.directory,
+                branch: record.branch,
+                gitSummary: nil,
+                sessionGoal: record.sessionGoal,
+                modelID: record.modelId,
+                providerID: record.providerId,
+                parentSessionID: record.parentSessionId,
+                subagentStatus: record.subagentStatus
+            )
+        }
+    }
+
     /// Load persisted standalone chats (no workspace) from the global
     /// database (audit 2026-09-08). Messages for these sessions already
     /// route through the global store (`isTemporarySession`), so loading the
@@ -276,7 +383,7 @@ class DatabaseBridge: ObservableObject {
     func loadStandaloneSessions() -> [ChatSession] {
         let records = (try? db.getAllSessionsAcrossProjects()) ?? []
         return records
-            .filter { $0.projectId == ChatSession.standaloneProjectKey && !$0.isArchived }
+            .filter { $0.projectId == ChatSession.standaloneProjectKey && !$0.isArchived && $0.parentSessionId == nil }
             .map { record in
                 ChatSession(
                     id: record.id,
@@ -288,7 +395,9 @@ class DatabaseBridge: ObservableObject {
                     gitSummary: nil,
                     sessionGoal: nil,
                     modelID: record.modelId,
-                    providerID: record.providerId
+                    providerID: record.providerId,
+                    parentSessionID: record.parentSessionId,
+                    subagentStatus: record.subagentStatus
                 )
             }
     }
