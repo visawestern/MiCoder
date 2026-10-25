@@ -2779,8 +2779,30 @@ class AppState: ObservableObject {
         if !sessions.contains(where: { $0.id == sessionID }) {
             sessions.insert(session, at: 0)
         }
+        registerSessionInSidebar(session)
         MiCoderAPIServer.appendLog("📝 createStandaloneSession: id=\(sessionID), title=\(sessionTitle)")
         return session
+    }
+
+    /// Put a chat into the sidebar caches so a freshly created chat shows up
+    /// right away.
+    ///
+    /// The sidebar keeps its own per-project cache; a chat that only lands in
+    /// the in-memory list stays invisible there until the project is reloaded
+    /// — which is why a new chat could not be found in the list.
+    @MainActor
+    func registerSessionInSidebar(_ session: ChatSession) {
+        if let workspace = workspaces.first(where: { session.belongs(to: $0) }) {
+            var projectSessions = sidebarProjectSessions[workspace.id] ?? []
+            projectSessions.removeAll { $0.id == session.id }
+            projectSessions.insert(session, at: 0)
+            sidebarProjectSessions[workspace.id] = projectSessions
+            return
+        }
+        var projectless = sidebarProjectlessSessions
+        projectless.removeAll { $0.id == session.id }
+        projectless.insert(session, at: 0)
+        sidebarProjectlessSessions = projectless
     }
 
     /// Merge persisted standalone chats into the in-memory list at startup
@@ -2810,6 +2832,7 @@ class AppState: ObservableObject {
         }
         if let stored = DatabaseBridge.shared.loadStandaloneSessions().first(where: { $0.id == id }) {
             sessions.insert(stored, at: 0)
+            registerSessionInSidebar(stored)
             MiCoderAPIServer.appendLog("📝 materializeSessionFromDatabase: +\(id)")
             return stored
         }
@@ -2859,6 +2882,7 @@ class AppState: ObservableObject {
         if !sessions.contains(where: { $0.id == sessionID }) {
             sessions.insert(session, at: 0)
         }
+        registerSessionInSidebar(session)
         return sessionID
     }
     
@@ -2876,16 +2900,19 @@ class AppState: ObservableObject {
         showSettings = true
     }
     
+    @MainActor
     func upsertSession(_ session: ChatSession) {
         if let index = sessions.firstIndex(where: { $0.id == session.id }) {
             sessions[index] = session
         } else {
             sessions.insert(session, at: 0)
         }
+        registerSessionInSidebar(session)
         selectedSession = session
         MiCoderAPIServer.appendLog("📝 upsertSession: id=\(session.id), sessions=\(sessions.count), selected=\(selectedSession?.id ?? "nil")")
     }
     
+    @MainActor
     func registerSessionFromServer(id: String, title: String, directory: String, select: Bool = true) {
         let session = ChatSession(
             id: id,
@@ -2898,6 +2925,7 @@ class AppState: ObservableObject {
         } else if !sessions.contains(where: { $0.id == id }) {
             sessions.insert(session, at: 0)
         }
+        registerSessionInSidebar(session)
     }
     
     @discardableResult
