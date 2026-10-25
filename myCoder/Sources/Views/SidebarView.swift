@@ -11,6 +11,9 @@ struct SidebarView: View {
                 SidebarActionRow(icon: SidebarLayout.newTaskIcon, label: L.t("New task"), shortcut: "⌘N") {
                     appState.startNewTask(in: appState.selectedWorkspace)
                 }
+                SidebarActionRow(icon: "bubble.left.and.bubble.right", label: L.t("New chat without a project")) {
+                    appState.startProjectlessTask()
+                }
                 newProjectActionRow
                 SidebarActionRow(icon: "folder", label: L.t(AppLocalizationKey.locOpenProject), shortcut: "⌘O") {
                     let panel = NSOpenPanel()
@@ -50,6 +53,12 @@ struct SidebarView: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
+                    // The "no project" option: chats that are not tied to any
+                    // project folder. It is the project picker's entry for the
+                    // project-less mode and a shortcut to a project-less chat.
+                    NoProjectRow()
+                        .padding(.horizontal, 8)
+                        .padding(.bottom, 4)
                     if appState.workspaceViewMode == .grid {
                         if appState.workspacesSectionExpanded {
                             WorkspaceGridView(workspaces: appState.displayedWorkspaces)
@@ -657,6 +666,29 @@ struct WorkspacesOverviewSheet: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
+                    // The "no project" entry of the project picker.
+                    Button(action: {
+                        appState.selectNoProject()
+                        dismiss()
+                    }) {
+                        HStack {
+                            Image(systemName: "bubble.left.and.bubble.right")
+                                .foregroundColor(Color.mimo.brand)
+                            Text(L.t("No project"))
+                                .foregroundColor(Color.mimo.textPrimary)
+                            Spacer()
+                            if appState.isProjectlessMode {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(Color.mimo.brand)
+                            }
+                        }
+                        .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider()
+                        .padding(.vertical, 4)
+
                     ForEach(filtered) { workspace in
                         Button(action: {
                             appState.selectWorkspace(workspace)
@@ -884,6 +916,59 @@ struct WorkspaceSidebarSection: View {
 /// A chat without a project. It is rendered as a top-level row — like a
 /// project row, but with a chat icon — so project chats and project-less
 /// chats never mix (F71).
+struct NoProjectRow: View {
+    @EnvironmentObject var appState: AppState
+    @State private var isHovered = false
+
+    private var isSelected: Bool {
+        appState.isProjectlessMode
+    }
+
+    var body: some View {
+        Button(action: { appState.selectNoProject() }) {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(Color.mimo.brand.opacity(0.18))
+                        .frame(width: 28, height: 28)
+                    Image(systemName: "bubble.left.and.bubble.right")
+                        .interfaceFont(size: 12)
+                        .foregroundColor(Color.mimo.brand)
+                }
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(L.t("No project"))
+                        .interfaceFont(size: 12, weight: .medium)
+                        .foregroundColor(isSelected ? Color.mimo.textPrimary : Color.mimo.textSecondary)
+                        .lineLimit(1)
+                    Text(appState.toolWorkingDirectory)
+                        .interfaceFont(size: 10)
+                        .foregroundColor(Color.mimo.textMuted)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                }
+
+                Spacer(minLength: 4)
+
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .interfaceFont(size: 10)
+                        .foregroundColor(Color.mimo.brand)
+                }
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 5)
+            .background(isHovered ? Color.mimo.surfaceHover : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .help(L.t("Chats that are not tied to a project folder"))
+        .accessibilityIdentifier("sidebar.noProject")
+    }
+}
+
 struct ProjectlessChatRow: View {
     let node: SidebarProjectlessChatNode
     @EnvironmentObject var appState: AppState

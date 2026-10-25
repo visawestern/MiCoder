@@ -32,9 +32,13 @@ struct TopBarView: View {
             // Workspace folder badge — only when workspace is selected
             if let workspace = appState.selectedWorkspace {
                 HStack(spacing: 4) {
-                    Image(systemName: "folder.fill")
+                    Image(systemName: ProjectlessWorkspaceLogic.isProjectless(workspace)
+                          ? "bubble.left.and.bubble.right"
+                          : "folder.fill")
                         .interfaceFont(size: 10)
-                    Text(workspace.name)
+                    Text(ProjectlessWorkspaceLogic.isProjectless(workspace)
+                         ? L.t("No project")
+                         : workspace.name)
                         .interfaceFont(size: 11, weight: .medium)
                 }
                 .foregroundColor(Color.mimo.textSecondary)

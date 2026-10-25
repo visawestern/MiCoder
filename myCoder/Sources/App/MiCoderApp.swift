@@ -2709,6 +2709,35 @@ class AppState: ObservableObject {
         )
     }
 
+    /// True when the app works without a project — a chat that is not tied to
+    /// any project folder.
+    var isProjectlessMode: Bool {
+        ProjectlessWorkspaceLogic.isProjectless(selectedWorkspace)
+    }
+
+    /// Working directory of the open chat: the project folder for a project
+    /// chat, the home folder for a project-less one. Every tool call, shell
+    /// command and file read is resolved against it.
+    var toolWorkingDirectory: String {
+        ProjectlessWorkspaceLogic.workingDirectory(
+            sessionDirectory: selectedSession?.directory,
+            workspacePath: selectedWorkspace?.path
+        )
+    }
+
+    /// Switch to the "no project" mode: chats are not tied to a project folder.
+    @MainActor
+    func selectNoProject() {
+        selectWorkspace(standaloneWorkspace)
+    }
+
+    /// Start a new chat without a project.
+    @MainActor
+    func startProjectlessTask() {
+        selectNoProject()
+        startNewTask(in: standaloneWorkspace)
+    }
+
     /// Conversations that belong to no workspace (audit 2026-09-08). New
     /// standalone chats carry the reserved directory key; legacy in-flight
     /// API chats (temp directory, never persisted) match the "no workspace"

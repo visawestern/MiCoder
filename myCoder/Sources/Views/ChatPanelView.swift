@@ -1253,7 +1253,7 @@ struct ChatPanelView: View {
                 // Tool-protocol preamble with the full tool list must reach ANY
                 // delivery path as the SYSTEM message, otherwise free/API models
                 // reply "I have no file access" because they never saw a tool list.
-                let projectRoot = appState.selectedWorkspace?.path ?? FileManager.default.currentDirectoryPath
+                let projectRoot = appState.toolWorkingDirectory
                 let sysPrompt = WebToolProtocolEmulator.systemPreamble(
                     userSystemPrompt: params.systemPrompt ?? "",
                     projectRoot: projectRoot,
@@ -1429,7 +1429,7 @@ struct ChatPanelView: View {
                     parts: autoFreePayload.parts
                 ))
                 let attachmentNotice = autoFreePayload.warnings.joined(separator: "\n")
-                let projectRoot = appState.selectedWorkspace?.path ?? ""
+                let projectRoot = appState.toolWorkingDirectory
                 let autoFreeContext = OpenCodeRequestContext(
                     sessionID: OpenCodeRequestContext.sessionID(
                         from: messageStore.currentSessionID ?? appState.selectedSession?.id ?? ""
@@ -2303,7 +2303,7 @@ struct ChatPanelView: View {
         // access" (Qwen evidence) and the agent loop never starts. Prepend the
         // same preamble runTurn would have used; runTurn receives skipSend and
         // will not duplicate it.
-        let smartSendWorkspacePath = appState.selectedWorkspace?.path ?? FileManager.default.currentDirectoryPath
+        let smartSendWorkspacePath = appState.toolWorkingDirectory
         let smartSendIsFirstTurn = appState.webSessionIsFirstTurn(appState.webRemoteChatKey(
             for: effectiveConfig, projectID: projectID, chatID: chatID
         ))
@@ -2343,7 +2343,7 @@ struct ChatPanelView: View {
         // request_history — pass the per-project undo manager + session so
         // write/edit tool calls snapshot, record undo entries and history rows.
         // E12: run_command executes only at .fullAccess (gate enforced here).
-        let workspacePath = appState.selectedWorkspace?.path ?? FileManager.default.currentDirectoryPath
+        let workspacePath = appState.toolWorkingDirectory
         // Shared approval mailbox: the driver posts requests here and blocks
         // in awaitAnswer until the user resolves the Allow/Deny card.
         let approvalBox = WebToolApprovalBox()
