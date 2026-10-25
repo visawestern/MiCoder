@@ -53,23 +53,36 @@ struct RightPanelVisibilityTests {
         #expect(state.currentSteps.isEmpty)
     }
 
-    @Test("SessionContextLoader opens right panel when session exists")
-    func sessionOpensRightPanel() {
-        let session = ChatSession(id: "s1", title: "Test Session")
-        #expect(SessionContextLoader.shouldOpenRightPanel(for: session) == true)
-    }
-
-    @Test("SessionContextLoader keeps right panel closed without session")
-    func noSessionKeepsRightPanelClosed() {
-        #expect(SessionContextLoader.shouldOpenRightPanel(for: nil) == false)
-    }
-
-    @Test("selectSession sets showGoal when loader says yes")
-    func selectSessionEnablesShowGoal() {
+    @Test("selectSession keeps the remembered panel state")
+    func selectSessionKeepsShowGoal() {
         let state = AppState(host: "127.0.0.1", port: 0)
+        state.showGoal = false
         let session = ChatSession(id: "s1", title: "Fix bug")
         state.selectSession(session)
-        #expect(state.showGoal == true)
+        #expect(state.showGoal == false)
+
+        let opened = AppState(host: "127.0.0.1", port: 0)
+        opened.showGoal = true
+        opened.selectSession(ChatSession(id: "s2", title: "Another"))
+        #expect(opened.showGoal == true)
+    }
+
+    @Test("showGoal survives a new AppState instance")
+    func showGoalIsPersisted() {
+        let suiteName = "com.mycoder.tests.right-panel-state"
+        guard let defaults = UserDefaults(suiteName: suiteName) else { return }
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let first = AppState(host: "127.0.0.1", port: 0, defaults: defaults)
+        first.showGoal = true
+        #expect(defaults.bool(forKey: "com.mycoder.showGoal"))
+
+        let restored = AppState(host: "127.0.0.1", port: 0, defaults: defaults)
+        #expect(restored.showGoal == true)
+
+        restored.showGoal = false
+        #expect(defaults.bool(forKey: "com.mycoder.showGoal") == false)
     }
 
     @Test("RightPanelLayout icon constants are defined")

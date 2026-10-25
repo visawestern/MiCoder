@@ -115,7 +115,11 @@ class AppState: ObservableObject {
     @Published var sessions: [ChatSession] = []
     @Published var selectedSession: ChatSession?
     @Published var showTerminal = false
-    @Published var showGoal = false
+    @Published var showGoal = false {
+        didSet {
+            defaults.set(showGoal, forKey: "com.mycoder.showGoal")
+        }
+    }
     /// Monotonic counter; incremented to move keyboard focus into the message input.
     @Published var inputFocusRequest = 0
     /// Enable the in-input command palette dropdown (plan Раздел 6 Блок 3 п.30).
@@ -465,6 +469,7 @@ class AppState: ObservableObject {
         // Load persisted values from the injected defaults domain
         selectedModel = defaults.string(forKey: "com.mycoder.selectedModel") ?? ""
         selectedProviderID = defaults.string(forKey: "com.mycoder.selectedProviderID") ?? ""
+        showGoal = defaults.bool(forKey: "com.mycoder.showGoal")
         selectedVariant = {
             if let saved = defaults.string(forKey: "com.mycoder.selectedVariant"), !saved.isEmpty {
                 return saved
@@ -2297,9 +2302,6 @@ class AppState: ObservableObject {
             selectWorkspace(workspace)
         }
         selectedSession = session
-        if SessionContextLoader.shouldOpenRightPanel(for: session) {
-            showGoal = true
-        }
         currentSteps = []
         vcsChanges = []
         sessionGitTotals = SessionGitTotals(additions: 0, deletions: 0)

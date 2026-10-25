@@ -89,12 +89,6 @@ struct SessionPlanParserTests {
 @Suite("Session Context Loader")
 struct SessionContextLoaderTests {
 
-    @Test("Opening session should reveal right panel")
-    func openSessionShowsPanel() {
-        #expect(SessionContextLoader.shouldOpenRightPanel(for: ChatSession(id: "s1", title: "Task")))
-        #expect(!SessionContextLoader.shouldOpenRightPanel(for: nil))
-    }
-
     @Test("Git totals prefer VCS files over session summary")
     func gitTotalsFromVCS() {
         let files = [

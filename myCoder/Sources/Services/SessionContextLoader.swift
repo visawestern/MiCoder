@@ -9,10 +9,6 @@ struct SessionGitTotals {
 
 enum SessionContextLoader {
 
-    static func shouldOpenRightPanel(for session: ChatSession?) -> Bool {
-        session != nil
-    }
-
     static func gitDirectoryPath(workspacePath: String?, sessionDirectory: String?) -> String? {
         let session = ChatSession.normalizedPath(sessionDirectory ?? "")
         if !session.isEmpty { return session }
