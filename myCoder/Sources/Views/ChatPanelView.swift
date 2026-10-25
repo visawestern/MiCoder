@@ -1482,7 +1482,7 @@ struct ChatPanelView: View {
                 )
                 let maxIterations = 15
                 var streamedContent = ""
-                var streamedReasoning = ""
+                var streamedReasoningSegments: [String] = []
                 var allToolCallParts: [MessagePartContent] = []
                 do {
                     for iteration in 0..<maxIterations {
@@ -1505,17 +1505,22 @@ struct ChatPanelView: View {
                                 nativeCalls.append(AutoFreeNativeToolCall(id: id, name: name, arguments: arguments))
                             }
                             let display = [attachmentNotice, response].filter { !$0.isEmpty }.joined(separator: "\n\n")
-                            let currentReasoning = streamedReasoning + iterationReasoning
+                            let currentSegments = streamedReasoningSegments + (iterationReasoning.isEmpty ? [] : [iterationReasoning])
+                            let currentParts = allToolCallParts + (iterationReasoning.isEmpty ? [] : [MessagePartContent.reasoning(iterationReasoning)])
                             await MainActor.run {
                                 self.messageStore.update(id: assistantID) { m in
                                     m.content = display
-                                    m.reasoning = currentReasoning
+                                    m.reasoning = currentSegments.joined(separator: "\n\n")
+                                    m.parts = currentParts
                                     m.isStreaming = true
                                 }
                             }
                         }
                         // Accumulate reasoning across iterations
-                        streamedReasoning += iterationReasoning
+                        if !iterationReasoning.isEmpty {
+                            streamedReasoningSegments.append(iterationReasoning)
+                            allToolCallParts.append(.reasoning(iterationReasoning))
+                        }
                         let nativeWebCalls: [(id: String, call: WebToolCall)] = nativeCalls.compactMap { native in
                             guard let call = MiCoderAutoFreeClient.emulatedToolCall(
                                 name: native.name,
@@ -1672,7 +1677,7 @@ struct ChatPanelView: View {
                         await MainActor.run {
                             self.messageStore.update(id: assistantID) { m in
                                 m.content = [attachmentNotice, response, "\n\n⏳ Running tools..."].filter { !$0.isEmpty }.joined(separator: "\n\n")
-                                m.reasoning = streamedReasoning
+                                m.reasoning = streamedReasoningSegments.joined(separator: "\n\n")
                                 m.parts = allToolCallParts
                                 m.isStreaming = true
                             }
@@ -1682,7 +1687,7 @@ struct ChatPanelView: View {
                     await MainActor.run {
                         self.messageStore.update(id: assistantID) { m in
                             m.content = finalDisplay
-                            m.reasoning = streamedReasoning
+                            m.reasoning = streamedReasoningSegments.joined(separator: "\n\n")
                             m.parts = allToolCallParts
                             m.isFinished = true
                             m.isStreaming = false

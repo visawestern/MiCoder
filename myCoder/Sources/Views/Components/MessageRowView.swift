@@ -105,9 +105,19 @@ struct MessageRow: View {
         return (partTexts.isEmpty ? [message.content] : partTexts).joined(separator: "\n\n")
     }
 
+    private var reasoningBlocks: [String] {
+        let fromParts = message.parts.compactMap { part -> String? in
+            if case .reasoning(let text) = part, !text.isEmpty { return text }
+            return nil
+        }
+        if !fromParts.isEmpty { return fromParts }
+        let legacy = reasoningText
+        return legacy.isEmpty ? [] : [legacy]
+    }
+
     private var showsThinkingSpoiler: Bool {
         message.role == .assistant
-            && (!reasoningText.isEmpty || (message.isStreaming && !MessageDisplayLogic.hasVisibleAnswer(message)))
+            && (!reasoningBlocks.isEmpty || (message.isStreaming && !MessageDisplayLogic.hasVisibleAnswer(message)))
     }
 
     private var isThinkingInProgress: Bool {
@@ -162,7 +172,7 @@ struct MessageRow: View {
                     if let routeChips = webRouteChips, !routeChips.isEmpty {
                         RouteChipsView(chips: routeChips)
                     }
-                    if showsThinkingSpoiler {
+                    if showsThinkingSpoiler, reasoningBlocks.isEmpty {
                         ThinkingSpoilerView(
                             reasoning: reasoningText,
                             duration: message.reasoningDuration,
@@ -353,7 +363,15 @@ struct MessageRow: View {
             if let sanitized = MessageContentSanitizerLogic.sanitizedTextPart(text) {
                 markdownBubble(sanitized)
             }
-        case .reasoning, .stepStart, .stepFinish:
+        case .reasoning(let text):
+            if !text.isEmpty {
+                ThinkingSpoilerView(
+                    reasoning: text,
+                    duration: nil,
+                    isThinking: message.isStreaming && !MessageDisplayLogic.hasVisibleAnswer(message)
+                )
+            }
+        case .stepStart, .stepFinish:
             EmptyView()
         case .toolCall:
             EmptyView()

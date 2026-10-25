@@ -134,6 +134,10 @@ struct Message: Identifiable {
     var tokensRemoved: Int?
     var parts: [MessagePartContent]
     var reasoning: String
+    /// Reasoning blocks in arrival order — every agent-loop iteration that
+    /// produced thinking gets its own entry, so the chat renders one spoiler
+    /// per block instead of one merged blob, and nothing is dropped.
+    var reasoningSegments: [String]
     var isFinished: Bool
     var reasoningStartedAt: Date?
     var reasoningEndedAt: Date?
@@ -158,7 +162,7 @@ struct Message: Identifiable {
         return end.timeIntervalSince(startedAt)
     }
 
-    init(id: String = UUID().uuidString, serverID: String? = nil, role: MessageRole, content: String, agentName: String? = nil, toolCalls: [ToolCall]? = nil, isStreaming: Bool = false, action: MessageAction? = nil, files: [FileInfo]? = nil, command: String? = nil, tokensAdded: Int? = nil, tokensRemoved: Int? = nil, parts: [MessagePartContent] = [], reasoning: String = "", isFinished: Bool = false, reasoningStartedAt: Date? = nil, reasoningEndedAt: Date? = nil, attachedImages: [ClipboardImage]? = nil, usage: UsageCapture? = nil, pendingApprovalID: String? = nil, pendingApprovalTool: String? = nil, pendingApprovalMessage: String? = nil, pendingApprovals: [PendingToolApproval] = []) {
+    init(id: String = UUID().uuidString, serverID: String? = nil, role: MessageRole, content: String, agentName: String? = nil, toolCalls: [ToolCall]? = nil, isStreaming: Bool = false, action: MessageAction? = nil, files: [FileInfo]? = nil, command: String? = nil, tokensAdded: Int? = nil, tokensRemoved: Int? = nil, parts: [MessagePartContent] = [], reasoning: String = "", reasoningSegments: [String] = [], isFinished: Bool = false, reasoningStartedAt: Date? = nil, reasoningEndedAt: Date? = nil, attachedImages: [ClipboardImage]? = nil, usage: UsageCapture? = nil, pendingApprovalID: String? = nil, pendingApprovalTool: String? = nil, pendingApprovalMessage: String? = nil, pendingApprovals: [PendingToolApproval] = []) {
         self.id = id
         self.serverID = serverID
         self.role = role
@@ -174,6 +178,7 @@ struct Message: Identifiable {
         self.tokensRemoved = tokensRemoved
         self.parts = parts
         self.reasoning = reasoning
+        self.reasoningSegments = reasoningSegments
         self.isFinished = isFinished
         self.reasoningStartedAt = reasoningStartedAt
         self.reasoningEndedAt = reasoningEndedAt
