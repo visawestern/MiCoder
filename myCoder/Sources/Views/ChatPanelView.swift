@@ -1324,11 +1324,38 @@ struct ChatPanelView: View {
                         for item in prepared {
                             guard !Task.isCancelled else { break }
                             if let validationError = item.validationError {
-                                resultsBlock += WebToolProtocolEmulator.formatToolResult(
-                                    name: item.call.name,
-                                    result: "validation error: \(validationError)"
-                                ) + "\n"
-                                continue
+                                switch await resolveOutOfProjectAccess(item, assistantID: assistantID) {
+                                case .allowed(let grantedRoots):
+                                    if let error = WebToolProtocolEmulator.validate(
+                                        item.call,
+                                        projectRoot: projectRoot,
+                                        accessLevel: appState.accessLevel,
+                                        grantedRoots: grantedRoots
+                                    ) {
+                                        resultsBlock += WebToolProtocolEmulator.formatToolResult(
+                                            name: item.call.name,
+                                            result: "validation error: \(error)"
+                                        ) + "\n"
+                                        continue
+                                    }
+                                case .denied(let message):
+                                    resultsBlock += WebToolProtocolEmulator.formatToolResult(
+                                        name: item.call.name, result: message
+                                    ) + "\n"
+                                    toolParts = localToolParts(
+                                        toolParts,
+                                        settingResult: message,
+                                        callID: item.callID
+                                    )
+                                    publishToolParts(toolParts, assistantID: assistantID)
+                                    continue
+                                case .notApplicable:
+                                    resultsBlock += WebToolProtocolEmulator.formatToolResult(
+                                        name: item.call.name,
+                                        result: "validation error: \(validationError)"
+                                    ) + "\n"
+                                    continue
+                                }
                             }
                             if let approval = item.approval {
                                 let approved = await awaitLocalToolApproval(
@@ -1515,16 +1542,52 @@ struct ChatPanelView: View {
                             guard !Task.isCancelled else { break }
                             let nativeID = index < nativeWebCalls.count ? nativeWebCalls[index].id : nil
                             if let validationError = item.validationError {
-                                let text = "validation error: \(validationError)"
-                                if let nativeID {
-                                    nativeResults[nativeID] = text
-                                } else {
-                                    resultsBlock += WebToolProtocolEmulator.formatToolResult(
-                                        name: item.call.name,
-                                        result: text
-                                    ) + "\n"
+                                switch await resolveOutOfProjectAccess(item, assistantID: assistantID) {
+                                case .allowed(let grantedRoots):
+                                    if let error = WebToolProtocolEmulator.validate(
+                                        item.call,
+                                        projectRoot: projectRoot,
+                                        accessLevel: appState.accessLevel,
+                                        grantedRoots: grantedRoots
+                                    ) {
+                                        let text = "validation error: \(error)"
+                                        if let nativeID {
+                                            nativeResults[nativeID] = text
+                                        } else {
+                                            resultsBlock += WebToolProtocolEmulator.formatToolResult(
+                                                name: item.call.name,
+                                                result: text
+                                            ) + "\n"
+                                        }
+                                        continue
+                                    }
+                                case .denied(let message):
+                                    if let nativeID {
+                                        nativeResults[nativeID] = message
+                                    } else {
+                                        resultsBlock += WebToolProtocolEmulator.formatToolResult(
+                                            name: item.call.name, result: message
+                                        ) + "\n"
+                                    }
+                                    allToolCallParts = localToolParts(
+                                        allToolCallParts,
+                                        settingResult: message,
+                                        callID: item.callID
+                                    )
+                                    publishToolParts(allToolCallParts, assistantID: assistantID)
+                                    continue
+                                case .notApplicable:
+                                    let text = "validation error: \(validationError)"
+                                    if let nativeID {
+                                        nativeResults[nativeID] = text
+                                    } else {
+                                        resultsBlock += WebToolProtocolEmulator.formatToolResult(
+                                            name: item.call.name,
+                                            result: text
+                                        ) + "\n"
+                                    }
+                                    continue
                                 }
-                                continue
                             }
                             if let approval = item.approval {
                                 let approved = await awaitLocalToolApproval(
@@ -1933,8 +1996,22 @@ struct ChatPanelView: View {
                 call, projectRoot: projectRoot, accessLevel: accessLevel
             )
             var approval: PendingToolApproval?
-            if validationError == nil,
-               WebToolAccessGate.permission(for: call, accessLevel: accessLevel) == .requireApproval {
+            if case .pathEscapesProject(let path) = validationError {
+                // The path lies outside the project folder. The user is asked
+                // for access instead of dead-ending the call with a validation
+                // error the model can only apologize about.
+                approval = PendingToolApproval(
+                    callID: callID,
+                    tool: call.name,
+                    message: OutOfProjectAccessLogic.approvalMessage(
+                        tool: call.name,
+                        path: path,
+                        projectRoot: projectRoot
+                    ),
+                    accessGrant: OutOfProjectAccessLogic.grantRoot(forPath: path)
+                )
+            } else if validationError == nil,
+                      WebToolAccessGate.permission(for: call, accessLevel: accessLevel) == .requireApproval {
                 let details = WebToolApprovalDetails(
                     call: call,
                     projectRoot: projectRoot,
@@ -1953,6 +2030,38 @@ struct ChatPanelView: View {
                 approval: approval
             )
         }
+    }
+
+    /// Outcome of an out-of-project access request.
+    private enum OutOfProjectAccessOutcome {
+        case allowed(grantedRoots: [String])
+        case denied(message: String)
+        case notApplicable
+    }
+
+    /// Ask the user for access to a folder outside the project folder.
+    ///
+    /// A path outside the project is not a dead end: the user decides. An
+    /// approved grant lets the call run, a refusal is reported back to the
+    /// model as a denial (so it stops retrying and asks the user instead).
+    @MainActor
+    private func resolveOutOfProjectAccess(
+        _ item: PreparedLocalToolCall,
+        assistantID: String
+    ) async -> OutOfProjectAccessOutcome {
+        guard case .pathEscapesProject(let path)? = item.validationError else {
+            return .notApplicable
+        }
+        guard let approval = item.approval else { return .notApplicable }
+        let approved = await awaitLocalToolApproval(approval, assistantID: assistantID)
+        guard !Task.isCancelled else { return .notApplicable }
+        guard approved else {
+            return .denied(message: OutOfProjectAccessLogic.denialMessage(
+                tool: item.call.name,
+                path: path
+            ))
+        }
+        return .allowed(grantedRoots: [approval.accessGrant].compactMap { $0 })
     }
 
     @MainActor

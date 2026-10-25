@@ -96,19 +96,25 @@ struct PendingToolApproval: Identifiable, Equatable {
     let tool: String
     let message: String
     let createdAt: Date
+    /// Folder outside the project the user granted access to. Set when the
+    /// approval is an out-of-project access request instead of a plain
+    /// tool-approval prompt.
+    let accessGrant: String?
 
     init(
         id: String = UUID().uuidString,
         callID: String,
         tool: String,
         message: String,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        accessGrant: String? = nil
     ) {
         self.id = id
         self.callID = callID
         self.tool = tool
         self.message = message
         self.createdAt = createdAt
+        self.accessGrant = accessGrant
     }
 }
 

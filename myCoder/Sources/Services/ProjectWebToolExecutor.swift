@@ -52,10 +52,21 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         return await execute(call)
     }
 
+    /// Resolve a tool path against the project root.
+    ///
+    /// An absolute path is used as it is: `appendingPathComponent` would glue
+    /// it onto the root and produce a path that does not exist, so every
+    /// absolute path outside the project resolved to a missing file.
+    private func url(for path: String) -> URL {
+        if path.hasPrefix("/") {
+            return URL(fileURLWithPath: path)
+        }
+        return URL(fileURLWithPath: projectRoot).appendingPathComponent(path)
+    }
+
     /// The actual tool dispatch without the approval gate (the gate lives in
     /// execute(_:) / the driver's approval-box flow, never here).
     private func run(_ call: WebToolCall) async -> String {
-        let root = URL(fileURLWithPath: projectRoot)
         // Resolve model-specific spellings ("Bash", "git-commit", ...) to the
         // canonical tool AND normalize argument names ("file_path" → "path")
         // BEFORE dispatch, so every wire format executes identically.
@@ -69,7 +80,7 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         switch tool {
         case .readFile:
             guard let path = call.arguments["path"] else { return "error: missing path" }
-            let url = root.appendingPathComponent(path)
+            let url = url(for: path)
             // Image files are NOT text-readable, but web models DO support
             // vision. Instead of the old lying "this model does not support
             // image input", return a typed marker the web driver recognizes
@@ -111,7 +122,7 @@ struct ProjectWebToolExecutor: WebToolExecutor {
             guard let path = call.arguments["path"], let content = call.arguments["content"] else {
                 return "error: missing path/content"
             }
-            let url = root.appendingPathComponent(path)
+            let url = url(for: path)
             do {
                 try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
                 try performFileOperation(operation: "write_file", fileURL: url, execute: {
@@ -124,7 +135,7 @@ struct ProjectWebToolExecutor: WebToolExecutor {
                   let oldStr = call.arguments["old"], let newStr = call.arguments["new"] else {
                 return "error: missing path/old/new"
             }
-            let url = root.appendingPathComponent(path)
+            let url = url(for: path)
             guard let content = try? String(contentsOf: url, encoding: .utf8) else {
                 return "error: cannot read \(path)"
             }
@@ -138,7 +149,7 @@ struct ProjectWebToolExecutor: WebToolExecutor {
             } catch { return "error: \(error.localizedDescription)" }
         case .listDir:
             let path = call.arguments["path"] ?? "."
-            let url = root.appendingPathComponent(path)
+            let url = url(for: path)
             guard let entries = try? fileManager.contentsOfDirectory(atPath: url.path) else {
                 return "error: cannot list \(path)"
             }
@@ -146,7 +157,7 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         case .grep:
             guard let pattern = call.arguments["pattern"] else { return "error: missing pattern" }
             let path = call.arguments["path"] ?? "."
-            let target = root.appendingPathComponent(path)
+            let target = url(for: path)
             // Claude Code parity (live 2026-09-12): 'path' may be a FILE —
             // the model passed TZ-Bezdna-v3.md and got "(no matches)"
             // because a file scanned as a directory yields zero files.
@@ -195,7 +206,7 @@ struct ProjectWebToolExecutor: WebToolExecutor {
         case .glob:
             let pattern = call.arguments["pattern"] ?? "*"
             let path = call.arguments["path"] ?? "."
-            return glob(pattern: pattern, in: root.appendingPathComponent(path))
+            return glob(pattern: pattern, in: url(for: path))
         case .todoRead:
             return todoRead()
         case .todoWrite:

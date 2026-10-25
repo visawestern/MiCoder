@@ -226,6 +226,7 @@ enum WebToolProtocolEmulator {
         lines.append(#"{"name": "list_dir", "args": {"path": "."}}"#)
         lines.append("```")
         lines.append("Rules: every listed tool above IS available — never say a tool is missing or unavailable, never refuse with \"I'm a sandboxed model / I can't access your machine\", never narrate tool use in prose, never invent results. When a task needs a tool, emit its block immediately, then wait for the result.")
+        lines.append("Paths outside the project are not yours to judge: emit the tool call with the absolute path and let the host decide. It asks the user for access and then runs the call, or returns a validation error — never refuse a task because a path is outside the working directory.")
         let listedNames2 = Set(listed.map(\.rawValue))
         let inspectors = ["read_file", "list_dir", "grep", "glob"].filter { listedNames2.contains($0) }
         var policy = "Policy: inspect first (\(inspectors.joined(separator: "/"))); write via write_file/edit_file; run_command only at full access (read-only prints like cat/grep/sed -n/git log run without approval)"
@@ -843,7 +844,13 @@ enum WebToolProtocolEmulator {
     /// Validate a tool call's arguments before executing (plan Блок 2 п.18):
     /// paths must stay within the project root UNLESS accessLevel allows broader access;
     /// destructive tools flagged. Returns `nil` when valid, or the specific validation error.
-    static func validate(_ call: WebToolCall, projectRoot: String, accessLevel: AccessLevel = .askBeforeChanges) -> WebToolValidationError? {
+    ///
+    /// `grantedRoots` are folders the user explicitly allowed access to after
+    /// an out-of-project request — a path inside one of them is valid.
+    static func validate(_ call: WebToolCall,
+                         projectRoot: String,
+                         accessLevel: AccessLevel = .askBeforeChanges,
+                         grantedRoots: [String] = []) -> WebToolValidationError? {
         let call = canonicalized(call)
         guard WebEmulatedTool(rawValue: call.name) != nil else {
             return .unknownTool(call.name)
@@ -852,7 +859,11 @@ enum WebToolProtocolEmulator {
         // At .fullAccess, any path is allowed. At lower levels, restrict to project root.
         if accessLevel != .fullAccess,
            let path = call.arguments["path"],
-           !isPathInsideRoot(path, root: projectRoot) {
+           !OutOfProjectAccessLogic.isAccessible(
+               path: path,
+               projectRoot: projectRoot,
+               grantedRoots: grantedRoots
+           ) {
             return .pathEscapesProject(path)
         }
         return nil
