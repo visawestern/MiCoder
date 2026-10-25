@@ -171,61 +171,6 @@ struct ProviderSelectorMenu: View {
 // model in the probe cycle and injected by the driver — there is no manual
 // brain/effort control anywhere in the composer.
 
-struct ModelSelectorMenu: View {
-    @EnvironmentObject var appState: AppState
-
-    private var models: [String] {
-        appState.modelsForSelectedProvider
-    }
-
-    var body: some View {
-        Menu {
-            if appState.selectedProviderID.isEmpty {
-                Text(L.t(AppLocalizationKey.locSelectProviderFirst))
-                    .interfaceFont(size: 11)
-            } else if models.isEmpty {
-                Text(L.t(AppLocalizationKey.locModelsForThisProvider))
-                    .interfaceFont(size: 11)
-            } else {
-                ForEach(models, id: \.self) { model in
-                    Button(action: { appState.selectModel(model) }) {
-                        HStack {
-                            Text(model)
-                            if ModelSelectionPresentationLogic.isSelected(
-                                candidate: model,
-                                selectedModel: appState.selectedModel,
-                                effectiveModel: appState.effectiveSelectedModel()
-                            ) {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-            }
-            Divider()
-            Button(L.t(AppLocalizationKey.locManageModels)) {
-                appState.showSettings = true
-                appState.settingsTab = .providers
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Text(ModelSelectionPresentationLogic.displayModel(
-                    selectedModel: appState.selectedModel,
-                    effectiveModel: appState.effectiveSelectedModel()
-                ) ?? L.t(AppLocalizationKey.locModelPlaceholder))
-                    .interfaceFont(size: 11)
-                    .lineLimit(1)
-            }
-            .foregroundColor(ModelSelectionPresentationLogic.displayModel(
-                selectedModel: appState.selectedModel,
-                effectiveModel: appState.effectiveSelectedModel()
-            ) == nil ? Color.mimo.textMuted : Color.mimo.textSecondary)
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-    }
-}
-
 /// Gear button opening a popover to edit per-model call parameters
 /// (plan Раздел 13 п.14) — the model menu previously opened nothing.
 struct ModelParametersButton: View {
@@ -445,7 +390,7 @@ struct MessageInputToolbar: View {
             Spacer(minLength: 8)
 
             ProviderSelectorMenu()
-            ModelSelectorMenu()
+            ModelPickerDropdown()
             // Model call-parameters popover (plan Раздел 13 п.14).
             if ModelSelectionPresentationLogic.shouldShowParameters(
                 selectedModel: appState.selectedModel,

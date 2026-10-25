@@ -118,11 +118,21 @@ struct MimoModelCapabilities: Codable, Sendable, Equatable {
     let reasoning: Bool?
     let toolcall: Bool?
     let plan: Bool?
+    let vision: Bool?
+    let imagegen: Bool?
 
-    init(reasoning: Bool? = nil, toolcall: Bool? = nil, plan: Bool? = nil) {
+    init(
+        reasoning: Bool? = nil,
+        toolcall: Bool? = nil,
+        plan: Bool? = nil,
+        vision: Bool? = nil,
+        imagegen: Bool? = nil
+    ) {
         self.reasoning = reasoning
         self.toolcall = toolcall
         self.plan = plan
+        self.vision = vision
+        self.imagegen = imagegen
     }
 }
 

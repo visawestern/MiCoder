@@ -993,12 +993,7 @@ struct ModelSettingsProviderColumns: View {
     /// Разделить modelID на префикс (провайдер) и имя модели
     /// Например "oc/deepseek" → ("oc", "deepseek"), "gpt-4" → (nil, "gpt-4")
     static func splitModelID(_ modelID: String) -> (prefix: String?, name: String) {
-        if let slashIndex = modelID.firstIndex(of: "/") {
-            let prefix = String(modelID[..<slashIndex])
-            let name = String(modelID[modelID.index(after: slashIndex)...])
-            return (prefix.isEmpty ? nil : prefix, name)
-        }
-        return (nil, modelID)
+        ModelGroupingLogic.splitModelID(modelID)
     }
 
     /// Сгруппировать модели по префиксу (провайдеру)
@@ -1008,23 +1003,7 @@ struct ModelSettingsProviderColumns: View {
         serverProviders: [MimoProviderResponse],
         customProviders: [CustomProvider]
     ) -> [(prefix: String?, models: [String])] {
-        var grouped: [(String?, [String])] = []
-        var seenPrefixes = Set<String>()
-        
-        for modelID in models {
-            let (prefix, _) = splitModelID(modelID)
-            let groupKey = prefix ?? ""
-            if !seenPrefixes.contains(groupKey) {
-                seenPrefixes.insert(groupKey)
-                let groupModels = models.filter {
-                    let (p, _) = splitModelID($0)
-                    return (p ?? "") == groupKey
-                }
-                grouped.append((prefix, groupModels))
-            }
-        }
-        
-        return grouped
+        ModelGroupingLogic.groupedModels(models)
     }
 
     private var modelsColumn: some View {
@@ -1194,7 +1173,7 @@ struct ModelSettingsProviderColumns: View {
     }
 
     private func modelGroupKey(prefix: String?, providerID: String) -> String {
-        "\(providerID)::\(prefix ?? "__all__")"
+        ModelGroupingLogic.groupKey(prefix: prefix, providerID: providerID)
     }
 
     private func modelGroupHeader(prefix: String, count: Int) -> some View {
