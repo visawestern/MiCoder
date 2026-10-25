@@ -81,6 +81,7 @@ struct ModelSettingsProviderColumns: View {
     @State private var cloneModelDraft: String = ""
     @State private var newModelProviderID: String = ""
     @State private var newModelDraft: String = ""
+    @State private var expandedModelProviders: Set<String> = []
     @State private var editingModelID: String = ""
     @State private var editingModelDraft: String = ""
 
@@ -325,9 +326,6 @@ struct ModelSettingsProviderColumns: View {
                 }
             }
 
-            if !parameterModelID.isEmpty {
-                modelParametersPanel
-            }
         }
         .onAppear {
             if detailProviderID.isEmpty {
@@ -460,6 +458,7 @@ struct ModelSettingsProviderColumns: View {
                     }
                 }
             }
+
         }
         .settingsCardFrame()
         .padding(12)
@@ -1053,6 +1052,11 @@ struct ModelSettingsProviderColumns: View {
             let providerID = detailProviderID.isEmpty ? appState.selectedProviderID : detailProviderID
             let allModels = models(for: providerID)
             let filteredModels = visibleModelIDs(allModels, providerID: providerID)
+            let visibleLimit = 10
+            let isExpanded = expandedModelProviders.contains(providerID)
+            let displayModels = isExpanded || filteredModels.count <= visibleLimit
+                ? filteredModels
+                : Array(filteredModels.prefix(visibleLimit))
 
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
@@ -1097,7 +1101,7 @@ struct ModelSettingsProviderColumns: View {
                     .interfaceFont(size: 10)
                     .foregroundColor(Color.mimo.textMuted)
 
-                let groups = Self.groupedModels(filteredModels, providerID: providerID, serverProviders: appState.serverProviders, customProviders: appState.customProviders)
+                let groups = Self.groupedModels(displayModels, providerID: providerID, serverProviders: appState.serverProviders, customProviders: appState.customProviders)
                 ScrollView {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(groups.indices, id: \.self) { groupIndex in
@@ -1199,7 +1203,25 @@ struct ModelSettingsProviderColumns: View {
                 .padding(.vertical, 6)
                 .background(Color.mimo.background)
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.mimo.border, lineWidth: 1))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+
+            if filteredModels.count > visibleLimit {
+                Button {
+                    if isExpanded {
+                        expandedModelProviders.remove(providerID)
+                    } else {
+                        expandedModelProviders.insert(providerID)
+                    }
+                } label: {
+                    Text(isExpanded
+                         ? L.t("Show fewer models")
+                         : L.t("Show all models (%d)", filteredModels.count))
+                        .interfaceFont(size: 11, weight: .medium)
+                        .foregroundColor(Color.mimo.brand)
+                }
+                .buttonStyle(HandCursorButtonStyle())
+                .padding(.top, 2)
             }
         }
         .settingsCardFrame()
@@ -1273,7 +1295,14 @@ struct ModelSettingsProviderColumns: View {
         } else if isEditingClone(modelID: modelID, providerID: providerID) {
             modelCloneRow(sourceModelID: modelID, providerID: providerID)
         } else {
-            modelDisplayRow(modelID: modelID, providerID: providerID, prefix: prefix)
+            VStack(alignment: .leading, spacing: 4) {
+                modelDisplayRow(modelID: modelID, providerID: providerID, prefix: prefix)
+                if parameterModelID == modelID {
+                    modelParametersPanel
+                        .padding(.leading, 18)
+                        .padding(.bottom, 2)
+                }
+            }
         }
     }
 
