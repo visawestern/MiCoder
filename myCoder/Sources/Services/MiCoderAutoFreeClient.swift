@@ -47,6 +47,7 @@ final class MiCoderAutoFreeClient {
     private let session: URLSession
     private let baseURL: URL
     private let sessionDefaults: UserDefaults
+    private let usesInjectedSession: Bool
 
     init(
         session: URLSession = .shared,
@@ -56,6 +57,7 @@ final class MiCoderAutoFreeClient {
         self.session = session
         self.baseURL = baseURL
         self.sessionDefaults = sessionDefaults
+        self.usesInjectedSession = session !== URLSession.shared
     }
 
     struct ModelProfile: Identifiable, Hashable {
@@ -648,6 +650,11 @@ final class MiCoderAutoFreeClient {
         requestContext.applying(to: &request)
         request.httpBody = body
 
+        if !usesInjectedSession, baseURL.host == Self.providerBaseURL.host, let bunPath = Self.bunExecutablePath() {
+            try await performStreamViaBun(bunPath: bunPath, request: request, body: body, continuation: continuation)
+            return
+        }
+
         let (bytes, response) = try await session.bytes(for: request)
         let errorBody: Data
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
@@ -663,9 +670,62 @@ final class MiCoderAutoFreeClient {
             }
             throw error
         }
+        let lineStream = AsyncThrowingStream<String, Error> { box in
+            let forward = Task {
+                do {
+                    for try await line in bytes.lines {
+                        box.yield(line)
+                    }
+                    box.finish()
+                } catch {
+                    box.finish(throwing: error)
+                }
+            }
+            box.onTermination = { _ in forward.cancel() }
+        }
+        try await consumeSSE(lineStream, continuation: continuation)
+    }
+
+    private func performStreamViaBun(
+        bunPath: String,
+        request: URLRequest,
+        body: Data,
+        continuation: AsyncThrowingStream<StreamEvent, Error>.Continuation
+    ) async throws {
+        let headers = request.allHTTPHeaderFields ?? [:]
+        let opened = try await BunHTTPTransport.open(
+            url: request.url!,
+            headers: headers,
+            body: body,
+            bunPath: bunPath
+        )
+        guard (200..<300).contains(opened.statusCode) else {
+            let synthetic = HTTPURLResponse(
+                url: request.url!,
+                statusCode: opened.statusCode,
+                httpVersion: "HTTP/1.1",
+                headerFields: nil
+            )!
+            do {
+                try validate(synthetic, data: opened.errorBody, operation: "Free model streaming")
+            } catch let error as MiCoderAutoFreeError {
+                if case .rateLimited = error {
+                    throw StreamRateLimit(underlying: error)
+                }
+                throw error
+            }
+            throw MiCoderAutoFreeError.apiError("HTTP \(opened.statusCode)")
+        }
+        try await consumeSSE(opened.lines, continuation: continuation)
+    }
+
+    private func consumeSSE(
+        _ lines: AsyncThrowingStream<String, Error>,
+        continuation: AsyncThrowingStream<StreamEvent, Error>.Continuation
+    ) async throws {
         var emitted = false
         var nativeToolCalls = NativeToolCallAccumulator()
-        for try await line in bytes.lines {
+        for try await line in lines {
             guard line.hasPrefix("data: ") else { continue }
             let json = String(line.dropFirst(6)).trimmingCharacters(in: .whitespacesAndNewlines)
             if json == "[DONE]" { break }
@@ -694,6 +754,23 @@ final class MiCoderAutoFreeClient {
         }
         guard emitted else { throw MiCoderAutoFreeError.emptyResponse }
         continuation.finish()
+    }
+
+    static func bunExecutablePath() -> String? {
+        if ProcessInfo.processInfo.environment["MICODER_BUN_TRANSPORT"] == "0" {
+            return nil
+        }
+        var candidates: [String] = []
+        if let install = ProcessInfo.processInfo.environment["BUN_INSTALL"], !install.isEmpty {
+            candidates.append((install as NSString).appendingPathComponent("bin/bun"))
+        }
+        candidates.append(FileManager.default.homeDirectoryForCurrentUser.path + "/.bun/bin/bun")
+        candidates.append(contentsOf: [
+            "/usr/local/bin/bun",
+            "/opt/homebrew/bin/bun",
+            "/usr/bin/bun"
+        ])
+        return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
     /// The upstream free tier serves a request only when a system message

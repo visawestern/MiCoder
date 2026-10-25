@@ -8,6 +8,25 @@
 
 Доказательств новой аппаратной привязки в исследованном коде нет. Причина расхождения квоты Desktop и Docker **не установлена до конкретного правила серверного счётчика**. Правила нового inference-сервиса отсутствуют в исследованном публичном дереве; подмена идентификаторов и сброс квот не выполнялись.
 
+## Решение 25–26 октября: bun-транспорт (429 устранён)
+
+Контролируемая матрица (один payload, один egress IP 49.237.168.140, один edge Cloudflare):
+
+| Клиент | HTTP | TLS-стек | Результат |
+| --- | --- | --- | --- |
+| bun fetch | 1.1 | BoringSSL | **200** |
+| curl (`--http1.1`, `--compressed`, те же заголовки) | 1.1 | SecureTransport/LibreSSL | 429 |
+| node fetch | 1.1 | OpenSSL | 429 |
+| go (`http2client=0` и h2) | 1.1 и 2 | crypto/tls | 429 |
+| Swift URLSession | — | SecureTransport | 429 |
+| bun через mitmproxy (TLS пересоздаётся) | 1.1 | OpenSSL (mitm) | 429 |
+| bun через прозрачный TCP-релей | 1.1 | BoringSSL | **200** |
+
+Выводы: тело, заголовки, IP, edge и версия HTTP не влияют — решает TLS-отпечаток (JA3) клиента. JA3 сняты локально: bun `e97f5146…`, curl `3018ba16…`, node `e728b1b9…`, go `2079bcc0…`, URLSession `030da292…`. Официальный opencode CLI — Bun-компилированный бинарник, поэтому «CLI в Docker работает, а API из myCoder — нет».
+
+Реализация: `MiCoderAutoFreeBunTransport` делегирует только HTTPS-ногу локальному `bun` (есть в системе: `~/.bun/bin/bun`); протокол, заголовки, идентификаторы сессий и парсинг SSE остаются в myCoder, opencode-посредник не используется. При отсутствии bun — прежний URLSession-путь. Отключение: `MICODER_BUN_TRANSPORT=0`. Live-проверка `LiveAutoFreeBunTransportTests` (MICODER_LIVE_TESTS=1): прямой запрос big-pickle через bun-транспорт — 200 и ответ модели за ~2.6 с.
+
+
 ## Что проверено на этой машине
 
 | Параметр | macOS Desktop | Linux Docker |

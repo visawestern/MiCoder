@@ -7,22 +7,31 @@ import Foundation
 @Suite("RTP-01: Right panel visibility (showGoal)")
 struct RightPanelVisibilityTests {
 
+    private func isolatedDefaults(name: String) -> UserDefaults {
+        let defaults = UserDefaults(suiteName: name) ?? .standard
+        defaults.removePersistentDomain(forName: name)
+        return defaults
+    }
+
     @Test("showGoal defaults to false")
     func showGoalDefaultFalse() {
-        let state = AppState(host: "127.0.0.1", port: 0)
+        let defaults = isolatedDefaults(name: "com.mycoder.tests.right-panel-default")
+        let state = AppState(host: "127.0.0.1", port: 0, defaults: defaults)
         #expect(state.showGoal == false)
     }
 
     @Test("showGoal toggles to true")
     func showGoalToggleOn() {
-        let state = AppState(host: "127.0.0.1", port: 0)
+        let defaults = isolatedDefaults(name: "com.mycoder.tests.right-panel-toggle-on")
+        let state = AppState(host: "127.0.0.1", port: 0, defaults: defaults)
         state.showGoal = true
         #expect(state.showGoal == true)
     }
 
     @Test("showGoal toggles back to false")
     func showGoalToggleOff() {
-        let state = AppState(host: "127.0.0.1", port: 0)
+        let defaults = isolatedDefaults(name: "com.mycoder.tests.right-panel-toggle-off")
+        let state = AppState(host: "127.0.0.1", port: 0, defaults: defaults)
         state.showGoal = true
         state.showGoal = false
         #expect(state.showGoal == false)
