@@ -369,6 +369,14 @@ struct WebChatDriver {
                 if WebToolProtocolEmulator.shouldStopLoop(iteration: iteration,
                                                           maxIterations: Self.effectiveMaxIterations(configured: config.maxToolIterations),
                                                           lastResponse: response) {
+                    if let feedback = WebToolProtocolEmulator.malformedToolBlockFeedback(from: response) {
+                        MiCoderAPIServer.appendLog("⚠️ [WebChatDriver] malformed tool JSON, feeding error back")
+                        let feedbackBlock = feedback + "\n"
+                        responseBaseline = try await sendPossiblyChunked(feedbackBlock, emit: emit)
+                        lastSentText = feedbackBlock
+                        iteration += 1
+                        continue
+                    }
                     if WebToolProtocolEmulator.isFinalResponse(response) {
                         MiCoderAPIServer.appendLog("🏁 [WebChatDriver] final answer: \(response.prefix(120))")
                         emit(.final(response))

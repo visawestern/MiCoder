@@ -1297,6 +1297,11 @@ struct ChatPanelView: View {
                         if calls.isEmpty || WebToolProtocolEmulator.shouldStopLoop(
                             iteration: iteration, maxIterations: maxIterations, lastResponse: response
                         ) {
+                            if calls.isEmpty, let feedback = WebToolProtocolEmulator.malformedToolBlockFeedback(from: response) {
+                                conversation.append(DirectChatMessage(role: "assistant", content: response))
+                                conversation.append(DirectChatMessage(role: "user", content: feedback))
+                                continue
+                            }
                             finalText = response
                             break
                         }
@@ -1513,6 +1518,11 @@ struct ChatPanelView: View {
                         let calls = nativeWebCalls.map(\.call)
                             + WebToolProtocolEmulator.parseToolCalls(from: response)
                         if calls.isEmpty || WebToolProtocolEmulator.shouldStopLoop(iteration: iteration, maxIterations: maxIterations, lastResponse: response) {
+                            if calls.isEmpty, let feedback = WebToolProtocolEmulator.malformedToolBlockFeedback(from: response) {
+                                conversationMessages.append(MiCoderAutoFreeClient.Message(role: "assistant", content: response))
+                                conversationMessages.append(MiCoderAutoFreeClient.Message(role: "user", content: feedback))
+                                continue
+                            }
                             streamedContent = response
                             break
                         }
@@ -1992,9 +2002,12 @@ struct ChatPanelView: View {
     ) -> [PreparedLocalToolCall] {
         calls.map { call in
             let callID = UUID().uuidString
-            let validationError = WebToolProtocolEmulator.validate(
+            var validationError = WebToolProtocolEmulator.validate(
                 call, projectRoot: projectRoot, accessLevel: accessLevel
             )
+            if call.arguments["__micoder_truncated"] == "1", validationError == nil {
+                validationError = .incompleteJSON
+            }
             var approval: PendingToolApproval?
             if case .pathEscapesProject(let path) = validationError {
                 // The path lies outside the project folder. The user is asked

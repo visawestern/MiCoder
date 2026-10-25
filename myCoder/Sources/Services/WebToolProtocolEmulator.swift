@@ -720,7 +720,15 @@ enum WebToolProtocolEmulator {
         // fence into 'tool\\n1\\n{...}' — normalize both away before parsing.
         let normalized = jsonString
             .replacingOccurrences(of: "\u{00A0}", with: " ")
-        guard let data = normalized.data(using: .utf8),
+        if let call = decodeSingleCall(normalized) {
+            return call
+        }
+        guard let repaired = repairedJSONObject(normalized) else { return nil }
+        return decodeSingleCall(repaired)
+    }
+
+    private static func decodeSingleCall(_ jsonString: String) -> WebToolCall? {
+        guard let data = jsonString.data(using: .utf8),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let name = obj["name"] as? String else {
             return nil
@@ -736,6 +744,131 @@ enum WebToolProtocolEmulator {
             }
         }
         return WebToolCall(name: name, arguments: args)
+    }
+
+    /// Recover a model-emitted tool-call body whose JSON is structurally
+    /// damaged in a way that preserves intent. Live 2026-10-25: a model emitted
+    /// a 16 KB `write_file` body and forgot the final `}` of the outer object —
+    /// the host silently dropped the call, the model kept apologizing that
+    /// "the system is not executing it". Two damage classes are repaired:
+    /// raw control characters inside strings (a literal newline instead of
+    /// \\n) and missing closing brackets at the very end. An unterminated
+    /// string is NOT repaired — the content itself would be truncated, so the
+    /// caller falls back to the truncated-stub path instead.
+    private static func repairedJSONObject(_ text: String) -> String? {
+        var out = ""
+        var stack: [Character] = []
+        var inString = false
+        var escaped = false
+        var modified = false
+        for ch in text {
+            if inString {
+                if escaped {
+                    out.append(ch)
+                    escaped = false
+                } else if ch == "\\" {
+                    out.append(ch)
+                    escaped = true
+                } else if ch == "\"" {
+                    out.append(ch)
+                    inString = false
+                } else if ch == "\n" {
+                    out.append("\\n")
+                    modified = true
+                } else if ch == "\r" {
+                    out.append("\\r")
+                    modified = true
+                } else if ch == "\t" {
+                    out.append("\\t")
+                    modified = true
+                } else if let scalar = ch.unicodeScalars.first, scalar.value < 0x20 {
+                    out.append("\\u\(String(format: "%04x", scalar.value))")
+                    modified = true
+                } else {
+                    out.append(ch)
+                }
+            } else {
+                switch ch {
+                case "\"":
+                    inString = true
+                    out.append(ch)
+                case "{":
+                    stack.append("}")
+                    out.append(ch)
+                case "[":
+                    stack.append("]")
+                    out.append(ch)
+                case "}", "]":
+                    if !stack.isEmpty { stack.removeLast() }
+                    out.append(ch)
+                default:
+                    out.append(ch)
+                }
+            }
+        }
+        guard !inString, !escaped else { return nil }
+        if !stack.isEmpty {
+            out.append(contentsOf: stack.reversed())
+            modified = true
+        }
+        guard modified else { return nil }
+        return out
+    }
+
+    /// Error feedback for a ```tool block whose JSON never parsed — live
+    /// 2026-10-25: the host silently dropped a malformed call, the loop treated
+    /// the response as a final answer and the model apologized instead of
+    /// fixing its output. The returned text goes back to the model so it can
+    /// re-emit a complete block; nil when every fenced block parsed.
+    static func malformedToolBlockFeedback(from responseText: String) -> String? {
+        let scanner = responseText as NSString
+        let pattern = "```tool\\s*\\n(.*?)\\s*```"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else {
+            return nil
+        }
+        let matches = regex.matches(in: responseText, range: NSRange(location: 0, length: scanner.length))
+        for match in matches where match.numberOfRanges >= 2 {
+            let block = scanner.substring(with: match.range(at: 1))
+                .replacingOccurrences(of: "\u{00A0}", with: " ")
+            if parseSingleCall(block) != nil { continue }
+            return """
+            Your previous tool call was NOT executed: \(describeJSONProblem(block)). Re-emit the COMPLETE ```tool block with valid JSON (close every string and brace), then stop and wait for its result.
+            """
+        }
+        return nil
+    }
+
+    private static func describeJSONProblem(_ block: String) -> String {
+        var inString = false
+        var escaped = false
+        var stack: [Character] = []
+        for ch in block {
+            if inString {
+                if escaped {
+                    escaped = false
+                } else if ch == "\\" {
+                    escaped = true
+                } else if ch == "\"" {
+                    inString = false
+                }
+            } else {
+                switch ch {
+                case "\"": inString = true
+                case "{": stack.append("}")
+                case "[": stack.append("]")
+                case "}", "]": if !stack.isEmpty { stack.removeLast() }
+                default: break
+                }
+            }
+        }
+        if inString || escaped {
+            return "its JSON string was not terminated (a quote was opened but never closed)"
+        }
+        if !stack.isEmpty {
+            let plural = stack.count == 1 ? "" : "s"
+            return "its JSON was unfinished (\(stack.count) closing bracket\(plural) missing)"
+        }
+        return "its JSON was invalid"
     }
 
     /// Stringify one JSON scalar arg. Live 2026-09-12: a naive "\(v)" turned
@@ -950,4 +1083,5 @@ enum WebToolProtocolEmulator {
 enum WebToolValidationError: Error, Equatable {
     case pathEscapesProject(String)
     case unknownTool(String)
+    case incompleteJSON
 }
