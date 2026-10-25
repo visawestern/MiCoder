@@ -7,10 +7,16 @@ import SwiftUI
 enum UserMessageNavigatorLogic {
     static let previewCharacterLimit = 100
 
+    /// User messages the navigator can jump to: the user's own messages that
+    /// carry something to show.
     static func userMessages(_ messages: [Message]) -> [Message] {
         messages.filter { message in
             message.role == .user && !preview(for: message).isEmpty
         }
+    }
+
+    static func userMessageCount(_ messages: [Message]) -> Int {
+        userMessages(messages).count
     }
 
     static func preview(for message: Message,
@@ -25,8 +31,8 @@ enum UserMessageNavigatorLogic {
         return prefix + "…"
     }
 
-    static func buttonTitle(index: Int) -> String {
-        "\(index + 1)"
+    static func buttonTitle(index: Int, offset: Int = 0) -> String {
+        "\(index + offset + 1)"
     }
 
     private static func normalized(_ text: String) -> String {

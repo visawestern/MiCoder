@@ -733,6 +733,16 @@ class DatabaseBridge: ObservableObject {
         return (try? projectDB.countMessages(sessionId: sessionId)) ?? 0
     }
 
+    /// User messages with visible text in the whole session — the unit the
+    /// chat navigator numbers, independent of the loaded history page.
+    func userMessageCount(sessionId: String) -> Int {
+        if isTemporarySession(sessionId) {
+            return (try? db.countUserMessages(sessionId: sessionId)) ?? 0
+        }
+        guard let projectDB = resolveProjectDatabase(forSessionID: sessionId) else { return 0 }
+        return (try? projectDB.countUserMessages(sessionId: sessionId)) ?? 0
+    }
+
     /// Newest `take` messages in ASC display order (`nil` = all). The initial
     /// history load MUST use the tail: oldest-first + limit hides every new
     /// message once a session grows past the page size, and nothing can page

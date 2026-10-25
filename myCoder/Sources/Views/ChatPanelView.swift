@@ -265,7 +265,8 @@ struct ChatPanelView: View {
                         .overlay(alignment: .trailing) {
                             UserMessageNavigator(
                                 messages: displayMessages,
-                                currentMessageID: currentUserMessageID
+                                currentMessageID: currentUserMessageID,
+                                offset: messageStore.olderUserMessageCount
                             ) { messageID in
                                 withAnimation(.easeOut(duration: 0.2)) {
                                     proxy.scrollTo(messageID, anchor: .top)

@@ -6,6 +6,9 @@ import SwiftUI
 struct UserMessageNavigator: View {
     let messages: [Message]
     let currentMessageID: String?
+    /// User messages that precede the loaded page — the numbering continues
+    /// from here so it matches the whole session.
+    var offset: Int = 0
     let onSelect: (String) -> Void
 
     @State private var hoveredID: String?
@@ -101,7 +104,7 @@ struct UserMessageNavigator: View {
         return Button {
             onSelect(message.id)
         } label: {
-            Text(UserMessageNavigatorLogic.buttonTitle(index: index))
+            Text(UserMessageNavigatorLogic.buttonTitle(index: index, offset: offset))
                 .font(.system(size: 9, weight: .semibold, design: .rounded))
                 .foregroundColor(
                     isCurrent
@@ -139,7 +142,7 @@ struct UserMessageNavigator: View {
             key: UserMessageNavigatorAnchors.self,
             value: .bounds
         ) { [message.id: $0] }
-        .accessibilityLabel("Your message \(index + 1)")
+        .accessibilityLabel("Your message \(index + offset + 1)")
         .accessibilityValue(UserMessageNavigatorLogic.preview(for: message))
     }
 

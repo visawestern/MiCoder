@@ -1343,4 +1343,17 @@ final class ProjectDatabaseManager {
         touch()
         return try db.scalar(messages.filter(messageSessionId == sessionIdValue).count)
     }
+
+    /// User messages that carry visible text. The chat navigator numbers the
+    /// user's own messages, and the numbering must span the whole session —
+    /// not only the page that is currently loaded.
+    func countUserMessages(sessionId sessionIdValue: String) throws -> Int {
+        touch()
+        let query = messages.filter(
+            messageSessionId == sessionIdValue &&
+            messageRole == "user" &&
+            messageContent != ""
+        )
+        return try db.scalar(query.count)
+    }
 }

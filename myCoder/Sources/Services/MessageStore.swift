@@ -21,6 +21,10 @@ class MessageStore: ObservableObject {
     private let pruneBuffer: Int
     var currentSessionID: String?
     var currentHistoryLimit = MessageHistoryPaginationLogic.initialLimit
+    /// User messages that live before the loaded window. The chat navigator
+    /// adds this offset so its numbering spans the whole session instead of
+    /// only the page that happens to be loaded.
+    @Published var olderUserMessageCount = 0
     
     // Database integration
     private var dbBridge: DatabaseBridge {
@@ -89,8 +93,9 @@ class MessageStore: ObservableObject {
         loadedSessionID = nil
         currentSessionID = nil
         currentHistoryLimit = MessageHistoryPaginationLogic.initialLimit
+        olderUserMessageCount = 0
     }
-    
+
     /// Загрузить сообщения сессии из локальной БД (вместо API).
     /// Грузит ХВОСТ (новейшие `limit`) — oldest-first прятал бы все новые
     /// сообщения, как только сессия перерастает страницу.
@@ -111,6 +116,10 @@ class MessageStore: ObservableObject {
             self.messages = []
             self.hasMoreMessages = false
         }
+        self.olderUserMessageCount = max(
+            0,
+            dbBridge.userMessageCount(sessionId: sessionId) - UserMessageNavigatorLogic.userMessageCount(loadedMessages)
+        )
     }
 
     /// Догрузить одну страницу более старых сообщений из локальной БД
@@ -128,6 +137,10 @@ class MessageStore: ObservableObject {
         }
         messages = fresh + messages
         hasMoreMessages = page.hasMore
+        olderUserMessageCount = max(
+            0,
+            olderUserMessageCount - UserMessageNavigatorLogic.userMessageCount(fresh)
+        )
         return true
     }
     
@@ -138,6 +151,8 @@ class MessageStore: ObservableObject {
     func pruneIfNeeded() {
         guard isPinnedToBottom else { return }
         guard messages.count > maxVisible + pruneBuffer else { return }
+        let dropped = messages.prefix(messages.count - maxVisible)
+        olderUserMessageCount += UserMessageNavigatorLogic.userMessageCount(Array(dropped))
         messages.removeFirst(messages.count - maxVisible)
         // Dropped history stays reachable through "Load earlier messages".
         hasMoreMessages = true

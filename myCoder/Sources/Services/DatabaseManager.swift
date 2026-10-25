@@ -1217,6 +1217,18 @@ class DatabaseManager {
         return try db.scalar(messages.filter(messageSessionId == sessionIdValue).count)
     }
 
+    /// User messages that carry visible text — the unit the chat navigator
+    /// numbers across the whole session.
+    func countUserMessages(sessionId sessionIdValue: String) throws -> Int {
+        guard let db = db else { throw DatabaseError.notInitialized }
+        let query = messages.filter(
+            messageSessionId == sessionIdValue &&
+            messageRole == "user" &&
+            messageContent != ""
+        )
+        return try db.scalar(query.count)
+    }
+
     /// Read real per-message usage data points for statistics (plan Раздел 10
     /// Блок 2 п.13-14). Uses the existing model_id/provider_id/prompt_tokens/
     /// completion_tokens/cost_usd columns. costUSD is nil only when the
