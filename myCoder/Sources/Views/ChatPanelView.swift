@@ -174,7 +174,7 @@ struct ChatPanelView: View {
                                         WorkedTimeSeparator(label: separator)
                                     }
                                     
-                                    MessageRow(message: message)
+                                    MessageRow(message: message, projectRoot: appState.toolWorkingDirectory)
                                         .id(message.id)
                                         .chatRowFrameReporter(id: message.id, isUser: message.role == .user)
                                 }

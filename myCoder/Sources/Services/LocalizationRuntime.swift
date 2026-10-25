@@ -277,6 +277,9 @@ enum LocalizationRuntime {
         "Show all models (%d)": "Показать все модели (%d)",
         "Show fewer models": "Показать меньше моделей",
         "Free tier": "Бесплатный тариф",
+        "Open with": "Открыть в",
+        "Default application": "Приложение по умолчанию",
+        "Reveal in Finder": "Показать в Finder",
     ]
 
     static func t(_ key: String) -> String {

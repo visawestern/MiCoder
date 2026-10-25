@@ -67,6 +67,7 @@ private enum MessageContentSegment: Identifiable {
 
 struct MessageRow: View {
     let message: Message
+    var projectRoot: String = ""
     @State private var copied = false
     @State private var showRawText = false
 
@@ -428,7 +429,7 @@ struct MessageRow: View {
         // One selectable surface for the whole message: the per-block SwiftUI
         // renderer made each line its own selection island, so a drag could
         // never span a heading, a bullet and the next paragraph.
-        SelectableMarkdownTextView(text: text, fontSize: 14, textColor: Color.mimo.textPrimary)
+        SelectableMarkdownTextView(text: text, fontSize: 14, textColor: Color.mimo.textPrimary, projectRoot: projectRoot)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(
