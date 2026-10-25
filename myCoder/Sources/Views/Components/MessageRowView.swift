@@ -555,12 +555,54 @@ struct ThinkingSpoilerView: View {
     }
 }
 
+
+struct ColumnResizeHandle: View {
+    @Binding var width: Double
+    var minWidth: Double = 80
+    var maxWidth: Double = 420
+    @State private var dragStartWidth: Double?
+    @State private var hovering = false
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(width: 9)
+            .contentShape(Rectangle())
+            .overlay(
+                Rectangle()
+                    .fill(hovering ? Color.mimo.brand.opacity(0.6) : Color.mimo.border.opacity(0.7))
+                    .frame(width: 1)
+            )
+            .onHover { inside in
+                hovering = inside
+                if inside {
+                    NSCursor.resizeLeftRight.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        if dragStartWidth == nil {
+                            dragStartWidth = width
+                        }
+                        width = min(max(dragStartWidth! + value.translation.width, minWidth), maxWidth)
+                    }
+                    .onEnded { _ in
+                        dragStartWidth = nil
+                    }
+            )
+    }
+}
+
 struct SplitToolInspectorView: View {
     let steps: [ToolCallInspectorStep]
     let messageID: String
     let isMessageStreaming: Bool
     @State private var isExpanded = false
     @State private var selectedStepID: String?
+    @AppStorage("com.mycoder.toolInspector.sidebarWidth") private var inspectorSidebarWidth: Double = 120
 
     private var selectedStep: ToolCallInspectorStep? {
         steps.first(where: { $0.id == selectedStepID }) ?? steps.first
@@ -659,11 +701,11 @@ struct SplitToolInspectorView: View {
                         }
                         Spacer(minLength: 0)
                     }
-                    .frame(width: 120, alignment: .top)
+                    .frame(width: inspectorSidebarWidth, alignment: .top)
                     .frame(minHeight: 120, alignment: .top)
                     .background(Color.mimo.surface.opacity(0.55))
 
-                    Divider()
+                    ColumnResizeHandle(width: $inspectorSidebarWidth)
 
                     ScrollView {
                         VStack(alignment: .leading, spacing: 12) {
